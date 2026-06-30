@@ -349,7 +349,7 @@ const locationCoords = {
   'Christchurch': { lat: -43.5321, lng: 172.6362 },
   
   'Unknown': { lat: 0, lng: 0 }
-              }
+}
 
 function getCoords(location) {
   if (!location || location === 'Unknown') return null
@@ -368,7 +368,7 @@ function getCoords(location) {
 }
 
 export default function DreamGlobe() {
-  const globeContainer = useRef(null)
+  const globeRef = useRef(null)
   const [dreams, setDreams] = useState([])
   const [selectedDream, setSelectedDream] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -388,6 +388,7 @@ export default function DreamGlobe() {
         .limit(200)
       
       if (error) throw error
+      console.log('Fetched dreams:', data?.length)
       setDreams(data || [])
     } catch (err) {
       console.error('Error fetching dreams:', err)
@@ -398,18 +399,18 @@ export default function DreamGlobe() {
   }
 
   useEffect(() => {
-    // Sadece client-side'da çalış
-    if (typeof window === 'undefined') return
-    if (!globeContainer.current || dreams.length === 0) return
+    if (!globeRef.current || dreams.length === 0) return
 
     let globe = null
 
     async function initGlobe() {
       try {
-        // Dynamic import
+        console.log('Initializing globe...')
+        
+        // Dynamic import - sadece client-side
         const Globe = (await import('globe.gl')).default
         
-        // Veri noktaları
+        // Veri noktaları hazırla
         const pointsData = dreams
           .map(dream => {
             const coords = getCoords(dream.location_name)
@@ -417,14 +418,19 @@ export default function DreamGlobe() {
             return {
               lat: coords.lat,
               lng: coords.lng,
-              size: 0.4,
+              size: 0.5,
               color: getColorBySentiment(dream.ai_sentiment),
               dream: dream
             }
           })
           .filter(p => p !== null)
 
-        if (pointsData.length === 0) return
+        console.log('Points data:', pointsData.length)
+
+        if (pointsData.length === 0) {
+          setError('No dreams with valid locations')
+          return
+        }
 
         // Globe oluştur
         globe = Globe()
@@ -435,21 +441,21 @@ export default function DreamGlobe() {
           .pointLat('lat')
           .pointLng('lng')
           .pointAltitude(0.01)
-          .pointRadius(0.4)
+          .pointRadius(0.5)
           .pointColor('color')
-          .pointsMerge(false)
           .onPointClick((point) => {
+            console.log('Point clicked:', point.dream)
             setSelectedDream(point.dream)
           })
 
         // Container'a ekle
-        if (globeContainer.current) {
-          globeContainer.current.innerHTML = ''
-          globe(globeContainer.current)
+        if (globeRef.current) {
+          globeRef.current.innerHTML = ''
+          globe(globeRef.current)
           
           // Boyut ayarla
-          const width = globeContainer.current.clientWidth
-          const height = globeContainer.current.clientHeight
+          const width = window.innerWidth
+          const height = window.innerHeight
           globe.width(width)
           globe.height(height)
 
@@ -459,9 +465,11 @@ export default function DreamGlobe() {
           controls.autoRotateSpeed = 0.5
           controls.enableZoom = true
         }
+
+        console.log('Globe initialized successfully')
       } catch (err) {
         console.error('Error initializing globe:', err)
-        setError('Failed to load 3D globe')
+        setError('Failed to load 3D globe: ' + err.message)
       }
     }
 
@@ -469,8 +477,8 @@ export default function DreamGlobe() {
 
     // Cleanup
     return () => {
-      if (globe && globeContainer.current) {
-        globeContainer.current.innerHTML = ''
+      if (globe && globeRef.current) {
+        globeRef.current.innerHTML = ''
       }
     }
   }, [dreams])
@@ -493,15 +501,21 @@ export default function DreamGlobe() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-white text-xl">Loading globe...</div>
+        <div className="text-white text-xl animate-pulse">Loading globe...</div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-white text-xl">{error}</div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-black p-8">
+        <div className="text-red-400 text-xl mb-4">{error}</div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="glass-card px-6 py-3 text-white hover:bg-white/10"
+        >
+          Retry
+        </button>
       </div>
     )
   }
@@ -509,10 +523,14 @@ export default function DreamGlobe() {
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
       {/* Globe Container */}
-      <div ref={globeContainer} className="w-full h-full" />
+      <div 
+        ref={globeRef} 
+        className="w-full h-full"
+        style={{ width: '100vw', height: '100vh' }}
+      />
 
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 p-6 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+      <div className="absolute top-0 left-0 right-0 p-6 bg-gradient-to-b from-black/80 to-transparent pointer-events-none z-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between pointer-events-auto">
           <div>
             <h1 className="text-3xl font-bold text-white glow-text">🌍 Dream Globe</h1>
@@ -525,7 +543,7 @@ export default function DreamGlobe() {
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-6 left-6 glass-card p-4 max-w-xs pointer-events-auto">
+      <div className="absolute bottom-6 left-6 glass-card p-4 max-w-xs pointer-events-auto z-10">
         <h3 className="text-white font-semibold mb-3">Emotion Colors</h3>
         <div className="grid grid-cols-2 gap-2 text-sm">
           {[
@@ -586,4 +604,4 @@ export default function DreamGlobe() {
       )}
     </div>
   )
-}
+        }
