@@ -244,3 +244,15 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+/* Globe Styles */
+.globe-container canvas {
+  outline: none;
+}
+
+.globe-container {
+  cursor: grab;
+}
+
+.globe-container:active {
+  cursor: grabbing;
+}
