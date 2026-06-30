@@ -167,7 +167,7 @@ const locationCoords = {
   'Shenzhen': { lat: 22.5431, lng: 114.0579 },
   'Chengdu': { lat: 30.5728, lng: 104.0668 },
   'Hangzhou': { lat: 30.2741, lng: 120.1551 },
-  'Xi'an': { lat: 34.3416, lng: 108.9398 },
+  "Xi'an": { lat: 34.3416, lng: 108.9398 },
   'Wuhan': { lat: 30.5928, lng: 114.3055 },
   'Nanjing': { lat: 32.0603, lng: 118.7969 },
   
