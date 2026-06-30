@@ -7,7 +7,6 @@
     "build": "next build",
     "start": "next start"
   },
-{
   "dependencies": {
     "next": "^14.0.0",
     "react": "^18.2.0",
@@ -20,8 +19,7 @@
     "i18next": "^23.7.0",
     "react-i18next": "^14.0.0",
     "i18next-browser-languagedetector": "^7.2.0"
-  }
-},
+  },
   "devDependencies": {
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.32",
