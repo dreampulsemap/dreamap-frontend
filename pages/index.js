@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
+import LanguageSwitcher from '../components/LanguageSwitcher'
 
 export default function Home() {
+  const { t } = useTranslation()
   const [dreams, setDreams] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -40,45 +43,51 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <div className="text-4xl">🌙</div>
               <div>
-                <h1 className="text-2xl font-bold gradient-text">Dreamap</h1>
-                <p className="text-xs text-white/50">Kolektif Bilinçdışı Haritası</p>
+                <h1 className="text-2xl font-bold gradient-text">{t('app.name')}</h1>
+                <p className="text-xs text-white/50">{t('app.tagline')}</p>
               </div>
             </div>
-            <nav className="flex gap-6">
-              <a href="/" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
-                <span>✨</span> Feed
-              </a>
-              <a href="/globe" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
-                <span>🌍</span> Globe
-              </a>
-              <a href="/auth" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
-                <span>🔮</span> Giriş
-              </a>
-            </nav>
+            
+            <div className="flex items-center gap-6">
+              <nav className="flex gap-6">
+                <a href="/" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
+                  <span>✨</span> {t('nav.feed')}
+                </a>
+                <a href="/globe" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
+                  <span>🌍</span> {t('nav.globe')}
+                </a>
+                <a href="/auth" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
+                  <span>🔮</span> {t('nav.auth')}
+                </a>
+              </nav>
+              
+              {/* Language Switcher */}
+              <LanguageSwitcher />
+            </div>
           </div>
         </header>
 
         {/* Hero Section */}
         <section className="max-w-4xl mx-auto px-6 py-16 text-center">
           <h2 className="text-5xl font-bold mb-4 glow-text">
-            Dünyanın Rüyaları<br/>
-            <span className="gradient-text">Tek Bir Haritada</span>
+            {t('hero.title')}<br/>
+            <span className="gradient-text">{t('hero.subtitle')}</span>
           </h2>
           <p className="text-xl text-white/70 mb-8">
-            Jungian arketipler, kolektif bilinçdışı ve insanlığın ortak rüya deneyimleri
+            {t('hero.description')}
           </p>
           <div className="flex justify-center gap-4">
             <div className="glass-card px-6 py-3">
               <div className="text-3xl font-bold gradient-text">{dreams.length}</div>
-              <div className="text-sm text-white/60">Rüya</div>
+              <div className="text-sm text-white/60">{t('hero.dreams')}</div>
             </div>
             <div className="glass-card px-6 py-3">
               <div className="text-3xl font-bold gradient-text">8</div>
-              <div className="text-sm text-white/60">Dil</div>
+              <div className="text-sm text-white/60">{t('hero.languages')}</div>
             </div>
             <div className="glass-card px-6 py-3">
               <div className="text-3xl font-bold gradient-text">∞</div>
-              <div className="text-sm text-white/60">Arketip</div>
+              <div className="text-sm text-white/60">{t('hero.archetypes')}</div>
             </div>
           </div>
         </section>
@@ -87,18 +96,18 @@ export default function Home() {
         <main className="max-w-3xl mx-auto px-6 pb-16">
           <h3 className="text-3xl font-bold mb-8 flex items-center gap-3">
             <span>🌌</span>
-            <span className="gradient-text">Son Rüyalar</span>
+            <span className="gradient-text">{t('feed.title')}</span>
           </h3>
           
           {loading ? (
             <div className="text-center text-white/60 py-12">
               <div className="text-4xl mb-4 animate-pulse">🔮</div>
-              <div>Rüyalar yükleniyor...</div>
+              <div>{t('feed.loading')}</div>
             </div>
           ) : dreams.length === 0 ? (
             <div className="text-center text-white/60 py-12">
               <div className="text-4xl mb-4">🌙</div>
-              <div>Henüz rüya yok</div>
+              <div>{t('feed.empty')}</div>
             </div>
           ) : (
             <div className="space-y-8">
@@ -112,7 +121,7 @@ export default function Home() {
         {/* Footer */}
         <footer className="glass-card border-t border-white/10 py-8" style={{ borderRadius: 0 }}>
           <div className="max-w-6xl mx-auto px-6 text-center text-white/50">
-            <p>🌙 Dreamap © 2026 - Kolektif Bilinçdışının Dijital Haritası</p>
+            <p>{t('footer.text')}</p>
           </div>
         </footer>
       </div>
@@ -121,6 +130,8 @@ export default function Home() {
 }
 
 function DreamCard({ dream }) {
+  const { t } = useTranslation()
+  
   return (
     <article className="glass-card overflow-hidden">
       {/* Görsel */}
@@ -155,7 +166,7 @@ function DreamCard({ dream }) {
           <div className="flex items-start gap-3">
             <div className="text-2xl">🔮</div>
             <div>
-              <div className="text-sm font-semibold text-purple-300 mb-2">Jungian Analiz</div>
+              <div className="text-sm font-semibold text-purple-300 mb-2">{t('feed.analysis')}</div>
               <p className="text-white/80 leading-relaxed">
                 {dream.ai_summary}
               </p>
@@ -224,4 +235,4 @@ function getEmotionEmoji(emotion) {
     'Surprise': '😲'
   }
   return emojis[emotion] || '💭'
-          }
+            }
