@@ -80,7 +80,7 @@ const locationCoords = {
 const languages = [
   { code: 'en', flag: '🇬🇧', name: 'English' },
   { code: 'tr', flag: '🇹🇷', name: 'Türkçe' },
-  { code: 'ru', flag: '🇷🇺', name: 'Русский' },
+  { code: 'ru', flag: '🇺', name: 'Русский' },
   { code: 'ar', flag: '🇸🇦', name: 'العربية' },
   { code: 'es', flag: '🇪🇸', name: 'Español' },
   { code: 'hi', flag: '🇮🇳', name: 'हिन्दी' },
@@ -106,12 +106,20 @@ function getColorBySentiment(sentiment) {
   return colors[sentiment] || '#8b5cf6'
 }
 
+// ID'ye göre sabit rastgele değer üretir (her render'da aynı kalır)
+function getStableRandom(id, range = 0.4) {
+  if (!id) return 0;
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash) + id.charCodeAt(i);
+  return (Math.abs(hash) % 100) / 100 * range - (range / 2);
+}
+
 export default function DreamGlobe() {
   const { t, i18n } = useTranslation()
   const globeContainer = useRef(null)
   const globeInstance = useRef(null)
   const [dreams, setDreams] = useState([])
-  const [allDreams, setAllDreams] = useState([]) // Filtrelenmemiş tüm rüyalar
+  const [allDreams, setAllDreams] = useState([])
   const [selectedDream, setSelectedDream] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -125,7 +133,6 @@ export default function DreamGlobe() {
 
   const currentLang = languages.find(l => l.code === i18n.language) || languages[0]
 
-  // TÜM rüyaları bir kez çek
   useEffect(() => {
     async function fetchAllDreams() {
       setLoading(true)
@@ -135,7 +142,6 @@ export default function DreamGlobe() {
           .select('*')
           .order('created_at', { ascending: false })
           .limit(2000)
-        
         if (error) throw error
         setAllDreams(data || [])
       } catch (err) {
@@ -148,35 +154,36 @@ export default function DreamGlobe() {
     fetchAllDreams()
   }, [])
 
-  // Filtreye göre rüyaları filtrele (client-side, dream_date üzerinden)
   useEffect(() => {
-    if (allDreams.length === 0) {
-      setDreams([])
-      return
-    }
+    if (allDreams.length === 0) { setDreams([]); return }
 
     const now = new Date()
-    let filtered = allDreams
+    const validDreams = allDreams.filter(d => {
+      const dd = new Date(d.dream_date)
+      return !isNaN(dd.getTime()) // Sadece geçerli tarihleri al
+    })
+
+    let filtered = validDreams
 
     if (timeFilter === '1h') {
       const cutoff = new Date(now.getTime() - 60 * 60 * 1000)
-      filtered = allDreams.filter(d => new Date(d.dream_date) >= cutoff)
+      filtered = validDreams.filter(d => new Date(d.dream_date) >= cutoff)
     } else if (timeFilter === '24h') {
       const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-      filtered = allDreams.filter(d => new Date(d.dream_date) >= cutoff)
+      filtered = validDreams.filter(d => new Date(d.dream_date) >= cutoff)
     } else if (timeFilter === '1w') {
       const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      filtered = allDreams.filter(d => new Date(d.dream_date) >= cutoff)
+      filtered = validDreams.filter(d => new Date(d.dream_date) >= cutoff)
     } else if (timeFilter === '1m') {
       const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      filtered = allDreams.filter(d => new Date(d.dream_date) >= cutoff)
+      filtered = validDreams.filter(d => new Date(d.dream_date) >= cutoff)
     } else if (timeFilter === '1y') {
       const cutoff = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
-      filtered = allDreams.filter(d => new Date(d.dream_date) >= cutoff)
+      filtered = validDreams.filter(d => new Date(d.dream_date) >= cutoff)
     } else if (timeFilter === 'custom' && customStart && customEnd) {
       const start = new Date(customStart)
       const end = new Date(customEnd)
-      filtered = allDreams.filter(d => {
+      filtered = validDreams.filter(d => {
         const dd = new Date(d.dream_date)
         return dd >= start && dd <= end
       })
@@ -185,7 +192,33 @@ export default function DreamGlobe() {
     setDreams(filtered)
   }, [allDreams, timeFilter, customStart, customEnd])
 
-  // Globe'u bir kez oluştur, sadece pointsData'yı güncelle
+  function buildPointsData(dreamsList) {
+    return dreamsList.map(dream => {
+      let lat = dream.latitude
+      let lng = dream.longitude
+
+      if (!lat || !lng) {
+        const coords = getCoords(dream.location_name)
+        if (coords) { lat = coords.lat; lng = coords.lng }
+        else return null
+      }
+
+      // Aynı konumdaki rüyalar için hafif sapma
+      const latJitter = getStableRandom(dream.id, 0.3)
+      const lngJitter = getStableRandom(dream.id, 0.3)
+      const altJitter = Math.abs(getStableRandom(dream.id, 0.02))
+
+      return {
+        lat: lat + latJitter,
+        lng: lng + lngJitter,
+        altitude: 0.01 + altJitter,
+        radius: 0.25,
+        color: getColorBySentiment(dream.ai_sentiment),
+        dream: dream
+      }
+    }).filter(p => p !== null)
+  }
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (!globeContainer.current) return
@@ -194,18 +227,15 @@ export default function DreamGlobe() {
       return
     }
 
-    // Globe zaten oluşturulduysa sadece pointsData güncelle
+    const pointsData = buildPointsData(dreams)
+
     if (globeInstance.current) {
-      const pointsData = buildPointsData(dreams)
       globeInstance.current.pointsData(pointsData)
       return
     }
 
-    // İlk kez oluştur
     function initGlobe() {
       try {
-        const pointsData = buildPointsData(dreams)
-
         const globe = window.Globe()
           .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
           .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
@@ -213,21 +243,18 @@ export default function DreamGlobe() {
           .pointsData(pointsData)
           .pointLat('lat')
           .pointLng('lng')
-          .pointAltitude(0.01)
-          .pointRadius(0.5)
+          .pointAltitude('altitude')
+          .pointRadius('radius')
           .pointColor('color')
-          .onPointClick((point) => {
-            setSelectedDream(point.dream)
-          })
+          .pointsMerge(false)
+          .onPointClick((point) => setSelectedDream(point.dream))
 
         if (globeContainer.current) {
           globeContainer.current.innerHTML = ''
           globe(globeContainer.current)
-          
           globe.width(window.innerWidth)
           globe.height(window.innerHeight)
 
-          // 🔴 ROTASYON KAPALI
           const controls = globe.controls()
           controls.autoRotate = false
           controls.autoRotateSpeed = 0
@@ -253,84 +280,20 @@ export default function DreamGlobe() {
     }
   }, [dreams, t])
 
-  // Sabit jitter için basit hash fonksiyonu (her render'da aynı noktada kalsın diye)
-  function getStableJitter(id) {
-    if (!id) return { lat: 0, lng: 0 };
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-      hash = ((hash << 5) - hash) + id.charCodeAt(i);
-      hash |= 0;
-    }
-    // -0.5 ile +0.5 derece arası rastgele sapma
-    return {
-      lat: (Math.abs(hash) % 100) / 100 - 0.5,
-      lng: (Math.abs(hash >> 8) % 100) / 100 - 0.5
-    };
-  }
-
-  function buildPointsData(dreamsList) {
-    return dreamsList
-      .map(dream => {
-        let lat = dream.latitude;
-        let lng = dream.longitude;
-
-        // Eğer koordinat yoksa, şehir adından bul
-        if (!lat || !lng) {
-          const coords = getCoords(dream.location_name);
-          if (coords) {
-            lat = coords.lat;
-            lng = coords.lng;
-          } else {
-            return null; // Konum hiç bulunamazsa atla
-          }
-        }
-
-        // Aynı noktadaki rüyalar için hafif sapma (jitter) ekle
-        const jitter = getStableJitter(dream.id);
-        const finalLat = lat + jitter.lat;
-        const finalLng = lng + jitter.lng;
-
-        return {
-          lat: finalLat,
-          lng: finalLng,
-          size: 0.5,
-          color: getColorBySentiment(dream.ai_sentiment),
-          dream: dream
-        };
-      })
-      .filter(p => p !== null);
-  }
-
-  // Filtre değiştiğinde globe'u yeniden oluşturmak yerine sadece pointsData güncelle
-  useEffect(() => {
-    if (globeInstance.current && globeReady) {
-      const pointsData = buildPointsData(dreams)
-      globeInstance.current.pointsData(pointsData)
-    }
-  }, [dreams, globeReady])
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-white text-xl animate-pulse">🌍 {t('globe.loading')}</div>
+        <div className="text-white text-xl animate-pulse"> {t('globe.loading')}</div>
       </div>
     )
   }
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      {/* Globe */}
-      <div 
-        ref={globeContainer} 
-        className="w-full h-full"
-        style={{ width: '100vw', height: '100vh' }}
-      />
+      <div ref={globeContainer} className="w-full h-full" style={{ width: '100vw', height: '100vh' }} />
 
-      {/* 🔝 ÜST NAVIGATION */}
       <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/90 to-transparent pointer-events-none z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between pointer-events-auto">
-          
-          {/* Sol: Logo + Geri */}
           <div className="flex items-center gap-3">
             <a href="/" className="flex items-center gap-2 glass-card px-4 py-2 hover:bg-white/10 transition-all">
               <span className="text-2xl">🌙</span>
@@ -341,32 +304,17 @@ export default function DreamGlobe() {
             </a>
           </div>
 
-          {/* Sağ: Dil Seçici */}
           <div className="relative">
-            <button 
-              onClick={() => setLangOpen(!langOpen)}
-              className="glass-card px-4 py-2 flex items-center gap-2 hover:bg-white/10 transition-all"
-            >
+            <button onClick={() => setLangOpen(!langOpen)} className="glass-card px-4 py-2 flex items-center gap-2 hover:bg-white/10 transition-all">
               <span className="text-xl">{currentLang.flag}</span>
               <span className="text-sm text-white/80">{currentLang.name}</span>
               <span className="text-white/60 text-xs">▼</span>
             </button>
-            
             {langOpen && (
               <div className="absolute right-0 top-full mt-2 glass-card p-2 min-w-[180px] z-50">
                 {languages.map((lang) => (
-                  <button
-                    key={lang.code}
-                    onClick={() => {
-                      i18n.changeLanguage(lang.code)
-                      setLangOpen(false)
-                    }}
-                    className={`w-full px-4 py-3 flex items-center gap-3 rounded-lg transition-all ${
-                      i18n.language === lang.code 
-                        ? 'bg-purple-500/30 text-white' 
-                        : 'text-white/70 hover:bg-white/10'
-                    }`}
-                  >
+                  <button key={lang.code} onClick={() => { i18n.changeLanguage(lang.code); setLangOpen(false) }}
+                    className={`w-full px-4 py-3 flex items-center gap-3 rounded-lg transition-all ${i18n.language === lang.code ? 'bg-purple-500/30 text-white' : 'text-white/70 hover:bg-white/10'}`}>
                     <span className="text-xl">{lang.flag}</span>
                     <span className="text-sm">{lang.name}</span>
                     {i18n.language === lang.code && <span className="ml-auto text-purple-400">✓</span>}
@@ -378,50 +326,26 @@ export default function DreamGlobe() {
         </div>
       </div>
 
-      {/* 📊 SOL ALT: İSTATİSTİK + ZAMAN FİLTRESİ */}
       <div className="absolute bottom-6 left-6 flex flex-col gap-3 z-20 pointer-events-auto">
-        
-        {/* İstatistik */}
         <div className="glass-card p-4 max-w-xs">
-          <div className="text-white/60 text-xs mb-1">{t('globe.totalDreams')}</div>
-          <div className="text-3xl font-bold gradient-text">{allDreams.length}</div>
+          <div className="text-white/60 text-xs">{t('globe.totalDreams')}</div>
+          <div className="text-2xl font-bold gradient-text">{allDreams.length}</div>
           {timeFilter !== 'all' && (
-            <div className="text-xs text-purple-300 mt-1">
-              ({dreams.length} {t('filter.all').toLowerCase()})
-            </div>
+            <div className="text-xs text-purple-300 mt-1">️ {dreams.length} gösteriliyor</div>
           )}
         </div>
 
-        {/* Zaman Filtresi */}
         <div className="relative">
-          <button
-            onClick={() => setFilterOpen(!filterOpen)}
-            className="glass-card px-4 py-3 flex items-center gap-2 hover:bg-white/10 transition-all w-full"
-          >
+          <button onClick={() => setFilterOpen(!filterOpen)} className="glass-card px-4 py-3 flex items-center gap-2 hover:bg-white/10 transition-all w-full">
             <span className="text-lg">⏰</span>
-            <span className="text-sm text-white/80">
-              {t(`filter.${timeFilter}`)}
-            </span>
+            <span className="text-sm text-white/80">{t(`filter.${timeFilter}`)}</span>
             <span className="text-white/60 text-xs ml-auto">▼</span>
           </button>
-
           {filterOpen && (
             <div className="absolute left-0 bottom-full mb-2 glass-card p-2 min-w-[220px] z-50">
               {['1h', '24h', '1w', '1m', '1y', 'all', 'custom'].map((key) => (
-                <button
-                  key={key}
-                  onClick={() => {
-                    setTimeFilter(key)
-                    setFilterOpen(false)
-                    setShowCustom(key === 'custom')
-                    if (key !== 'custom') setShowCustom(false)
-                  }}
-                  className={`w-full px-4 py-3 flex items-center gap-2 rounded-lg transition-all text-left ${
-                    timeFilter === key 
-                      ? 'bg-purple-500/30 text-white' 
-                      : 'text-white/70 hover:bg-white/10'
-                  }`}
-                >
+                <button key={key} onClick={() => { setTimeFilter(key); setFilterOpen(false); setShowCustom(key === 'custom'); if (key !== 'custom') setShowCustom(false) }}
+                  className={`w-full px-4 py-3 flex items-center gap-2 rounded-lg transition-all text-left ${timeFilter === key ? 'bg-purple-500/30 text-white' : 'text-white/70 hover:bg-white/10'}`}>
                   <span className="text-sm">{t(`filter.${key}`)}</span>
                   {timeFilter === key && <span className="ml-auto text-purple-400">✓</span>}
                 </button>
@@ -430,31 +354,19 @@ export default function DreamGlobe() {
           )}
         </div>
 
-        {/* Custom Tarih Seçimi */}
         {showCustom && (
           <div className="glass-card p-4 max-w-xs space-y-2">
             <div>
               <label className="text-xs text-white/60 block mb-1">{t('filter.startDate')}</label>
-              <input
-                type="date"
-                value={customStart}
-                onChange={(e) => setCustomStart(e.target.value)}
-                className="w-full bg-black/40 border border-white/20 rounded px-3 py-2 text-white text-sm"
-              />
+              <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="w-full bg-black/40 border border-white/20 rounded px-3 py-2 text-white text-sm" />
             </div>
             <div>
               <label className="text-xs text-white/60 block mb-1">{t('filter.endDate')}</label>
-              <input
-                type="date"
-                value={customEnd}
-                onChange={(e) => setCustomEnd(e.target.value)}
-                className="w-full bg-black/40 border border-white/20 rounded px-3 py-2 text-white text-sm"
-              />
+              <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="w-full bg-black/40 border border-white/20 rounded px-3 py-2 text-white text-sm" />
             </div>
           </div>
         )}
 
-        {/* 0 rüya uyarısı */}
         {dreams.length === 0 && globeReady && (
           <div className="glass-card p-4 max-w-xs border border-yellow-500/30">
             <div className="text-yellow-300 text-sm">⚠️ {t('globe.noDreams')}</div>
@@ -462,18 +374,10 @@ export default function DreamGlobe() {
         )}
       </div>
 
-      {/* 🎨 SAĞ ALT: RENK AÇIKLAMASI */}
       <div className="absolute bottom-6 right-6 glass-card p-4 max-w-xs pointer-events-auto z-20">
         <h3 className="text-white font-semibold mb-3 text-sm">{t('globe.emotionColors')}</h3>
         <div className="grid grid-cols-2 gap-2 text-xs">
-          {[
-            ['Fear', '#ef4444'],
-            ['Anxiety', '#f97316'],
-            ['Joy', '#22c55e'],
-            ['Peace', '#3b82f6'],
-            ['Sadness', '#6366f1'],
-            ['Awe', '#a855f7']
-          ].map(([emotion, color]) => (
+          {[['Fear', '#ef4444'], ['Anxiety', '#f97316'], ['Joy', '#22c55e'], ['Peace', '#3b82f6'], ['Sadness', '#6366f1'], ['Awe', '#a855f7']].map(([emotion, color]) => (
             <div key={emotion} className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ background: color }} />
               <span className="text-white/80">{emotion}</span>
@@ -482,55 +386,32 @@ export default function DreamGlobe() {
         </div>
       </div>
 
-      {/* 💭 RÜYA DETAY POPUP */}
       {selectedDream && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 glass-card p-6 max-w-md z-50">
-          <button
-            onClick={() => setSelectedDream(null)}
-            className="absolute top-4 right-4 text-white/60 hover:text-white text-2xl"
-          >
-            ×
-          </button>
-          
-          <h3 className="text-xl font-bold text-white mb-3">
-            📍 {selectedDream.location_name}
-          </h3>
-          
-          <p className="text-white/90 mb-4 leading-relaxed">
-            {selectedDream.content}
-          </p>
-          
+          <button onClick={() => setSelectedDream(null)} className="absolute top-4 right-4 text-white/60 hover:text-white text-2xl">×</button>
+          <h3 className="text-xl font-bold text-white mb-3">📍 {selectedDream.location_name}</h3>
+          <p className="text-white/90 mb-4 leading-relaxed">{selectedDream.content}</p>
           <div className="glass-card p-4 mb-4" style={{ background: 'rgba(139, 92, 246, 0.1)' }}>
             <div className="text-sm font-semibold text-purple-300 mb-2">{t('feed.analysis')}</div>
             <p className="text-white/80 text-sm">{selectedDream.ai_summary}</p>
           </div>
-          
           <div className="flex flex-wrap gap-2 mb-4">
-            {selectedDream.ai_archetypes?.map((arch, i) => (
-              <span key={i} className="archetype-badge text-xs">{arch}</span>
-            ))}
+            {selectedDream.ai_archetypes?.map((arch, i) => (<span key={i} className="archetype-badge text-xs">{arch}</span>))}
           </div>
-          
           <div className="flex items-center gap-4 text-sm text-white/60">
             <span>📅 {selectedDream.dream_date}</span>
             <span>💭 {selectedDream.ai_sentiment}</span>
-            <span>🌍 {selectedDream.original_language?.toUpperCase()}</span>
+            <span> {selectedDream.original_language?.toUpperCase()}</span>
           </div>
         </div>
       )}
 
-      {/* Error */}
       {error && !globeReady && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 glass-card p-6 max-w-md z-50">
           <div className="text-red-400 text-xl mb-4">{error}</div>
-          <button 
-            onClick={() => window.location.reload()}
-            className="glass-card px-6 py-3 text-white hover:bg-white/10"
-          >
-            🔁 {t('globe.retry')}
-          </button>
+          <button onClick={() => window.location.reload()} className="glass-card px-6 py-3 text-white hover:bg-white/10">🔁 {t('globe.retry')}</button>
         </div>
       )}
     </div>
   )
-  }
+              }
