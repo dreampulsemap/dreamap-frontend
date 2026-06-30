@@ -253,20 +253,52 @@ export default function DreamGlobe() {
     }
   }, [dreams, t])
 
+  // Sabit jitter için basit hash fonksiyonu (her render'da aynı noktada kalsın diye)
+  function getStableJitter(id) {
+    if (!id) return { lat: 0, lng: 0 };
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = ((hash << 5) - hash) + id.charCodeAt(i);
+      hash |= 0;
+    }
+    // -0.5 ile +0.5 derece arası rastgele sapma
+    return {
+      lat: (Math.abs(hash) % 100) / 100 - 0.5,
+      lng: (Math.abs(hash >> 8) % 100) / 100 - 0.5
+    };
+  }
+
   function buildPointsData(dreamsList) {
     return dreamsList
       .map(dream => {
-        const coords = getCoords(dream.location_name)
-        if (!coords) return null
+        let lat = dream.latitude;
+        let lng = dream.longitude;
+
+        // Eğer koordinat yoksa, şehir adından bul
+        if (!lat || !lng) {
+          const coords = getCoords(dream.location_name);
+          if (coords) {
+            lat = coords.lat;
+            lng = coords.lng;
+          } else {
+            return null; // Konum hiç bulunamazsa atla
+          }
+        }
+
+        // Aynı noktadaki rüyalar için hafif sapma (jitter) ekle
+        const jitter = getStableJitter(dream.id);
+        const finalLat = lat + jitter.lat;
+        const finalLng = lng + jitter.lng;
+
         return {
-          lat: coords.lat,
-          lng: coords.lng,
+          lat: finalLat,
+          lng: finalLng,
           size: 0.5,
           color: getColorBySentiment(dream.ai_sentiment),
           dream: dream
-        }
+        };
       })
-      .filter(p => p !== null)
+      .filter(p => p !== null);
   }
 
   // Filtre değiştiğinde globe'u yeniden oluşturmak yerine sadece pointsData güncelle
