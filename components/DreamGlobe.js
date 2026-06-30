@@ -384,7 +384,12 @@ export default function DreamGlobe() {
         {/* İstatistik */}
         <div className="glass-card p-4 max-w-xs">
           <div className="text-white/60 text-xs mb-1">{t('globe.totalDreams')}</div>
-          <div className="text-3xl font-bold gradient-text">{dreams.length}</div>
+          <div className="text-3xl font-bold gradient-text">{allDreams.length}</div>
+          {timeFilter !== 'all' && (
+            <div className="text-xs text-purple-300 mt-1">
+              ({dreams.length} {t('filter.all').toLowerCase()})
+            </div>
+          )}
         </div>
 
         {/* Zaman Filtresi */}
