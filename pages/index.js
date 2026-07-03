@@ -229,8 +229,24 @@ function DreamCard({ dream }) {
   return (
     <article className="glass-card overflow-hidden">
       {dream.ai_image_url && (
-        <div className="dream-image aspect-video">
-          <img src={dream.ai_image_url} alt="Dream" className="w-full h-full object-cover" />
+        <div className="dream-image aspect-video relative bg-gradient-to-br from-purple-900/50 to-indigo-900/50">
+          <img 
+            src={dream.ai_image_url} 
+            alt="Dream" 
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Görsel yüklenemezse placeholder göster
+              e.target.style.display = 'none'
+              e.target.parentElement.innerHTML = `
+                <div class="w-full h-full flex items-center justify-center">
+                  <div class="text-center">
+                    <div class="text-6xl mb-2">🌙</div>
+                    <div class="text-white/40 text-sm">Dream Visualization</div>
+                  </div>
+                </div>
+              `
+            }}
+          />
         </div>
       )}
 
