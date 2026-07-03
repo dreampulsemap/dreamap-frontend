@@ -264,8 +264,12 @@ useEffect(() => {
                       {t('prophecy.advice')}
                     </div>
                     <p className="text-white/80 text-sm">
-                      {prophecy[`advice_${i18n.language}`] || prophecy.advice_en || prophecy.ai_advice}
-                    </p>
+                     {prophecy[`advice_${i18n.language}`] || 
+                    prophecy[`content_${i18n.language}`]?.substring(0, 100) + '...' || 
+                    prophecy.advice_en || 
+                    prophecy.ai_advice ||
+   'Rüyalarınızı not edin.'}
+</p>
                   </div>
                 </div>
               </div>
