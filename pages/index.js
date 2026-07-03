@@ -151,7 +151,44 @@ export default function Home() {
                 🌍 {t('nav.globe')} →
               </a>
             </div>
+{/* 🔮 BUGÜNÜN KEHANETİ */}
+        <section className="max-w-4xl mx-auto px-6 py-8">
+          <div className="glass-card p-8 border-2 border-purple-500/30 glow-border">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="text-4xl">🔮</div>
+              <div>
+                <h2 className="text-2xl font-bold gradient-text">
+                  Bugünün Kehaneti
+                </h2>
+                <p className="text-sm text-white/60">
+                  {new Date().toLocaleDateString('tr-TR')} • Shadow Arketipi
+                </p>
+              </div>
+            </div>
 
+            {/* Kehanet Metni */}
+            <div className="mb-6">
+              <p className="text-lg text-white/90 leading-relaxed italic">
+                Bugün Gölge arketipi aktif. Bilinçdışı zihniniz, gizli korkularınızla yüzleşmeniz için size işaretler gönderiyor. Rüyalarınızda karanlık figürler veya bilinmeyen yerler görebilirsiniz.
+              </p>
+            </div>
+
+            {/* Tavsiye */}
+            <div className="glass-card p-4 bg-purple-500/10">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">💫</div>
+                <div>
+                  <div className="text-sm font-semibold text-purple-300 mb-2">
+                    Rüya Tavsiyesi
+                  </div>
+                  <p className="text-white/80 text-sm">
+                    Bu gece rüyalarınızı not edin. Tekrarlayan sembollere dikkat edin. Gölge arketipi, kabul etmediğiniz yönlerinizi size göstermek istiyor.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
             {/* Sağ: Mini Globe */}
             <div className="flex justify-center">
               <MiniGlobe />
