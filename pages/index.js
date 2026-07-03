@@ -22,7 +22,25 @@ const languages = [
   { code: 'zh', flag: '🇨🇳', name: '中文' },
   { code: 'de', flag: '🇩🇪', name: 'Deutsch' }
 ]
+// Duygu çevirileri
+const emotionTranslations = {
+  'Fear': { tr: 'Korku', ru: 'Страх', es: 'Miedo', ar: 'خوف', hi: 'भय', zh: '恐惧', de: 'Angst' },
+  'Anxiety': { tr: 'Kaygı', ru: 'Тревога', es: 'Ansiedad', ar: 'قلق', hi: 'चिंता', zh: '焦虑', de: 'Angst' },
+  'Joy': { tr: 'Neşe', ru: 'Радость', es: 'Alegría', ar: 'فرح', hi: 'आनंद', zh: '喜悦', de: 'Freude' },
+  'Sadness': { tr: 'Üzüntü', ru: 'Печаль', es: 'Tristeza', ar: 'حزن', hi: 'उदासी', zh: '悲伤', de: 'Trauer' },
+  'Anger': { tr: 'Öfke', ru: 'Гнев', es: 'Ira', ar: 'غضب', hi: 'क्रोध', zh: '愤怒', de: 'Wut' },
+  'Peace': { tr: 'Huzur', ru: 'Покой', es: 'Paz', ar: 'سلام', hi: 'शांति', zh: '平静', de: 'Frieden' },
+  'Confusion': { tr: 'Kafa Karışıklığı', ru: 'Замешательство', es: 'Confusión', ar: 'ارتباك', hi: 'भ्रम', zh: '困惑', de: 'Verwirrung' },
+  'Awe': { tr: 'Hayranlık', ru: 'Трепет', es: 'Asombro', ar: 'رهبة', hi: 'विस्मय', zh: '敬畏', de: 'Ehrfurcht' },
+  'Surprise': { tr: 'Şaşkınlık', ru: 'Удивление', es: 'Sorpresa', ar: 'مفاجأة', hi: 'आश्चर्य', zh: '惊讶', de: 'Überraschung' },
+  'Disgust': { tr: 'İğrenme', ru: 'Отвращение', es: 'Asco', ar: 'اشمئزاز', hi: 'घृणा', zh: '厌恶', de: 'Ekel' },
+  'Mystery': { tr: 'Gizem', ru: 'Тайна', es: 'Misterio', ar: 'غموض', hi: 'रहस्य', zh: '神秘', de: 'Mysterium' },
+  'Introspective': { tr: 'İçgözlem', ru: 'Интроверсия', es: 'Introspección', ar: 'تأمل', hi: 'आत्मनिरीक्षण', zh: '内省', de: 'Introspektion' }
+};
 
+function getTranslatedEmotion(emotion, lang) {
+  return emotionTranslations[emotion]?.[lang] || emotion;
+}
 export default function Home() {
   const { t, i18n } = useTranslation()
   const [dreams, setDreams] = useState([])
@@ -191,6 +209,7 @@ export default function Home() {
         </section>
 
         {/* 🔮 BUGÜNÜN KEHANETİ */}
+
         {prophecy && (
           <section className="max-w-4xl mx-auto px-6 py-8">
             <div className="glass-card p-8 border-2 border-purple-500/30 glow-border">
@@ -218,8 +237,11 @@ export default function Home() {
                     <div className="text-xs text-white/60">{prophecy.ai_stats.dominantArchetype} Baskın</div>
                   </div>
                   <div className="glass-card px-4 py-2">
-                    <div className="text-2xl font-bold gradient-text">{prophecy.ai_stats.dominantEmotion}</div>
-                    <div className="text-xs text-white/60">Baskın Duygu</div>
+                  <div className="text-2xl font-bold gradient-text">
+                   {getTranslatedEmotion(prophecy.ai_stats.dominantEmotion, i18n.language)}
+                  </div>
+                  <div className="text-xs text-white/60">Baskın Duygu</div>
+                  </div>
                   </div>
                 </div>
               )}
