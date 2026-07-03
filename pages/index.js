@@ -36,8 +36,16 @@ export default function Home() {
   const [langOpen, setLangOpen] = useState(false)
 
   useEffect(() => { 
+    // Rüya ve kehanet bağımsız yüklenir (biri hata verse diğeri çalışır)
     fetchDreams()
-    fetchProphecy()
+    
+    // Prophet AI'ı ayrı bir try-catch ile çağır
+    setTimeout(() => {
+      fetchProphecy().catch(err => {
+        console.error('Prophecy fetch failed:', err)
+        // Hata olsa bile feed'i etkilemez
+      })
+    }, 100) // 100ms gecikme ile başlat
   }, [])
 
   async function fetchDreams() {
