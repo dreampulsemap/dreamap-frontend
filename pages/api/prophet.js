@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req, res) {
-  const GEMINI_KEY = process.env.GEMINI_KEY;
+  const GROQ_KEY = process.env.GROQ_KEY;
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -27,8 +27,8 @@ export default async function handler(req, res) {
     });
   }
 
-  if (!GEMINI_KEY) {
-    return res.status(500).json({ error: 'Gemini API key eksik' });
+  if (!GROQ_KEY) {
+    return res.status(500).json({ error: 'Groq API key eksik' });
   }
 
   // SON 7 GÜNÜN RÜYALARINI ÇEK
@@ -77,85 +77,86 @@ export default async function handler(req, res) {
     .sort((a, b) => b[1] - a[1])[0];
   const dominantEmotionName = dominantEmotion ? dominantEmotion[0] : 'Mystery';
 
-  // ÖRNEK RÜYA METİNLERİ
-  const sampleDreams = recentDreams.slice(0, 10).map(d => ({
-    content: d.content?.substring(0, 300),
-    archetype: d.ai_archetypes?.[0] || 'Unknown',
-    emotion: d.ai_sentiment || 'Unknown',
-    language: d.original_language || 'en'
-  }));
-
   console.log(`📊 ANALİZ: ${recentDreams.length} rüya, ${totalArchetypes} arketip`);
   console.log(`🏆 Baskın arketip: ${dominantArchetypeName} (${archetypePercentage}%)`);
   console.log(`💭 Baskın duygu: ${dominantEmotionName}`);
 
-  // GEMINI İLE KEHANET ÜRET
+  // GROQ İLE KEHANET ÜRET (İNGİLİZCE)
   try {
-    const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(GEMINI_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are Prophet AI, a mystical Jungian oracle. Return ONLY valid JSON, no markdown.' 
+          },
+          {
+            role: 'user',
+            content: `You are analyzing the collective unconscious from ${recentDreams.length} real dreams in the last 7 days.
 
-    const prompt = `You are Prophet AI, a mystical Jungian oracle analyzing the collective unconscious.
-
-REAL DATA FROM LAST 7 DAYS:
-- Total dreams analyzed: ${recentDreams.length}
-- Total archetypes found: ${totalArchetypes}
-- DOMINANT ARCHETYPE: ${dominantArchetypeName} (appeared ${dominantArchetypeCount} times, ${archetypePercentage}% of all archetypes)
+DATA:
+- Total dreams: ${recentDreams.length}
+- Total archetypes: ${totalArchetypes}
+- DOMINANT ARCHETYPE: ${dominantArchetypeName} (${dominantArchetypeCount} times, ${archetypePercentage}%)
 - DOMINANT EMOTION: ${dominantEmotionName}
-- Top 5 archetypes: ${Object.entries(archetypeCount).sort((a,b) => b[1]-a[1]).slice(0,5).map(([k,v]) => `${k}(${v})`).join(', ')}
 
-SAMPLE DREAM THEMES:
-${sampleDreams.map((d, i) => `${i+1}. [${d.language}] ${d.archetype} / ${d.emotion}: "${d.content}"`).join('\n')}
+Generate TODAY'S prophecy:
+1. Explain why ${dominantArchetypeName} dominates the collective unconscious
+2. What this ${archetypePercentage}% dominance means for humanity
+3. Connect to ${dominantEmotionName} emotion
+4. Give specific, actionable advice for dreamers
 
-Based on this REAL DATA, generate TODAY'S collective dream prophecy in ALL 8 languages.
-
-RULES:
-1. The prophecy must be MYSTICAL, DEEP, and GROUNDED in the real data
-2. Explain WHY ${dominantArchetypeName} is dominating the collective unconscious
-3. Connect the ${dominantEmotionName} emotion to this archetype
-4. Give SPECIFIC, ACTIONABLE advice for dreamers today
-5. Each language version must be CULTURALLY ADAPTED, not just translated
-6. The advice must be in EACH language separately
-
-Return ONLY valid JSON (no markdown, no backticks, no explanation):
+Return ONLY JSON:
 {
   "content_en": "English prophecy (150-200 words, mystical and data-grounded)...",
-  "content_tr": "Turkish prophecy (150-200 words, culturally adapted)...",
-  "content_ru": "Russian prophecy (150-200 words)...",
-  "content_es": "Spanish prophecy (150-200 words)...",
-  "content_ar": "Arabic prophecy (150-200 words)...",
-  "content_hi": "Hindi prophecy (150-200 words)...",
-  "content_zh": "Chinese prophecy (150-200 words)...",
-  "content_de": "German prophecy (150-200 words)...",
   "advice_en": "English practical advice (50-70 words)...",
-  "advice_tr": "Turkish practical advice (50-70 words)...",
-  "advice_ru": "Russian practical advice (50-70 words)...",
-  "advice_es": "Spanish practical advice (50-70 words)...",
-  "advice_ar": "Arabic practical advice (50-70 words)...",
-  "advice_hi": "Hindi practical advice (50-70 words)...",
-  "advice_zh": "Chinese practical advice (50-70 words)...",
-  "advice_de": "German practical advice (50-70 words)...",
-  "symbol": "Visual description of ${dominantArchetypeName} archetype for AI image generation (English, 20-30 words)"
-}
+  "symbol": "Visual description of ${dominantArchetypeName} archetype (English, 20-30 words)"
+}`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1024,
+        response_format: { type: 'json_object' }
+      })
+    });
 
-IMPORTANT: Return ONLY the JSON object, nothing else. No markdown formatting.`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const data = await response.json();
     
-    // JSON'u temizle
-    const cleanContent = text.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
-    
-    let prophecy;
-    try {
-      prophecy = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      console.error('Raw content:', text);
-      throw new Error('JSON parse failed');
+    if (!data.choices || !data.choices[0]) {
+      throw new Error('Groq API yanıt vermedi');
     }
+
+    const prophecy = JSON.parse(data.choices[0].message.content);
     
+    // ÇEVİRİ API'SİNİ ÇAĞIR (8 DİLDE)
+    const translations = await Promise.all([
+      translateText(prophecy.content_en, 'tr'),
+      translateText(prophecy.content_en, 'ru'),
+      translateText(prophecy.content_en, 'es'),
+      translateText(prophecy.content_en, 'ar'),
+      translateText(prophecy.content_en, 'hi'),
+      translateText(prophecy.content_en, 'zh'),
+      translateText(prophecy.content_en, 'de'),
+      translateText(prophecy.advice_en, 'tr'),
+      translateText(prophecy.advice_en, 'ru'),
+      translateText(prophecy.advice_en, 'es'),
+      translateText(prophecy.advice_en, 'ar'),
+      translateText(prophecy.advice_en, 'hi'),
+      translateText(prophecy.advice_en, 'zh'),
+      translateText(prophecy.advice_en, 'de')
+    ]);
+
+    const [
+      content_tr, content_ru, content_es, content_ar, content_hi, content_zh, content_de,
+      advice_tr, advice_ru, advice_es, advice_ar, advice_hi, advice_zh, advice_de
+    ] = translations;
+
     // Görsel URL
     const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prophecy.symbol || dominantArchetypeName + ' archetype mystical')}`;
 
@@ -164,32 +165,31 @@ IMPORTANT: Return ONLY the JSON object, nothing else. No markdown formatting.`;
       prophecy_date: today,
       archetype: dominantArchetypeName,
       content_en: prophecy.content_en,
-      content_tr: prophecy.content_tr,
-      content_ru: prophecy.content_ru,
-      content_es: prophecy.content_es,
-      content_ar: prophecy.content_ar,
-      content_hi: prophecy.content_hi,
-      content_zh: prophecy.content_zh,
-      content_de: prophecy.content_de,
+      content_tr: content_tr,
+      content_ru: content_ru,
+      content_es: content_es,
+      content_ar: content_ar,
+      content_hi: content_hi,
+      content_zh: content_zh,
+      content_de: content_de,
       advice_en: prophecy.advice_en,
-      advice_tr: prophecy.advice_tr,
-      advice_ru: prophecy.advice_ru,
-      advice_es: prophecy.advice_es,
-      advice_ar: prophecy.advice_ar,
-      advice_hi: prophecy.advice_hi,
-      advice_zh: prophecy.advice_zh,
-      advice_de: prophecy.advice_de,
+      advice_tr: advice_tr,
+      advice_ru: advice_ru,
+      advice_es: advice_es,
+      advice_ar: advice_ar,
+      advice_hi: advice_hi,
+      advice_zh: advice_zh,
+      advice_de: advice_de,
       archetypes: [dominantArchetypeName],
       sentiment: dominantEmotionName,
-      ai_advice: prophecy.advice_tr || prophecy.advice_en, // Varsayılan Türkçe
+      ai_advice: advice_tr, // Varsayılan Türkçe
       image_url: imageUrl,
       ai_stats: {
         totalDreams: recentDreams.length,
         totalArchetypes: totalArchetypes,
         dominantArchetype: dominantArchetypeName,
         dominancePercentage: archetypePercentage,
-        dominantEmotion: dominantEmotionName,
-        topArchetypes: Object.entries(archetypeCount).sort((a,b) => b[1]-a[1]).slice(0,5).map(([k,v]) => ({name: k, count: v}))
+        dominantEmotion: dominantEmotionName
       }
     };
 
@@ -203,7 +203,7 @@ IMPORTANT: Return ONLY the JSON object, nothing else. No markdown formatting.`;
     return res.status(200).json({ 
       success: true, 
       prophecy: dbProphecy,
-      message: `Prophecy generated from ${recentDreams.length} real dreams with Gemini AI`,
+      message: `Prophecy generated from ${recentDreams.length} real dreams with Groq AI`,
       analysis: {
         totalDreams: recentDreams.length,
         dominantArchetype: dominantArchetypeName,
@@ -212,8 +212,28 @@ IMPORTANT: Return ONLY the JSON object, nothing else. No markdown formatting.`;
       }
     });
   } catch (error) {
-    console.error('Gemini error:', error);
+    console.error('Groq error:', error);
     return await generateFallbackProphecy(supabase, today, dominantArchetypeName, dominantEmotionName);
+  }
+}
+
+// Çeviri fonksiyonu
+async function translateText(text, targetLang) {
+  try {
+    const res = await fetch('https://dreamap-frontend.vercel.app/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dreamText: 'Translate',
+        analysisText: text,
+        targetLang: targetLang
+      })
+    });
+    const data = await res.json();
+    return data.analysisTranslated || data.translated || text;
+  } catch (e) {
+    console.error(`Translation to ${targetLang} failed:`, e);
+    return text;
   }
 }
 
@@ -258,4 +278,4 @@ async function generateFallbackProphecy(supabase, today, archetype = 'Shadow', e
     prophecy: fallbackProphecy,
     message: "Fallback prophecy"
   };
-    }
+}
