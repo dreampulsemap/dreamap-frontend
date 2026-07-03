@@ -1,12 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-// Dinamik import - build sırasında hata vermemesi için
-let supabase;
-if (typeof window !== 'undefined') {
-  import('../lib/supabase').then(module => {
-    supabase = module.supabase;
-  });
-}
+import { supabase } from '../lib/supabase'
 import dynamic from 'next/dynamic'
 
 const MiniGlobe = dynamic(() => import('../components/MiniGlobe'), {
@@ -32,22 +26,16 @@ const languages = [
 export default function Home() {
   const { t, i18n } = useTranslation()
   const [dreams, setDreams] = useState([])
+  const [prophecy, setProphecy] = useState(null)
   const [loading, setLoading] = useState(true)
   const [langOpen, setLangOpen] = useState(false)
 
   useEffect(() => { 
-    // Rüya ve kehanet bağımsız yüklenir (biri hata verse diğeri çalışır)
     fetchDreams()
-    
-    // Prophet AI'ı ayrı bir try-catch ile çağır
-    setTimeout(() => {
-      fetchProphecy().catch(err => {
-        console.error('Prophecy fetch failed:', err)
-        // Hata olsa bile feed'i etkilemez
-      })
-    }, 100) // 100ms gecikme ile başlat
+    fetchProphecy()
   }, [])
-async function fetchProphecy() {
+
+  async function fetchProphecy() {
     try {
       const today = new Date().toISOString().split('T')[0]
       const { data, error } = await supabase
@@ -57,18 +45,18 @@ async function fetchProphecy() {
         .single()
       
       if (error) {
-        console.warn('Prophecy not found for today:', error.message)
-        return // Sessizce çık, feed'i etkileme
+        console.warn('Prophecy not found:', error.message)
+        return
       }
       
       if (data) {
         setProphecy(data)
       }
     } catch (err) {
-      console.error('Prophecy fetch error:', err)
-      // Hata olsa bile devam et
+      console.error('Prophecy error:', err)
     }
-}
+  }
+
   async function fetchDreams() {
     setLoading(true)
     try {
@@ -194,50 +182,52 @@ async function fetchProphecy() {
                 🌍 {t('nav.globe')} →
               </a>
             </div>
-{/* 🔮 BUGÜNÜN KEHANETİ */}
-        <section className="max-w-4xl mx-auto px-6 py-8">
-          <div className="glass-card p-8 border-2 border-purple-500/30 glow-border">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="text-4xl">🔮</div>
-              <div>
-                <h2 className="text-2xl font-bold gradient-text">
-                  Bugünün Kehaneti
-                </h2>
-                <p className="text-sm text-white/60">
-                  {new Date().toLocaleDateString('tr-TR')} • Shadow Arketipi
-                </p>
-              </div>
-            </div>
 
-            {/* Kehanet Metni */}
-            <div className="mb-6">
-              <p className="text-lg text-white/90 leading-relaxed italic">
-                Bugün Gölge arketipi aktif. Bilinçdışı zihniniz, gizli korkularınızla yüzleşmeniz için size işaretler gönderiyor. Rüyalarınızda karanlık figürler veya bilinmeyen yerler görebilirsiniz.
-              </p>
-            </div>
-
-            {/* Tavsiye */}
-            <div className="glass-card p-4 bg-purple-500/10">
-              <div className="flex items-start gap-3">
-                <div className="text-2xl">💫</div>
-                <div>
-                  <div className="text-sm font-semibold text-purple-300 mb-2">
-                    Rüya Tavsiyesi
-                  </div>
-                  <p className="text-white/80 text-sm">
-                    Bu gece rüyalarınızı not edin. Tekrarlayan sembollere dikkat edin. Gölge arketipi, kabul etmediğiniz yönlerinizi size göstermek istiyor.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
             {/* Sağ: Mini Globe */}
             <div className="flex justify-center">
               <MiniGlobe />
             </div>
           </div>
         </section>
+
+        {/* 🔮 BUGÜNÜN KEHANETİ */}
+        {prophecy && (
+          <section className="max-w-4xl mx-auto px-6 py-8">
+            <div className="glass-card p-8 border-2 border-purple-500/30 glow-border">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="text-4xl">🔮</div>
+                <div>
+                  <h2 className="text-2xl font-bold gradient-text">
+                    {t('prophecy.title') || "Today's Prophecy"}
+                  </h2>
+                  <p className="text-sm text-white/60">
+                    {prophecy.prophecy_date} • {prophecy.archetypes?.[0] || 'Mystery'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-lg text-white/90 leading-relaxed italic">
+                  {prophecy[`content_${i18n.language}`] || prophecy.content_en}
+                </p>
+              </div>
+
+              <div className="glass-card p-4 bg-purple-500/10">
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl">💫</div>
+                  <div>
+                    <div className="text-sm font-semibold text-purple-300 mb-2">
+                      {t('prophecy.advice') || 'Dream Advice'}
+                    </div>
+                    <p className="text-white/80 text-sm">
+                      {prophecy.ai_advice || 'Journal your dreams tonight and notice recurring symbols.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Feed */}
         <main className="max-w-3xl mx-auto px-6 pb-16">
@@ -282,12 +272,10 @@ function DreamCard({ dream }) {
   const [translatedAnalysis, setTranslatedAnalysis] = useState(null);
   const [isTranslating, setIsTranslating] = useState(false);
 
-  // Eğer rüya zaten kullanıcının dilindeyse çeviri butonunu gösterme
   const isSameLanguage = dream.original_language === i18n.language;
 
   const handleTranslate = async () => {
     if (translatedText) {
-      // Zaten çevrilmişse, orijinale dön
       setTranslatedText(null);
       setTranslatedAnalysis(null);
       return;
@@ -327,7 +315,6 @@ function DreamCard({ dream }) {
             alt="Dream" 
             className="w-full h-full object-cover"
             onError={(e) => {
-              // Görsel yüklenemezse placeholder göster
               e.target.style.display = 'none'
               e.target.parentElement.innerHTML = `
                 <div class="w-full h-full flex items-center justify-center">
@@ -343,7 +330,6 @@ function DreamCard({ dream }) {
       )}
 
       <div className="p-8">
-        {/* Arketipler */}
         <div className="flex flex-wrap gap-2 mb-4">
           {dream.ai_archetypes?.map((arch, i) => (
             <span key={i} className="archetype-badge">
@@ -352,13 +338,11 @@ function DreamCard({ dream }) {
           ))}
         </div>
 
-        {/* Rüya Metni */}
         <div className="mb-6">
           <p className={`text-lg text-white/90 leading-relaxed transition-all duration-500 ${translatedText ? 'opacity-50 blur-[1px]' : ''}`}>
             {dream.content}
           </p>
           
-          {/* Çeviri Alanı */}
           {translatedText && (
             <div className="mt-4 p-4 rounded-xl border border-purple-500/30 bg-purple-500/10">
               <div className="flex items-center gap-2 mb-2">
@@ -371,7 +355,6 @@ function DreamCard({ dream }) {
           )}
         </div>
 
-        {/* Çeviri Butonu */}
         {!isSameLanguage && (
           <button
             onClick={handleTranslate}
@@ -399,7 +382,6 @@ function DreamCard({ dream }) {
           </button>
         )}
 
-        {/* AI Özeti - Çevrilebilir */}
         <div className="glass-card p-6 mb-6" style={{ background: 'rgba(139, 92, 246, 0.1)' }}>
           <div className="flex items-start gap-3">
             <div className="text-2xl">🔮</div>
@@ -419,7 +401,6 @@ function DreamCard({ dream }) {
           </div>
         </div>
 
-        {/* Meta Bilgiler */}
         <div className="flex items-center justify-between text-sm text-white/60 pt-4 border-t border-white/10">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2"><span>📅</span><span>{dream.dream_date}</span></div>
