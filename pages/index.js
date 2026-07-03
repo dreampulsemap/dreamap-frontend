@@ -47,7 +47,28 @@ export default function Home() {
       })
     }, 100) // 100ms gecikme ile başlat
   }, [])
-
+async function fetchProphecy() {
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const { data, error } = await supabase
+        .from('daily_prophecy')
+        .select('*')
+        .eq('prophecy_date', today)
+        .single()
+      
+      if (error) {
+        console.warn('Prophecy not found for today:', error.message)
+        return // Sessizce çık, feed'i etkileme
+      }
+      
+      if (data) {
+        setProphecy(data)
+      }
+    } catch (err) {
+      console.error('Prophecy fetch error:', err)
+      // Hata olsa bile devam et
+    }
+}
   async function fetchDreams() {
     setLoading(true)
     const { data, error } = await supabase
