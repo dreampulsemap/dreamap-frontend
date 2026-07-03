@@ -198,29 +198,49 @@ export default function Home() {
                 <div className="text-4xl">🔮</div>
                 <div>
                   <h2 className="text-2xl font-bold gradient-text">
-                    {t('prophecy.title') || "Today's Prophecy"}
+                    {t('prophecy.title')}
                   </h2>
                   <p className="text-sm text-white/60">
-                    {prophecy.prophecy_date} • {prophecy.archetypes?.[0] || 'Mystery'}
+                    {prophecy.prophecy_date} • {prophecy.archetype}
                   </p>
                 </div>
               </div>
 
+              {/* İstatistikler */}
+              {prophecy.ai_stats && (
+                <div className="flex gap-4 mb-6">
+                  <div className="glass-card px-4 py-2">
+                    <div className="text-2xl font-bold gradient-text">{prophecy.ai_stats.totalDreams}</div>
+                    <div className="text-xs text-white/60">Rüya Analiz Edildi</div>
+                  </div>
+                  <div className="glass-card px-4 py-2">
+                    <div className="text-2xl font-bold gradient-text">{prophecy.ai_stats.dominancePercentage}%</div>
+                    <div className="text-xs text-white/60">{prophecy.ai_stats.dominantArchetype} Baskın</div>
+                  </div>
+                  <div className="glass-card px-4 py-2">
+                    <div className="text-2xl font-bold gradient-text">{prophecy.ai_stats.dominantEmotion}</div>
+                    <div className="text-xs text-white/60">Baskın Duygu</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Kehanet Metni */}
               <div className="mb-6">
                 <p className="text-lg text-white/90 leading-relaxed italic">
                   {prophecy[`content_${i18n.language}`] || prophecy.content_en}
                 </p>
               </div>
 
+              {/* Tavsiye */}
               <div className="glass-card p-4 bg-purple-500/10">
                 <div className="flex items-start gap-3">
                   <div className="text-2xl">💫</div>
                   <div>
                     <div className="text-sm font-semibold text-purple-300 mb-2">
-                      {t('prophecy.advice') || 'Dream Advice'}
+                      {t('prophecy.advice')}
                     </div>
                     <p className="text-white/80 text-sm">
-                      {prophecy.ai_advice || 'Journal your dreams tonight and notice recurring symbols.'}
+                      {prophecy.ai_advice}
                     </p>
                   </div>
                 </div>
