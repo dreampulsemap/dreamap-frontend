@@ -262,7 +262,8 @@ export default function Home() {
                       {t('prophecy.advice')}
                     </div>
                     <p className="text-white/80 text-sm">
-                      {prophecy.ai_advice}
+  {prophecy[`advice_${i18n.language}`] || prophecy.advice_en || prophecy.ai_advice}
+</p>
                     </p>
                   </div>
                 </div>
