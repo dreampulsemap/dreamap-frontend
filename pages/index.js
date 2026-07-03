@@ -71,14 +71,25 @@ async function fetchProphecy() {
 }
   async function fetchDreams() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('dreams')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50)
-    
-    if (!error) setDreams(data || [])
-    setLoading(false)
+    try {
+      const { data, error } = await supabase
+        .from('dreams')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      
+      if (error) {
+        console.error('Dreams fetch error:', error)
+        setDreams([])
+      } else {
+        setDreams(data || [])
+      }
+    } catch (err) {
+      console.error('Dreams fetch error:', err)
+      setDreams([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const currentLang = languages.find(l => l.code === i18n.language) || languages[0]
