@@ -52,10 +52,10 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [langOpen, setLangOpen] = useState(false)
 
-  useEffect(() => { 
-    fetchDreams()
-    fetchProphecy()
-  }, [])
+useEffect(() => { 
+  fetchDreams()
+  fetchProphecy()
+}, [i18n.language]) // Dil değişince tekrar çalış
 
   async function fetchProphecy() {
     try {
