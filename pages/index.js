@@ -193,6 +193,7 @@ export default function Home() {
 function DreamCard({ dream }) {
   const { t, i18n } = useTranslation();
   const [translatedText, setTranslatedText] = useState(null);
+  const [translatedAnalysis, setTranslatedAnalysis] = useState(null);
   const [isTranslating, setIsTranslating] = useState(false);
 
   // Eğer rüya zaten kullanıcının dilindeyse çeviri butonunu gösterme
@@ -202,6 +203,7 @@ function DreamCard({ dream }) {
     if (translatedText) {
       // Zaten çevrilmişse, orijinale dön
       setTranslatedText(null);
+      setTranslatedAnalysis(null);
       return;
     }
     
@@ -211,13 +213,17 @@ function DreamCard({ dream }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          text: dream.content, 
+          dreamText: dream.content,
+          analysisText: dream.ai_summary,
           targetLang: i18n.language 
         })
       });
       const data = await res.json();
       if (data.translated) {
         setTranslatedText(data.translated);
+        if (data.analysisTranslated) {
+          setTranslatedAnalysis(data.analysisTranslated);
+        }
       }
     } catch (e) {
       console.error('Çeviri hatası:', e);
@@ -307,13 +313,22 @@ function DreamCard({ dream }) {
           </button>
         )}
 
-        {/* AI Özeti */}
+        {/* AI Özeti - Çevrilebilir */}
         <div className="glass-card p-6 mb-6" style={{ background: 'rgba(139, 92, 246, 0.1)' }}>
           <div className="flex items-start gap-3">
             <div className="text-2xl">🔮</div>
             <div>
               <div className="text-sm font-semibold text-purple-300 mb-2">{t('feed.analysis')}</div>
-              <p className="text-white/80 leading-relaxed">{dream.ai_summary}</p>
+              <p className={`text-white/80 leading-relaxed transition-all duration-500 ${translatedAnalysis ? 'opacity-50 blur-[1px]' : ''}`}>
+                {dream.ai_summary}
+              </p>
+              {translatedAnalysis && (
+                <div className="mt-3 pt-3 border-t border-purple-500/30">
+                  <p className="text-white/90 leading-relaxed">
+                    {translatedAnalysis}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
