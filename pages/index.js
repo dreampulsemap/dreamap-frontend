@@ -35,7 +35,10 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [langOpen, setLangOpen] = useState(false)
 
-  useEffect(() => { fetchDreams() }, [])
+  useEffect(() => { 
+    fetchDreams()
+    fetchProphecy()
+  }, [])
 
   async function fetchDreams() {
     setLoading(true)
