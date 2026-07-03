@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { supabase } from '../lib/supabase'
+// Dinamik import - build sırasında hata vermemesi için
+let supabase;
+if (typeof window !== 'undefined') {
+  import('../lib/supabase').then(module => {
+    supabase = module.supabase;
+  });
+}
 import dynamic from 'next/dynamic'
 
 const MiniGlobe = dynamic(() => import('../components/MiniGlobe'), {
