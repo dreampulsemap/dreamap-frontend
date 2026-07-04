@@ -586,24 +586,35 @@ export default function DreamGlobe() {
             </h3>
             
             <div className="mb-6">
-              <div className="text-sm text-purple-300 font-semibold mb-2">
-                {isSameLanguage ? getTranslation('dream.dreamText') : `${getTranslation('dream.dreamText')} (${selectedDream.original_language?.toUpperCase()})`}
-              </div>
-              <p className={`text-white/90 leading-relaxed ${translatedContent ? 'opacity-50' : ''}`}>
-                {selectedDream.content}
-              </p>
-              
-              {translatedContent && (
-                <div className="mt-3 p-4 rounded-lg border border-purple-500/30 bg-purple-500/10">
-                  <div className="text-purple-400 text-xs font-semibold mb-2">
-                    🌐 Çeviri ({i18n.language.toUpperCase()})
-                  </div>
-                  <p className="text-white leading-relaxed">
-                    {translatedContent}
-                  </p>
-                </div>
-              )}
-            </div>
+  <div className="text-sm text-purple-300 font-semibold mb-2">
+    {isSameLanguage ? getTranslation('dream.dreamText') : `${getTranslation('dream.dreamText')} (${selectedDream.original_language?.toUpperCase()})`}
+  </div>
+  
+  {selectedDream.content ? (
+    <>
+      <p className={`text-white/90 leading-relaxed ${translatedContent ? 'opacity-50' : ''}`}>
+        {selectedDream.content}
+      </p>
+      
+      {translatedContent && (
+        <div className="mt-3 p-4 rounded-lg border border-purple-500/30 bg-purple-500/10">
+          <div className="text-purple-400 text-xs font-semibold mb-2">
+            🌐 Çeviri ({i18n.language.toUpperCase()})
+          </div>
+          <p className="text-white leading-relaxed">
+            {translatedContent}
+          </p>
+        </div>
+      )}
+    </>
+  ) : (
+    <div className="p-4 bg-gray-500/10 rounded-lg border border-gray-500/30">
+      <p className="text-white/40 italic">
+        {getTranslation('dream.contentRemoved', lang) || 'Bu rüyanın içeriği kullanıcı tarafından silindi. Sadece arketipler ve duygu analizi görünüyor.'}
+      </p>
+    </div>
+  )}
+</div>
 
             {!isSameLanguage && (
               <button
