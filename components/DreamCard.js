@@ -29,14 +29,17 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   }, [])
 
   async function checkIfLiked(userId) {
-    const res = await fetch(`/api/like?dreamId=${dream.id}&userId=${userId}`)
-    if (res.ok) {
-      const data = await res.json()
-      setLiked(data.liked)
+    try {
+      const res = await fetch(`/api/like?dreamId=${dream.id}&userId=${userId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setLiked(data.liked)
+      }
+    } catch (err) {
+      console.error('Check like error:', err)
     }
   }
 
-  async function handleLike() {
   async function handleLike() {
     if (!user) {
       alert(getTranslation('social.loginToLike', lang))
@@ -44,23 +47,31 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
     }
 
     const method = liked ? 'DELETE' : 'POST'
-    const res = await fetch('/api/like', {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dreamId: dream.id, userId: user.id })
-    })
+    try {
+      const res = await fetch('/api/like', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dreamId: dream.id, userId: user.id })
+      })
 
-    if (res.ok) {
-      const data = await res.json()
-      setLiked(!liked)
-      setLikesCount(data.count || (liked ? likesCount - 1 : likesCount + 1))
+      if (res.ok) {
+        const data = await res.json()
+        setLiked(!liked)
+        setLikesCount(data.count !== undefined ? data.count : (liked ? likesCount - 1 : likesCount + 1))
+      }
+    } catch (err) {
+      console.error('Like error:', err)
     }
   }
 
   async function loadComments() {
-    const res = await fetch(`/api/comment?dreamId=${dream.id}`)
-    const data = await res.json()
-    setComments(data.comments || [])
+    try {
+      const res = await fetch(`/api/comment?dreamId=${dream.id}`)
+      const data = await res.json()
+      setComments(data.comments || [])
+    } catch (err) {
+      console.error('Load comments error:', err)
+    }
   }
 
   async function handleAddComment() {
@@ -71,36 +82,44 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
 
     if (!newComment.trim()) return
 
-    const res = await fetch('/api/comment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dreamId: dream.id,
-        userId: user.id,
-        content: newComment
+    try {
+      const res = await fetch('/api/comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dreamId: dream.id,
+          userId: user.id,
+          content: newComment
+        })
       })
-    })
 
-    if (res.ok) {
-      const data = await res.json()
-      setComments([data.comment, ...comments])
-      setNewComment('')
-      setCommentsCount(commentsCount + 1)
+      if (res.ok) {
+        const data = await res.json()
+        setComments([data.comment, ...comments])
+        setNewComment('')
+        setCommentsCount(commentsCount + 1)
+      }
+    } catch (err) {
+      console.error('Add comment error:', err)
     }
   }
 
   async function handleDeleteComment(commentId) {
     if (!confirm('Yorumu silmek istediğine emin misin?')) return
 
-    const res = await fetch('/api/comment', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commentId, userId: user.id })
-    })
+    try {
+      const res = await fetch('/api/comment', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commentId, userId: user.id })
+      })
 
-    if (res.ok) {
-      setComments(comments.filter(c => c.id !== commentId))
-      setCommentsCount(commentsCount - 1)
+      if (res.ok) {
+        setComments(comments.filter(c => c.id !== commentId))
+        setCommentsCount(commentsCount - 1)
+      }
+    } catch (err) {
+      console.error('Delete comment error:', err)
     }
   }
 
@@ -196,7 +215,6 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
         {/* Yorumlar Bölümü */}
         {showComments && (
           <div className="mt-4 pt-4 border-t border-white/10">
-            {/* Yorum Ekle */}
             {user && (
               <div className="flex gap-2 mb-4">
                 <input
@@ -217,7 +235,6 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
               </div>
             )}
 
-            {/* Yorum Listesi */}
             {comments.length === 0 ? (
               <p className="text-white/40 text-sm text-center py-4">
                 {getTranslation('social.noComments', lang)}
@@ -261,4 +278,4 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       </div>
     </div>
   )
-  }
+            }
