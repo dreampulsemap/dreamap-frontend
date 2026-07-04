@@ -125,16 +125,22 @@ useEffect(() => {
             
             <div className="flex items-center gap-6">
               <nav className="flex gap-6">
-                <a href="/" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
-                  <span>✨</span> {t('nav.feed')}
-                </a>
-                <a href="/globe" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
-                  <span>🌍</span> {t('nav.globe')}
-                </a>
-                <a href="/auth" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
-                  <span>🔮</span> {t('nav.auth')}
-                </a>
-              </nav>
+  <a href="/" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
+    <span>✨</span> {t('nav.feed')}
+  </a>
+  <a href="/globe" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
+    <span>🌍</span> {t('nav.globe')}
+  </a>
+  {user ? (
+    <a href="/profile" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
+      <span>📖</span> Dream Journal
+    </a>
+  ) : (
+    <a href="/auth" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
+      <span>🔮</span> {t('nav.auth')}
+    </a>
+  )}
+</nav>
               
               <div className="relative">
                 <button 
