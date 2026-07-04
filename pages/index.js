@@ -19,10 +19,10 @@ export default function Home() {
     { code: 'tr', flag: '🇹🇷', name: 'Türkçe' },
     { code: 'ru', flag: '🇷🇺', name: 'Русский' },
     { code: 'ar', flag: '🇸🇦', name: 'العربية' },
-    { code: 'es', flag: '🇪', name: 'Español' },
+    { code: 'es', flag: '🇪🇸', name: 'Español' },
     { code: 'hi', flag: '🇮🇳', name: 'हिन्दी' },
-    { code: 'zh', flag: '🇨', name: '中文' },
-    { code: 'de', flag: '🇩', name: 'Deutsch' }
+    { code: 'zh', flag: '🇨🇳', name: '中文' },
+    { code: 'de', flag: '🇩🇪', name: 'Deutsch' }
   ]
   const currentLang = languages.find(l => l.code === lang) || languages[0]
 
@@ -57,13 +57,14 @@ export default function Home() {
     }))
 
     try {
-      const res = await fetch('/api/translator', {
+      const res = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           dreamText: dream.content,
           analysisText: getDreamAnalysis(dream),
-          targetLang: lang
+          targetLang: lang,
+          dreamId: dream.id
         })
       })
       
@@ -254,7 +255,7 @@ export default function Home() {
                     {getTranslatedContent(dream)}
                   </p>
 
-                  {!dream.original_language || dream.original_language !== lang ? (
+                  {dream.original_language !== lang && dream.content && (
                     <button
                       onClick={() => handleTranslateDream(dream)}
                       disabled={translatingDreams[dream.id]?.loading}
@@ -271,7 +272,7 @@ export default function Home() {
                         `🌐 ${lang.toUpperCase()} Diline Çevir`
                       )}
                     </button>
-                  ) : null}
+                  )}
 
                   {getTranslatedAnalysis(dream) && (
                     <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/30 mb-4">
