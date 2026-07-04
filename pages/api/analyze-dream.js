@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { dreamId, content } = req.body
+  const { dreamId, content, language = 'tr' } = req.body
 
   if (!dreamId || !content) {
     return res.status(400).json({ error: 'Eksik parametreler' })
@@ -16,14 +16,7 @@ export default async function handler(req, res) {
   const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!GROQ_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({ 
-      error: 'API anahtarları eksik',
-      debug: {
-        hasGroqKey: !!GROQ_KEY,
-        hasSupabaseUrl: !!SUPABASE_URL,
-        hasServiceKey: !!SUPABASE_SERVICE_KEY
-      }
-    })
+    return res.status(500).json({ error: 'API anahtarları eksik' })
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
@@ -34,21 +27,51 @@ export default async function handler(req, res) {
   })
 
   try {
-    // Groq ile AI analizi
-    const prompt = `Analyze this dream using Jungian psychology. Return ONLY valid JSON (no markdown, no backticks):
+    // 8 dilde analiz için prompt
+    const languages = {
+      tr: 'Turkish',
+      en: 'English',
+      ru: 'Russian',
+      es: 'Spanish',
+      ar: 'Arabic',
+      hi: 'Hindi',
+      zh: 'Chinese',
+      de: 'German'
+    }
+
+    const prompt = `Analyze this dream using Jungian psychology in ALL 8 languages. Return ONLY valid JSON:
 
 DREAM: "${content}"
 
 Return format:
 {
   "archetypes": ["Archetype1", "Archetype2"],
-  "sentiment": "Fear|Joy|Sadness|Anger|Peace|Awe|Anxiety|Confusion|Surprise|Disgust|Mystery|Introspective",
-  "summary": "Jungian analysis in 2-3 sentences"
+  "sentiment": "Fear|Joy|Sadness|Anger|Peace|Awe|Anxiety|Confusion",
+  "summary": {
+    "tr": "Türkçe Jungian analiz (2-3 cümle)",
+    "en": "English Jungian analysis (2-3 sentences)",
+    "ru": "Russian Jungian analysis (2-3 sentences)",
+    "es": "Spanish Jungian analysis (2-3 sentences)",
+    "ar": "Arabic Jungian analysis (2-3 sentences)",
+    "hi": "Hindi Jungian analysis (2-3 sentences)",
+    "zh": "Chinese Jungian analysis (2-3 sentences)",
+    "de": "German Jungian analysis (2-3 sentences)"
+  },
+  "motiv": {
+    "tr": "Türkçe motivasyon mesajı",
+    "en": "English motivational message",
+    "ru": "Russian motivational message",
+    "es": "Spanish motivational message",
+    "ar": "Arabic motivational message",
+    "hi": "Hindi motivational message",
+    "zh": "Chinese motivational message",
+    "de": "German motivational message"
+  }
 }
 
 Common Jungian archetypes: Shadow, Anima, Animus, Wise Old Man, Great Mother, Hero, Trickster, Self, Persona, Child, Snake, Water, Forest, Door, Tower
 
-Choose the MOST RELEVANT archetypes (1-3 max).
+Choose 1-3 most relevant archetypes.
 Choose ONE dominant sentiment.`
 
     console.log('Groq API çağrılıyor...')
@@ -64,12 +87,12 @@ Choose ONE dominant sentiment.`
         messages: [
           {
             role: 'system',
-            content: 'You are a Jungian psychology expert. Analyze dreams using archetypes and collective unconscious theory. Return ONLY JSON.'
+            content: 'You are a Jungian psychology expert. Analyze dreams in 8 languages. Return ONLY JSON.'
           },
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 1024,
+        max_tokens: 2048,
         response_format: { type: 'json_object' }
       })
     })
@@ -77,7 +100,6 @@ Choose ONE dominant sentiment.`
     const data = await response.json()
     
     if (!data.choices || !data.choices[0]) {
-      console.error('Groq yanıt vermedi:', data)
       throw new Error('Groq API yanıt vermedi')
     }
 
@@ -89,35 +111,51 @@ Choose ONE dominant sentiment.`
       analysis = JSON.parse(cleanContent)
     } catch (parseError) {
       console.error('JSON parse error:', parseError)
-      console.error('Raw content:', content2)
-      throw new Error('JSON parse failed: ' + parseError.message)
+      throw new Error('JSON parse failed')
     }
 
-    console.log('AI Analiz:', analysis)
-
-    // Görsel URL oluştur (Pollinations AI)
-    const imagePrompt = `${analysis.archetypes?.[0] || 'Dream'} archetype mystical surreal ${analysis.sentiment || 'mysterious'} atmosphere`
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}`
+    // Görsel URL oluştur (daha iyi prompt)
+    const archetype = analysis.archetypes?.[0] || 'Dream'
+    const sentiment = analysis.sentiment || 'Mysterious'
+    const imagePrompt = `${archetype} archetype, ${sentiment} atmosphere, mystical, surreal, dark fantasy art, detailed, cinematic lighting`
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1200&height=630&nologo=true`
 
     console.log('Görsel URL:', imageUrl)
 
-    // Supabase'e kaydet
+    // Supabase'e 8 dilde kaydet
+    const updates = {
+      ai_archetypes: analysis.archetypes || [],
+      ai_sentiment: analysis.sentiment || 'Mystery',
+      ai_summary: analysis.summary?.[language] || analysis.summary?.en || '',
+      ai_summary_en: analysis.summary?.en || '',
+      ai_summary_tr: analysis.summary?.tr || '',
+      ai_summary_ru: analysis.summary?.ru || '',
+      ai_summary_es: analysis.summary?.es || '',
+      ai_summary_ar: analysis.summary?.ar || '',
+      ai_summary_hi: analysis.summary?.hi || '',
+      ai_summary_zh: analysis.summary?.zh || '',
+      ai_summary_de: analysis.summary?.de || '',
+      ai_motiv: analysis.motiv?.[language] || analysis.motiv?.en || '',
+      ai_motiv_en: analysis.motiv?.en || '',
+      ai_motiv_tr: analysis.motiv?.tr || '',
+      ai_motiv_ru: analysis.motiv?.ru || '',
+      ai_motiv_es: analysis.motiv?.es || '',
+      ai_motiv_ar: analysis.motiv?.ar || '',
+      ai_motiv_hi: analysis.motiv?.hi || '',
+      ai_motiv_zh: analysis.motiv?.zh || '',
+      ai_motiv_de: analysis.motiv?.de || '',
+      ai_image_prompt: imagePrompt,
+      ai_image_url: imageUrl
+    }
+
     const { error } = await supabase
       .from('dreams')
-      .update({
-        ai_archetypes: analysis.archetypes || [],
-        ai_sentiment: analysis.sentiment || 'Mystery',
-        ai_summary: analysis.summary || '',
-        ai_image_url: imageUrl
-      })
+      .update(updates)
       .eq('id', dreamId)
 
     if (error) {
-      console.error('Supabase update error:', error)
       throw new Error('Supabase güncelleme hatası: ' + error.message)
     }
-
-    console.log('Başarılı! Rüya ID:', dreamId)
 
     return res.status(200).json({
       success: true,
