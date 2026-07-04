@@ -24,7 +24,7 @@ export default function Home() {
     { code: 'tr', flag: '🇹🇷', name: 'Türkçe' },
     { code: 'ru', flag: '🇷🇺', name: 'Русский' },
     { code: 'ar', flag: '🇸🇦', name: 'العربية' },
-    { code: 'es', flag: '🇸', name: 'Español' },
+    { code: 'es', flag: '🇪🇦', name: 'Español' },
     { code: 'hi', flag: '🇮🇳', name: 'हिन्दी' },
     { code: 'zh', flag: '🇨🇳', name: '中文' },
     { code: 'de', flag: '🇩🇪', name: 'Deutsch' }
