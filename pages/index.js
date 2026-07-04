@@ -322,38 +322,38 @@ function DreamCard({ dream }) {
 
   const isSameLanguage = dream.original_language === i18n.language;
 
-  const handleTranslate = async () => {
-    if (translatedText) {
-      setTranslatedText(null);
-      setTranslatedAnalysis(null);
-      return;
-    }
-    
-    setIsTranslating(true);
-    try {
-      const res = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          dreamText: dream.content,
-          analysisText: dream.ai_summary,
-          targetLang: i18n.language 
-        })
-      });
-      const data = await res.json();
-      if (data.translated) {
-        setTranslatedText(data.translated);
-        if (data.analysisTranslated) {
-          setTranslatedAnalysis(data.analysisTranslated);
-        }
+const handleTranslate = async () => {
+  if (translatedText) {
+    setTranslatedText(null);
+    setTranslatedAnalysis(null);
+    return;
+  }
+  
+  setIsTranslating(true);
+  try {
+    const res = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        dreamText: dream.content,
+        analysisText: dream.ai_summary,
+        targetLang: i18n.language,
+        dreamId: dream.id  // ✅ Bunu ekle
+      })
+    });
+    const data = await res.json();
+    if (data.translated) {
+      setTranslatedText(data.translated);
+      if (data.analysisTranslated) {
+        setTranslatedAnalysis(data.analysisTranslated);
       }
-    } catch (e) {
-      console.error('Çeviri hatası:', e);
-    } finally {
-      setIsTranslating(false);
     }
-  };
-
+  } catch (e) {
+    console.error('Çeviri hatası:', e);
+  } finally {
+    setIsTranslating(false);
+  }
+};
   return (
     <article className="glass-card overflow-hidden">
       {dream.ai_image_url && (
