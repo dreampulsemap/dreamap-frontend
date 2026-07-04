@@ -497,13 +497,28 @@ export default function DreamGlobe() {
                 ) : translatedContent ? (
                   <>
                     <span>🔄</span>
-                    <span className="text-sm text-white/80">Orijinali Göster</span>
-                  </>
+<span className="text-sm text-white/80">
+  {i18n.language === 'tr' && 'Orijinali Göster'}
+  {i18n.language === 'en' && 'Show Original'}
+  {i18n.language === 'ru' && 'Показать оригинал'}
+  {i18n.language === 'es' && 'Mostrar original'}
+  {i18n.language === 'ar' && 'إظهار الأصلي'}
+  {i18n.language === 'hi' && 'मूल दिखाएं'}
+  {i18n.language === 'zh' && '显示原文'}
+  {i18n.language === 'de' && 'Original anzeigen'}
+</span>                  </>
                 ) : (
                   <>
                     <span>🌐</span>
                     <span className="text-sm text-white/80">
-                      {i18n.language.toUpperCase()} Diline Çevir (Rüya + Jung Analizi)
+  {i18n.language === 'tr' && 'Türkçe Çevir (Rüya + Jung Analizi)'}
+  {i18n.language === 'en' && 'Translate to English (Dream + Jung Analysis)'}
+  {i18n.language === 'ru' && 'Перевести на русский (Сон + Юнгианский анализ)'}
+  {i18n.language === 'es' && 'Traducir al español (Sueño + Análisis junguiano)'}
+  {i18n.language === 'ar' && 'ترجمة إلى العربية (الحلم + التحليل اليونغي)'}
+  {i18n.language === 'hi' && 'हिंदी में अनुवाद करें (सपना + जुंगियन विश्लेषण)'}
+  {i18n.language === 'zh' && '翻译成中文 (梦境 + 荣格分析)'}
+  {i18n.language === 'de' && 'Ins Deutsche übersetzen (Traum + Jung-Analyse)'}
                     </span>
                   </>
                 )}
