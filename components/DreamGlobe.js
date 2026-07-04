@@ -167,25 +167,31 @@ export default function DreamGlobe() {
   const currentLang = languages.find(l => l.code === i18n.language) || languages[0]
 
   useEffect(() => {
-    async function fetchAllDreams() {
-      setLoading(true)
-      try {
-        const { data, error } = await supabase
-          .from('dreams')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(2000)
-        if (error) throw error
-        setAllDreams(data || [])
-      } catch (err) {
-        console.error('Error:', err)
-        setError('Failed to load dreams')
-      } finally {
-        setLoading(false)
-      }
+  async function fetchAllDreams() {
+    setLoading(true)
+    try {
+      let query = supabase
+        .from('dreams')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(2000)
+      
+      // Sadece feed'de olanları göster
+      query = query.eq('in_feed', true)
+      
+      const { data, error } = await query
+      
+      if (error) throw error
+      setAllDreams(data || [])
+    } catch (err) {
+      console.error('Error:', err)
+      setError('Failed to load dreams')
+    } finally {
+      setLoading(false)
     }
-    fetchAllDreams()
-  }, [])
+  }
+  fetchAllDreams()
+}, [])
 
   useEffect(() => {
     async function fetchPredictions() {
