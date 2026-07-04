@@ -14,8 +14,21 @@ export default function AddDreamPage() {
   const [inFeed, setInFeed] = useState(true)
   const [mapDetail, setMapDetail] = useState('full')
   const [visibility, setVisibility] = useState('public')
+  const [userSentiment, setUserSentiment] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // Duygular - 8 dilde
+  const emotions = [
+    { value: 'Fear', emoji: '😨', label: getTranslation('emotion.fear', lang) },
+    { value: 'Joy', emoji: '😊', label: getTranslation('emotion.joy', lang) },
+    { value: 'Sadness', emoji: '😢', label: getTranslation('emotion.sadness', lang) },
+    { value: 'Peace', emoji: '😌', label: getTranslation('emotion.peace', lang) },
+    { value: 'Anxiety', emoji: '😰', label: getTranslation('emotion.anxiety', lang) },
+    { value: 'Awe', emoji: '', label: getTranslation('emotion.awe', lang) },
+    { value: 'Confusion', emoji: '😕', label: getTranslation('emotion.confusion', lang) },
+    { value: 'Surprise', emoji: '', label: getTranslation('emotion.surprise', lang) }
+  ]
 
   useEffect(() => {
     async function checkUser() {
@@ -42,65 +55,68 @@ export default function AddDreamPage() {
     }
   }
 
-async function handleSubmit(e) {
-  e.preventDefault()
-  setLoading(true)
-  setError(null)
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
 
-  try {
-    // Konumdan koordinat al (Nominatim API - OpenStreetMap)
-    let lat = null
-    let lng = null
-    
-    if (location) {
-      try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1`)
-        const data = await response.json()
-        
-        if (data && data[0]) {
-          lat = parseFloat(data[0].lat)
-          lng = parseFloat(data[0].lon)
+    try {
+      // Konumdan koordinat al
+      let lat = null
+      let lng = null
+      
+      if (location) {
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1`)
+          const data = await response.json()
+          if (data && data[0]) {
+            lat = parseFloat(data[0].lat)
+            lng = parseFloat(data[0].lon)
+          }
+        } catch (err) {
+          console.error('Koordinat alınamadı:', err)
         }
-      } catch (err) {
-        console.error('Koordinat alınamadı:', err)
-        // Koordinat alınamazsa devam et
       }
+
+      const { data, error } = await supabase
+        .from('dreams')
+        .insert([{
+          user_id: user.id,
+          content: content,
+          location_name: location || getTranslation('location.unknown', lang),
+          latitude: lat,
+          longitude: lng,
+          in_feed: inFeed,
+          map_detail: mapDetail,
+          visibility: visibility,
+          user_selected_sentiment: userSentiment || null,
+          dream_date: new Date().toISOString().split('T')[0],
+          original_language: lang,
+          created_at: new Date().toISOString()
+        }])
+        .select()
+
+      if (error) throw error
+
+      if (data && data[0]) {
+        await fetch('/api/analyze-dream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            dreamId: data[0].id, 
+            content: content,
+            language: lang
+          })
+        })
+      }
+
+      router.push('/profile')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
-
-    const { data, error } = await supabase
-      .from('dreams')
-      .insert([{
-        user_id: user.id,
-        content: content,
-        location_name: location || 'Unknown',
-        latitude: lat,
-        longitude: lng,
-        in_feed: inFeed,
-        map_detail: mapDetail,
-        visibility: visibility,
-        dream_date: new Date().toISOString().split('T')[0],
-        original_language: lang,
-        created_at: new Date().toISOString()
-      }])
-      .select()
-
-    if (error) throw error
-
-    if (data && data[0]) {
-      await fetch('/api/analyze-dream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dreamId: data[0].id, content: content })
-      })
-    }
-
-    router.push('/profile')
-  } catch (err) {
-    setError(err.message)
-  } finally {
-    setLoading(false)
   }
-}
 
   if (!user) {
     return (
@@ -123,7 +139,7 @@ async function handleSubmit(e) {
           </div>
           <a href="/" className="glass-card px-4 py-2 text-white/80 hover:text-white transition-all flex items-center gap-2">
             <span>←</span>
-            <span>{getTranslation('nav.backToHome', lang) || 'Ana Sayfa'}</span>
+            <span>{getTranslation('nav.backToHome', lang)}</span>
           </a>
         </div>
       </header>
@@ -135,6 +151,7 @@ async function handleSubmit(e) {
           </h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Rüya Metni */}
             <div>
               <label className="text-sm text-white/60 block mb-2">
                 {getTranslation('dream.dreamText', lang)}
@@ -144,10 +161,11 @@ async function handleSubmit(e) {
                 onChange={(e) => setContent(e.target.value)}
                 className="w-full bg-black/40 border border-white/20 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none h-40"
                 required
-                placeholder={lang === 'tr' ? 'Rüyanızı anlatın...' : 'Describe your dream...'}
+                placeholder={getTranslation('dream.placeholder', lang)}
               />
             </div>
 
+            {/* Konum */}
             <div>
               <label className="text-sm text-white/60 block mb-2">
                 {getTranslation('dream.location', lang)}
@@ -157,10 +175,11 @@ async function handleSubmit(e) {
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full bg-black/40 border border-white/20 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
-                placeholder="Istanbul, Turkey"
+                placeholder={getTranslation('dream.locationPlaceholder', lang)}
               />
             </div>
 
+            {/* Paylaşım Seçenekleri */}
             <div className="glass-card p-4 bg-purple-500/10">
               <h3 className="text-lg font-semibold text-purple-300 mb-4">
                 {getTranslation('dream.shareOptions', lang)}
@@ -251,6 +270,34 @@ async function handleSubmit(e) {
               </div>
             </div>
 
+            {/* Kullanıcı Duygu Seçimi */}
+            <div className="glass-card p-4 bg-purple-500/10">
+              <h3 className="text-lg font-semibold text-purple-300 mb-4">
+                {getTranslation('dream.emotions', lang)}
+              </h3>
+              <p className="text-white/60 text-sm mb-4">
+                {getTranslation('dream.emotionsHelp', lang)}
+              </p>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {emotions.map((emotion) => (
+                  <button
+                    key={emotion.value}
+                    type="button"
+                    onClick={() => setUserSentiment(userSentiment === emotion.value ? '' : emotion.value)}
+                    className={`p-3 rounded-lg border transition-all ${
+                      userSentiment === emotion.value
+                        ? 'bg-purple-500/30 border-purple-500 text-white'
+                        : 'bg-black/40 border-white/20 text-white/70 hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">{emotion.emoji}</div>
+                    <div className="text-xs">{emotion.label}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {error && (
               <div className="text-red-400 text-sm bg-red-500/10 p-3 rounded-lg">
                 {error}
@@ -269,4 +316,4 @@ async function handleSubmit(e) {
       </div>
     </div>
   )
-                  }
+                            }
