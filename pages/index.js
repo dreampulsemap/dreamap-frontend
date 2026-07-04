@@ -51,11 +51,19 @@ export default function Home() {
   const [prophecy, setProphecy] = useState(null)
   const [loading, setLoading] = useState(true)
   const [langOpen, setLangOpen] = useState(false)
+  const [user, setUser] = useState(null)  
 
 useEffect(() => { 
   fetchDreams()
   fetchProphecy()
-}, [i18n.language]) // Dil değişince tekrar çalış
+  
+  // Kullanıcı kontrolü
+  async function checkUser() {
+    const currentUser = await auth.getUser()
+    setUser(currentUser)
+  }
+  checkUser()
+}, [i18n.language])
 
   async function fetchProphecy() {
     try {
@@ -206,9 +214,20 @@ useEffect(() => {
                   <div className="text-sm text-white/60">{t('hero.archetypes')}</div>
                 </div>
               </div>
-              <a href="/globe" className="inline-block glass-card px-8 py-4 text-white hover:bg-purple-500/30 transition-all glow-border">
-                🌍 {t('nav.globe')} →
-              </a>
+              <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+  <a href="/globe" className="inline-block glass-card px-8 py-4 text-white hover:bg-purple-500/30 transition-all glow-border">
+    🌍 {t('nav.globe')} →
+  </a>
+  {user ? (
+    <a href="/add-dream" className="inline-block glass-card px-8 py-4 text-white bg-purple-500/20 hover:bg-purple-500/40 transition-all glow-border">
+       Rüya Ekle & Jungian Analiz Al
+    </a>
+  ) : (
+    <a href="/auth" className="inline-block glass-card px-8 py-4 text-white bg-purple-500/20 hover:bg-purple-500/40 transition-all glow-border">
+       Giriş Yap & Rüya Ekle
+    </a>
+  )}
+</div>
             </div>
 
             {/* Sağ: Mini Globe */}
