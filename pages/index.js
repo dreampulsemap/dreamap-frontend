@@ -2,13 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { supabase, auth } from '../lib/supabase'
 import { getTranslation } from '../lib/translations'
-import dynamic from 'next/dynamic'
-
-// Globe bileşenini lazy load et
-const DreamGlobe = dynamic(() => import('../components/DreamGlobe'), { 
-  ssr: false,
-  loading: () => <div className="h-96 flex items-center justify-center text-white/60">Globe yükleniyor...</div>
-})
+import MiniGlobe from '../components/MiniGlobe'
 
 export default function Home() {
   const { i18n } = useTranslation()
@@ -24,7 +18,7 @@ export default function Home() {
     { code: 'tr', flag: '🇹🇷', name: 'Türkçe' },
     { code: 'ru', flag: '🇷🇺', name: 'Русский' },
     { code: 'ar', flag: '🇸🇦', name: 'العربية' },
-    { code: 'es', flag: '🇪🇦', name: 'Español' },
+    { code: 'es', flag: '🇪🇸', name: 'Español' },
     { code: 'hi', flag: '🇮🇳', name: 'हिन्दी' },
     { code: 'zh', flag: '🇨🇳', name: '中文' },
     { code: 'de', flag: '🇩🇪', name: 'Deutsch' }
@@ -81,7 +75,7 @@ export default function Home() {
               <span>✨</span> {getTranslation('nav.feed', lang)}
             </a>
             <a href="/globe" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
-              <span></span> {getTranslation('nav.globe', lang)}
+              <span>🌍</span> {getTranslation('nav.globe', lang)}
             </a>
             {user ? (
               <a href="/profile" className="text-white/80 hover:text-white transition-colors flex items-center gap-2">
@@ -113,36 +107,36 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Hero */}
-      <div className="max-w-6xl mx-auto px-6 py-12 text-center">
-        <h1 className="text-5xl md:text-7xl font-bold gradient-text mb-6">
-          {getTranslation('feed.latestDreams', lang)}
-        </h1>
-        <p className="text-white/60 text-lg mb-8 max-w-2xl mx-auto">
-          Dünyanın dört bir yanından rüyalar, Jungian analizler ve kolektif bilinçdışı.
-        </p>
-        <div className="flex flex-wrap gap-4 justify-center">
-          <a href="/globe" className="glass-card px-8 py-4 hover:bg-purple-500/20 transition-all">
-            🌍 {getTranslation('nav.globe', lang)} →
-          </a>
-          {user ? (
-            <a href="/add-dream" className="glass-card px-8 py-4 bg-purple-500/20 hover:bg-purple-500/40 transition-all">
-               {getTranslation('dream.addTitle', lang)}
-            </a>
-          ) : (
-            <a href="/auth" className="glass-card px-8 py-4 bg-purple-500/20 hover:bg-purple-500/40 transition-all">
-              🔮 {getTranslation('nav.auth', lang)}
-            </a>
-          )}
-        </div>
-      </div>
+      {/* Hero + MiniGlobe */}
+      <div className="max-w-6xl mx-auto px-6 py-12">
+        <div className="flex flex-col lg:flex-row items-center gap-12">
+          {/* Sol: Başlık */}
+          <div className="flex-1 text-center lg:text-left">
+            <h1 className="text-5xl md:text-7xl font-bold gradient-text mb-6">
+              {getTranslation('feed.latestDreams', lang)}
+            </h1>
+            <p className="text-white/60 text-lg mb-8">
+              Dünyanın dört bir yanından rüyalar, Jungian analizler ve kolektif bilinçdışı.
+            </p>
+            <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
+              <a href="/globe" className="glass-card px-8 py-4 hover:bg-purple-500/20 transition-all">
+                🌍 {getTranslation('nav.globe', lang)} →
+              </a>
+              {user ? (
+                <a href="/add-dream" className="glass-card px-8 py-4 bg-purple-500/20 hover:bg-purple-500/40 transition-all">
+                   {getTranslation('dream.addTitle', lang)}
+                </a>
+              ) : (
+                <a href="/auth" className="glass-card px-8 py-4 bg-purple-500/20 hover:bg-purple-500/40 transition-all">
+                   {getTranslation('nav.auth', lang)}
+                </a>
+              )}
+            </div>
+          </div>
 
-      {/* Mini Globe */}
-      <div className="max-w-6xl mx-auto px-6 mb-12">
-        <div className="glass-card p-6">
-          <h2 className="text-2xl font-bold gradient-text mb-4 text-center">🌍 Kolektif Rüya Haritası</h2>
-          <div className="h-96 rounded-lg overflow-hidden">
-            <DreamGlobe />
+          {/* Sağ: Mini Globe */}
+          <div className="flex-shrink-0">
+            <MiniGlobe />
           </div>
         </div>
       </div>
@@ -153,14 +147,16 @@ export default function Home() {
           <div className="glass-card p-8 border-2 border-purple-500/30">
             <div className="flex items-center gap-3 mb-4">
               <span className="text-4xl">🔮</span>
-              <h2 className="text-3xl font-bold gradient-text">Günlük Kehanet</h2>
+              <h2 className="text-3xl font-bold gradient-text">
+                {getTranslation('prophecy.dailyTitle', lang) || 'Günlük Kehanet'}
+              </h2>
             </div>
             <div className="text-white/90 leading-relaxed mb-6">
               {prophecy[`content_${lang}`] || prophecy.content_en}
             </div>
             <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/30">
               <div className="text-purple-300 font-semibold mb-2 flex items-center gap-2">
-                <span>💫</span> Tavsiye
+                <span>💫</span> {getTranslation('prophecy.advice', lang) || 'Tavsiye'}
               </div>
               <p className="text-white/80 text-sm">
                 {prophecy[`advice_${lang}`] || prophecy.advice_en}
@@ -173,7 +169,9 @@ export default function Home() {
       {/* Feed */}
       <div className="max-w-4xl mx-auto px-6 pb-20">
         {loading ? (
-          <div className="text-center py-20 text-white/60 animate-pulse">Yükleniyor...</div>
+          <div className="text-center py-20 text-white/60 animate-pulse">
+            {getTranslation('auth.loading', lang)}
+          </div>
         ) : (
           <div className="space-y-8">
             {dreams.map((dream) => (
@@ -233,4 +231,4 @@ export default function Home() {
       </div>
     </div>
   )
-                }
+        }
