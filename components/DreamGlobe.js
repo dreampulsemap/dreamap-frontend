@@ -436,7 +436,18 @@ export default function DreamGlobe() {
             <div className="flex items-center gap-2 mb-3">
               <span className="text-2xl"></span>
               <h3 className="text-lg font-bold gradient-text">{getTranslation('predictions.title')}</h3>
-              <span className="text-xs text-white/60 ml-auto">{predictions.length} aktif</span>
+              <span className="text-xs text-white/60 ml-auto">
+  {predictions.length} {
+    i18n.language === 'tr' && 'aktif' :
+    i18n.language === 'en' && 'active' :
+    i18n.language === 'ru' && 'активных' :
+    i18n.language === 'ar' && 'نشط' :
+    i18n.language === 'es' && 'activos' :
+    i18n.language === 'hi' && 'सक्रिय' :
+    i18n.language === 'zh' && '活跃' :
+    i18n.language === 'de' && 'aktiv'
+  }
+</span>
             </div>
             
             <div className="space-y-2">
@@ -521,12 +532,25 @@ export default function DreamGlobe() {
       <div className="absolute bottom-6 right-6 glass-card p-4 max-w-xs pointer-events-auto z-20">
         <h3 className="text-white font-semibold mb-3 text-sm">{translate('globe.emotionColors')}</h3>
         <div className="grid grid-cols-2 gap-2 text-xs">
-          {[['Fear', '#ef4444'], ['Anxiety', '#f97316'], ['Joy', '#22c55e'], ['Peace', '#3b82f6'], ['Sadness', '#6366f1'], ['Awe', '#a855f7']].map(([emotion, color]) => (
-            <div key={emotion} className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ background: color }} />
-              <span className="text-white/80">{emotion}</span>
-            </div>
-          ))}
+          {[['Fear', '#ef4444'], ['Anxiety', '#f97316'], ['Joy', '#22c55e'], ['Peace', '#3b82f6'], ['Sadness', '#6366f1'], ['Awe', '#a855f7']].map(([emotion, color]) => {
+  const emotionTranslations = {
+    'Fear': { tr: 'Korku', en: 'Fear', ru: 'Страх', ar: 'خوف', es: 'Miedo', hi: 'भय', zh: '恐惧', de: 'Angst' },
+    'Anxiety': { tr: 'Kaygı', en: 'Anxiety', ru: 'Тревога', ar: 'قلق', es: 'Ansiedad', hi: 'चिंता', zh: '焦虑', de: 'Angst' },
+    'Joy': { tr: 'Neşe', en: 'Joy', ru: 'Радость', ar: 'فرح', es: 'Alegría', hi: 'आनंद', zh: '喜悦', de: 'Freude' },
+    'Peace': { tr: 'Huzur', en: 'Peace', ru: 'Покой', ar: 'سلام', es: 'Paz', hi: 'शांति', zh: '平静', de: 'Frieden' },
+    'Sadness': { tr: 'Üzüntü', en: 'Sadness', ru: 'Печаль', ar: 'حزن', es: 'Tristeza', hi: 'उदासी', zh: '悲伤', de: 'Trauer' },
+    'Awe': { tr: 'Hayranlık', en: 'Awe', ru: 'Трепет', ar: 'رهبة', es: 'Asombro', hi: 'विस्मय', zh: '敬畏', de: 'Ehrfurcht' }
+  }
+  
+  return (
+    <div key={emotion} className="flex items-center gap-2">
+      <div className="w-3 h-3 rounded-full" style={{ background: color }} />
+      <span className="text-white/80">
+        {emotionTranslations[emotion]?.[i18n.language] || emotion}
+      </span>
+    </div>
+  )
+})}
         </div>
       </div>
 
