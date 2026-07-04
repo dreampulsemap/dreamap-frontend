@@ -14,7 +14,6 @@ export default function ProfilePage() {
   const [weeklyProphecy, setWeeklyProphecy] = useState(null)
   const [loading, setLoading] = useState(true)
   
-  // Düzenleme state'leri
   const [editingDream, setEditingDream] = useState(null)
   const [editContent, setEditContent] = useState('')
   const [editLocation, setEditLocation] = useState('')
@@ -69,7 +68,6 @@ export default function ProfilePage() {
     router.push('/')
   }
 
-  // Düzenleme modal aç
   function openEditModal(dream) {
     setEditingDream(dream)
     setEditContent(dream.content || '')
@@ -79,9 +77,11 @@ export default function ProfilePage() {
     setEditInFeed(dream.in_feed !== false)
   }
 
-  // Düzenlemeyi kaydet
   async function handleSaveEdit() {
-    if (!editingDream || !user) return
+    if (!editingDream || !user) {
+      alert('Hata: Rüya veya kullanıcı bilgisi yok')
+      return
+    }
     
     setSaving(true)
     try {
@@ -100,9 +100,13 @@ export default function ProfilePage() {
       })
       
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
       
-      // Listeyi güncelle
+      if (!res.ok) {
+        alert('API Hatası: ' + (data.error || 'Bilinmeyen hata'))
+        throw new Error(data.error)
+      }
+      
+      alert('Başarılı! Rüya güncellendi.')
       await loadDreams(user.id)
       setEditingDream(null)
     } catch (err) {
@@ -112,10 +116,15 @@ export default function ProfilePage() {
     }
   }
 
-  // Feed'den kaldır (soft delete)
   async function handleRemoveFromFeed(dream) {
-    if (!user) return
-    if (!confirm(getTranslation('dream.confirmRemoveFeed', lang) || 'Bu rüyayı feed\'den kaldırmak istediğine emin misin? Rüya dream journal\'ında kalacak.')) return
+    if (!user) {
+      alert('Hata: Kullanıcı bilgisi yok')
+      return
+    }
+    
+    if (!confirm('Bu rüyayı feed\'den kaldırmak istediğine emin misin? Rüya dream journal\'ında kalacak.')) {
+      return
+    }
     
     try {
       const res = await fetch('/api/delete-dream', {
@@ -129,18 +138,28 @@ export default function ProfilePage() {
       })
       
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
       
+      if (!res.ok) {
+        alert('API Hatası: ' + (data.error || 'Bilinmeyen hata'))
+        throw new Error(data.error)
+      }
+      
+      alert('Başarılı! Rüya feed\'den kaldırıldı.')
       await loadDreams(user.id)
     } catch (err) {
       alert('Hata: ' + err.message)
     }
   }
 
-  // Tamamen sil
   async function handleDeleteDream(dream) {
-    if (!user) return
-    if (!confirm(getTranslation('dream.confirmDelete', lang) || 'Bu rüyayı tamamen silmek istediğine emin misin? Bu işlem geri alınamaz!')) return
+    if (!user) {
+      alert('Hata: Kullanıcı bilgisi yok')
+      return
+    }
+    
+    if (!confirm('Bu rüyayı tamamen silmek istediğine emin misin? Bu işlem geri alınamaz!')) {
+      return
+    }
     
     try {
       const res = await fetch('/api/delete-dream', {
@@ -154,8 +173,13 @@ export default function ProfilePage() {
       })
       
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
       
+      if (!res.ok) {
+        alert('API Hatası: ' + (data.error || 'Bilinmeyen hata'))
+        throw new Error(data.error)
+      }
+      
+      alert('Başarılı! Rüya silindi.')
       await loadDreams(user.id)
     } catch (err) {
       alert('Hata: ' + err.message)
@@ -256,7 +280,7 @@ export default function ProfilePage() {
 
           {dreams.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-6xl mb-4"></div>
+              <div className="text-6xl mb-4">🌙</div>
               <p className="text-white/60">{getTranslation('journal.noDreams', lang)}</p>
             </div>
           ) : (
