@@ -176,13 +176,19 @@ export default function DreamGlobe() {
         .order('created_at', { ascending: false })
         .limit(2000)
       
-      // Sadece feed'de olanları göster
+      // Sadece feed'de olanları VE AI verisi olanları göster
       query = query.eq('in_feed', true)
       
       const { data, error } = await query
       
       if (error) throw error
-      setAllDreams(data || [])
+      
+      // AI verisi olmayanları filtrele (görsel ve analiz için)
+      const filteredDreams = data.filter(d => 
+        d.ai_sentiment !== null || d.ai_archetypes !== null
+      )
+      
+      setAllDreams(filteredDreams || [])
     } catch (err) {
       console.error('Error:', err)
       setError('Failed to load dreams')
