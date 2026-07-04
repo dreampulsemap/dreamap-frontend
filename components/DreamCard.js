@@ -37,6 +37,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   }
 
   async function handleLike() {
+  async function handleLike() {
     if (!user) {
       alert(getTranslation('social.loginToLike', lang))
       return
@@ -50,8 +51,9 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
     })
 
     if (res.ok) {
+      const data = await res.json()
       setLiked(!liked)
-      setLikesCount(liked ? likesCount - 1 : likesCount + 1)
+      setLikesCount(data.count || (liked ? likesCount - 1 : likesCount + 1))
     }
   }
 
