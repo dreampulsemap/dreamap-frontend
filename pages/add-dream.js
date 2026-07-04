@@ -42,44 +42,65 @@ export default function AddDreamPage() {
     }
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+async function handleSubmit(e) {
+  e.preventDefault()
+  setLoading(true)
+  setError(null)
 
-    try {
-      const { data, error } = await supabase
-        .from('dreams')
-        .insert([{
-          user_id: user.id,
-          content: content,
-          location_name: location || 'Unknown',
-          in_feed: inFeed,
-          map_detail: mapDetail,
-          visibility: visibility,
-          dream_date: new Date().toISOString().split('T')[0],
-          original_language: lang,
-          created_at: new Date().toISOString()
-        }])
-        .select()
-
-      if (error) throw error
-
-      if (data && data[0]) {
-        await fetch('/api/analyze-dream', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dreamId: data[0].id, content: content })
-        })
+  try {
+    // Konumdan koordinat al (Nominatim API - OpenStreetMap)
+    let lat = null
+    let lng = null
+    
+    if (location) {
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1`)
+        const data = await response.json()
+        
+        if (data && data[0]) {
+          lat = parseFloat(data[0].lat)
+          lng = parseFloat(data[0].lon)
+        }
+      } catch (err) {
+        console.error('Koordinat alınamadı:', err)
+        // Koordinat alınamazsa devam et
       }
-
-      router.push('/profile')
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
     }
+
+    const { data, error } = await supabase
+      .from('dreams')
+      .insert([{
+        user_id: user.id,
+        content: content,
+        location_name: location || 'Unknown',
+        latitude: lat,
+        longitude: lng,
+        in_feed: inFeed,
+        map_detail: mapDetail,
+        visibility: visibility,
+        dream_date: new Date().toISOString().split('T')[0],
+        original_language: lang,
+        created_at: new Date().toISOString()
+      }])
+      .select()
+
+    if (error) throw error
+
+    if (data && data[0]) {
+      await fetch('/api/analyze-dream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dreamId: data[0].id, content: content })
+      })
+    }
+
+    router.push('/profile')
+  } catch (err) {
+    setError(err.message)
+  } finally {
+    setLoading(false)
   }
+}
 
   if (!user) {
     return (
