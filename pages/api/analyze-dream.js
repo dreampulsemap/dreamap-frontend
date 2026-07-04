@@ -16,7 +16,14 @@ export default async function handler(req, res) {
   const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!GROQ_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({ error: 'API anahtarları eksik' })
+    return res.status(500).json({ 
+      error: 'API anahtarları eksik',
+      debug: {
+        hasGroqKey: !!GROQ_KEY,
+        hasSupabaseUrl: !!SUPABASE_URL,
+        hasServiceKey: !!SUPABASE_SERVICE_KEY
+      }
+    })
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
@@ -28,17 +35,6 @@ export default async function handler(req, res) {
 
   try {
     // 8 dilde analiz için prompt
-    const languages = {
-      tr: 'Turkish',
-      en: 'English',
-      ru: 'Russian',
-      es: 'Spanish',
-      ar: 'Arabic',
-      hi: 'Hindi',
-      zh: 'Chinese',
-      de: 'German'
-    }
-
     const prompt = `Analyze this dream using Jungian psychology in ALL 8 languages. Return ONLY valid JSON:
 
 DREAM: "${content}"
@@ -114,23 +110,22 @@ Choose ONE dominant sentiment.`
       throw new Error('JSON parse failed')
     }
 
-    // Görsel URL oluştur (daha iyi prompt)
+    // Rüya içeriğinden anahtar kelimeler çıkar (görsel için)
+    const contentKeywords = content
+      .toLowerCase()
+      .replace(/[.,!?;:]/g, '')
+      .split(/\s+/)
+      .filter(word => word.length > 3 && !['the','and','was','for','are','with','this','that','have','from','they','been','had','has','what','when','where','who','which','would','their','there','been'].includes(word))
+      .slice(0, 5)
+      .join(', ')
+
+    // Arketip bazlı görsel prompt
     const archetype = analysis.archetypes?.[0] || 'Dream'
     const sentiment = analysis.sentiment || 'Mysterious'
-    // Rüya içeriğinden anahtar kelimeler çıkar
-const contentKeywords = content
-  .toLowerCase()
-  .replace(/[.,!?;:]/g, '')
-  .split(/\s+/)
-  .filter(word => word.length > 3 && !['the','and','was','for','are','with','this','that','have','from','they','been','had','has','what','when','where','who','which','would','their','there','been'].includes(word))
-  .slice(0, 5)
-  .join(', ')
-
-// Daha spesifik görsel prompt
-const imagePrompt = `${archetype} archetype, ${sentiment} atmosphere, ${contentKeywords}, mystical, surreal, dark fantasy art, detailed, cinematic lighting, symbolic`
-
-const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1200&height=630&nologo=true&seed=${dreamId}`
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1200&height=630&nologo=true`
+    const imagePrompt = `${archetype} archetype, ${sentiment} atmosphere, ${contentKeywords}, mystical, surreal, dark fantasy art, detailed, cinematic lighting, symbolic`
+    
+    // Görsel URL (her rüya için farklı - seed ile)
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1200&height=630&nologo=true&seed=${dreamId}`
 
     console.log('Görsel URL:', imageUrl)
 
@@ -178,4 +173,4 @@ const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imag
     console.error('Analyze error:', error)
     return res.status(500).json({ error: 'Analiz hatası: ' + error.message })
   }
-}
+        }
