@@ -12,39 +12,59 @@ export default async function handler(req, res) {
   }
 
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    return res.status(500).json({ error: 'Service role key eksik' })
+  }
+
+  // Service role key ile RLS bypass et
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  })
 
   try {
+    // Kullanıcının kendi rüyası mı kontrol et
+    const { data: dream, error: fetchError } = await supabase
+      .from('dreams')
+      .select('user_id')
+      .eq('id', dreamId)
+      .single()
+
+    if (fetchError || !dream) {
+      return res.status(404).json({ error: 'Rüya bulunamadı' })
+    }
+
+    if (dream.user_id !== userId) {
+      return res.status(403).json({ error: 'Bu rüyayı silme yetkiniz yok' })
+    }
+
     if (softDelete) {
       // Soft delete: Feed'den kaldır
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('dreams')
         .update({ in_feed: false })
         .eq('id', dreamId)
-        .eq('user_id', userId)
-        .select()
 
       if (error) {
         return res.status(500).json({ error: error.message })
       }
-
-      return res.status(200).json({ success: true, data })
     } else {
       // Hard delete: Tamamen sil
       const { error } = await supabase
         .from('dreams')
         .delete()
         .eq('id', dreamId)
-        .eq('user_id', userId)
 
       if (error) {
         return res.status(500).json({ error: error.message })
       }
-
-      return res.status(200).json({ success: true })
     }
+
+    return res.status(200).json({ success: true })
   } catch (error) {
     return res.status(500).json({ error: error.message })
   }
