@@ -12,16 +12,17 @@ export default function Home() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [langOpen, setLangOpen] = useState(false)
+  const [translatingDreams, setTranslatingDreams] = useState({})
 
   const languages = [
     { code: 'en', flag: '🇬🇧', name: 'English' },
     { code: 'tr', flag: '🇹🇷', name: 'Türkçe' },
     { code: 'ru', flag: '🇷🇺', name: 'Русский' },
     { code: 'ar', flag: '🇸🇦', name: 'العربية' },
-    { code: 'es', flag: '🇪🇸', name: 'Español' },
+    { code: 'es', flag: '🇪', name: 'Español' },
     { code: 'hi', flag: '🇮🇳', name: 'हिन्दी' },
-    { code: 'zh', flag: '🇨🇳', name: '中文' },
-    { code: 'de', flag: '🇩🇪', name: 'Deutsch' }
+    { code: 'zh', flag: '🇨', name: '中文' },
+    { code: 'de', flag: '🇩', name: 'Deutsch' }
   ]
   const currentLang = languages.find(l => l.code === lang) || languages[0]
 
@@ -29,13 +30,71 @@ export default function Home() {
   const getDreamMotiv = (dream) => dream[`ai_motiv_${lang}`] || dream.ai_motiv || dream.ai_motiv_en || ''
   const getDreamImage = (dream) => dream.ai_image_url || null
 
+  const getTranslatedContent = (dream) => {
+    const trans = translatingDreams[dream.id]
+    return trans?.translated ? trans.translatedContent : dream.content
+  }
+
+  const getTranslatedAnalysis = (dream) => {
+    const trans = translatingDreams[dream.id]
+    return trans?.translated ? trans.translatedAnalysis : getDreamAnalysis(dream)
+  }
+
+  async function handleTranslateDream(dream) {
+    const dreamId = dream.id
+    
+    if (translatingDreams[dreamId]?.translated) {
+      setTranslatingDreams(prev => ({
+        ...prev,
+        [dreamId]: { ...prev[dreamId], translated: false }
+      }))
+      return
+    }
+
+    setTranslatingDreams(prev => ({
+      ...prev,
+      [dreamId]: { ...prev[dreamId], loading: true }
+    }))
+
+    try {
+      const res = await fetch('/api/translator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dreamText: dream.content,
+          analysisText: getDreamAnalysis(dream),
+          targetLang: lang
+        })
+      })
+      
+      const data = await res.json()
+      
+      if (data.translated) {
+        setTranslatingDreams(prev => ({
+          ...prev,
+          [dreamId]: { 
+            translated: true,
+            translatedContent: data.translated,
+            translatedAnalysis: data.analysisTranslated 
+          }
+        }))
+      }
+    } catch (err) {
+      console.error('Translation error:', err)
+    } finally {
+      setTranslatingDreams(prev => ({
+        ...prev,
+        [dreamId]: { ...prev[dreamId], loading: false }
+      }))
+    }
+  }
+
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
       const currentUser = await auth.getUser()
       setUser(currentUser)
 
-      // Feed rüyalarını getir
       const { data: dreamsData } = await supabase
         .from('dreams')
         .select('*')
@@ -46,7 +105,6 @@ export default function Home() {
       
       setDreams(dreamsData || [])
 
-      // Günlük kehaneti getir
       const today = new Date().toISOString().split('T')[0]
       const { data: prophecyData } = await supabase
         .from('daily_prophecy')
@@ -62,7 +120,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header */}
       <header className="sticky top-0 z-50 glass-card border-b border-white/10" style={{ borderRadius: 0 }}>
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -107,10 +164,8 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Hero + MiniGlobe */}
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="flex flex-col lg:flex-row items-center gap-12">
-          {/* Sol: Başlık */}
           <div className="flex-1 text-center lg:text-left">
             <h1 className="text-5xl md:text-7xl font-bold gradient-text mb-6">
               {getTranslation('feed.latestDreams', lang)}
@@ -134,14 +189,12 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Sağ: Mini Globe */}
           <div className="flex-shrink-0">
             <MiniGlobe />
           </div>
         </div>
       </div>
 
-      {/* Kehanet Kartı */}
       {prophecy && (
         <div className="max-w-4xl mx-auto px-6 mb-12">
           <div className="glass-card p-8 border-2 border-purple-500/30">
@@ -166,7 +219,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Feed */}
       <div className="max-w-4xl mx-auto px-6 pb-20">
         {loading ? (
           <div className="text-center py-20 text-white/60 animate-pulse">
@@ -199,16 +251,35 @@ export default function Home() {
                   )}
 
                   <p className="text-white/90 text-lg mb-6 leading-relaxed whitespace-pre-wrap">
-                    {dream.content}
+                    {getTranslatedContent(dream)}
                   </p>
 
-                  {getDreamAnalysis(dream) && (
+                  {!dream.original_language || dream.original_language !== lang ? (
+                    <button
+                      onClick={() => handleTranslateDream(dream)}
+                      disabled={translatingDreams[dream.id]?.loading}
+                      className="w-full glass-card px-4 py-2 mb-4 text-sm hover:bg-purple-500/20 transition-all disabled:opacity-50"
+                    >
+                      {translatingDreams[dream.id]?.loading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                          Çevriliyor...
+                        </span>
+                      ) : translatingDreams[dream.id]?.translated ? (
+                        '🔄 Orijinali Göster'
+                      ) : (
+                        `🌐 ${lang.toUpperCase()} Diline Çevir`
+                      )}
+                    </button>
+                  ) : null}
+
+                  {getTranslatedAnalysis(dream) && (
                     <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/30 mb-4">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-xl">🔮</span>
                         <span className="font-semibold text-purple-300">{getTranslation('feed.jungianAnalysis', lang)}</span>
                       </div>
-                      <p className="text-white/80 text-sm leading-relaxed mb-2">{getDreamAnalysis(dream)}</p>
+                      <p className="text-white/80 text-sm leading-relaxed mb-2">{getTranslatedAnalysis(dream)}</p>
                       {getDreamMotiv(dream) && (
                         <div className="pt-2 border-t border-purple-500/30 mt-2">
                           <p className="text-white/60 text-xs italic">💫 {getDreamMotiv(dream)}</p>
@@ -231,4 +302,4 @@ export default function Home() {
       </div>
     </div>
   )
-        }
+              }
