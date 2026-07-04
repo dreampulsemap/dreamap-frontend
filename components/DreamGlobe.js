@@ -295,39 +295,40 @@ export default function DreamGlobe() {
   }, [dreams, t])
 
   // ÇEVİRİ FONKSİYONU
-  async function handleTranslate() {
-    if (!selectedDream) return
-    
-    if (translatedContent) {
-      setTranslatedContent(null)
-      setTranslatedAnalysis(null)
-      return
-    }
-    
-    setIsTranslating(true)
-    try {
-      const res = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dreamText: selectedDream.content,
-          analysisText: selectedDream.ai_summary,
-          targetLang: i18n.language
-        })
-      })
-      const data = await res.json()
-      if (data.translated) {
-        setTranslatedContent(data.translated)
-        if (data.analysisTranslated) {
-          setTranslatedAnalysis(data.analysisTranslated)
-        }
-      }
-    } catch (e) {
-      console.error('Çeviri hatası:', e)
-    } finally {
-      setIsTranslating(false)
-    }
+async function handleTranslate() {
+  if (!selectedDream) return
+  
+  if (translatedContent) {
+    setTranslatedContent(null)
+    setTranslatedAnalysis(null)
+    return
   }
+  
+  setIsTranslating(true)
+  try {
+    const res = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dreamText: selectedDream.content,
+        analysisText: selectedDream.ai_summary,
+        targetLang: i18n.language,
+        dreamId: selectedDream.id  // ✅ Bunu ekle
+      })
+    })
+    const data = await res.json()
+    if (data.translated) {
+      setTranslatedContent(data.translated)
+      if (data.analysisTranslated) {
+        setTranslatedAnalysis(data.analysisTranslated)
+      }
+    }
+  } catch (e) {
+    console.error('Çeviri hatası:', e)
+  } finally {
+    setIsTranslating(false)
+  }
+}
 
   if (loading) {
     return (
