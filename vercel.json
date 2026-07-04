@@ -1,8 +1,12 @@
 {
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "devCommand": "next dev",
+  "installCommand": "npm install",
   "crons": [
     {
-      "path": "/api/prophet",
-      "schedule": "0 8 * * *"
+      "path": "/api/cron/generate-prophecy",
+      "schedule": "0 6 * * *"
     }
   ]
 }
