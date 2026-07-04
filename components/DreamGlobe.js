@@ -251,29 +251,34 @@ export default function DreamGlobe() {
   }, [allDreams, timeFilter, customStart, customEnd])
 
   function buildPointsData(dreamsList) {
-    return dreamsList.map(dream => {
-      let lat = dream.latitude
-      let lng = dream.longitude
+  return dreamsList.map(dream => {
+    let lat = dream.latitude
+    let lng = dream.longitude
 
-      if (!lat || !lng) {
-        const coords = getCoords(dream.location_name)
-        if (coords) { lat = coords.lat; lng = coords.lng }
-        else return null
-      }
+    if (!lat || !lng) {
+      const coords = getCoords(dream.location_name)
+      if (coords) { lat = coords.lat; lng = coords.lng }
+      else return null
+    }
 
-      const latJitter = getStableRandom(dream.id, 0.3)
-      const lngJitter = getStableRandom(dream.id, 0.3)
-      const altJitter = Math.abs(getStableRandom(dream.id, 0.02))
+    const latJitter = getStableRandom(dream.id, 0.3)
+    const lngJitter = getStableRandom(dream.id, 0.3)
+    const altJitter = Math.abs(getStableRandom(dream.id, 0.02))
 
-      return {
-        lat: lat + latJitter,
-        lng: lng + lngJitter,
-        altitude: 0.01 + altJitter,
-        radius: 0.6,
-        color: getColorBySentiment(dream.ai_sentiment),
-        dream: dream
-      }
-    }).filter(p => p !== null)
+    // Silinmiş rüyalar için farklı renk (gri)
+    const isDeleted = !dream.content && dream.ai_archetypes?.length > 0
+    const pointColor = isDeleted ? '#6b7280' : getColorBySentiment(dream.ai_sentiment)
+
+    return {
+      lat: lat + latJitter,
+      lng: lng + lngJitter,
+      altitude: 0.01 + altJitter,
+      radius: isDeleted ? 0.4 : 0.6,
+      color: pointColor,
+      dream: dream,
+      isDeleted: isDeleted
+    }
+  }).filter(p => p !== null)
   }
 
   useEffect(() => {
