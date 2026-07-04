@@ -256,36 +256,37 @@ export default function DreamGlobe() {
     setDreams(filtered)
   }, [allDreams, timeFilter, customStart, customEnd])
 
-  function buildPointsData(dreamsList) {
+function buildPointsData(dreamsList) {
   return dreamsList.map(dream => {
     let lat = dream.latitude
     let lng = dream.longitude
 
+    // Koordinat yoksa location_name'den al
     if (!lat || !lng) {
       const coords = getCoords(dream.location_name)
-      if (coords) { lat = coords.lat; lng = coords.lng }
-      else return null
+      if (coords) { 
+        lat = coords.lat
+        lng = coords.lng 
+      } else {
+        // Hala koordinat yoksa bu rüyayı gösterme
+        return null
+      }
     }
 
     const latJitter = getStableRandom(dream.id, 0.3)
     const lngJitter = getStableRandom(dream.id, 0.3)
     const altJitter = Math.abs(getStableRandom(dream.id, 0.02))
 
-    // Silinmiş rüyalar için farklı renk (gri)
-    const isDeleted = !dream.content && dream.ai_archetypes?.length > 0
-    const pointColor = isDeleted ? '#6b7280' : getColorBySentiment(dream.ai_sentiment)
-
     return {
       lat: lat + latJitter,
       lng: lng + lngJitter,
       altitude: 0.01 + altJitter,
-      radius: isDeleted ? 0.4 : 0.6,
-      color: pointColor,
-      dream: dream,
-      isDeleted: isDeleted
+      radius: 0.6,
+      color: getColorBySentiment(dream.ai_sentiment),
+      dream: dream
     }
   }).filter(p => p !== null)
-  }
+}
 
   useEffect(() => {
     if (typeof window === 'undefined') return
