@@ -14,6 +14,10 @@ export default async function handler(req, res) {
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
   const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    return res.status(500).json({ error: 'Supabase yapılandırması eksik' })
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
   try {
@@ -24,17 +28,18 @@ export default async function handler(req, res) {
       .eq('id', dreamId)
       .single()
 
-    if (fetchError || !dream) {
-      return res.status(404).json({ error: 'Rüya bulunamadı' })
+    if (fetchError) {
+      console.error('Fetch error:', fetchError)
+      return res.status(404).json({ error: 'Rüya bulunamadı: ' + fetchError.message })
     }
 
-    if (dream.user_id !== userId) {
+    if (!dream || dream.user_id !== userId) {
       return res.status(403).json({ error: 'Bu rüyayı silme yetkiniz yok' })
     }
 
     if (softDelete) {
       // Soft delete: Sadece feed'den kaldır, içerik silinsin ama arketipler kalsın
-      const { error: updateError } = await supabase
+      const { data, error: updateError } = await supabase
         .from('dreams')
         .update({
           content: null,
@@ -42,8 +47,14 @@ export default async function handler(req, res) {
           map_detail: 'summary'
         })
         .eq('id', dreamId)
+        .select()
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('Soft delete error:', updateError)
+        return res.status(500).json({ error: 'Soft delete hatası: ' + updateError.message })
+      }
+
+      return res.status(200).json({ success: true, data })
     } else {
       // Hard delete: Tamamen sil
       const { error: deleteError } = await supabase
@@ -51,12 +62,15 @@ export default async function handler(req, res) {
         .delete()
         .eq('id', dreamId)
 
-      if (deleteError) throw deleteError
-    }
+      if (deleteError) {
+        console.error('Hard delete error:', deleteError)
+        return res.status(500).json({ error: 'Hard delete hatası: ' + deleteError.message })
+      }
 
-    return res.status(200).json({ success: true })
+      return res.status(200).json({ success: true })
+    }
   } catch (error) {
-    console.error('Delete error:', error)
-    return res.status(500).json({ error: 'Silme hatası: ' + error.message })
+    console.error('Delete dream error:', error)
+    return res.status(500).json({ error: 'Sunucu hatası: ' + error.message })
   }
 }
