@@ -21,10 +21,9 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'POST') {
       // Beğeni ekle
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('likes')
         .insert([{ user_id: userId, dream_id: dreamId }])
-        .select()
 
       if (error) {
         if (error.code === '23505') {
@@ -33,7 +32,18 @@ export default async function handler(req, res) {
         throw error
       }
 
-      return res.status(200).json({ success: true, liked: true })
+      // Sayacı manuel güncelle
+      const { data: countData } = await supabase
+        .from('likes')
+        .select('id', { count: 'exact' })
+        .eq('dream_id', dreamId)
+
+      await supabase
+        .from('dreams')
+        .update({ likes_count: countData.length })
+        .eq('id', dreamId)
+
+      return res.status(200).json({ success: true, liked: true, count: countData.length })
     } else {
       // Beğeniyi kaldır
       const { error } = await supabase
@@ -44,7 +54,18 @@ export default async function handler(req, res) {
 
       if (error) throw error
 
-      return res.status(200).json({ success: true, liked: false })
+      // Sayacı manuel güncelle
+      const { data: countData } = await supabase
+        .from('likes')
+        .select('id', { count: 'exact' })
+        .eq('dream_id', dreamId)
+
+      await supabase
+        .from('dreams')
+        .update({ likes_count: countData.length })
+        .eq('id', dreamId)
+
+      return res.status(200).json({ success: true, liked: false, count: countData.length })
     }
   } catch (error) {
     console.error('Like error:', error)
