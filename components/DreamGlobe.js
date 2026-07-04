@@ -438,14 +438,14 @@ export default function DreamGlobe() {
               <h3 className="text-lg font-bold gradient-text">{getTranslation('predictions.title')}</h3>
               <span className="text-xs text-white/60 ml-auto">
   {predictions.length} {
-    i18n.language === 'tr' && 'aktif' :
-    i18n.language === 'en' && 'active' :
-    i18n.language === 'ru' && 'активных' :
-    i18n.language === 'ar' && 'نشط' :
-    i18n.language === 'es' && 'activos' :
-    i18n.language === 'hi' && 'सक्रिय' :
-    i18n.language === 'zh' && '活跃' :
-    i18n.language === 'de' && 'aktiv'
+    i18n.language === 'tr' ? 'aktif' :
+    i18n.language === 'en' ? 'active' :
+    i18n.language === 'ru' ? 'активных' :
+    i18n.language === 'ar' ? 'نشط' :
+    i18n.language === 'es' ? 'activos' :
+    i18n.language === 'hi' ? 'सक्रिय' :
+    i18n.language === 'zh' ? '活跃' :
+    i18n.language === 'de' ? 'aktiv' : 'active'
   }
 </span>
             </div>
