@@ -78,15 +78,42 @@ const locationCoords = {
 }
 
 const languages = [
-  { code: 'en', flag: '🇧', name: 'English' },
-  { code: 'tr', flag: '🇷', name: 'Türkçe' },
-  { code: 'ru', flag: '🇷🇺', name: 'Русский' },
+  { code: 'en', flag: '🇬🇧', name: 'English' },
+  { code: 'tr', flag: '🇹🇷', name: 'Türkçe' },
+  { code: 'ru', flag: '🇺', name: 'Русский' },
   { code: 'ar', flag: '🇸🇦', name: 'العربية' },
   { code: 'es', flag: '🇪🇸', name: 'Español' },
   { code: 'hi', flag: '🇮🇳', name: 'हिन्दी' },
   { code: 'zh', flag: '🇨', name: '中文' },
   { code: 'de', flag: '🇩', name: 'Deutsch' }
 ]
+
+// Çeviri yardımcısı
+function t(key) {
+  const translations = {
+    'predictions.title': { en: 'Collective Predictions', tr: 'Kolektif Öngörüler', ru: 'Коллективные предсказания', es: 'Predicciones Colectivas', ar: 'التنبؤات الجماعية', hi: 'सामूहिक भविष्यवाणियां', zh: '集体预测', de: 'Kollektive Vorhersagen' },
+    'stats.dreams': { en: 'Dreams', tr: 'Rüya', ru: 'Сны', es: 'Sueños', ar: 'أحلام', hi: 'सपने', zh: '梦', de: 'Träume' },
+    'stats.regions': { en: 'Regions', tr: 'Bölge', ru: 'Регионы', es: 'Regiones', ar: 'مناطق', hi: 'क्षेत्र', zh: '地区', de: 'Regionen' },
+    'stats.themes': { en: 'Themes', tr: 'Tema', ru: 'Темы', es: 'Temas', ar: 'مواضيع', hi: 'विषय', zh: '主题', de: 'Themen' },
+    'labels.regions': { en: 'Regions', tr: 'Bölgeler', ru: 'Регионы', es: 'Regiones', ar: 'المناطق', hi: 'क्षेत्र', zh: '地区', de: 'Regionen' },
+    'labels.themes': { en: 'Themes', tr: 'Temalar', ru: 'Темы', es: 'Temas', ar: 'المواضيع', hi: 'विषय', zh: '主题', de: 'Themen' },
+    'labels.confidence': { en: 'Confidence', tr: 'Güven', ru: 'Уверенность', es: 'Confianza', ar: 'الثقة', hi: 'विश्वास', zh: '信心', de: 'Vertrauen' },
+    'confidence.critical': { en: 'Critical', tr: 'Kritik', ru: 'Критический', es: 'Crítico', ar: 'حرج', hi: 'गंभीर', zh: '关键', de: 'Kritisch' },
+    'confidence.high': { en: 'High', tr: 'Yüksek', ru: 'Высокий', es: 'Alto', ar: 'عالي', hi: 'उच्च', zh: '高', de: 'Hoch' },
+    'confidence.medium': { en: 'Medium', tr: 'Orta', ru: 'Средний', es: 'Medio', ar: 'متوسط', hi: 'मध्यम', zh: '中', de: 'Mittel' },
+    'confidence.low': { en: 'Low', tr: 'Düşük', ru: 'Низкий', es: 'Bajo', ar: 'منخفض', hi: 'कम', zh: '低', de: 'Niedrig' },
+    'dream.dreamText': { en: 'Dream Text', tr: 'Rüya Metni', ru: 'Текст сна', es: 'Texto del sueño', ar: 'نص الحلم', hi: 'सपना पाठ', zh: '梦境文本', de: 'Traumtext' },
+    'dream.showOriginal': { en: 'Show Original', tr: 'Orijinali Göster', ru: 'Показать оригинал', es: 'Mostrar original', ar: 'إظهار الأصلي', hi: 'मूल दिखाएं', zh: '显示原文', de: 'Original anzeigen' },
+    'dream.translate': { en: 'Translate to {lang}', tr: '{lang} Diline Çevir', ru: 'Перевести на {lang}', es: 'Traducir al {lang}', ar: 'ترجمة إلى {lang}', hi: '{lang} में अनुवाद', zh: '翻译成{lang}', de: 'Ins {lang} übersetzen' },
+    'dream.translating': { en: 'Translating dream and analysis...', tr: 'Rüya ve analiz çevriliyor...', ru: 'Перевод сна и анализа...', es: 'Traduciendo sueño y análisis...', ar: 'ترجمة الحلم والتحليل...', hi: 'सपना और विश्लेषण का अनुवाद...', zh: '翻译梦境和分析...', de: 'Traum und Analyse werden übersetzt...' }
+  }
+  return translations[key] || {}
+}
+
+function getLangName(code) {
+  const names = { en: 'English', tr: 'Türkçe', ru: 'Русский', ar: 'العربية', es: 'Español', hi: 'हिन्दी', zh: '中文', de: 'Deutsch' }
+  return names[code] || code
+}
 
 function getCoords(location) {
   if (!location || location === 'Unknown') return null
@@ -114,7 +141,7 @@ function getStableRandom(id, range = 0.4) {
 }
 
 export default function DreamGlobe() {
-  const { t, i18n } = useTranslation()
+  const { t: translate, i18n } = useTranslation()
   const globeContainer = useRef(null)
   const globeInstance = useRef(null)
   const [dreams, setDreams] = useState([])
@@ -130,18 +157,15 @@ export default function DreamGlobe() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [globeReady, setGlobeReady] = useState(false)
   
-  // ÇEVİRİ STATE'LERİ
   const [translatedContent, setTranslatedContent] = useState(null)
   const [translatedAnalysis, setTranslatedAnalysis] = useState(null)
   const [isTranslating, setIsTranslating] = useState(false)
 
-  // KOLEKTİF ÖNGÖRÜLER
   const [predictions, setPredictions] = useState([])
   const [selectedPrediction, setSelectedPrediction] = useState(null)
 
   const currentLang = languages.find(l => l.code === i18n.language) || languages[0]
 
-  // Rüya verilerini yükle
   useEffect(() => {
     async function fetchAllDreams() {
       setLoading(true)
@@ -154,7 +178,7 @@ export default function DreamGlobe() {
         if (error) throw error
         setAllDreams(data || [])
       } catch (err) {
-        console.error(' Error:', err)
+        console.error('Error:', err)
         setError('Failed to load dreams')
       } finally {
         setLoading(false)
@@ -163,7 +187,6 @@ export default function DreamGlobe() {
     fetchAllDreams()
   }, [])
 
-  // Öngörüler yükle
   useEffect(() => {
     async function fetchPredictions() {
       try {
@@ -251,7 +274,7 @@ export default function DreamGlobe() {
     if (typeof window === 'undefined') return
     if (!globeContainer.current) return
     if (typeof window.Globe === 'undefined') {
-      setError(t('globe.libraryError'))
+      setError(translate('globe.libraryError'))
       return
     }
 
@@ -302,7 +325,7 @@ export default function DreamGlobe() {
         globeInstance.current = globe
         setGlobeReady(true)
       } catch (err) {
-        console.error(' Error:', err)
+        console.error('Error:', err)
         setError('Failed to load 3D globe: ' + err.message)
       }
     }
@@ -315,9 +338,8 @@ export default function DreamGlobe() {
         globeInstance.current = null
       }
     }
-  }, [dreams, t])
+  }, [dreams, translate])
 
-  // ÇEVİRİ FONKSİYONU
   async function handleTranslate() {
     if (!selectedDream) return
     
@@ -346,7 +368,7 @@ export default function DreamGlobe() {
         }
       }
     } catch (e) {
-      console.error('Çeviri hatası:', e)
+      console.error('Translation error:', e)
     } finally {
       setIsTranslating(false)
     }
@@ -355,12 +377,18 @@ export default function DreamGlobe() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-white text-xl animate-pulse"> {t('globe.loading')}</div>
+        <div className="text-white text-xl animate-pulse">{translate('globe.loading')}</div>
       </div>
     )
   }
 
   const isSameLanguage = selectedDream?.original_language === i18n.language
+
+  // Çeviri fonksiyonu
+  const getTranslation = (key) => {
+    const trans = t(key)
+    return trans[i18n.language] || trans['en'] || key
+  }
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -371,11 +399,11 @@ export default function DreamGlobe() {
         <div className="max-w-7xl mx-auto flex items-center justify-between pointer-events-auto">
           <div className="flex items-center gap-3">
             <a href="/" className="flex items-center gap-2 glass-card px-4 py-2 hover:bg-white/10 transition-all">
-              <span className="text-2xl"></span>
+              <span className="text-2xl">🌙</span>
               <span className="text-white font-bold">Dreamap</span>
             </a>
             <a href="/" className="glass-card px-4 py-2 text-white/80 hover:text-white transition-all">
-              ← {t('globe.backToFeed')}
+              ← {translate('globe.backToFeed')}
             </a>
           </div>
 
@@ -406,8 +434,8 @@ export default function DreamGlobe() {
         <div className="absolute top-24 left-6 z-20 pointer-events-auto">
           <div className="glass-card p-4 max-w-md">
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-2xl">🔮</span>
-              <h3 className="text-lg font-bold gradient-text">Kolektif Öngörüler</h3>
+              <span className="text-2xl"></span>
+              <h3 className="text-lg font-bold gradient-text">{getTranslation('predictions.title')}</h3>
               <span className="text-xs text-white/60 ml-auto">{predictions.length} aktif</span>
             </div>
             
@@ -425,9 +453,11 @@ export default function DreamGlobe() {
                       pred.confidence_level === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
                     }`} />
                     <div className="flex-1">
-                      <div className="text-sm font-semibold text-white">{pred.title}</div>
+                      <div className="text-sm font-semibold text-white">
+                        {pred[`title_${i18n.language}`] || pred.title_en || pred.title}
+                      </div>
                       <div className="text-xs text-white/60 mt-1">
-                        {pred.dream_count} rüya • {pred.regions?.slice(0, 3).join(', ')}
+                        {pred.dream_count} {getTranslation('stats.dreams').toLowerCase()} • {pred.regions?.slice(0, 3).join(', ')}
                       </div>
                     </div>
                   </div>
@@ -441,17 +471,17 @@ export default function DreamGlobe() {
       {/* Sol Alt Kontroller */}
       <div className="absolute bottom-6 left-6 flex flex-col gap-3 z-20 pointer-events-auto">
         <div className="glass-card p-4 max-w-xs">
-          <div className="text-white/60 text-xs">{t('globe.totalDreams')}</div>
+          <div className="text-white/60 text-xs">{translate('globe.totalDreams')}</div>
           <div className="text-2xl font-bold gradient-text">{allDreams.length}</div>
           {timeFilter !== 'all' && (
-            <div className="text-xs text-purple-300 mt-1"> {dreams.length} gösteriliyor</div>
+            <div className="text-xs text-purple-300 mt-1">🔮 {dreams.length} gösteriliyor</div>
           )}
         </div>
 
         <div className="relative">
           <button onClick={() => setFilterOpen(!filterOpen)} className="glass-card px-4 py-3 flex items-center gap-2 hover:bg-white/10 transition-all w-full">
             <span className="text-lg">⏰</span>
-            <span className="text-sm text-white/80">{t(`filter.${timeFilter}`)}</span>
+            <span className="text-sm text-white/80">{translate(`filter.${timeFilter}`)}</span>
             <span className="text-white/60 text-xs ml-auto">▼</span>
           </button>
           {filterOpen && (
@@ -459,7 +489,7 @@ export default function DreamGlobe() {
               {['1h', '24h', '1w', '1m', '1y', 'all', 'custom'].map((key) => (
                 <button key={key} onClick={() => { setTimeFilter(key); setFilterOpen(false); setShowCustom(key === 'custom'); if (key !== 'custom') setShowCustom(false) }}
                   className={`w-full px-4 py-3 flex items-center gap-2 rounded-lg transition-all text-left ${timeFilter === key ? 'bg-purple-500/30 text-white' : 'text-white/70 hover:bg-white/10'}`}>
-                  <span className="text-sm">{t(`filter.${key}`)}</span>
+                  <span className="text-sm">{translate(`filter.${key}`)}</span>
                   {timeFilter === key && <span className="ml-auto text-purple-400">✓</span>}
                 </button>
               ))}
@@ -470,11 +500,11 @@ export default function DreamGlobe() {
         {showCustom && (
           <div className="glass-card p-4 max-w-xs space-y-2">
             <div>
-              <label className="text-xs text-white/60 block mb-1">{t('filter.startDate')}</label>
+              <label className="text-xs text-white/60 block mb-1">{translate('filter.startDate')}</label>
               <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="w-full bg-black/40 border border-white/20 rounded px-3 py-2 text-white text-sm" />
             </div>
             <div>
-              <label className="text-xs text-white/60 block mb-1">{t('filter.endDate')}</label>
+              <label className="text-xs text-white/60 block mb-1">{translate('filter.endDate')}</label>
               <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="w-full bg-black/40 border border-white/20 rounded px-3 py-2 text-white text-sm" />
             </div>
           </div>
@@ -482,14 +512,14 @@ export default function DreamGlobe() {
 
         {dreams.length === 0 && globeReady && (
           <div className="glass-card p-4 max-w-xs border border-yellow-500/30">
-            <div className="text-yellow-300 text-sm"> {t('globe.noDreams')}</div>
+            <div className="text-yellow-300 text-sm">⚠️ {translate('globe.noDreams')}</div>
           </div>
         )}
       </div>
 
       {/* Sağ Alt - Duygu Renkleri */}
       <div className="absolute bottom-6 right-6 glass-card p-4 max-w-xs pointer-events-auto z-20">
-        <h3 className="text-white font-semibold mb-3 text-sm">{t('globe.emotionColors')}</h3>
+        <h3 className="text-white font-semibold mb-3 text-sm">{translate('globe.emotionColors')}</h3>
         <div className="grid grid-cols-2 gap-2 text-xs">
           {[['Fear', '#ef4444'], ['Anxiety', '#f97316'], ['Joy', '#22c55e'], ['Peace', '#3b82f6'], ['Sadness', '#6366f1'], ['Awe', '#a855f7']].map(([emotion, color]) => (
             <div key={emotion} className="flex items-center gap-2">
@@ -522,7 +552,7 @@ export default function DreamGlobe() {
             
             <div className="mb-6">
               <div className="text-sm text-purple-300 font-semibold mb-2">
-                {isSameLanguage ? 'Rüya Metni' : `Rüya Metni (${selectedDream.original_language?.toUpperCase()})`}
+                {isSameLanguage ? getTranslation('dream.dreamText') : `${getTranslation('dream.dreamText')} (${selectedDream.original_language?.toUpperCase()})`}
               </div>
               <p className={`text-white/90 leading-relaxed ${translatedContent ? 'opacity-50' : ''}`}>
                 {selectedDream.content}
@@ -531,7 +561,7 @@ export default function DreamGlobe() {
               {translatedContent && (
                 <div className="mt-3 p-4 rounded-lg border border-purple-500/30 bg-purple-500/10">
                   <div className="text-purple-400 text-xs font-semibold mb-2">
-                     Çeviri ({i18n.language.toUpperCase()})
+                    🌐 Çeviri ({i18n.language.toUpperCase()})
                   </div>
                   <p className="text-white leading-relaxed">
                     {translatedContent}
@@ -549,18 +579,18 @@ export default function DreamGlobe() {
                 {isTranslating ? (
                   <>
                     <div className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-sm text-white/80">Rüya ve analiz çevriliyor...</span>
+                    <span className="text-sm text-white/80">{getTranslation('dream.translating')}</span>
                   </>
                 ) : translatedContent ? (
                   <>
                     <span>🔄</span>
-                    <span className="text-sm text-white/80">Orijinali Göster</span>
+                    <span className="text-sm text-white/80">{getTranslation('dream.showOriginal')}</span>
                   </>
                 ) : (
                   <>
-                    <span>🌐</span>
+                    <span></span>
                     <span className="text-sm text-white/80">
-                      {i18n.language.toUpperCase()} Diline Çevir (Rüya + Jung Analizi)
+                      {getTranslation('dream.translate').replace('{lang}', i18n.language.toUpperCase())} (Rüya + Jung Analizi)
                     </span>
                   </>
                 )}
@@ -569,7 +599,7 @@ export default function DreamGlobe() {
 
             <div className="glass-card p-5 mb-6" style={{ background: 'rgba(139, 92, 246, 0.1)' }}>
               <div className="text-sm font-semibold text-purple-300 mb-3">
-                {t('feed.analysis')}
+                {translate('feed.analysis')}
               </div>
               <p className={`text-white/80 leading-relaxed ${translatedAnalysis ? 'opacity-50' : ''}`}>
                 {selectedDream.ai_summary}
@@ -608,7 +638,7 @@ export default function DreamGlobe() {
                 <span>{selectedDream.ai_sentiment}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span></span>
+                <span>🌐</span>
                 <span>{selectedDream.original_language?.toUpperCase()}</span>
               </div>
             </div>
@@ -634,7 +664,9 @@ export default function DreamGlobe() {
             <div className="flex items-center gap-3 mb-4">
               <span className="text-3xl">🔮</span>
               <div>
-                <h2 className="text-2xl font-bold gradient-text">{selectedPrediction.title}</h2>
+                <h2 className="text-2xl font-bold gradient-text">
+                  {selectedPrediction[`title_${i18n.language}`] || selectedPrediction.title_en || selectedPrediction.title}
+                </h2>
                 <div className="flex items-center gap-2 mt-1">
                   <div className={`w-3 h-3 rounded-full ${
                     selectedPrediction.confidence_level === 'critical' ? 'bg-red-500 animate-pulse' :
@@ -642,9 +674,11 @@ export default function DreamGlobe() {
                     selectedPrediction.confidence_level === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
                   }`} />
                   <span className="text-sm text-white/60">
-                    Güven: {selectedPrediction.confidence_level === 'critical' ? 'Kritik' :
-                            selectedPrediction.confidence_level === 'high' ? 'Yüksek' :
-                            selectedPrediction.confidence_level === 'medium' ? 'Orta' : 'Düşük'}
+                    {getTranslation('labels.confidence')}: {
+                      selectedPrediction.confidence_level === 'critical' ? getTranslation('confidence.critical') :
+                      selectedPrediction.confidence_level === 'high' ? getTranslation('confidence.high') :
+                      selectedPrediction.confidence_level === 'medium' ? getTranslation('confidence.medium') : getTranslation('confidence.low')
+                    }
                   </span>
                 </div>
               </div>
@@ -659,21 +693,21 @@ export default function DreamGlobe() {
             <div className="grid grid-cols-3 gap-3 mb-6">
               <div className="glass-card p-3 text-center">
                 <div className="text-2xl font-bold gradient-text">{selectedPrediction.dream_count}</div>
-                <div className="text-xs text-white/60">Rüya</div>
+                <div className="text-xs text-white/60">{getTranslation('stats.dreams')}</div>
               </div>
               <div className="glass-card p-3 text-center">
                 <div className="text-2xl font-bold gradient-text">{selectedPrediction.regions?.length || 0}</div>
-                <div className="text-xs text-white/60">Bölge</div>
+                <div className="text-xs text-white/60">{getTranslation('stats.regions')}</div>
               </div>
               <div className="glass-card p-3 text-center">
                 <div className="text-2xl font-bold gradient-text">{selectedPrediction.themes?.length || 0}</div>
-                <div className="text-xs text-white/60">Tema</div>
+                <div className="text-xs text-white/60">{getTranslation('stats.themes')}</div>
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
-                <div className="text-sm font-semibold text-purple-300 mb-2">Bölgeler</div>
+                <div className="text-sm font-semibold text-purple-300 mb-2">{getTranslation('labels.regions')}</div>
                 <div className="flex flex-wrap gap-2">
                   {selectedPrediction.regions?.map((region, i) => (
                     <span key={i} className="glass-card px-3 py-1 text-xs text-white/80">{region}</span>
@@ -681,7 +715,7 @@ export default function DreamGlobe() {
                 </div>
               </div>
               <div>
-                <div className="text-sm font-semibold text-purple-300 mb-2">Temalar</div>
+                <div className="text-sm font-semibold text-purple-300 mb-2">{getTranslation('labels.themes')}</div>
                 <div className="flex flex-wrap gap-2">
                   {selectedPrediction.themes?.map((theme, i) => (
                     <span key={i} className="glass-card px-3 py-1 text-xs text-white/80">#{theme}</span>
@@ -696,9 +730,9 @@ export default function DreamGlobe() {
       {error && !globeReady && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 glass-card p-6 max-w-md z-50">
           <div className="text-red-400 text-xl mb-4">{error}</div>
-          <button onClick={() => window.location.reload()} className="glass-card px-6 py-3 text-white hover:bg-white/10"> {t('globe.retry')}</button>
+          <button onClick={() => window.location.reload()} className="glass-card px-6 py-3 text-white hover:bg-white/10"> {translate('globe.retry')}</button>
         </div>
       )}
     </div>
   )
-                   }
+                              }
