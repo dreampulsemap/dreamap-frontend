@@ -437,79 +437,128 @@ export default function DreamGlobe() {
         </div>
       </div>
 
-      {selectedDream && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 glass-card p-6 max-w-lg max-h-[80vh] overflow-y-auto z-50">
-          <button onClick={() => { setSelectedDream(null); setTranslatedContent(null); setTranslatedAnalysis(null) }} className="absolute top-4 right-4 text-white/60 hover:text-white text-2xl">×</button>
-          <h3 className="text-xl font-bold text-white mb-3"> {selectedDream.location_name}</h3>
+{selectedDream && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+          {/* Arka plan overlay */}
+          <div 
+            className="absolute inset-0 bg-black/60 pointer-events-auto"
+            onClick={() => { setSelectedDream(null); setTranslatedContent(null); setTranslatedAnalysis(null) }}
+          />
           
-          {/* Rüya Metni */}
-          <div className="mb-4">
-            <p className={`text-white/90 leading-relaxed ${translatedContent ? 'opacity-50' : ''}`}>
-              {selectedDream.content}
-            </p>
-            
-            {/* Çeviri */}
-            {translatedContent && (
-              <div className="mt-3 p-3 rounded-lg border border-purple-500/30 bg-purple-500/10">
-                <div className="text-purple-400 text-xs font-semibold mb-1"> Çeviri ({i18n.language.toUpperCase()})</div>
-                <p className="text-white leading-relaxed">{translatedContent}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Çeviri Butonu */}
-          {!isSameLanguage && (
-            <button
-              onClick={handleTranslate}
-              disabled={isTranslating}
-              className="mb-4 glass-card px-4 py-2 flex items-center gap-2 hover:bg-purple-500/20 transition-all disabled:opacity-50 w-full justify-center"
+          {/* Popup kart */}
+          <div className="relative glass-card p-6 max-w-2xl w-full mx-4 max-h-[85vh] overflow-y-auto pointer-events-auto z-10">
+            {/* Kapat butonu */}
+            <button 
+              onClick={() => { setSelectedDream(null); setTranslatedContent(null); setTranslatedAnalysis(null) }} 
+              className="absolute top-4 right-4 text-white/60 hover:text-white text-2xl z-20"
             >
-              {isTranslating ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm text-white/80">Çevriliyor...</span>
-                </>
-              ) : translatedContent ? (
-                <>
-                  <span></span>
-                  <span className="text-sm text-white/80">Orijinali Göster</span>
-                </>
-              ) : (
-                <>
-                  <span></span>
-                  <span className="text-sm text-white/80">
-                    {t('lang.' + i18n.language) || i18n.language.toUpperCase()} Diline Çevir
-                  </span>
-                </>
-              )}
+              ×
             </button>
-          )}
+            
+            {/* Başlık */}
+            <h3 className="text-xl font-bold text-white mb-4 pr-8">
+              📍 {selectedDream.location_name}
+            </h3>
+            
+            {/* Rüya Metni */}
+            <div className="mb-6">
+              <div className="text-sm text-purple-300 font-semibold mb-2">
+                {isSameLanguage ? 'Rüya Metni' : `Rüya Metni (${selectedDream.original_language?.toUpperCase()})`}
+              </div>
+              <p className={`text-white/90 leading-relaxed ${translatedContent ? 'opacity-50' : ''}`}>
+                {selectedDream.content}
+              </p>
+              
+              {/* Çeviri */}
+              {translatedContent && (
+                <div className="mt-3 p-4 rounded-lg border border-purple-500/30 bg-purple-500/10">
+                  <div className="text-purple-400 text-xs font-semibold mb-2">
+                     Çeviri ({i18n.language.toUpperCase()})
+                  </div>
+                  <p className="text-white leading-relaxed">
+                    {translatedContent}
+                  </p>
+                </div>
+              )}
+            </div>
 
-          {/* AI Analizi */}
-          <div className="glass-card p-4 mb-4" style={{ background: 'rgba(139, 92, 246, 0.1)' }}>
-            <div className="text-sm font-semibold text-purple-300 mb-2">{t('feed.analysis')}</div>
-            <p className={`text-white/80 text-sm ${translatedAnalysis ? 'opacity-50' : ''}`}>
-              {selectedDream.ai_summary}
-            </p>
-            {translatedAnalysis && (
-              <div className="mt-3 pt-3 border-t border-purple-500/30">
-                <p className="text-white/90 text-sm leading-relaxed">{translatedAnalysis}</p>
+            {/* Çeviri Butonu */}
+            {!isSameLanguage && (
+              <button
+                onClick={handleTranslate}
+                disabled={isTranslating}
+                className="mb-6 glass-card px-6 py-3 flex items-center gap-3 hover:bg-purple-500/20 transition-all disabled:opacity-50 w-full justify-center border border-purple-500/30"
+              >
+                {isTranslating ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm text-white/80">Rüya ve analiz çevriliyor...</span>
+                  </>
+                ) : translatedContent ? (
+                  <>
+                    <span>🔄</span>
+                    <span className="text-sm text-white/80">Orijinali Göster</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🌐</span>
+                    <span className="text-sm text-white/80">
+                      {i18n.language.toUpperCase()} Diline Çevir (Rüya + Jung Analizi)
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* AI Analizi */}
+            <div className="glass-card p-5 mb-6" style={{ background: 'rgba(139, 92, 246, 0.1)' }}>
+              <div className="text-sm font-semibold text-purple-300 mb-3">
+                {t('feed.analysis')}
+              </div>
+              <p className={`text-white/80 leading-relaxed ${translatedAnalysis ? 'opacity-50' : ''}`}>
+                {selectedDream.ai_summary}
+              </p>
+              
+              {/* Analiz Çevirisi */}
+              {translatedAnalysis && (
+                <div className="mt-4 pt-4 border-t border-purple-500/30">
+                  <div className="text-purple-400 text-xs font-semibold mb-2">
+                     Analiz Çevirisi ({i18n.language.toUpperCase()})
+                  </div>
+                  <p className="text-white/90 leading-relaxed">
+                    {translatedAnalysis}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Arketipler */}
+            {selectedDream.ai_archetypes && selectedDream.ai_archetypes.length > 0 && (
+              <div className="mb-6">
+                <div className="text-sm text-purple-300 font-semibold mb-3">Arketipler</div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedDream.ai_archetypes.map((arch, i) => (
+                    <span key={i} className="archetype-badge text-xs">{arch}</span>
+                  ))}
+                </div>
               </div>
             )}
-          </div>
 
-          {/* Arketipler */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {selectedDream.ai_archetypes?.map((arch, i) => (
-              <span key={i} className="archetype-badge text-xs">{arch}</span>
-            ))}
-          </div>
-
-          {/* Meta Bilgiler */}
-          <div className="flex items-center gap-4 text-sm text-white/60">
-            <span> {selectedDream.dream_date}</span>
-            <span>💭 {selectedDream.ai_sentiment}</span>
-            <span> {selectedDream.original_language?.toUpperCase()}</span>
+            {/* Meta Bilgiler */}
+            <div className="flex flex-wrap items-center gap-4 text-sm text-white/60 pt-4 border-t border-white/10">
+              <div className="flex items-center gap-2">
+                <span>📅</span>
+                <span>{selectedDream.dream_date}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span>💭</span>
+                <span>{selectedDream.ai_sentiment}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span>🌐</span>
+                <span>{selectedDream.original_language?.toUpperCase()}</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
