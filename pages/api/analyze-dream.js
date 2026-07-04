@@ -117,7 +117,19 @@ Choose ONE dominant sentiment.`
     // Görsel URL oluştur (daha iyi prompt)
     const archetype = analysis.archetypes?.[0] || 'Dream'
     const sentiment = analysis.sentiment || 'Mysterious'
-    const imagePrompt = `${archetype} archetype, ${sentiment} atmosphere, mystical, surreal, dark fantasy art, detailed, cinematic lighting`
+    // Rüya içeriğinden anahtar kelimeler çıkar
+const contentKeywords = content
+  .toLowerCase()
+  .replace(/[.,!?;:]/g, '')
+  .split(/\s+/)
+  .filter(word => word.length > 3 && !['the','and','was','for','are','with','this','that','have','from','they','been','had','has','what','when','where','who','which','would','their','there','been'].includes(word))
+  .slice(0, 5)
+  .join(', ')
+
+// Daha spesifik görsel prompt
+const imagePrompt = `${archetype} archetype, ${sentiment} atmosphere, ${contentKeywords}, mystical, surreal, dark fantasy art, detailed, cinematic lighting, symbolic`
+
+const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1200&height=630&nologo=true&seed=${dreamId}`
     const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1200&height=630&nologo=true`
 
     console.log('Görsel URL:', imageUrl)
