@@ -6,15 +6,14 @@ export default async function handler(req, res) {
   const { dreamText, analysisText, targetLang } = req.body;
 
   if (!dreamText || !targetLang) {
-    return res.status(400).json({ error: 'Eksik parametreler' });
+    return res.status(400).json({ error: 'Missing parameters' });
   }
 
   const GROQ_KEY = process.env.GROQ_KEY;
   if (!GROQ_KEY) {
-    return res.status(500).json({ error: 'API anahtarı eksik' });
+    return res.status(500).json({ error: 'API key missing' });
   }
 
-  // Dil kodlarını tam isimlere çevir
   const langNames = {
     'tr': 'Turkish',
     'en': 'English',
@@ -28,28 +27,31 @@ export default async function handler(req, res) {
 
   const targetLanguage = langNames[targetLang] || 'Turkish';
 
-  const prompt = `You are a professional translator. Translate the following dream content and Jungian analysis to ${targetLanguage}.
+  const prompt = `You are a PROFESSIONAL translator specializing in dream interpretation and Jungian psychology.
 
-IMPORTANT RULES:
-1. Translate BOTH the dream text AND the Jungian analysis
-2. Maintain the original tone, emotion, and psychological depth
-3. Keep Jungian terminology (Shadow, Anima, Archetype, etc.) in their original form or use commonly accepted translations
-4. Do NOT add any explanations, notes, or comments
-5. Return ONLY a JSON object with the translations
+Translate the following dream content and Jungian analysis to ${targetLanguage}.
 
-Dream Text:
+CRITICAL RULES:
+1. MAINTAIN the mystical, poetic tone
+2. PRESERVE Jungian terminology (use culturally appropriate translations)
+3. Keep the EMOTIONAL DEPTH and psychological nuance
+4. Do NOT simplify or summarize - translate fully
+5. Use NATIVE, natural-sounding language (not literal word-for-word)
+6. For Arabic: Use proper Arabic script and grammar
+7. For Chinese: Use simplified Chinese characters
+8. For Hindi: Use Devanagari script
+
+DREAM TEXT:
 "${dreamText}"
 
-${analysisText ? `Jungian Analysis:
+${analysisText ? `JUNGIAN ANALYSIS:
 "${analysisText}"` : ''}
 
-Return format (JSON):
+Return ONLY valid JSON (no markdown, no explanation):
 {
-  "dreamTranslation": "translated dream text here",
-  "analysisTranslation": "translated analysis text here"
-}
-
-If no analysis text provided, set analysisTranslation to null.`;
+  "dreamTranslation": "Complete ${targetLanguage} translation of the dream",
+  "analysisTranslation": "Complete ${targetLanguage} translation of the analysis"
+}`;
 
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -63,7 +65,7 @@ If no analysis text provided, set analysisTranslation to null.`;
         messages: [
           { 
             role: 'system', 
-            content: 'You are a professional translator specializing in dream content and Jungian psychology. Provide accurate, natural translations.' 
+            content: 'You are a professional translator expert in dream interpretation, Jungian psychology, and mystical literature. Provide accurate, nuanced, culturally-sensitive translations that maintain the original tone and depth.' 
           },
           { role: 'user', content: prompt }
         ],
@@ -83,10 +85,11 @@ If no analysis text provided, set analysisTranslation to null.`;
         analysisTranslated: result.analysisTranslation || null
       });
     } else {
-      return res.status(500).json({ error: 'Çeviri başarısız oldu' });
+      console.error('Groq error:', data);
+      return res.status(500).json({ error: 'Translation failed' });
     }
   } catch (error) {
-    console.error('Çeviri hatası:', error);
-    return res.status(500).json({ error: 'Sunucu hatası: ' + error.message });
+    console.error('Translation error:', error);
+    return res.status(500).json({ error: 'Server error: ' + error.message });
   }
 }
