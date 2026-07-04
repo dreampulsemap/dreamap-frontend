@@ -154,6 +154,38 @@ export default function ProfilePage() {
   async function handleDeleteDream(dream) {
     if (!user) {
       alert('Hata: Kullanıcı bilgisi yok')
+      async function handleDeleteDream(dream) {
+  if (!user) return
+  
+  if (!confirm('Bu rüyayı tamamen silmek istediğine emin misin?')) return
+  
+  try {
+    const res = await fetch('/api/delete-dream', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dreamId: dream.id,
+        userId: user.id,
+        softDelete: false
+      })
+    })
+    
+    const data = await res.json()
+    
+    if (!res.ok) {
+      alert('Hata: ' + data.error)
+      return
+    }
+    
+    alert('Silindi!')
+    
+    // LİSTEYİ YENİLE
+    setDreams(dreams.filter(d => d.id !== dream.id))
+    
+  } catch (err) {
+    alert('Hata: ' + err.message)
+  }
+      }
       return
     }
     
