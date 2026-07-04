@@ -13,13 +13,25 @@ export default async function handler(req, res) {
 
   const GROQ_KEY = process.env.GROQ_KEY
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-  if (!GROQ_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
-    return res.status(500).json({ error: 'API anahtarları eksik' })
+  if (!GROQ_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    return res.status(500).json({ 
+      error: 'API anahtarları eksik',
+      debug: {
+        hasGroqKey: !!GROQ_KEY,
+        hasSupabaseUrl: !!SUPABASE_URL,
+        hasServiceKey: !!SUPABASE_SERVICE_KEY
+      }
+    })
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  })
 
   try {
     // Groq ile AI analizi
@@ -39,6 +51,8 @@ Common Jungian archetypes: Shadow, Anima, Animus, Wise Old Man, Great Mother, He
 Choose the MOST RELEVANT archetypes (1-3 max).
 Choose ONE dominant sentiment.`
 
+    console.log('Groq API çağrılıyor...')
+    
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -63,6 +77,7 @@ Choose ONE dominant sentiment.`
     const data = await response.json()
     
     if (!data.choices || !data.choices[0]) {
+      console.error('Groq yanıt vermedi:', data)
       throw new Error('Groq API yanıt vermedi')
     }
 
@@ -75,12 +90,16 @@ Choose ONE dominant sentiment.`
     } catch (parseError) {
       console.error('JSON parse error:', parseError)
       console.error('Raw content:', content2)
-      throw new Error('JSON parse failed')
+      throw new Error('JSON parse failed: ' + parseError.message)
     }
+
+    console.log('AI Analiz:', analysis)
 
     // Görsel URL oluştur (Pollinations AI)
     const imagePrompt = `${analysis.archetypes?.[0] || 'Dream'} archetype mystical surreal ${analysis.sentiment || 'mysterious'} atmosphere`
     const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}`
+
+    console.log('Görsel URL:', imageUrl)
 
     // Supabase'e kaydet
     const { error } = await supabase
@@ -94,8 +113,11 @@ Choose ONE dominant sentiment.`
       .eq('id', dreamId)
 
     if (error) {
-      throw error
+      console.error('Supabase update error:', error)
+      throw new Error('Supabase güncelleme hatası: ' + error.message)
     }
+
+    console.log('Başarılı! Rüya ID:', dreamId)
 
     return res.status(200).json({
       success: true,
@@ -106,4 +128,4 @@ Choose ONE dominant sentiment.`
     console.error('Analyze error:', error)
     return res.status(500).json({ error: 'Analiz hatası: ' + error.message })
   }
-                                 }
+}
