@@ -78,14 +78,14 @@ const locationCoords = {
 }
 
 const languages = [
-  { code: 'en', flag: '🇬🇧', name: 'English' },
-  { code: 'tr', flag: '🇹🇷', name: 'Türkçe' },
-  { code: 'ru', flag: '', name: 'Русский' },
-  { code: 'ar', flag: '', name: 'العربية' },
+  { code: 'en', flag: '🇧', name: 'English' },
+  { code: 'tr', flag: '🇷', name: 'Türkçe' },
+  { code: 'ru', flag: '🇷🇺', name: 'Русский' },
+  { code: 'ar', flag: '🇸🇦', name: 'العربية' },
   { code: 'es', flag: '🇪🇸', name: 'Español' },
-  { code: 'hi', flag: '', name: 'हिन्दी' },
-  { code: 'zh', flag: '', name: '中文' },
-  { code: 'de', flag: '', name: 'Deutsch' }
+  { code: 'hi', flag: '🇮🇳', name: 'हिन्दी' },
+  { code: 'zh', flag: '🇨', name: '中文' },
+  { code: 'de', flag: '🇩', name: 'Deutsch' }
 ]
 
 function getCoords(location) {
@@ -135,8 +135,13 @@ export default function DreamGlobe() {
   const [translatedAnalysis, setTranslatedAnalysis] = useState(null)
   const [isTranslating, setIsTranslating] = useState(false)
 
+  // KOLEKTİF ÖNGÖRÜLER
+  const [predictions, setPredictions] = useState([])
+  const [selectedPrediction, setSelectedPrediction] = useState(null)
+
   const currentLang = languages.find(l => l.code === i18n.language) || languages[0]
 
+  // Rüya verilerini yükle
   useEffect(() => {
     async function fetchAllDreams() {
       setLoading(true)
@@ -156,6 +161,26 @@ export default function DreamGlobe() {
       }
     }
     fetchAllDreams()
+  }, [])
+
+  // Öngörüler yükle
+  useEffect(() => {
+    async function fetchPredictions() {
+      try {
+        const { data, error } = await supabase
+          .from('collective_predictions')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(5)
+        
+        if (!error && data) {
+          setPredictions(data)
+        }
+      } catch (err) {
+        console.error('Predictions error:', err)
+      }
+    }
+    fetchPredictions()
   }, [])
 
   useEffect(() => {
@@ -215,7 +240,7 @@ export default function DreamGlobe() {
         lat: lat + latJitter,
         lng: lng + lngJitter,
         altitude: 0.01 + altJitter,
-        radius: 0.6, // DAHA BÜYÜK (önceden 0.25)
+        radius: 0.6,
         color: getColorBySentiment(dream.ai_sentiment),
         dream: dream
       }
@@ -250,13 +275,11 @@ export default function DreamGlobe() {
           .pointRadius('radius')
           .pointColor('color')
           .pointsMerge(false)
-          // HOVER EFEKTİ - Nokta büyür
           .onPointHover((point) => {
             if (globeContainer.current) {
               globeContainer.current.style.cursor = point ? 'pointer' : 'default'
             }
           })
-          // TIKLAMA - Rüya detayını aç
           .onPointClick((point) => {
             setSelectedDream(point.dream)
             setTranslatedContent(null)
@@ -295,40 +318,39 @@ export default function DreamGlobe() {
   }, [dreams, t])
 
   // ÇEVİRİ FONKSİYONU
-async function handleTranslate() {
-  if (!selectedDream) return
-  
-  if (translatedContent) {
-    setTranslatedContent(null)
-    setTranslatedAnalysis(null)
-    return
-  }
-  
-  setIsTranslating(true)
-  try {
-    const res = await fetch('/api/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dreamText: selectedDream.content,
-        analysisText: selectedDream.ai_summary,
-        targetLang: i18n.language,
-        dreamId: selectedDream.id  // ✅ Bunu ekle
-      })
-    })
-    const data = await res.json()
-    if (data.translated) {
-      setTranslatedContent(data.translated)
-      if (data.analysisTranslated) {
-        setTranslatedAnalysis(data.analysisTranslated)
-      }
+  async function handleTranslate() {
+    if (!selectedDream) return
+    
+    if (translatedContent) {
+      setTranslatedContent(null)
+      setTranslatedAnalysis(null)
+      return
     }
-  } catch (e) {
-    console.error('Çeviri hatası:', e)
-  } finally {
-    setIsTranslating(false)
+    
+    setIsTranslating(true)
+    try {
+      const res = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dreamText: selectedDream.content,
+          analysisText: selectedDream.ai_summary,
+          targetLang: i18n.language
+        })
+      })
+      const data = await res.json()
+      if (data.translated) {
+        setTranslatedContent(data.translated)
+        if (data.analysisTranslated) {
+          setTranslatedAnalysis(data.analysisTranslated)
+        }
+      }
+    } catch (e) {
+      console.error('Çeviri hatası:', e)
+    } finally {
+      setIsTranslating(false)
+    }
   }
-}
 
   if (loading) {
     return (
@@ -344,6 +366,7 @@ async function handleTranslate() {
     <div className="relative w-full h-screen bg-black overflow-hidden">
       <div ref={globeContainer} className="w-full h-full" style={{ width: '100vw', height: '100vh' }} />
 
+      {/* Header */}
       <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/90 to-transparent pointer-events-none z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between pointer-events-auto">
           <div className="flex items-center gap-3">
@@ -378,6 +401,44 @@ async function handleTranslate() {
         </div>
       </div>
 
+      {/* 🔮 KOLEKTİF ÖNGÖRÜLER */}
+      {predictions.length > 0 && (
+        <div className="absolute top-24 left-6 z-20 pointer-events-auto">
+          <div className="glass-card p-4 max-w-md">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-2xl">🔮</span>
+              <h3 className="text-lg font-bold gradient-text">Kolektif Öngörüler</h3>
+              <span className="text-xs text-white/60 ml-auto">{predictions.length} aktif</span>
+            </div>
+            
+            <div className="space-y-2">
+              {predictions.map((pred) => (
+                <button
+                  key={pred.id}
+                  onClick={() => setSelectedPrediction(pred)}
+                  className="w-full text-left glass-card p-3 hover:bg-purple-500/20 transition-all"
+                >
+                  <div className="flex items-start gap-2">
+                    <div className={`w-2 h-2 rounded-full mt-2 ${
+                      pred.confidence_level === 'critical' ? 'bg-red-500 animate-pulse' :
+                      pred.confidence_level === 'high' ? 'bg-orange-500' :
+                      pred.confidence_level === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                    }`} />
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-white">{pred.title}</div>
+                      <div className="text-xs text-white/60 mt-1">
+                        {pred.dream_count} rüya • {pred.regions?.slice(0, 3).join(', ')}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sol Alt Kontroller */}
       <div className="absolute bottom-6 left-6 flex flex-col gap-3 z-20 pointer-events-auto">
         <div className="glass-card p-4 max-w-xs">
           <div className="text-white/60 text-xs">{t('globe.totalDreams')}</div>
@@ -426,6 +487,7 @@ async function handleTranslate() {
         )}
       </div>
 
+      {/* Sağ Alt - Duygu Renkleri */}
       <div className="absolute bottom-6 right-6 glass-card p-4 max-w-xs pointer-events-auto z-20">
         <h3 className="text-white font-semibold mb-3 text-sm">{t('globe.emotionColors')}</h3>
         <div className="grid grid-cols-2 gap-2 text-xs">
@@ -438,17 +500,15 @@ async function handleTranslate() {
         </div>
       </div>
 
-{selectedDream && (
+      {/* Rüya Detay Popup */}
+      {selectedDream && (
         <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-          {/* Arka plan overlay */}
           <div 
             className="absolute inset-0 bg-black/60 pointer-events-auto"
             onClick={() => { setSelectedDream(null); setTranslatedContent(null); setTranslatedAnalysis(null) }}
           />
           
-          {/* Popup kart */}
           <div className="relative glass-card p-6 max-w-2xl w-full mx-4 max-h-[85vh] overflow-y-auto pointer-events-auto z-10">
-            {/* Kapat butonu */}
             <button 
               onClick={() => { setSelectedDream(null); setTranslatedContent(null); setTranslatedAnalysis(null) }} 
               className="absolute top-4 right-4 text-white/60 hover:text-white text-2xl z-20"
@@ -456,12 +516,10 @@ async function handleTranslate() {
               ×
             </button>
             
-            {/* Başlık */}
             <h3 className="text-xl font-bold text-white mb-4 pr-8">
               📍 {selectedDream.location_name}
             </h3>
             
-            {/* Rüya Metni */}
             <div className="mb-6">
               <div className="text-sm text-purple-300 font-semibold mb-2">
                 {isSameLanguage ? 'Rüya Metni' : `Rüya Metni (${selectedDream.original_language?.toUpperCase()})`}
@@ -470,7 +528,6 @@ async function handleTranslate() {
                 {selectedDream.content}
               </p>
               
-              {/* Çeviri */}
               {translatedContent && (
                 <div className="mt-3 p-4 rounded-lg border border-purple-500/30 bg-purple-500/10">
                   <div className="text-purple-400 text-xs font-semibold mb-2">
@@ -483,7 +540,6 @@ async function handleTranslate() {
               )}
             </div>
 
-            {/* Çeviri Butonu */}
             {!isSameLanguage && (
               <button
                 onClick={handleTranslate}
@@ -498,35 +554,19 @@ async function handleTranslate() {
                 ) : translatedContent ? (
                   <>
                     <span>🔄</span>
-<span className="text-sm text-white/80">
-  {i18n.language === 'tr' && 'Orijinali Göster'}
-  {i18n.language === 'en' && 'Show Original'}
-  {i18n.language === 'ru' && 'Показать оригинал'}
-  {i18n.language === 'es' && 'Mostrar original'}
-  {i18n.language === 'ar' && 'إظهار الأصلي'}
-  {i18n.language === 'hi' && 'मूल दिखाएं'}
-  {i18n.language === 'zh' && '显示原文'}
-  {i18n.language === 'de' && 'Original anzeigen'}
-</span>                  </>
+                    <span className="text-sm text-white/80">Orijinali Göster</span>
+                  </>
                 ) : (
                   <>
                     <span>🌐</span>
                     <span className="text-sm text-white/80">
-  {i18n.language === 'tr' && 'Türkçe Çevir (Rüya + Jung Analizi)'}
-  {i18n.language === 'en' && 'Translate to English (Dream + Jung Analysis)'}
-  {i18n.language === 'ru' && 'Перевести на русский (Сон + Юнгианский анализ)'}
-  {i18n.language === 'es' && 'Traducir al español (Sueño + Análisis junguiano)'}
-  {i18n.language === 'ar' && 'ترجمة إلى العربية (الحلم + التحليل اليونغي)'}
-  {i18n.language === 'hi' && 'हिंदी में अनुवाद करें (सपना + जुंगियन विश्लेषण)'}
-  {i18n.language === 'zh' && '翻译成中文 (梦境 + 荣格分析)'}
-  {i18n.language === 'de' && 'Ins Deutsche übersetzen (Traum + Jung-Analyse)'}
+                      {i18n.language.toUpperCase()} Diline Çevir (Rüya + Jung Analizi)
                     </span>
                   </>
                 )}
               </button>
             )}
 
-            {/* AI Analizi */}
             <div className="glass-card p-5 mb-6" style={{ background: 'rgba(139, 92, 246, 0.1)' }}>
               <div className="text-sm font-semibold text-purple-300 mb-3">
                 {t('feed.analysis')}
@@ -535,7 +575,6 @@ async function handleTranslate() {
                 {selectedDream.ai_summary}
               </p>
               
-              {/* Analiz Çevirisi */}
               {translatedAnalysis && (
                 <div className="mt-4 pt-4 border-t border-purple-500/30">
                   <div className="text-purple-400 text-xs font-semibold mb-2">
@@ -548,7 +587,6 @@ async function handleTranslate() {
               )}
             </div>
 
-            {/* Arketipler */}
             {selectedDream.ai_archetypes && selectedDream.ai_archetypes.length > 0 && (
               <div className="mb-6">
                 <div className="text-sm text-purple-300 font-semibold mb-3">Arketipler</div>
@@ -560,7 +598,6 @@ async function handleTranslate() {
               </div>
             )}
 
-            {/* Meta Bilgiler */}
             <div className="flex flex-wrap items-center gap-4 text-sm text-white/60 pt-4 border-t border-white/10">
               <div className="flex items-center gap-2">
                 <span>📅</span>
@@ -571,8 +608,85 @@ async function handleTranslate() {
                 <span>{selectedDream.ai_sentiment}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span>🌐</span>
+                <span></span>
                 <span>{selectedDream.original_language?.toUpperCase()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Öngörü Detay Popup */}
+      {selectedPrediction && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+          <div 
+            className="absolute inset-0 bg-black/60 pointer-events-auto"
+            onClick={() => setSelectedPrediction(null)}
+          />
+          <div className="relative glass-card p-6 max-w-2xl w-full mx-4 max-h-[85vh] overflow-y-auto pointer-events-auto z-10">
+            <button 
+              onClick={() => setSelectedPrediction(null)}
+              className="absolute top-4 right-4 text-white/60 hover:text-white text-2xl"
+            >
+              ×
+            </button>
+            
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">🔮</span>
+              <div>
+                <h2 className="text-2xl font-bold gradient-text">{selectedPrediction.title}</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className={`w-3 h-3 rounded-full ${
+                    selectedPrediction.confidence_level === 'critical' ? 'bg-red-500 animate-pulse' :
+                    selectedPrediction.confidence_level === 'high' ? 'bg-orange-500' :
+                    selectedPrediction.confidence_level === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                  }`} />
+                  <span className="text-sm text-white/60">
+                    Güven: {selectedPrediction.confidence_level === 'critical' ? 'Kritik' :
+                            selectedPrediction.confidence_level === 'high' ? 'Yüksek' :
+                            selectedPrediction.confidence_level === 'medium' ? 'Orta' : 'Düşük'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-white/90 leading-relaxed">
+                {selectedPrediction[`content_${i18n.language}`] || selectedPrediction.content_en}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="glass-card p-3 text-center">
+                <div className="text-2xl font-bold gradient-text">{selectedPrediction.dream_count}</div>
+                <div className="text-xs text-white/60">Rüya</div>
+              </div>
+              <div className="glass-card p-3 text-center">
+                <div className="text-2xl font-bold gradient-text">{selectedPrediction.regions?.length || 0}</div>
+                <div className="text-xs text-white/60">Bölge</div>
+              </div>
+              <div className="glass-card p-3 text-center">
+                <div className="text-2xl font-bold gradient-text">{selectedPrediction.themes?.length || 0}</div>
+                <div className="text-xs text-white/60">Tema</div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <div className="text-sm font-semibold text-purple-300 mb-2">Bölgeler</div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedPrediction.regions?.map((region, i) => (
+                    <span key={i} className="glass-card px-3 py-1 text-xs text-white/80">{region}</span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-purple-300 mb-2">Temalar</div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedPrediction.themes?.map((theme, i) => (
+                    <span key={i} className="glass-card px-3 py-1 text-xs text-white/80">#{theme}</span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -587,4 +701,4 @@ async function handleTranslate() {
       )}
     </div>
   )
-              }
+                   }
