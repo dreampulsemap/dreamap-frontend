@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { supabase } from '../lib/supabase'
 import dynamic from 'next/dynamic'
 import { supabase, auth } from '../lib/supabase'
 
