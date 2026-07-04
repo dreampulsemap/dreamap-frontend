@@ -17,17 +17,36 @@ export default function AddDreamPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    async function checkUser() {
-      const currentUser = await auth.getUser()
-      if (!currentUser) {
-        router.push('/auth')
-      } else {
-        setUser(currentUser)
-      }
+useEffect(() => {
+  async function checkUser() {
+    const currentUser = await auth.getUser()
+    if (!currentUser) {
+      router.push('/auth')
+      return
     }
-    checkUser()
-  }, [router])
+    
+    setUser(currentUser)
+    
+    // IP'den konum al
+    fetchLocationFromIP()
+  }
+  checkUser()
+}, [router])
+
+async function fetchLocationFromIP() {
+  try {
+    // Ücretsiz IP Geolocation API
+    const response = await fetch('https://ipapi.co/json/')
+    const data = await response.json()
+    
+    if (data.city && data.country_name) {
+      setLocation(`${data.city}, ${data.country_name}`)
+    }
+  } catch (error) {
+    console.error('Konum alınamadı:', error)
+    // Hata olursa boş bırak
+  }
+}
 
   async function handleSubmit(e) {
     e.preventDefault()
