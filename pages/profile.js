@@ -35,7 +35,6 @@ export default function ProfilePage() {
       
       setDreams(dreamsData || [])
 
-      // Haftalık kehanet
       const weekStart = new Date()
       weekStart.setDate(weekStart.getDate() - weekStart.getDay())
       
@@ -68,8 +67,37 @@ export default function ProfilePage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-black p-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-black">
+      {/* Header */}
+      <header className="sticky top-0 z-50 glass-card border-b border-white/10" style={{ borderRadius: 0 }}>
+        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <a href="/" className="flex items-center gap-2 hover:opacity-80 transition-all">
+              <span className="text-3xl">🌙</span>
+              <span className="text-xl font-bold gradient-text">Dreamap</span>
+            </a>
+          </div>
+          <nav className="flex items-center gap-4">
+            <a href="/" className="text-white/80 hover:text-white transition-all flex items-center gap-2">
+              <span>✨</span>
+              <span className="hidden sm:inline">Akış</span>
+            </a>
+            <a href="/globe" className="text-white/80 hover:text-white transition-all flex items-center gap-2">
+              <span>🌍</span>
+              <span className="hidden sm:inline">Küre</span>
+            </a>
+            <button
+              onClick={handleLogout}
+              className="glass-card px-4 py-2 text-white/80 hover:text-white transition-all flex items-center gap-2"
+            >
+              <span>🚪</span>
+              <span className="hidden sm:inline">{getTranslation('auth.logout', lang)}</span>
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      <div className="max-w-4xl mx-auto p-4">
         {/* Profil Başlığı */}
         <div className="glass-card p-8 mb-6">
           <div className="flex items-center justify-between">
@@ -79,12 +107,6 @@ export default function ProfilePage() {
               </h1>
               <p className="text-white/60">{user.email}</p>
             </div>
-            <button
-              onClick={handleLogout}
-              className="glass-card px-4 py-2 text-white/80 hover:text-white"
-            >
-              {getTranslation('auth.logout', lang)}
-            </button>
           </div>
         </div>
 
@@ -128,7 +150,7 @@ export default function ProfilePage() {
 
           {dreams.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-6xl mb-4"></div>
+              <div className="text-6xl mb-4">🌙</div>
               <p className="text-white/60">{getTranslation('journal.noDreams', lang)}</p>
             </div>
           ) : (
@@ -142,17 +164,17 @@ export default function ProfilePage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs glass-card px-2 py-1">
-                        {dream.visibility === 'public' ? '' : dream.visibility === 'friends' ? '👥' : '🔒'}
+                        {dream.visibility === 'public' ? '🌍' : dream.visibility === 'friends' ? '👥' : '🔒'}
                       </span>
                       <span className="text-xs glass-card px-2 py-1">
-                        {dream.map_detail === 'full' ? '' : '📋'}
+                        {dream.map_detail === 'full' ? '📝' : '📋'}
                       </span>
                     </div>
                   </div>
                   <p className="text-white/90 line-clamp-3">{dream.content}</p>
                   {dream.ai_sentiment && (
                     <div className="mt-2 text-sm text-purple-300">
-                       {dream.ai_sentiment}
+                      💭 {dream.ai_sentiment}
                     </div>
                   )}
                 </div>
@@ -163,4 +185,4 @@ export default function ProfilePage() {
       </div>
     </div>
   )
-          }
+}
