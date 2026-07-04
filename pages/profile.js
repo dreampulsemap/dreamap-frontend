@@ -78,43 +78,63 @@ export default function ProfilePage() {
   }
 
   async function handleSaveEdit() {
-    if (!editingDream || !user) {
-      alert('Hata: Rüya veya kullanıcı bilgisi yok')
-      return
+  if (!editingDream || !user) {
+    alert('Hata: Rüya veya kullanıcı bilgisi yok')
+    return
+  }
+  
+  setSaving(true)
+  try {
+    const res = await fetch('/api/update-dream', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dreamId: editingDream.id,
+        userId: user.id,
+        content: editContent,
+        location_name: editLocation,
+        visibility: editVisibility,
+        map_detail: editMapDetail,
+        in_feed: editInFeed
+      })
+    })
+    
+    const data = await res.json()
+    
+    if (!res.ok) {
+      alert('API Hatası: ' + (data.error || 'Bilinmeyen hata'))
+      throw new Error(data.error)
     }
     
-    setSaving(true)
-    try {
-      const res = await fetch('/api/update-dream', {
-        method: 'PUT',
+    // AI analizi çağır (eğer içerik değiştiyse)
+    if (editContent !== editingDream.content) {
+      alert('AI analizi yapılıyor...')
+      const analyzeRes = await fetch('/api/analyze-dream', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           dreamId: editingDream.id,
-          userId: user.id,
-          content: editContent,
-          location_name: editLocation,
-          visibility: editVisibility,
-          map_detail: editMapDetail,
-          in_feed: editInFeed
+          content: editContent
         })
       })
       
-      const data = await res.json()
+      const analyzeData = await analyzeRes.json()
       
-      if (!res.ok) {
-        alert('API Hatası: ' + (data.error || 'Bilinmeyen hata'))
-        throw new Error(data.error)
+      if (!analyzeRes.ok) {
+        alert('AI Analiz Hatası: ' + (analyzeData.error || 'Bilinmeyen hata'))
+      } else {
+        alert('AI analizi tamamlandı!')
       }
-      
-      alert('Başarılı! Rüya güncellendi.')
-      await loadDreams(user.id)
-      setEditingDream(null)
-    } catch (err) {
-      alert('Hata: ' + err.message)
-    } finally {
-      setSaving(false)
     }
+    
+    await loadDreams(user.id)
+    setEditingDream(null)
+  } catch (err) {
+    alert('Hata: ' + err.message)
+  } finally {
+    setSaving(false)
   }
+}
 
   async function handleRemoveFromFeed(dream) {
     if (!user) {
