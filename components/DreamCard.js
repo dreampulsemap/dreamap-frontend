@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '../lib/translations'
-import { auth } from '../lib/supabase'
+import { auth } from '../lib/supabase' 
 
 export default function DreamCard({ dream, lang, onTranslate, translating, translated, translatedContent, translatedAnalysis }) {
   const { i18n } = useTranslation()
