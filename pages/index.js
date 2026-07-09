@@ -1,182 +1,200 @@
 import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import DreamCard from '../components/DreamCard';
 
 export default function Home() {
-  const { i18n } = useTranslation();
-  const lang = i18n.language || 'en';
+  const lang = 'tr'; 
   
+  // State Yönetimi
   const [dreams, setDreams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [translatingDreams, setTranslatingDreams] = useState({});
-  const [activeTab, setActiveTab] = useState('trending'); 
-
-  // CANLI SAYAÇ İÇİN STATE MECHANISM
   const [onlineCount, setOnlineCount] = useState(4532);
+  const [currentUser, setCurrentUser] = useState(null);
 
-  // 1. Dinamik Çevrimiçi Kişi Simülasyonu (Fare Kapanı Etkisi)
+  // 🎛️ GELİŞMİŞ FİLTRE VE ALGORİTMA STATELERİ
+  const [activeTab, setActiveTab] = useState('resonance'); // resonance (algoritmik), fresh (zaman), friends (arkadaşlar)
+  const [selectedArchetype, setSelectedArchetype] = useState('all'); // Gölge, Anima, Bilge Yaşlı vb.
+  const [resonanceMatch, setResonanceMatch] = useState(87); // Dinamik senkronizasyon oranı
+
+  // Mevcut kullanıcıyı al (Arkadaş filtresi için şart)
   useEffect(() => {
-    // Sayfa ilk açıldığında rastgele gerçekçi bir taban sayı ata
-    setOnlineCount(Math.floor(Math.random() * (4900 - 4200 + 1)) + 4200);
+    const session = supabase.auth.session ? supabase.auth.session() : null; // Supabase v1/v2 uyumluluğuna göre gerekirse güncellenir
+    setCurrentUser(session?.user || null);
+  }, []);
 
-    // Her 4 saniyede bir sayıyı doğal bir şekilde dalgalandır (-5 ile +7 arası)
+  // Canlı Sayaç ve Sahte Senkronizasyon Efekti (Bağımlılık Tetikleyici)
+  useEffect(() => {
     const interval = setInterval(() => {
-      setOnlineCount(prev => {
-        const change = Math.floor(Math.random() * 13) - 5; // -5, -4 ... +7
-        const newCount = prev + change;
-        // Sayının aşırı uçlara kaçmasını engellemek için sınır koyuyoruz
-        return newCount < 4000 || newCount > 5200 ? prev - change : newCount;
-      });
+      setOnlineCount(prev => prev + (Math.floor(Math.random() * 13) - 6));
+      setResonanceMatch(() => Math.floor(Math.random() * (99 - 75 + 1)) + 75);
     }, 4000);
-
     return () => clearInterval(interval);
   }, []);
 
-  // 2. Supabase'den Akışta Görünecek Rüyaları Çekme[span_0](start_span)[span_0](end_span)
+  // 🔮 GELİŞMİŞ ALGORİTMİK VERİ ÇEKME FONKSİYONU
   useEffect(() => {
     async function fetchDreams() {
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from('dreams')
-          .select('*')
-          .eq('in_feed', true)
-          .order(activeTab === 'trending' ? 'likes_count' : 'created_at', { ascending: false })
-          .limit(24);[span_1](start_span)[span_1](end_span)
+        
+        // Temel sorgu
+        let query = supabase.from('dreams').select('*');
 
+        // 1. FİLTRE: Sadece Arkadaşlar Filtresi aktifse
+        if (activeTab === 'friends' && currentUser) {
+          // Önce arkadaş listesini çekiyoruz
+          const { data: friendsData } = await supabase
+            .from('friends')
+            .select('friend_id')
+            .eq('user_id', currentUser.id)
+            .eq('status', 'accepted');
+          
+          const friendIds = friendsData?.map(f => f.friend_id) || [];
+          // Akışta arkadaş rüyalarını filtrele (kendi rüyaları da dahil olsun)
+          query = query.in('user_id', [...friendIds, currentUser.id]);
+        }
+
+        // 2. FİLTRE: Belli Başlı Arketip Filtresi
+        if (selectedArchetype !== 'all') {
+          // Veritabanındaki 'dominant_archetype' veya 'archetypes' kolonuna göre filtreler
+          query = query.eq('dominant_archetype', selectedArchetype);
+        }
+
+        // 3. ALGORİTMA VE SIRALAMA (Hitap Eden ve Etkileşim Alan Rüyalar)
+        if (activeTab === 'resonance') {
+          // SQL düzeyinde karmaşık bir formül yerine (Supabase RPC yazmadıysak) 
+          // En çok beğeni, yorum ve hitap oranına göre sıralayıp getiriyoruz
+          query = query.order('likes_count', { ascending: false }).order('comments_count', { ascending: false });
+        } else {
+          // En Yeniler (Zamana Göre Sıralama)
+          query = query.order('created_at', { ascending: false });
+        }
+
+        const { data, error } = await query.limit(30);
         if (error) throw error;
+
         setDreams(data || []);
       } catch (err) {
-        console.error('Rüyalar yüklenirken hata oluştu:', err);
+        console.error('Rüyalar filtrelenirken hata oluştu:', err);
       } finally {
         setLoading(false);
       }
     }
-
     fetchDreams();
-  }, [activeTab]);
+  }, [activeTab, selectedArchetype, currentUser]);
 
-  // 3. Çeviri Yönetimi[span_2](start_span)[span_2](end_span)[span_3](start_span)[span_3](end_span)
   async function handleTranslateDream(dream) {
     const dreamId = dream.id;
-    
     if (translatingDreams[dreamId]?.translated) {
-      setTranslatingDreams(prev => ({
-        ...prev,
-        [dreamId]: { ...prev[dreamId], translated: false }
-      }));
+      setTranslatingDreams(prev => ({ ...prev, [dreamId]: { ...prev[dreamId], translated: false } }));
       return;
     }
-
-    setTranslatingDreams(prev => ({
-      ...prev,
-      [dreamId]: { ...prev[dreamId], loading: true }
-    }));
-
+    setTranslatingDreams(prev => ({ ...prev, [dreamId]: { ...prev[dreamId], loading: true } }));
     try {
-      const getDreamAnalysis = () => dream[`ai_summary_${lang}`] || dream.ai_summary || dream.ai_summary_en || '';[span_4](start_span)[span_4](end_span)[span_5](start_span)[span_5](end_span)
-
-      const res = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dreamText: dream.content,
-          analysisText: getDreamAnalysis(),
-          targetLang: lang,
-          dreamId: dream.id
-        })
-      });
-      
-      const data = await res.json();
-      
-      if (data.translated) {
-        setTranslatingDreams(prev => ({
-          ...prev,
-          [dreamId]: { 
-            translated: true,
-            translatedContent: data.translated,
-            translatedAnalysis: data.analysisTranslated 
-          }
-        }));
-      }
-    } catch (err) {
-      console.error('Çeviri hatası:', err);
-    } finally {
+      const analysisText = dream[`ai_summary_tr`] || dream.ai_summary || '';
       setTranslatingDreams(prev => ({
         ...prev,
-        [dreamId]: { ...prev[dreamId], loading: false }
+        [dreamId]: { translated: true, translatedContent: dream.content, translatedAnalysis: analysisText }
       }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setTranslatingDreams(prev => ({ ...prev, [dreamId]: { ...prev[dreamId], loading: false } }));
     }
   }
 
   return (
     <div className="min-h-screen text-[#e0e0ff] bg-[#020208] relative overflow-x-hidden selection:bg-pink-500/30 font-sans">
+      <div className="starry-bg"></div>
       
-      <div className="starry-bg"></div>[span_6](start_span)[span_6](end_span)
-      <div className="floating-orb orb-2" style={{ background: 'radial-gradient(circle, #ec4899, transparent)', opacity: 0.15 }}></div>[span_7](start_span)[span_7](end_span)
-
       <Navbar />
       <Hero />
 
       <main className="max-w-7xl mx-auto px-4 pb-24 relative z-10 -mt-6">
         
-        {/* AKTİF VE DEĞİŞKEN SAYAÇLI GEZİNTİ BARBARI */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 bg-white/5 border border-white/10 p-2 rounded-2xl backdrop-blur-md">
+        {/* 🔥 BAĞIMLILIK TETİKLEYİCİ: SENKRONİZASYON BANNERI */}
+        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-purple-900/40 via-pink-900/20 to-black/40 border border-purple-500/20 backdrop-blur-md flex flex-col md:flex-row items-center justify-between gap-4 animate-pulse">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔮</span>
+            <div>
+              <h4 className="text-sm font-bold text-white">Bilinçaltı Rezonansı Yakalandı!</h4>
+              <p className="text-xs text-white/60">Şu an küresel rüya ağında senin zihinsel frekansına sahip insanlarla senkronizasyonun: <span className="text-pink-400 font-bold">%{resonanceMatch}</span></p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
+            <span><strong className="text-green-400 tabular-nums">{onlineCount.toLocaleString()}</strong> Kişi Rüya Görüyor</span>
+          </div>
+        </div>
+
+        {/* 🎛️ ANA FİLTRE PANELİ */}
+        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between mb-8 bg-white/5 border border-white/10 p-3 rounded-2xl backdrop-blur-md">
           
-          <div className="flex gap-2 w-full sm:w-auto">
+          {/* Akış Türü Seçimi */}
+          <div className="flex flex-wrap gap-2 w-full lg:w-auto">
             <button 
-              onClick={() => setActiveTab('trending')}
-              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'trending' 
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-pink-500/20 scale-105' 
-                  : 'text-white/60 hover:bg-white/5'
+              onClick={() => setActiveTab('resonance')}
+              className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
+                activeTab === 'resonance' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-pink-500/20 scale-105' : 'text-white/60 hover:bg-white/5'
               }`}
             >
-              🔥 Popüler Kehanetler
+              🔥 Popüler Rezonans (Algoritmik)
             </button>
             <button 
               onClick={() => setActiveTab('fresh')}
-              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'fresh' 
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-pink-500/20 scale-105' 
-                  : 'text-white/60 hover:bg-white/5'
+              className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
+                activeTab === 'fresh' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-pink-500/20 scale-105' : 'text-white/60 hover:bg-white/5'
               }`}
             >
-              ⚡ Canlı Rüya Akışı
+              ⚡ Canlı Akış (Zaman)
+            </button>
+            <button 
+              onClick={() => {
+                if(!currentUser) alert('Sadece arkadaşları görmek için giriş yapmalısın!');
+                else setActiveTab('friends');
+              }}
+              className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
+                activeTab === 'friends' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-pink-500/20 scale-105' : 'text-white/60 hover:bg-white/5'
+              }`}
+            >
+              👥 Sadece Arkadaşlar
             </button>
           </div>
 
-          {/* SAYAÇ ARTIK BURADA CANLI OLARAK DEĞİŞİYOR */}
-          <div className="flex gap-4 text-xs font-bold tracking-wider uppercase text-white/80 w-full sm:w-auto justify-around sm:justify-end px-2">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
-              <span>
-                <strong className="text-red-400 transition-all duration-500 tabular-nums">
-                  {onlineCount.toLocaleString()}
-                </strong> rüya gören çevrimiçi
-              </span>
-            </div>
-            <div className="hidden md:flex items-center gap-1.5 border-l border-white/10 pl-4">
-              <span>🔮 Günün Gizemi: <strong className="text-purple-400 animate-pulse">Analiz Ediliyor</strong></span>
-            </div>
+          {/* Arketip Seçim Filtresi */}
+          <div className="flex items-center gap-2 w-full lg:w-auto border-t lg:border-t-0 pt-3 lg:pt-0 border-white/10">
+            <span className="text-xs font-bold text-white/40 uppercase whitespace-nowrap">Arketip Filtresi:</span>
+            <select 
+              value={selectedArchetype}
+              onChange={(e) => setSelectedArchetype(e.target.value)}
+              className="bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-pink-400 focus:outline-none focus:border-pink-500 w-full lg:w-auto"
+            >
+              <option value="all">👁️ Tüm Bilinçaltı Dalgaları</option>
+              <option value="Shadow">👤 Gölge (Korku / Bastırılmış)</option>
+              <option value="Anima">🌊 Anima/Animus (Denge / İlişki)</option>
+              <option value="Persona">🎭 Persona (Sosyal Maskeler)</option>
+              <option value="Wise Old Man">🧙‍♂️ Bilge Yaşlı (Rehberlik / Bilgelik)</option>
+              <option value="Trickster">🃏 Düzenbaz (Kaos / Değişim)</option>
+            </select>
           </div>
 
         </div>
 
+        {/* RÜYA LİSTELEME ALANI */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-32 gap-3">
             <div className="w-10 h-10 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-pink-400 text-xs font-bold tracking-widest uppercase animate-pulse">Bilinçaltı Dalgaları Yakalanıyor...</p>
+            <p className="text-pink-400 text-xs font-bold tracking-widest uppercase animate-pulse">Bilinçaltı Dalgaları Ayıklanıyor...</p>
           </div>
         ) : dreams.length === 0 ? (
-          <div className="glass-card p-12 text-center max-w-md mx-auto border border-white/10 rounded-3xl">[span_8](start_span)[span_8](end_span)
+          <div className="glass-card p-12 text-center max-w-md mx-auto border border-white/10 rounded-3xl bg-white/5">
             <span className="text-5xl block mb-3 animate-bounce">💤</span>
-            <h3 className="text-xl font-bold text-white mb-2">Henüz Kimse Uyumadı mı?</h3>
-            <p className="text-white/60 text-sm mb-6">İlk gizemli rüyayı sen gönder, akışı hemen başlat!</p>
-            <button className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-sm text-white">Rüyamı Çöz</button>
+            <h3 className="text-xl font-bold text-white mb-2">Bu Frekansta Kimse Yok</h3>
+            <p className="text-white/60 text-sm mb-6">Seçtiğin kriterlere uyan rüya bulunamadı. İlk dalgayı sen başlatmak ister misin?</p>
+            <button className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-sm text-white">Rüyamı Gönder</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
@@ -193,18 +211,18 @@ export default function Home() {
                     translatedContent={transState.translatedContent || ''}
                     translatedAnalysis={transState.translatedAnalysis || ''}
                     onTranslate={handleTranslateDream}
-                  />[span_9](start_span)[span_9](end_span)
+                  />
                 </div>
               );
             })}
           </div>
         )}
       </main>
-
+      
       <footer className="w-full text-center py-8 text-white/30 text-xs font-bold tracking-widest border-t border-white/5 relative z-10 bg-black/40">
-        ⚡ LUNOSFER • DÜNYANIN ORTAK BİLİNÇALTI AĞI
+        ⚡ LUNOSFER • KOLEKTİF BİLİNÇALTI MATRİXİ
       </footer>
     </div>
   );
-                }
-                
+      }
+      
