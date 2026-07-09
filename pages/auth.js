@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { auth } from '../lib/supabase'
+import { auth } from '../lib/supabase' // Bu dosyanın 'supabase.auth' veya 'supabase' nesnesini export ettiğinden emin ol
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '../lib/translations'
 
@@ -19,8 +19,9 @@ export default function AuthPage() {
 
   useEffect(() => {
     async function checkUser() {
-      const currentUser = await auth.getUser()
-      if (currentUser) {
+      // Supabase v2'de getUser() { data: { user }, error } formatında döner
+      const { data: { user: currentUser }, error } = await auth.getUser()
+      if (currentUser && !error) {
         setUser(currentUser)
       }
     }
@@ -34,24 +35,47 @@ export default function AuthPage() {
 
     try {
       if (isLogin) {
-        await auth.signIn(email, password)
+        // Supabase v2 Giriş Metodu
+        const { data, error: signInError } = await auth.signInWithPassword({
+          email,
+          password,
+        })
+        
+        if (signInError) throw signInError
+        
         router.push('/profile')
       } else {
-        await auth.signUp(email, password, username)
-        alert(getTranslation('auth.success', lang))
+        // Supabase v2 Kayıt Metodu + MetaData (Username ekleme)
+        const { data, error: signUpError } = await auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username: username, // Kullanıcı adı metadata'ya yazılır
+            }
+          }
+        })
+
+        if (signUpError) throw signUpError
+
+        alert(getTranslation('auth.success', lang) || 'Kayıt başarılı! Lütfen e-postanızı kontrol edin.')
         setIsLogin(true)
       }
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Bir hata oluştu.')
     } finally {
       setLoading(false)
     }
   }
 
   async function handleLogout() {
-    await auth.signOut()
-    setUser(null)
-    router.push('/')
+    const { error } = await auth.signOut()
+    if (!error) {
+      setUser(null)
+      router.push('/')
+    } else {
+      setError(error.message)
+    }
   }
 
   if (user) {
@@ -76,14 +100,18 @@ export default function AuthPage() {
         <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-4">
           <div className="glass-card p-8 max-w-md w-full">
             <h1 className="text-2xl font-bold gradient-text mb-6">
-              {getTranslation('auth.profile', lang)}
+              {getTranslation('auth.profile', lang) || 'Profil'}
             </h1>
-            <p className="text-white/80 mb-4">Email: {user.email}</p>
+            <p className="text-white/80 mb-2">Email: {user.email}</p>
+            {/* Kullanıcı adını metadata üzerinden ekranda göstermek istersen: */}
+            {user.user_metadata?.username && (
+              <p className="text-white/60 mb-4">Kullanıcı Adı: {user.user_metadata.username}</p>
+            )}
             <button
               onClick={handleLogout}
               className="w-full glass-card px-6 py-3 text-white hover:bg-red-500/20 transition-all"
             >
-              {getTranslation('auth.logout', lang)}
+              {getTranslation('auth.logout', lang) || 'Çıkış Yap'}
             </button>
           </div>
         </div>
@@ -111,7 +139,7 @@ export default function AuthPage() {
             {!isLogin && (
               <div>
                 <label className="text-sm text-white/60 block mb-2">
-                  {getTranslation('auth.username', lang)}
+                  {getTranslation('auth.username', lang) || 'Kullanıcı Adı'}
                 </label>
                 <input
                   type="text"
@@ -119,13 +147,14 @@ export default function AuthPage() {
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-black/40 border border-white/20 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
                   placeholder="username"
+                  required={!isLogin}
                 />
               </div>
             )}
 
             <div>
               <label className="text-sm text-white/60 block mb-2">
-                {getTranslation('auth.email', lang)}
+                {getTranslation('auth.email', lang) || 'E-posta'}
               </label>
               <input
                 type="email"
@@ -139,7 +168,7 @@ export default function AuthPage() {
 
             <div>
               <label className="text-sm text-white/60 block mb-2">
-                {getTranslation('auth.password', lang)}
+                {getTranslation('auth.password', lang) || 'Şifre'}
               </label>
               <input
                 type="password"
@@ -163,8 +192,8 @@ export default function AuthPage() {
               disabled={loading}
               className="w-full glass-card px-6 py-3 text-white font-semibold hover:bg-purple-500/20 transition-all disabled:opacity-50"
             >
-              {loading ? getTranslation('auth.loading', lang) : 
-                isLogin ? getTranslation('auth.login', lang) : getTranslation('auth.register', lang)}
+              {loading ? (getTranslation('auth.loading', lang) || 'Yükleniyor...') : 
+                isLogin ? (getTranslation('auth.login', lang) || 'Giriş Yap') : (getTranslation('auth.register', lang) || 'Kayıt Ol')}
             </button>
           </form>
 
@@ -173,11 +202,11 @@ export default function AuthPage() {
               onClick={() => setIsLogin(!isLogin)}
               className="text-purple-400 hover:text-purple-300 text-sm"
             >
-              {isLogin ? getTranslation('auth.noAccount', lang) : getTranslation('auth.hasAccount', lang)}
+              {isLogin ? (getTranslation('auth.noAccount', lang) || 'Hesabınız yok mu? Kaydolun') : (getTranslation('auth.hasAccount', lang) || 'Zaten hesabınız var mı? Giriş yapın')}
             </button>
           </div>
         </div>
       </div>
     </div>
   )
-}
+                                    }
