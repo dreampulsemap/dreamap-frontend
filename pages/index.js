@@ -4,6 +4,29 @@ import { supabase, auth } from '../lib/supabase'
 import { getTranslation } from '../lib/translations'
 import MiniGlobe from '../components/MiniGlobe'
 import DreamCard from '../components/DreamCard'
+import Navbar from '../components/Navbar';
+import Hero from '../components/Hero';
+import DreamCard from '../components/DreamCard'; // Zaten sendeydi
+
+export default function Home() {
+  // Örnek rüya datası listesi...
+  return (
+    <div className="min-h-screen text-slate-100 selection:bg-purple-500/30">
+      <Navbar />
+      <Hero />
+      
+      {/* Rüyalar Akışı Bölümü */}
+      <main className="max-w-7xl mx-auto px-6 py-16">
+        <h2 className="text-2xl font-bold font-serif mb-8 text-center lg:text-left gradient-text">
+          ✨ Son Paylaşılan Kolektif Rüyalar
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Burada dreams.map ile DreamCard'ları dönebilirsin */}
+        </div>
+      </main>
+    </div>
+  );
+}
 
 export default function Home() {
   const { i18n } = useTranslation()
