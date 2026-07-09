@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { auth } from '../lib/supabase' // Bu dosyanın 'supabase.auth' veya 'supabase' nesnesini export ettiğinden emin ol
+import { auth } from '../lib/supabase' // Yazdığın sarmalayıcıyı çeker
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '../lib/translations'
 
@@ -19,10 +19,14 @@ export default function AuthPage() {
 
   useEffect(() => {
     async function checkUser() {
-      // Supabase v2'de getUser() { data: { user }, error } formatında döner
-      const { data: { user: currentUser }, error } = await auth.getUser()
-      if (currentUser && !error) {
-        setUser(currentUser)
+      try {
+        // Yazdığın güvenli getUser metodunu çağırır
+        const currentUser = await auth.getUser()
+        if (currentUser) {
+          setUser(currentUser)
+        }
+      } catch (err) {
+        console.error("Kullanıcı durumu kontrol edilemedi:", err)
       }
     }
     checkUser()
@@ -35,30 +39,13 @@ export default function AuthPage() {
 
     try {
       if (isLogin) {
-        // Supabase v2 Giriş Metodu
-        const { data, error: signInError } = await auth.signInWithPassword({
-          email,
-          password,
-        })
-        
-        if (signInError) throw signInError
-        
+        // Senin yazdığın auth.signIn fonksiyonu çalışır
+        await auth.signIn(email, password)
         router.push('/profile')
       } else {
-        // Supabase v2 Kayıt Metodu + MetaData (Username ekleme)
-        const { data, error: signUpError } = await auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              username: username, // Kullanıcı adı metadata'ya yazılır
-            }
-          }
-        })
-
-        if (signUpError) throw signUpError
-
-        alert(getTranslation('auth.success', lang) || 'Kayıt başarılı! Lütfen e-postanızı kontrol edin.')
+        // Senin yazdığın auth.signUp fonksiyonu çalışır
+        await auth.signUp(email, password, username)
+        alert(getTranslation('auth.success', lang) || 'Kayıt başarılı! E-postanızı kontrol edin.')
         setIsLogin(true)
       }
     } catch (err) {
@@ -69,12 +56,12 @@ export default function AuthPage() {
   }
 
   async function handleLogout() {
-    const { error } = await auth.signOut()
-    if (!error) {
+    try {
+      await auth.signOut()
       setUser(null)
       router.push('/')
-    } else {
-      setError(error.message)
+    } catch (err) {
+      setError(err.message)
     }
   }
 
@@ -92,7 +79,7 @@ export default function AuthPage() {
             </div>
             <a href="/" className="glass-card px-4 py-2 text-white/80 hover:text-white transition-all flex items-center gap-2">
               <span>←</span>
-              <span>{getTranslation('nav.backToHome', lang) || 'Ana Sayfa'}</span>
+              <span>{getTranslation('nav.backToHome', lang)}</span>
             </a>
           </div>
         </header>
@@ -100,10 +87,9 @@ export default function AuthPage() {
         <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-4">
           <div className="glass-card p-8 max-w-md w-full">
             <h1 className="text-2xl font-bold gradient-text mb-6">
-              {getTranslation('auth.profile', lang) || 'Profil'}
+              {getTranslation('auth.profile', lang)}
             </h1>
-            <p className="text-white/80 mb-2">Email: {user.email}</p>
-            {/* Kullanıcı adını metadata üzerinden ekranda göstermek istersen: */}
+            <p className="text-white/80 mb-4">Email: {user.email}</p>
             {user.user_metadata?.username && (
               <p className="text-white/60 mb-4">Kullanıcı Adı: {user.user_metadata.username}</p>
             )}
@@ -111,7 +97,7 @@ export default function AuthPage() {
               onClick={handleLogout}
               className="w-full glass-card px-6 py-3 text-white hover:bg-red-500/20 transition-all"
             >
-              {getTranslation('auth.logout', lang) || 'Çıkış Yap'}
+              {getTranslation('auth.logout', lang)}
             </button>
           </div>
         </div>
@@ -125,7 +111,7 @@ export default function AuthPage() {
       <div className="absolute top-0 left-0 right-0 p-4 z-10">
         <a href="/" className="inline-flex items-center gap-2 glass-card px-4 py-2 hover:bg-white/10 transition-all">
           <span>←</span>
-          <span className="text-white/80">{getTranslation('nav.backToHome', lang) || 'Ana Sayfa'}</span>
+          <span className="text-white/80">{getTranslation('nav.backToHome', lang)}</span>
         </a>
       </div>
 
@@ -139,7 +125,7 @@ export default function AuthPage() {
             {!isLogin && (
               <div>
                 <label className="text-sm text-white/60 block mb-2">
-                  {getTranslation('auth.username', lang) || 'Kullanıcı Adı'}
+                  {getTranslation('auth.username', lang)}
                 </label>
                 <input
                   type="text"
@@ -154,7 +140,7 @@ export default function AuthPage() {
 
             <div>
               <label className="text-sm text-white/60 block mb-2">
-                {getTranslation('auth.email', lang) || 'E-posta'}
+                {getTranslation('auth.email', lang)}
               </label>
               <input
                 type="email"
@@ -168,7 +154,7 @@ export default function AuthPage() {
 
             <div>
               <label className="text-sm text-white/60 block mb-2">
-                {getTranslation('auth.password', lang) || 'Şifre'}
+                {getTranslation('auth.password', lang)}
               </label>
               <input
                 type="password"
@@ -192,8 +178,8 @@ export default function AuthPage() {
               disabled={loading}
               className="w-full glass-card px-6 py-3 text-white font-semibold hover:bg-purple-500/20 transition-all disabled:opacity-50"
             >
-              {loading ? (getTranslation('auth.loading', lang) || 'Yükleniyor...') : 
-                isLogin ? (getTranslation('auth.login', lang) || 'Giriş Yap') : (getTranslation('auth.register', lang) || 'Kayıt Ol')}
+              {loading ? getTranslation('auth.loading', lang) : 
+                isLogin ? getTranslation('auth.login', lang) : getTranslation('auth.register', lang)}
             </button>
           </form>
 
@@ -202,11 +188,12 @@ export default function AuthPage() {
               onClick={() => setIsLogin(!isLogin)}
               className="text-purple-400 hover:text-purple-300 text-sm"
             >
-              {isLogin ? (getTranslation('auth.noAccount', lang) || 'Hesabınız yok mu? Kaydolun') : (getTranslation('auth.hasAccount', lang) || 'Zaten hesabınız var mı? Giriş yapın')}
+              {isLogin ? getTranslation('auth.noAccount', lang) : getTranslation('auth.hasAccount', lang)}
             </button>
           </div>
         </div>
       </div>
     </div>
   )
-                                    }
+        }
+  
