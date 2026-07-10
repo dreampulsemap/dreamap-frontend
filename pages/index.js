@@ -1,228 +1,494 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import Navbar from '../components/Navbar';
-import Hero from '../components/Hero';
-import DreamCard from '../components/DreamCard';
+import { useEffect, useMemo, useState } from 'react'
+import Navbar from '../components/Navbar'
+import Hero from '../components/Hero'
+import DreamCard from '../components/DreamCard'
+import { supabase } from '../lib/supabase'
+import { useTranslation } from 'react-i18next'
+import { getTranslation } from '../lib/translations'
 
-export default function Home() {
-  const lang = 'tr'; 
-  
-  // State Yönetimi
-  const [dreams, setDreams] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [translatingDreams, setTranslatingDreams] = useState({});
-  const [onlineCount, setOnlineCount] = useState(4532);
-  const [currentUser, setCurrentUser] = useState(null);
+export default function HomePage() {
+  const { i18n } = useTranslation()
+  const lang = i18n.language || 'en'
 
-  // 🎛️ GELİŞMİŞ FİLTRE VE ALGORİTMA STATELERİ
-  const [activeTab, setActiveTab] = useState('resonance'); // resonance (algoritmik), fresh (zaman), friends (arkadaşlar)
-  const [selectedArchetype, setSelectedArchetype] = useState('all'); // Gölge, Anima, Bilge Yaşlı vb.
-  const [resonanceMatch, setResonanceMatch] = useState(87); // Dinamik senkronizasyon oranı
+  const [dreams, setDreams] = useState([])
+  const [dailyProphecy, setDailyProphecy] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [translatingId, setTranslatingId] = useState(null)
+  const [translatedDreams, setTranslatedDreams] = useState({})
+  const [activeFilter, setActiveFilter] = useState('all')
 
-  // Mevcut kullanıcıyı al (Arkadaş filtresi için şart)
+  const onlineCount = 12487
+  const resonanceMatch = 78
+
   useEffect(() => {
-    const session = supabase.auth.session ? supabase.auth.session() : null; // Supabase v1/v2 uyumluluğuna göre gerekirse güncellenir
-    setCurrentUser(session?.user || null);
-  }, []);
+    async function loadHomeData() {
+      setLoading(true)
 
-  // Canlı Sayaç ve Sahte Senkronizasyon Efekti (Bağımlılık Tetikleyici)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setOnlineCount(prev => prev + (Math.floor(Math.random() * 13) - 6));
-      setResonanceMatch(() => Math.floor(Math.random() * (99 - 75 + 1)) + 75);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // 🔮 GELİŞMİŞ ALGORİTMİK VERİ ÇEKME FONKSİYONU
-  useEffect(() => {
-    async function fetchDreams() {
       try {
-        setLoading(true);
-        
-        // Temel sorgu
-        let query = supabase.from('dreams').select('*');
+        const today = new Date().toISOString().split('T')[0]
 
-        // 1. FİLTRE: Sadece Arkadaşlar Filtresi aktifse
-        if (activeTab === 'friends' && currentUser) {
-          // Önce arkadaş listesini çekiyoruz
-          const { data: friendsData } = await supabase
-            .from('friends')
-            .select('friend_id')
-            .eq('user_id', currentUser.id)
-            .eq('status', 'accepted');
-          
-          const friendIds = friendsData?.map(f => f.friend_id) || [];
-          // Akışta arkadaş rüyalarını filtrele (kendi rüyaları da dahil olsun)
-          query = query.in('user_id', [...friendIds, currentUser.id]);
-        }
+        const dreamsQuery = supabase
+          .from('dreams')
+          .select('*')
+          .eq('in_feed', true)
+          .order('created_at', { ascending: false })
 
-        // 2. FİLTRE: Belli Başlı Arketip Filtresi
-        if (selectedArchetype !== 'all') {
-          // Veritabanındaki 'dominant_archetype' veya 'archetypes' kolonuna göre filtreler
-          query = query.eq('dominant_archetype', selectedArchetype);
-        }
+        const prophecyQuery = supabase
+          .from('daily_prophecy')
+          .select('*')
+          .eq('prophecy_date', today)
+          .single()
 
-        // 3. ALGORİTMA VE SIRALAMA (Hitap Eden ve Etkileşim Alan Rüyalar)
-        if (activeTab === 'resonance') {
-          // SQL düzeyinde karmaşık bir formül yerine (Supabase RPC yazmadıysak) 
-          // En çok beğeni, yorum ve hitap oranına göre sıralayıp getiriyoruz
-          query = query.order('likes_count', { ascending: false }).order('comments_count', { ascending: false });
-        } else {
-          // En Yeniler (Zamana Göre Sıralama)
-          query = query.order('created_at', { ascending: false });
-        }
+        const [{ data: dreamsData, error: dreamsError }, { data: prophecyData }] =
+          await Promise.all([dreamsQuery, prophecyQuery])
 
-        const { data, error } = await query.limit(30);
-        if (error) throw error;
+        if (dreamsError) throw dreamsError
 
-        setDreams(data || []);
-      } catch (err) {
-        console.error('Rüyalar filtrelenirken hata oluştu:', err);
+        setDreams(dreamsData || [])
+        setDailyProphecy(prophecyData || null)
+      } catch (error) {
+        console.error('Ana sayfa yüklenemedi:', error)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
-    fetchDreams();
-  }, [activeTab, selectedArchetype, currentUser]);
 
-  async function handleTranslateDream(dream) {
-    const dreamId = dream.id;
-    if (translatingDreams[dreamId]?.translated) {
-      setTranslatingDreams(prev => ({ ...prev, [dreamId]: { ...prev[dreamId], translated: false } }));
-      return;
-    }
-    setTranslatingDreams(prev => ({ ...prev, [dreamId]: { ...prev[dreamId], loading: true } }));
+    loadHomeData()
+  }, [])
+
+  async function handleTranslate(dream) {
     try {
-      const analysisText = dream[`ai_summary_tr`] || dream.ai_summary || '';
-      setTranslatingDreams(prev => ({
+      setTranslatingId(dream.id)
+
+      const res = await fetch('/api/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dreamText: dream.content,
+          analysisText:
+            dream[`ai_summary_${lang}`] ||
+            dream.ai_summary ||
+            dream.ai_summary_en ||
+            '',
+          targetLang: lang,
+          dreamId: dream.id,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Çeviri başarısız oldu.')
+      }
+
+      setTranslatedDreams((prev) => ({
         ...prev,
-        [dreamId]: { translated: true, translatedContent: dream.content, translatedAnalysis: analysisText }
-      }));
-    } catch (err) {
-      console.error(err);
+        [dream.id]: {
+          translated: true,
+          translatedContent: data.translated,
+          translatedAnalysis: data.analysisTranslated,
+        },
+      }))
+    } catch (error) {
+      console.error('Çeviri hatası:', error)
+      alert(error.message)
     } finally {
-      setTranslatingDreams(prev => ({ ...prev, [dreamId]: { ...prev[dreamId], loading: false } }));
+      setTranslatingId(null)
     }
   }
 
-  return (
-    <div className="min-h-screen text-[#e0e0ff] bg-[#020208] relative overflow-x-hidden selection:bg-pink-500/30 font-sans">
-      <div className="starry-bg"></div>
-      
-      <Navbar />
-      <Hero />
+  const filteredDreams = useMemo(() => {
+    if (activeFilter === 'all') return dreams
 
-      <main className="max-w-7xl mx-auto px-4 pb-24 relative z-10 -mt-6">
-        
-        {/* 🔥 BAĞIMLILIK TETİKLEYİCİ: SENKRONİZASYON BANNERI */}
-        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-purple-900/40 via-pink-900/20 to-black/40 border border-purple-500/20 backdrop-blur-md flex flex-col md:flex-row items-center justify-between gap-4 animate-pulse">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🔮</span>
-            <div>
-              <h4 className="text-sm font-bold text-white">Bilinçaltı Rezonansı Yakalandı!</h4>
-              <p className="text-xs text-white/60">Şu an küresel rüya ağında senin zihinsel frekansına sahip insanlarla senkronizasyonun: <span className="text-pink-400 font-bold">%{resonanceMatch}</span></p>
+    if (activeFilter === 'friends') {
+      return dreams.filter((dream) => dream.visibility === 'friends')
+    }
+
+    if (activeFilter === 'archetypes') {
+      return dreams.filter(
+        (dream) => Array.isArray(dream.ai_archetypes) && dream.ai_archetypes.length > 0
+      )
+    }
+
+    if (activeFilter === 'intense') {
+      return dreams.filter(
+        (dream) =>
+          dream.user_selected_sentiment &&
+          ['Fear', 'Anxiety', 'Awe', 'Surprise'].includes(dream.user_selected_sentiment)
+      )
+    }
+
+    return dreams
+  }, [dreams, activeFilter])
+
+  const prophecyText =
+    dailyProphecy?.[`content_${lang}`] ||
+    dailyProphecy?.content_tr ||
+    dailyProphecy?.content_en ||
+    'The collective field is still gathering symbols for today.'
+
+  const prophecyAdvice =
+    dailyProphecy?.[`advice_${lang}`] ||
+    dailyProphecy?.advice_tr ||
+    dailyProphecy?.advice_en ||
+    ''
+
+  return (
+    <div className="min-h-screen bg-[#030712] text-white">
+      <Navbar />
+
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <Hero />
+
+        <section className="mb-8 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+          <div
+            id="prophecy"
+            className="relative overflow-hidden rounded-[2rem] border border-fuchsia-400/15 bg-gradient-to-br from-fuchsia-500/12 via-violet-500/10 to-cyan-500/10 p-6 shadow-[0_0_60px_rgba(168,85,247,0.12)] backdrop-blur-xl"
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.18),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(34,211,238,0.12),transparent_24%)]" />
+
+            <div className="relative">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-fuchsia-100">
+                <span className="h-2 w-2 rounded-full bg-fuchsia-300 shadow-[0_0_16px_rgba(244,114,182,0.9)]" />
+                {getTranslation('hero.ctaProphecy', lang) || 'Collective Prophecy'}
+              </div>
+
+              <h2 className="text-2xl font-semibold text-white sm:text-3xl">
+                {lang === 'tr'
+                  ? 'Bugünün Kolektif Kehaneti'
+                  : lang === 'es'
+                  ? 'Profecía Colectiva de Hoy'
+                  : lang === 'fr'
+                  ? 'Prophétie Collective du Jour'
+                  : lang === 'de'
+                  ? 'Die Kollektive Prophezeiung von Heute'
+                  : lang === 'pt'
+                  ? 'Profecia Coletiva de Hoje'
+                  : lang === 'ru'
+                  ? 'Коллективное Пророчество Сегодня'
+                  : lang === 'ja'
+                  ? '今日の集合的予言'
+                  : 'Today’s Collective Prophecy'}
+              </h2>
+
+              <p className="mt-4 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">
+                {prophecyText}
+              </p>
+
+              {prophecyAdvice ? (
+                <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="mb-1 text-xs uppercase tracking-[0.18em] text-fuchsia-200/80">
+                    {lang === 'tr'
+                      ? 'Pratik Yorum'
+                      : lang === 'es'
+                      ? 'Lectura Práctica'
+                      : lang === 'fr'
+                      ? 'Lecture Pratique'
+                      : lang === 'de'
+                      ? 'Praktische Deutung'
+                      : lang === 'pt'
+                      ? 'Leitura Prática'
+                      : lang === 'ru'
+                      ? 'Практическое Толкование'
+                      : lang === 'ja'
+                      ? '実践的な解釈'
+                      : 'Practical Reading'}
+                  </p>
+                  <p className="text-sm leading-7 text-slate-300 sm:text-base">
+                    {prophecyAdvice}
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
-            <span><strong className="text-green-400 tabular-nums">{onlineCount.toLocaleString()}</strong> Kişi Rüya Görüyor</span>
+
+          <div className="grid gap-6">
+            <div className="rounded-[2rem] border border-cyan-400/15 bg-white/5 p-6 shadow-[0_0_40px_rgba(34,211,238,0.08)] backdrop-blur-xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-cyan-100">
+                <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_16px_rgba(103,232,249,0.9)]" />
+                Live Resonance
+              </div>
+
+              <h3 className="text-xl font-semibold text-white sm:text-2xl">
+                {lang === 'tr'
+                  ? 'Bilinçaltı Rezonansı Yakalandı'
+                  : lang === 'es'
+                  ? 'Resonancia Subconsciente Detectada'
+                  : lang === 'fr'
+                  ? 'Résonance de l’Inconscient Détectée'
+                  : lang === 'de'
+                  ? 'Unterbewusste Resonanz Erfasst'
+                  : lang === 'pt'
+                  ? 'Ressonância do Subconsciente Detectada'
+                  : lang === 'ru'
+                  ? 'Резонанс Подсознания Обнаружен'
+                  : lang === 'ja'
+                  ? '潜在意識の共鳴を検出'
+                  : 'Subconscious Resonance Detected'}
+              </h3>
+
+              <p className="mt-3 text-sm leading-7 text-slate-300 sm:text-base">
+                {lang === 'tr'
+                  ? `Şu an küresel rüya ağında senin zihinsel frekansına sahip insanlarla senkronizasyonun: %${resonanceMatch}`
+                  : lang === 'es'
+                  ? `Tu sincronización con personas de tu misma frecuencia mental en la red global de sueños es: %${resonanceMatch}`
+                  : lang === 'fr'
+                  ? `Ta synchronisation avec les personnes partageant ta fréquence mentale dans le réseau mondial des rêves est de : %${resonanceMatch}`
+                  : lang === 'de'
+                  ? `Deine Synchronisation mit Menschen derselben mentalen Frequenz im globalen Traumnetzwerk beträgt: %${resonanceMatch}`
+                  : lang === 'pt'
+                  ? `Sua sincronização com pessoas da mesma frequência mental na rede global de sonhos é: %${resonanceMatch}`
+                  : lang === 'ru'
+                  ? `Ваш уровень синхронизации с людьми той же ментальной частоты в глобальной сети снов: %${resonanceMatch}`
+                  : lang === 'ja'
+                  ? `グローバルな夢ネットワークで、あなたと同じ精神周波数を持つ人々との同期率は %${resonanceMatch} です`
+                  : `Your synchronization with people sharing your mental frequency in the global dream network is: %${resonanceMatch}`}
+              </p>
+
+              <div className="mt-5 rounded-2xl border border-emerald-400/15 bg-emerald-500/8 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-emerald-300/80">
+                  {lang === 'tr'
+                    ? 'Canlı Ağ'
+                    : lang === 'es'
+                    ? 'Red en Vivo'
+                    : lang === 'fr'
+                    ? 'Réseau en Direct'
+                    : lang === 'de'
+                    ? 'Live-Netzwerk'
+                    : lang === 'pt'
+                    ? 'Rede ao Vivo'
+                    : lang === 'ru'
+                    ? 'Живая Сеть'
+                    : lang === 'ja'
+                    ? 'ライブネットワーク'
+                    : 'Live Network'}
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-white">
+                  {onlineCount.toLocaleString()}
+                </p>
+                <p className="mt-1 text-sm text-slate-300">
+                  {lang === 'tr'
+                    ? 'kişi şu anda rüya görüyor'
+                    : lang === 'es'
+                    ? 'personas están soñando ahora mismo'
+                    : lang === 'fr'
+                    ? 'personnes rêvent en ce moment'
+                    : lang === 'de'
+                    ? 'Menschen träumen gerade'
+                    : lang === 'pt'
+                    ? 'pessoas estão sonhando agora'
+                    : lang === 'ru'
+                    ? 'человек сейчас видят сны'
+                    : lang === 'ja'
+                    ? '人が今この瞬間に夢を見ています'
+                    : 'people are dreaming right now'}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setActiveFilter('all')}
+                  className={`rounded-full px-4 py-2 text-sm transition-all ${
+                    activeFilter === 'all'
+                      ? 'bg-cyan-500/20 text-cyan-100 border border-cyan-300/30'
+                      : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  {lang === 'tr'
+                    ? 'Tüm Akış'
+                    : lang === 'es'
+                    ? 'Todo el Feed'
+                    : lang === 'fr'
+                    ? 'Tout le Flux'
+                    : lang === 'de'
+                    ? 'Gesamter Feed'
+                    : lang === 'pt'
+                    ? 'Feed Completo'
+                    : lang === 'ru'
+                    ? 'Вся Лента'
+                    : lang === 'ja'
+                    ? 'すべてのフィード'
+                    : 'All Feed'}
+                </button>
+
+                <button
+                  onClick={() => setActiveFilter('archetypes')}
+                  className={`rounded-full px-4 py-2 text-sm transition-all ${
+                    activeFilter === 'archetypes'
+                      ? 'bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-300/30'
+                      : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  {lang === 'tr'
+                    ? 'Arketipler'
+                    : lang === 'es'
+                    ? 'Arquetipos'
+                    : lang === 'fr'
+                    ? 'Archétypes'
+                    : lang === 'de'
+                    ? 'Archetypen'
+                    : lang === 'pt'
+                    ? 'Arquétipos'
+                    : lang === 'ru'
+                    ? 'Архетипы'
+                    : lang === 'ja'
+                    ? 'アーキタイプ'
+                    : 'Archetypes'}
+                </button>
+
+                <button
+                  onClick={() => setActiveFilter('intense')}
+                  className={`rounded-full px-4 py-2 text-sm transition-all ${
+                    activeFilter === 'intense'
+                      ? 'bg-amber-500/20 text-amber-100 border border-amber-300/30'
+                      : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  {lang === 'tr'
+                    ? 'Yoğun Duygular'
+                    : lang === 'es'
+                    ? 'Emociones Intensas'
+                    : lang === 'fr'
+                    ? 'Émotions Intenses'
+                    : lang === 'de'
+                    ? 'Intensive Emotionen'
+                    : lang === 'pt'
+                    ? 'Emoções Intensas'
+                    : lang === 'ru'
+                    ? 'Сильные Эмоции'
+                    : lang === 'ja'
+                    ? '強い感情'
+                    : 'Intense Emotions'}
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
 
-        {/* 🎛️ ANA FİLTRE PANELİ */}
-        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between mb-8 bg-white/5 border border-white/10 p-3 rounded-2xl backdrop-blur-md">
-          
-          {/* Akış Türü Seçimi */}
-          <div className="flex flex-wrap gap-2 w-full lg:w-auto">
-            <button 
-              onClick={() => setActiveTab('resonance')}
-              className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
-                activeTab === 'resonance' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-pink-500/20 scale-105' : 'text-white/60 hover:bg-white/5'
-              }`}
-            >
-              🔥 Popüler Rezonans (Algoritmik)
-            </button>
-            <button 
-              onClick={() => setActiveTab('fresh')}
-              className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
-                activeTab === 'fresh' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-pink-500/20 scale-105' : 'text-white/60 hover:bg-white/5'
-              }`}
-            >
-              ⚡ Canlı Akış (Zaman)
-            </button>
-            <button 
-              onClick={() => {
-                if(!currentUser) alert('Sadece arkadaşları görmek için giriş yapmalısın!');
-                else setActiveTab('friends');
-              }}
-              className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
-                activeTab === 'friends' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-pink-500/20 scale-105' : 'text-white/60 hover:bg-white/5'
-              }`}
-            >
-              👥 Sadece Arkadaşlar
-            </button>
+        <section className="mb-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+              Dream Feed
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">
+              {lang === 'tr'
+                ? 'Canlı Rüya Akışı'
+                : lang === 'es'
+                ? 'Feed de Sueños en Vivo'
+                : lang === 'fr'
+                ? 'Flux de Rêves en Direct'
+                : lang === 'de'
+                ? 'Live-Traumfeed'
+                : lang === 'pt'
+                ? 'Feed de Sonhos ao Vivo'
+                : lang === 'ru'
+                ? 'Лента Снов в Реальном Времени'
+                : lang === 'ja'
+                ? 'ライブ夢フィード'
+                : 'Live Dream Feed'}
+            </h2>
           </div>
 
-          {/* Arketip Seçim Filtresi */}
-          <div className="flex items-center gap-2 w-full lg:w-auto border-t lg:border-t-0 pt-3 lg:pt-0 border-white/10">
-            <span className="text-xs font-bold text-white/40 uppercase whitespace-nowrap">Arketip Filtresi:</span>
-            <select 
-              value={selectedArchetype}
-              onChange={(e) => setSelectedArchetype(e.target.value)}
-              className="bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-pink-400 focus:outline-none focus:border-pink-500 w-full lg:w-auto"
-            >
-              <option value="all">👁️ Tüm Bilinçaltı Dalgaları</option>
-              <option value="Shadow">👤 Gölge (Korku / Bastırılmış)</option>
-              <option value="Anima">🌊 Anima/Animus (Denge / İlişki)</option>
-              <option value="Persona">🎭 Persona (Sosyal Maskeler)</option>
-              <option value="Wise Old Man">🧙‍♂️ Bilge Yaşlı (Rehberlik / Bilgelik)</option>
-              <option value="Trickster">🃏 Düzenbaz (Kaos / Değişim)</option>
-            </select>
+          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+            {filteredDreams.length}{' '}
+            {lang === 'tr'
+              ? 'kayıt'
+              : lang === 'es'
+              ? 'entradas'
+              : lang === 'fr'
+              ? 'entrées'
+              : lang === 'de'
+              ? 'Einträge'
+              : lang === 'pt'
+              ? 'registros'
+              : lang === 'ru'
+              ? 'записей'
+              : lang === 'ja'
+              ? '件'
+              : 'entries'}
           </div>
+        </section>
 
-        </div>
-
-        {/* RÜYA LİSTELEME ALANI */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 gap-3">
-            <div className="w-10 h-10 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-pink-400 text-xs font-bold tracking-widest uppercase animate-pulse">Bilinçaltı Dalgaları Ayıklanıyor...</p>
+          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8 text-center text-slate-300 backdrop-blur-xl">
+            {lang === 'tr'
+              ? 'Bilinçaltı dalgaları ayıklanıyor...'
+              : lang === 'es'
+              ? 'Filtrando ondas subconscientes...'
+              : lang === 'fr'
+              ? 'Filtrage des ondes subconscientes...'
+              : lang === 'de'
+              ? 'Unterbewusste Wellen werden gefiltert...'
+              : lang === 'pt'
+              ? 'Filtrando ondas subconscientes...'
+              : lang === 'ru'
+              ? 'Фильтрация волн подсознания...'
+              : lang === 'ja'
+              ? '潜在意識の波を抽出中...'
+              : 'Filtering subconscious waves...'}
           </div>
-        ) : dreams.length === 0 ? (
-          <div className="glass-card p-12 text-center max-w-md mx-auto border border-white/10 rounded-3xl bg-white/5">
-            <span className="text-5xl block mb-3 animate-bounce">💤</span>
-            <h3 className="text-xl font-bold text-white mb-2">Bu Frekansta Kimse Yok</h3>
-            <p className="text-white/60 text-sm mb-6">Seçtiğin kriterlere uyan rüya bulunamadı. İlk dalgayı sen başlatmak ister misin?</p>
-            <button className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-sm text-white">Rüyamı Gönder</button>
+        ) : filteredDreams.length === 0 ? (
+          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-10 text-center backdrop-blur-xl">
+            <h3 className="text-2xl font-semibold text-white">
+              {lang === 'tr'
+                ? 'Bu Frekansta Kimse Yok'
+                : lang === 'es'
+                ? 'Nadie en Esta Frecuencia'
+                : lang === 'fr'
+                ? 'Personne sur Cette Fréquence'
+                : lang === 'de'
+                ? 'Niemand auf Dieser Frequenz'
+                : lang === 'pt'
+                ? 'Ninguém Nesta Frequência'
+                : lang === 'ru'
+                ? 'На Этой Частоте Никого Нет'
+                : lang === 'ja'
+                ? 'この周波数には誰もいません'
+                : 'Nobody on This Frequency'}
+            </h3>
+            <p className="mx-auto mt-4 max-w-2xl text-slate-300">
+              {lang === 'tr'
+                ? 'Seçtiğin kriterlere uyan rüya bulunamadı. İlk dalgayı sen başlatmak ister misin?'
+                : lang === 'es'
+                ? 'No se encontraron sueños que coincidan con tus criterios. ¿Quieres iniciar la primera ola?'
+                : lang === 'fr'
+                ? 'Aucun rêve ne correspond à tes critères. Veux-tu lancer la première vague ?'
+                : lang === 'de'
+                ? 'Keine Träume entsprechen deinen Kriterien. Möchtest du die erste Welle starten?'
+                : lang === 'pt'
+                ? 'Nenhum sonho corresponde aos seus critérios. Quer iniciar a primeira onda?'
+                : lang === 'ru'
+                ? 'Не найдено снов по вашим критериям. Хотите запустить первую волну?'
+                : lang === 'ja'
+                ? '条件に合う夢が見つかりませんでした。最初の波をあなたが始めますか？'
+                : 'No dreams matched your criteria. Would you like to start the first wave?'}
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-            {dreams.map((dream) => {
-              const transState = translatingDreams[dream.id] || {};
+          <div className="space-y-6">
+            {filteredDreams.map((dream) => {
+              const translatedData = translatedDreams[dream.id]
+
               return (
-                <div key={dream.id} className="relative group transition-all duration-300">
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 to-pink-600/10 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                  <DreamCard 
-                    dream={dream} 
-                    lang={lang}
-                    translating={transState.loading || false}
-                    translated={transState.translated || false}
-                    translatedContent={transState.translatedContent || ''}
-                    translatedAnalysis={transState.translatedAnalysis || ''}
-                    onTranslate={handleTranslateDream}
-                  />
-                </div>
-              );
+                <DreamCard
+                  key={dream.id}
+                  dream={dream}
+                  lang={lang}
+                  onTranslate={handleTranslate}
+                  translating={translatingId === dream.id}
+                  translated={!!translatedData?.translated}
+                  translatedContent={translatedData?.translatedContent}
+                  translatedAnalysis={translatedData?.translatedAnalysis}
+                />
+              )
             })}
           </div>
         )}
       </main>
-      
-      <footer className="w-full text-center py-8 text-white/30 text-xs font-bold tracking-widest border-t border-white/5 relative z-10 bg-black/40">
-        ⚡ LUNOSFER • KOLEKTİF BİLİNÇALTI MATRİXİ
-      </footer>
     </div>
-  );
-    }
-    
+  )
+}
