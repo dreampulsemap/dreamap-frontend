@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-const SUPPORTED_LANGS = ['tr', 'en', 'es', 'fr', 'de', 'pt', 'ru', 'ja']
 const MODEL = 'llama-3.3-70b-versatile'
-const ANALYSIS_VERSION = 'jung-v3-json-mode'
-const DEFAULT_BATCH_SIZE = 5
-const MAX_BATCH_SIZE = 20
+const ANALYSIS_VERSION = 'jung-v4-deep'
+const DEFAULT_BATCH_SIZE = 3
+const MAX_BATCH_SIZE = 10
 
 function normalizeText(value) {
   if (typeof value !== 'string') return null
@@ -17,7 +16,7 @@ function normalizeArray(value) {
   return value
     .map((item) => (typeof item === 'string' ? item.trim() : ''))
     .filter(Boolean)
-    .slice(0, 6)
+    .slice(0, 8)
 }
 
 function normalizeEmotionLabel(value) {
@@ -80,24 +79,40 @@ async function analyzeDreamWithGroq({ content, language, groqKey }) {
       ja: 'string',
     },
     summary: {
-      tr: 'string',
-      en: 'string',
-      es: 'string',
-      fr: 'string',
-      de: 'string',
-      pt: 'string',
-      ru: 'string',
-      ja: 'string',
+      tr: '120-220 words, deep Jungian interpretation',
+      en: '120-220 words, deep Jungian interpretation',
+      es: '120-220 words, deep Jungian interpretation',
+      fr: '120-220 words, deep Jungian interpretation',
+      de: '120-220 words, deep Jungian interpretation',
+      pt: '120-220 words, deep Jungian interpretation',
+      ru: '120-220 words, deep Jungian interpretation',
+      ja: '120-220 words, deep Jungian interpretation',
     },
     motiv: {
+      tr: '50-100 words, psychologically reflective integration guidance',
+      en: '50-100 words, psychologically reflective integration guidance',
+      es: '50-100 words, psychologically reflective integration guidance',
+      fr: '50-100 words, psychologically reflective integration guidance',
+      de: '50-100 words, psychologically reflective integration guidance',
+      pt: '50-100 words, psychologically reflective integration guidance',
+      ru: '50-100 words, psychologically reflective integration guidance',
+      ja: '50-100 words, psychologically reflective integration guidance',
+    },
+    shadow_focus: {
       tr: 'string',
       en: 'string',
-      es: 'string',
-      fr: 'string',
-      de: 'string',
-      pt: 'string',
-      ru: 'string',
-      ja: 'string',
+    },
+    core_conflict: {
+      tr: 'string',
+      en: 'string',
+    },
+    individuation_path: {
+      tr: 'string',
+      en: 'string',
+    },
+    symbolic_reading: {
+      tr: '80-180 words',
+      en: '80-180 words',
     },
     archetypes: ['string'],
     sentiment: 'Fear | Joy | Sadness | Peace | Anxiety | Awe | Confusion | Surprise',
@@ -118,9 +133,10 @@ async function analyzeDreamWithGroq({ content, language, groqKey }) {
   }
 
   const prompt = `
-You are an expert Jungian dream analyst.
+You are an expert Jungian dream analyst with deep knowledge of Carl Jung, archetypes, shadow work, compensation theory, symbol amplification, and individuation.
 
-Analyze the dream below and return ONLY a valid JSON object.
+Analyze the dream below as if it is a communication from the unconscious.
+Return ONLY a valid JSON object.
 Do not use markdown.
 Do not wrap the JSON in backticks.
 Do not add explanations before or after the JSON.
@@ -132,16 +148,28 @@ ${content}
 Return exactly this JSON shape:
 ${JSON.stringify(schemaGuide, null, 2)}
 
-Rules:
-- Identify 1 to 4 Jungian archetypes.
+Interpretation rules:
+- The tone must be psychologically deep, symbolically rich, and introspective.
+- Do not give shallow motivational advice.
+- Treat the dream as a meaningful psychic drama, not a generic inspirational story.
+- Ask implicitly: what is the unconscious compensating for?
+- Explore possible shadow material, split desire, hidden fear, wounded self-image, blocked vitality, or emerging inner potential.
+- When appropriate, refer to archetypal dynamics such as shadow, persona, anima, animus, inner child, self, trickster, wise old figure, death-rebirth, descent, threshold, pursuit, labyrinth, flood, house, mirror, animal, mother, father, lover, stranger, mask, double.
+- The summary should feel like a real Jungian interpretation: layered, reflective, and slightly unsettling in a meaningful way.
+- The motiv field should not be cheerleading. It should offer integration guidance, emotional honesty, and a psychologically mature next step.
+- symbolic_reading must deepen the symbolic logic of the dream, especially the relation between symbols and the dreamer's inner conflict.
+- shadow_focus should identify what rejected or disowned part of the psyche may be appearing.
+- core_conflict should name the central inner tension.
+- individuation_path should suggest what inner movement or reconciliation the dream may be pointing toward.
+- Identify 1 to 5 Jungian archetypes.
 - sentiment must be exactly one of: Fear, Joy, Sadness, Peace, Anxiety, Awe, Confusion, Surprise
-- Write natural text for all 8 languages: tr, en, es, fr, de, pt, ru, ja
-- summary fields should be 2 to 3 sentences
-- motiv fields should be short, reflective, and supportive
-- symbols should include the most psychologically meaningful dream elements
-- emotions should contain 1 to 5 items
-- All scores and intensity values must be integers from 0 to 100
-- Output ONLY JSON
+- Write natural text for all 8 languages in title, summary, and motiv.
+- summary fields should be 120 to 220 words each.
+- motiv fields should be 50 to 100 words each.
+- symbols should include the most psychologically meaningful elements, not surface decorations.
+- emotions should contain 1 to 5 items.
+- All scores and intensity values must be integers from 0 to 100.
+- Output ONLY JSON.
 `.trim()
 
   const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -152,12 +180,13 @@ Rules:
     },
     body: JSON.stringify({
       model: MODEL,
-      temperature: 0.4,
-      max_tokens: 2200,
+      temperature: 0.7,
+      max_tokens: 3200,
       messages: [
         {
           role: 'system',
-          content: 'Return only valid JSON objects.',
+          content:
+            'Return only valid JSON objects. You are a profound Jungian analyst, not a generic wellness assistant.',
         },
         {
           role: 'user',
@@ -213,23 +242,19 @@ Rules:
         .slice(0, 5)
     : []
 
-  if (!archetypes.length) {
-    throw new Error('Archetype üretilemedi')
-  }
-
-  if (!symbols.length) {
-    throw new Error('Symbol üretilemedi')
-  }
-
-  if (!pickLocalized(analysis.summary, 'en', 'en')) {
-    throw new Error('Summary üretilemedi')
-  }
+  if (!archetypes.length) throw new Error('Archetype üretilemedi')
+  if (!symbols.length) throw new Error('Symbol üretilemedi')
+  if (!pickLocalized(analysis.summary, 'en', 'en')) throw new Error('Summary üretilemedi')
 
   return {
     raw: analysis,
     title: analysis.title || {},
     summary: analysis.summary || {},
     motiv: analysis.motiv || {},
+    shadow_focus: analysis.shadow_focus || {},
+    core_conflict: analysis.core_conflict || {},
+    individuation_path: analysis.individuation_path || {},
+    symbolic_reading: analysis.symbolic_reading || {},
     archetypes,
     sentiment,
     symbols,
@@ -284,7 +309,13 @@ function buildDreamUpdate({ dreamId, content, language, analysis }) {
     ai_sentiment: analysis.sentiment,
     ai_symbols: analysis.symbols,
     ai_emotions: analysis.emotions,
-    ai_jungian_analysis: analysis.raw,
+    ai_jungian_analysis: {
+      ...analysis.raw,
+      shadow_focus: analysis.shadow_focus,
+      core_conflict: analysis.core_conflict,
+      individuation_path: analysis.individuation_path,
+      symbolic_reading: analysis.symbolic_reading,
+    },
 
     ai_image_prompt: imagePrompt,
     ai_image_url: imageUrl,
