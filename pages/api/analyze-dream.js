@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-const SUPPORTED_LANGS = ['tr', 'en', 'es', 'fr', 'de', 'pt', 'ru', 'ja']
-const MODEL = 'llama-3.3-70b-versatile'
-const ANALYSIS_VERSION = 'jung-v2-structured'
+const GROQ_MODEL = 'llama-3.3-70b-versatile'
+const OPENROUTER_FALLBACK_MODEL =
+  process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free'
+const ANALYSIS_VERSION = 'jung-v6-groq-openrouter-fallback'
 
 function normalizeText(value) {
   if (typeof value !== 'string') return null
@@ -15,7 +16,7 @@ function normalizeArray(value) {
   return value
     .map((item) => (typeof item === 'string' ? item.trim() : ''))
     .filter(Boolean)
-    .slice(0, 6)
+    .slice(0, 8)
 }
 
 function normalizeEmotionLabel(value) {
@@ -65,101 +66,304 @@ function buildImagePrompt({ archetypes, dominantEmotion, symbols, content }) {
   ].join(', ')
 }
 
-function buildSchema() {
-  return {
-    type: 'object',
-    additionalProperties: false,
-    properties: {
-      title: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          tr: { type: 'string' },
-          en: { type: 'string' },
-          es: { type: 'string' },
-          fr: { type: 'string' },
-          de: { type: 'string' },
-          pt: { type: 'string' },
-          ru: { type: 'string' },
-          ja: { type: 'string' },
-        },
-        required: SUPPORTED_LANGS,
-      },
-      summary: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          tr: { type: 'string' },
-          en: { type: 'string' },
-          es: { type: 'string' },
-          fr: { type: 'string' },
-          de: { type: 'string' },
-          pt: { type: 'string' },
-          ru: { type: 'string' },
-          ja: { type: 'string' },
-        },
-        required: SUPPORTED_LANGS,
-      },
-      motiv: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          tr: { type: 'string' },
-          en: { type: 'string' },
-          es: { type: 'string' },
-          fr: { type: 'string' },
-          de: { type: 'string' },
-          pt: { type: 'string' },
-          ru: { type: 'string' },
-          ja: { type: 'string' },
-        },
-        required: SUPPORTED_LANGS,
-      },
-      archetypes: {
-        type: 'array',
-        items: { type: 'string' },
-        minItems: 1,
-        maxItems: 6,
-      },
-      sentiment: {
-        type: 'string',
-        enum: ['Fear', 'Joy', 'Sadness', 'Peace', 'Anxiety', 'Awe', 'Confusion', 'Surprise'],
-      },
-      symbols: {
-        type: 'array',
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            symbol: { type: 'string' },
-            meaning_tr: { type: 'string' },
-            meaning_en: { type: 'string' },
-            intensity: { type: 'integer' },
-          },
-          required: ['symbol', 'meaning_tr', 'meaning_en', 'intensity'],
-        },
-        minItems: 1,
-        maxItems: 8,
-      },
-      emotions: {
-        type: 'array',
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            emotion: {
-              type: 'string',
-              enum: ['Fear', 'Joy', 'Sadness', 'Peace', 'Anxiety', 'Awe', 'Confusion', 'Surprise'],
-            },
-            score: { type: 'integer' },
-          },
-          required: ['emotion', 'score'],
-        },
-        minItems: 1,
-        maxItems: 5,
-      },
+function getPrompt(content, language) {
+  const schemaGuide = {
+    title: {
+      tr: 'string',
+      en: 'string',
+      es: 'string',
+      fr: 'string',
+      de: 'string',
+      pt: 'string',
+      ru: 'string',
+      ja: 'string',
     },
-    required: ['title', 'summary', 'motiv', 'archetypes', 'sentiment', 'symbols', 'emotions'],
+    summary: {
+      tr: '80-150 words, deep Jungian interpretation',
+      en: '80-150 words, deep Jungian interpretation',
+      es: '80-150 words, deep Jungian interpretation',
+      fr: '80-150 words, deep Jungian interpretation',
+      de: '80-150 words, deep Jungian interpretation',
+      pt: '80-150 words, deep Jungian interpretation',
+      ru: '80-150 words, deep Jungian interpretation',
+      ja: '80-150 words, deep Jungian interpretation',
+    },
+    motiv: {
+      tr: '30-60 words, psychologically reflective integration guidance',
+      en: '30-60 words, psychologically reflective integration guidance',
+      es: '30-60 words, psychologically reflective integration guidance',
+      fr: '30-60 words, psychologically reflective integration guidance',
+      de: '30-60 words, psychologically reflective integration guidance',
+      pt: '30-60 words, psychologically reflective integration guidance',
+      ru: '30-60 words, psychologically reflective integration guidance',
+      ja: '30-60 words, psychologically reflective integration guidance',
+    },
+    shadow_focus: {
+      tr: 'string',
+      en: 'string',
+    },
+    core_conflict: {
+      tr: 'string',
+      en: 'string',
+    },
+    individuation_path: {
+      tr: 'string',
+      en: 'string',
+    },
+    symbolic_reading: {
+      tr: '50-100 words',
+      en: '50-100 words',
+    },
+    archetypes: ['string'],
+    sentiment: 'Fear | Joy | Sadness | Peace | Anxiety | Awe | Confusion | Surprise',
+    symbols: [
+      {
+        symbol: 'string',
+        meaning_tr: 'string',
+        meaning_en: 'string',
+        intensity: 'integer 0-100',
+      },
+    ],
+    emotions: [
+      {
+        emotion: 'Fear | Joy | Sadness | Peace | Anxiety | Awe | Confusion | Surprise',
+        score: 'integer 0-100',
+      },
+    ],
+  }
+
+  return `
+You are an expert Jungian dream analyst.
+
+Analyze the dream below as a meaningful message from the unconscious.
+Return ONLY a valid JSON object.
+Do not use markdown.
+Do not wrap the JSON in backticks.
+Do not add explanations before or after the JSON.
+
+Dream language hint: ${language}
+Dream text:
+${content}
+
+Return exactly this JSON shape:
+${JSON.stringify(schemaGuide, null, 2)}
+
+Rules:
+- The tone must be psychologically deep, symbolically rich, and introspective.
+- Avoid shallow motivational advice.
+- Treat the dream as an expression of inner tension, compensation, shadow material, hidden fear, blocked vitality, or emerging potential.
+- The summary should feel like a Jungian interpretation, not a generic self-help comment.
+- The motiv field should offer integration guidance, not cheerleading.
+- symbolic_reading must deepen the symbolic logic of the dream.
+- shadow_focus should identify what rejected or disowned part may be appearing.
+- core_conflict should name the central inner tension.
+- individuation_path should suggest the next inner movement.
+- Identify 1 to 5 Jungian archetypes.
+- sentiment must be exactly one of: Fear, Joy, Sadness, Peace, Anxiety, Awe, Confusion, Surprise
+- Write natural text for all 8 languages in title, summary, and motiv.
+- symbols should include the most psychologically meaningful elements.
+- emotions should contain 1 to 5 items.
+- All scores and intensity values must be integers from 0 to 100.
+- Output ONLY JSON.
+`.trim()
+}
+
+function parseAnalysis(rawContent) {
+  let analysis
+  try {
+    analysis = JSON.parse(rawContent)
+  } catch {
+    throw new Error('JSON parse edilemedi')
+  }
+
+  const archetypes = normalizeArray(analysis.archetypes)
+  const sentiment = normalizeEmotionLabel(analysis.sentiment) || 'Confusion'
+
+  const symbols = Array.isArray(analysis.symbols)
+    ? analysis.symbols
+        .map((item) => ({
+          symbol: normalizeText(item?.symbol),
+          meaning_tr: normalizeText(item?.meaning_tr),
+          meaning_en: normalizeText(item?.meaning_en),
+          intensity: normalizeScore(item?.intensity, 0, 100),
+        }))
+        .filter((item) => item.symbol && item.meaning_tr && item.meaning_en)
+        .slice(0, 8)
+    : []
+
+  const emotions = Array.isArray(analysis.emotions)
+    ? analysis.emotions
+        .map((item) => ({
+          emotion: normalizeEmotionLabel(item?.emotion),
+          score: normalizeScore(item?.score, 0, 100),
+        }))
+        .filter((item) => item.emotion)
+        .slice(0, 5)
+    : []
+
+  if (!archetypes.length) throw new Error('Archetype üretilemedi')
+  if (!symbols.length) throw new Error('Symbol üretilemedi')
+  if (!pickLocalized(analysis.summary, 'en', 'en')) throw new Error('Summary üretilemedi')
+
+  return {
+    raw: analysis,
+    title: analysis.title || {},
+    summary: analysis.summary || {},
+    motiv: analysis.motiv || {},
+    shadow_focus: analysis.shadow_focus || {},
+    core_conflict: analysis.core_conflict || {},
+    individuation_path: analysis.individuation_path || {},
+    symbolic_reading: analysis.symbolic_reading || {},
+    archetypes,
+    sentiment,
+    symbols,
+    emotions,
+  }
+}
+
+async function analyzeWithGroq({ content, language, groqKey }) {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${groqKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      temperature: 0.65,
+      max_tokens: 2200,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Return only valid JSON objects. You are a profound Jungian analyst, not a generic wellness assistant.',
+        },
+        {
+          role: 'user',
+          content: getPrompt(content, language),
+        },
+      ],
+      response_format: { type: 'json_object' },
+    }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(data?.error?.message || `Groq error ${response.status}`)
+  }
+
+  const rawContent = data?.choices?.[0]?.message?.content
+  if (!rawContent) throw new Error('Groq boş içerik döndürdü')
+
+  return parseAnalysis(rawContent)
+}
+
+async function analyzeWithOpenRouter({ content, language, apiKey }) {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://lunosfer.com',
+      'X-Title': 'Lunosfer',
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_FALLBACK_MODEL,
+      temperature: 0.65,
+      max_tokens: 2200,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Return only valid JSON objects. You are a profound Jungian analyst, not a generic wellness assistant.',
+        },
+        {
+          role: 'user',
+          content: getPrompt(content, language),
+        },
+      ],
+      response_format: { type: 'json_object' },
+    }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(data?.error?.message || `OpenRouter error ${response.status}`)
+  }
+
+  const rawContent = data?.choices?.[0]?.message?.content
+  if (!rawContent) throw new Error('OpenRouter boş içerik döndürdü')
+
+  return parseAnalysis(rawContent)
+}
+
+function buildDreamUpdate({ dreamId, content, language, analysis, provider, model }) {
+  const imagePrompt = buildImagePrompt({
+    archetypes: analysis.archetypes,
+    dominantEmotion: analysis.sentiment,
+    symbols: analysis.symbols,
+    content,
+  })
+
+  const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
+    imagePrompt
+  )}?width=1200&height=630&nologo=true&seed=${dreamId}`
+
+  return {
+    ai_title: pickLocalized(analysis.title, language, 'en'),
+    ai_title_en: pickLocalized(analysis.title, 'en', 'en'),
+    ai_title_tr: pickLocalized(analysis.title, 'tr', 'en'),
+    ai_title_es: pickLocalized(analysis.title, 'es', 'en'),
+    ai_title_fr: pickLocalized(analysis.title, 'fr', 'en'),
+    ai_title_de: pickLocalized(analysis.title, 'de', 'en'),
+    ai_title_pt: pickLocalized(analysis.title, 'pt', 'en'),
+    ai_title_ru: pickLocalized(analysis.title, 'ru', 'en'),
+    ai_title_ja: pickLocalized(analysis.title, 'ja', 'en'),
+
+    ai_summary: pickLocalized(analysis.summary, language, 'en'),
+    ai_summary_en: pickLocalized(analysis.summary, 'en', 'en'),
+    ai_summary_tr: pickLocalized(analysis.summary, 'tr', 'en'),
+    ai_summary_es: pickLocalized(analysis.summary, 'es', 'en'),
+    ai_summary_fr: pickLocalized(analysis.summary, 'fr', 'en'),
+    ai_summary_de: pickLocalized(analysis.summary, 'de', 'en'),
+    ai_summary_pt: pickLocalized(analysis.summary, 'pt', 'en'),
+    ai_summary_ru: pickLocalized(analysis.summary, 'ru', 'en'),
+    ai_summary_ja: pickLocalized(analysis.summary, 'ja', 'en'),
+
+    ai_motiv: pickLocalized(analysis.motiv, language, 'en'),
+    ai_motiv_en: pickLocalized(analysis.motiv, 'en', 'en'),
+    ai_motiv_tr: pickLocalized(analysis.motiv, 'tr', 'en'),
+    ai_motiv_es: pickLocalized(analysis.motiv, 'es', 'en'),
+    ai_motiv_fr: pickLocalized(analysis.motiv, 'fr', 'en'),
+    ai_motiv_de: pickLocalized(analysis.motiv, 'de', 'en'),
+    ai_motiv_pt: pickLocalized(analysis.motiv, 'pt', 'en'),
+    ai_motiv_ru: pickLocalized(analysis.motiv, 'ru', 'en'),
+    ai_motiv_ja: pickLocalized(analysis.motiv, 'ja', 'en'),
+
+    ai_archetypes: analysis.archetypes,
+    ai_sentiment: analysis.sentiment,
+    ai_symbols: analysis.symbols,
+    ai_emotions: analysis.emotions,
+    ai_jungian_analysis: {
+      ...analysis.raw,
+      shadow_focus: analysis.shadow_focus,
+      core_conflict: analysis.core_conflict,
+      individuation_path: analysis.individuation_path,
+      symbolic_reading: analysis.symbolic_reading,
+      provider,
+    },
+
+    ai_image_prompt: imagePrompt,
+    ai_image_url: imageUrl,
+
+    analysis_model: model,
+    analysis_version: ANALYSIS_VERSION,
+    analysis_status: 'completed',
+    analysis_error: null,
+    analyzed_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   }
 }
 
@@ -168,25 +372,25 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { dreamId, content, language = 'tr' } = req.body || {}
-
-  if (!dreamId || !content) {
-    return res.status(400).json({ error: 'Eksik parametreler' })
-  }
-
-  const GROQ_KEY = process.env.GROQ_KEY
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
   const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const GROQ_KEY = process.env.GROQ_KEY
+  const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
 
-  if (!GROQ_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return res.status(500).json({
-      error: 'API anahtarları eksik',
+      error: 'Supabase env eksik',
       debug: {
-        hasGroqKey: !!GROQ_KEY,
         hasSupabaseUrl: !!SUPABASE_URL,
         hasServiceKey: !!SUPABASE_SERVICE_KEY,
       },
     })
+  }
+
+  const { dreamId, content, language } = req.body || {}
+
+  if (!dreamId || !content) {
+    return res.status(400).json({ error: 'dreamId ve content zorunlu' })
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
@@ -202,173 +406,64 @@ export default async function handler(req, res) {
       .update({
         analysis_status: 'processing',
         analysis_error: null,
-        analysis_model: MODEL,
-        analysis_version: ANALYSIS_VERSION,
+        updated_at: new Date().toISOString(),
       })
       .eq('id', dreamId)
 
-    const schema = buildSchema()
+    let analysis = null
+    let provider = null
+    let model = null
+    let groqError = null
 
-    const prompt = `
-You are an expert Jungian dream analyst.
+    if (GROQ_KEY) {
+      try {
+        analysis = await analyzeWithGroq({
+          content,
+          language: language || 'en',
+          groqKey: GROQ_KEY,
+        })
+        provider = 'groq'
+        model = GROQ_MODEL
+      } catch (err) {
+        groqError = err
+      }
+    }
 
-Analyze the dream below and return a structured result.
-Write concise, insightful, non-clinical interpretations.
-Do not mention that you are an AI.
-Do not output markdown.
+    if (!analysis && OPENROUTER_API_KEY) {
+      try {
+        analysis = await analyzeWithOpenRouter({
+          content,
+          language: language || 'en',
+          apiKey: OPENROUTER_API_KEY,
+        })
+        provider = 'openrouter'
+        model = OPENROUTER_FALLBACK_MODEL
+      } catch (openRouterErr) {
+        const combinedMessage = [
+          groqError ? `Groq: ${groqError.message}` : null,
+          `OpenRouter: ${openRouterErr.message}`,
+        ]
+          .filter(Boolean)
+          .join(' | ')
 
-Dream language hint: ${language}
-Dream text:
-${content}
+        throw new Error(combinedMessage)
+      }
+    }
 
-Rules:
-- Identify 1 to 4 Jungian archetypes.
-- Choose one dominant sentiment from the allowed enum.
-- Write natural, fluent text for all 8 languages: tr, en, es, fr, de, pt, ru, ja.
-- Summaries should be 2 to 3 sentences.
-- Motiv texts should be short, encouraging, and reflective.
-- Symbols should capture the most psychologically meaningful dream elements.
-- Emotion scores should be integers from 0 to 100.
-`.trim()
-
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${GROQ_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        temperature: 0.4,
-        max_tokens: 2200,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You produce Jungian dream analysis as strictly schema-valid structured output.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: 'dream_analysis',
-            schema,
-          },
-        },
-      }),
-    })
-
-    const groqData = await groqResponse.json()
-
-    if (!groqResponse.ok) {
+    if (!analysis) {
       throw new Error(
-        groqData?.error?.message || `Groq request failed with status ${groqResponse.status}`
+        groqError?.message || 'Ne Groq ne de OpenRouter kullanılabilir durumda değil'
       )
     }
 
-    const rawContent = groqData?.choices?.[0]?.message?.content
-    if (!rawContent) {
-      throw new Error('Groq API boş içerik döndü')
-    }
-
-    let analysis
-    try {
-      analysis = JSON.parse(rawContent)
-    } catch {
-      throw new Error('Structured output parse edilemedi')
-    }
-
-    const archetypes = normalizeArray(analysis.archetypes)
-    const sentiment = normalizeEmotionLabel(analysis.sentiment) || 'Confusion'
-
-    const symbols = Array.isArray(analysis.symbols)
-      ? analysis.symbols
-          .map((item) => ({
-            symbol: normalizeText(item?.symbol),
-            meaning_tr: normalizeText(item?.meaning_tr),
-            meaning_en: normalizeText(item?.meaning_en),
-            intensity: normalizeScore(item?.intensity, 0, 100),
-          }))
-          .filter((item) => item.symbol && item.meaning_tr && item.meaning_en)
-          .slice(0, 8)
-      : []
-
-    const emotions = Array.isArray(analysis.emotions)
-      ? analysis.emotions
-          .map((item) => ({
-            emotion: normalizeEmotionLabel(item?.emotion),
-            score: normalizeScore(item?.score, 0, 100),
-          }))
-          .filter((item) => item.emotion)
-          .slice(0, 5)
-      : []
-
-    const title = analysis.title || {}
-    const summary = analysis.summary || {}
-    const motiv = analysis.motiv || {}
-
-    const imagePrompt = buildImagePrompt({
-      archetypes,
-      dominantEmotion: sentiment,
-      symbols,
+    const updates = buildDreamUpdate({
+      dreamId,
       content,
+      language: language || 'en',
+      analysis,
+      provider,
+      model,
     })
-
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
-      imagePrompt
-    )}?width=1200&height=630&nologo=true&seed=${dreamId}`
-
-    const updates = {
-      ai_title: pickLocalized(title, language, 'en'),
-      ai_title_en: pickLocalized(title, 'en', 'en'),
-      ai_title_tr: pickLocalized(title, 'tr', 'en'),
-      ai_title_es: pickLocalized(title, 'es', 'en'),
-      ai_title_fr: pickLocalized(title, 'fr', 'en'),
-      ai_title_de: pickLocalized(title, 'de', 'en'),
-      ai_title_pt: pickLocalized(title, 'pt', 'en'),
-      ai_title_ru: pickLocalized(title, 'ru', 'en'),
-      ai_title_ja: pickLocalized(title, 'ja', 'en'),
-
-      ai_summary: pickLocalized(summary, language, 'en'),
-      ai_summary_en: pickLocalized(summary, 'en', 'en'),
-      ai_summary_tr: pickLocalized(summary, 'tr', 'en'),
-      ai_summary_es: pickLocalized(summary, 'es', 'en'),
-      ai_summary_fr: pickLocalized(summary, 'fr', 'en'),
-      ai_summary_de: pickLocalized(summary, 'de', 'en'),
-      ai_summary_pt: pickLocalized(summary, 'pt', 'en'),
-      ai_summary_ru: pickLocalized(summary, 'ru', 'en'),
-      ai_summary_ja: pickLocalized(summary, 'ja', 'en'),
-
-      ai_motiv: pickLocalized(motiv, language, 'en'),
-      ai_motiv_en: pickLocalized(motiv, 'en', 'en'),
-      ai_motiv_tr: pickLocalized(motiv, 'tr', 'en'),
-      ai_motiv_es: pickLocalized(motiv, 'es', 'en'),
-      ai_motiv_fr: pickLocalized(motiv, 'fr', 'en'),
-      ai_motiv_de: pickLocalized(motiv, 'de', 'en'),
-      ai_motiv_pt: pickLocalized(motiv, 'pt', 'en'),
-      ai_motiv_ru: pickLocalized(motiv, 'ru', 'en'),
-      ai_motiv_ja: pickLocalized(motiv, 'ja', 'en'),
-
-      ai_archetypes: archetypes,
-      ai_sentiment: sentiment,
-      ai_symbols: symbols,
-      ai_emotions: emotions,
-      ai_jungian_analysis: analysis,
-
-      ai_image_prompt: imagePrompt,
-      ai_image_url: imageUrl,
-
-      analysis_model: MODEL,
-      analysis_version: ANALYSIS_VERSION,
-      analysis_status: 'completed',
-      analysis_error: null,
-      analyzed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
 
     const { error: updateError } = await supabase
       .from('dreams')
@@ -376,21 +471,17 @@ Rules:
       .eq('id', dreamId)
 
     if (updateError) {
-      throw new Error(`Supabase güncelleme hatası: ${updateError.message}`)
+      throw new Error(updateError.message)
     }
 
     return res.status(200).json({
       success: true,
-      dreamId,
-      imageUrl,
+      provider,
+      model,
       analysis: {
-        archetypes,
-        sentiment,
-        title,
-        summary,
-        motiv,
-        symbols,
-        emotions,
+        sentiment: analysis.sentiment,
+        archetypes: analysis.archetypes,
+        summary: pickLocalized(analysis.summary, language || 'en', 'en'),
       },
     })
   } catch (error) {
@@ -402,8 +493,6 @@ Rules:
         updated_at: new Date().toISOString(),
       })
       .eq('id', dreamId)
-
-    console.error('Analyze error:', error)
 
     return res.status(500).json({
       error: `Analiz hatası: ${error.message}`,
