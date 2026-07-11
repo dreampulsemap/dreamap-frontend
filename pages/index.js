@@ -16,9 +16,8 @@ export default function HomePage() {
   const [translatingId, setTranslatingId] = useState(null)
   const [translatedDreams, setTranslatedDreams] = useState({})
   const [activeFilter, setActiveFilter] = useState('all')
-
-  const onlineCount = 12487
-  const resonanceMatch = 78
+  const [onlineCount, setOnlineCount] = useState(12487)
+  const [resonanceMatch, setResonanceMatch] = useState(78)
 
   useEffect(() => {
     async function loadHomeData() {
@@ -56,7 +55,27 @@ export default function HomePage() {
     loadHomeData()
   }, [])
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setOnlineCount((prev) => prev + Math.floor(Math.random() * 11 - 5))
+      setResonanceMatch(Math.floor(Math.random() * 20) + 76)
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [])
+
   async function handleTranslate(dream) {
+    if (translatedDreams[dream.id]?.translated) {
+      setTranslatedDreams((prev) => ({
+        ...prev,
+        [dream.id]: {
+          ...prev[dream.id],
+          translated: false,
+        },
+      }))
+      return
+    }
+
     try {
       setTranslatingId(dream.id)
 
@@ -136,22 +155,29 @@ export default function HomePage() {
     ''
 
   return (
-    <div className="min-h-screen bg-[#030712] text-white">
+    <div className="min-h-screen overflow-x-hidden bg-black text-white">
+      <div className="starry-bg" />
+      <div className="floating-orb orb-1" />
+      <div className="floating-orb orb-2" />
+      <div className="floating-orb orb-3" />
+      <div className="cosmic-grid" />
+      <div className="noise-overlay" />
+
       <Navbar />
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <main className="feed-shell mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <Hero />
 
         <section className="mb-8 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           <div
             id="prophecy"
-            className="relative overflow-hidden rounded-[2rem] border border-fuchsia-400/15 bg-gradient-to-br from-fuchsia-500/12 via-violet-500/10 to-cyan-500/10 p-6 shadow-[0_0_60px_rgba(168,85,247,0.12)] backdrop-blur-xl"
+            className="glass-card relative overflow-hidden p-6 sm:p-7"
           >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.18),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(34,211,238,0.12),transparent_24%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(6,182,212,0.1),transparent_24%)]" />
 
             <div className="relative">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-fuchsia-100">
-                <span className="h-2 w-2 rounded-full bg-fuchsia-300 shadow-[0_0_16px_rgba(244,114,182,0.9)]" />
+              <div className="purple-badge mb-4">
+                <span className="signal-dot purple" />
                 {getTranslation('hero.ctaProphecy', lang) || 'Collective Prophecy'}
               </div>
 
@@ -178,7 +204,7 @@ export default function HomePage() {
               </p>
 
               {prophecyAdvice ? (
-                <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
                   <p className="mb-1 text-xs uppercase tracking-[0.18em] text-fuchsia-200/80">
                     {lang === 'tr'
                       ? 'Pratik Yorum'
@@ -205,9 +231,9 @@ export default function HomePage() {
           </div>
 
           <div className="grid gap-6">
-            <div className="rounded-[2rem] border border-cyan-400/15 bg-white/5 p-6 shadow-[0_0_40px_rgba(34,211,238,0.08)] backdrop-blur-xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-cyan-100">
-                <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_16px_rgba(103,232,249,0.9)]" />
+            <div className="glass-card p-6 sm:p-7">
+              <div className="cyber-badge mb-4">
+                <span className="signal-dot cyan" />
                 Live Resonance
               </div>
 
@@ -247,7 +273,7 @@ export default function HomePage() {
                   : `Your synchronization with people sharing your mental frequency in the global dream network is: %${resonanceMatch}`}
               </p>
 
-              <div className="mt-5 rounded-2xl border border-emerald-400/15 bg-emerald-500/8 p-4">
+              <div className="mt-5 rounded-[1.5rem] border border-emerald-400/12 bg-emerald-500/8 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-emerald-300/80">
                   {lang === 'tr'
                     ? 'Canlı Ağ'
@@ -265,8 +291,8 @@ export default function HomePage() {
                     ? 'ライブネットワーク'
                     : 'Live Network'}
                 </p>
-                <p className="mt-2 text-3xl font-semibold text-white">
-                  {onlineCount.toLocaleString()}
+                <p className="tabular-nums mt-2 text-3xl font-semibold text-white">
+                  {Math.max(onlineCount, 1).toLocaleString()}
                 </p>
                 <p className="mt-1 text-sm text-slate-300">
                   {lang === 'tr'
@@ -288,14 +314,23 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+            <div className="glass-card p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                  Discovery Filters
+                </p>
+                <span className="text-xs text-slate-500">
+                  {lang === 'tr' ? 'Akışı ayarla' : 'Tune the feed'}
+                </span>
+              </div>
+
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setActiveFilter('all')}
-                  className={`rounded-full px-4 py-2 text-sm transition-all ${
+                  className={`energy-button rounded-full border px-4 py-2 text-sm transition-all ${
                     activeFilter === 'all'
-                      ? 'bg-cyan-500/20 text-cyan-100 border border-cyan-300/30'
-                      : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'
+                      ? 'border-cyan-300/30 bg-cyan-500/16 text-cyan-100 shadow-[0_0_22px_rgba(6,182,212,0.12)]'
+                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
                   }`}
                 >
                   {lang === 'tr'
@@ -317,10 +352,10 @@ export default function HomePage() {
 
                 <button
                   onClick={() => setActiveFilter('archetypes')}
-                  className={`rounded-full px-4 py-2 text-sm transition-all ${
+                  className={`energy-button rounded-full border px-4 py-2 text-sm transition-all ${
                     activeFilter === 'archetypes'
-                      ? 'bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-300/30'
-                      : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'
+                      ? 'border-fuchsia-300/30 bg-fuchsia-500/16 text-fuchsia-100 shadow-[0_0_22px_rgba(139,92,246,0.12)]'
+                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
                   }`}
                 >
                   {lang === 'tr'
@@ -342,10 +377,10 @@ export default function HomePage() {
 
                 <button
                   onClick={() => setActiveFilter('intense')}
-                  className={`rounded-full px-4 py-2 text-sm transition-all ${
+                  className={`energy-button rounded-full border px-4 py-2 text-sm transition-all ${
                     activeFilter === 'intense'
-                      ? 'bg-amber-500/20 text-amber-100 border border-amber-300/30'
-                      : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'
+                      ? 'border-orange-300/30 bg-orange-500/16 text-orange-100 shadow-[0_0_22px_rgba(249,115,22,0.14)]'
+                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
                   }`}
                 >
                   {lang === 'tr'
@@ -364,14 +399,39 @@ export default function HomePage() {
                     ? '強い感情'
                     : 'Intense Emotions'}
                 </button>
+
+                <button
+                  onClick={() => setActiveFilter('friends')}
+                  className={`energy-button rounded-full border px-4 py-2 text-sm transition-all ${
+                    activeFilter === 'friends'
+                      ? 'border-emerald-300/30 bg-emerald-500/16 text-emerald-100 shadow-[0_0_22px_rgba(16,185,129,0.14)]'
+                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                  }`}
+                >
+                  {lang === 'tr'
+                    ? 'Arkadaş Çemberi'
+                    : lang === 'es'
+                    ? 'Círculo de Amigos'
+                    : lang === 'fr'
+                    ? 'Cercle d’Amis'
+                    : lang === 'de'
+                    ? 'Freundeskreis'
+                    : lang === 'pt'
+                    ? 'Círculo de Amigos'
+                    : lang === 'ru'
+                    ? 'Круг Друзей'
+                    : lang === 'ja'
+                    ? '友人サークル'
+                    : 'Friends Circle'}
+                </button>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="mb-4 flex items-center justify-between gap-4">
+        <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+            <p className="text-xs uppercase tracking-[0.28em] text-slate-500">
               Dream Feed
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">
@@ -391,30 +451,41 @@ export default function HomePage() {
                 ? 'ライブ夢フィード'
                 : 'Live Dream Feed'}
             </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
+              {lang === 'tr'
+                ? 'Nadir sinyaller, yoğun duygular ve kolektif arketipler arasında akışta kal.'
+                : 'Move through rare signals, intense emotions and collective archetypes.'}
+            </p>
           </div>
 
-          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
-            {filteredDreams.length}{' '}
-            {lang === 'tr'
-              ? 'kayıt'
-              : lang === 'es'
-              ? 'entradas'
-              : lang === 'fr'
-              ? 'entrées'
-              : lang === 'de'
-              ? 'Einträge'
-              : lang === 'pt'
-              ? 'registros'
-              : lang === 'ru'
-              ? 'записей'
-              : lang === 'ja'
-              ? '件'
-              : 'entries'}
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+            <span className="signal-dot cyan" />
+            <span className="tabular-nums">{filteredDreams.length}</span>
+            <span>
+              {lang === 'tr'
+                ? 'kayıt'
+                : lang === 'es'
+                ? 'entradas'
+                : lang === 'fr'
+                ? 'entrées'
+                : lang === 'de'
+                ? 'Einträge'
+                : lang === 'pt'
+                ? 'registros'
+                : lang === 'ru'
+                ? 'записей'
+                : lang === 'ja'
+                ? '件'
+                : 'entries'}
+            </span>
           </div>
         </section>
 
+        <div className="mystic-divider mb-6" />
+
         {loading ? (
-          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8 text-center text-slate-300 backdrop-blur-xl">
+          <div className="glass-card p-10 text-center text-slate-300">
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-violet-300/30 border-t-violet-300" />
             {lang === 'tr'
               ? 'Bilinçaltı dalgaları ayıklanıyor...'
               : lang === 'es'
@@ -432,7 +503,10 @@ export default function HomePage() {
               : 'Filtering subconscious waves...'}
           </div>
         ) : filteredDreams.length === 0 ? (
-          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-10 text-center backdrop-blur-xl">
+          <div className="glass-card p-10 text-center">
+            <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full border border-violet-300/16 bg-violet-500/10 text-2xl text-violet-100">
+              ✦
+            </div>
             <h3 className="text-2xl font-semibold text-white">
               {lang === 'tr'
                 ? 'Bu Frekansta Kimse Yok'
@@ -470,20 +544,29 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {filteredDreams.map((dream) => {
+            {filteredDreams.map((dream, index) => {
               const translatedData = translatedDreams[dream.id]
+              const isRareSlot = index > 0 && index % 5 === 0
 
               return (
-                <DreamCard
-                  key={dream.id}
-                  dream={dream}
-                  lang={lang}
-                  onTranslate={handleTranslate}
-                  translating={translatingId === dream.id}
-                  translated={!!translatedData?.translated}
-                  translatedContent={translatedData?.translatedContent}
-                  translatedAnalysis={translatedData?.translatedAnalysis}
-                />
+                <div key={dream.id} className="relative">
+                  {isRareSlot && (
+                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-orange-500/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-orange-100">
+                      <span className="signal-dot heat" />
+                      {lang === 'tr' ? 'Nadir Bilinçaltı Sinyali' : 'Rare Subconscious Signal'}
+                    </div>
+                  )}
+
+                  <DreamCard
+                    dream={dream}
+                    lang={lang}
+                    onTranslate={handleTranslate}
+                    translating={translatingId === dream.id}
+                    translated={!!translatedData?.translated}
+                    translatedContent={translatedData?.translatedContent}
+                    translatedAnalysis={translatedData?.translatedAnalysis}
+                  />
+                </div>
               )
             })}
           </div>
