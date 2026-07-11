@@ -32,6 +32,13 @@ export default function Navbar() {
     setMenuOpen(false)
   }, [router.pathname])
 
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : ''
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [menuOpen])
+
   async function handleLogout() {
     try {
       await auth.signOut()
@@ -54,8 +61,8 @@ export default function Navbar() {
               src="/logo.png"
               alt="Lunosfer logo"
               className="brand-logo"
-              width="40"
-              height="40"
+              width="38"
+              height="38"
             />
             <span className="brand-name">Lunosfer</span>
           </Link>
@@ -105,40 +112,55 @@ export default function Navbar() {
             <span />
           </button>
         </div>
+      </nav>
 
-        <div className={`mobile-panel ${menuOpen ? 'show' : ''}`}>
-          <Link href="/" className={`mobile-link ${isActive('/') ? 'active' : ''}`}>
+      {menuOpen && <button className="mobile-overlay" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
+
+      <aside className={`mobile-drawer ${menuOpen ? 'show' : ''}`} aria-hidden={!menuOpen}>
+        <div className="drawer-header">
+          <img
+            src="/logo.png"
+            alt="Lunosfer logo"
+            className="drawer-logo"
+            width="34"
+            height="34"
+          />
+          <span className="drawer-title">Lunosfer</span>
+        </div>
+
+        <div className="drawer-links">
+          <Link href="/" className={`drawer-link ${isActive('/') ? 'active' : ''}`}>
             Feed
           </Link>
 
-          <Link href="/globe" className={`mobile-link ${isActive('/globe') ? 'active' : ''}`}>
+          <Link href="/globe" className={`drawer-link ${isActive('/globe') ? 'active' : ''}`}>
             {getTranslation('nav.globe', lang) || 'Dream Map'}
           </Link>
 
           {user && (
             <Link
               href="/profile"
-              className={`mobile-link ${isActive('/profile') ? 'active' : ''}`}
+              className={`drawer-link ${isActive('/profile') ? 'active' : ''}`}
             >
               Profile
             </Link>
           )}
 
-          <div className="mobile-lang">
+          <div className="drawer-lang">
             <LanguageSwitcher />
           </div>
 
           {user ? (
-            <button type="button" className="mobile-link mobile-logout" onClick={handleLogout}>
+            <button type="button" className="drawer-link drawer-button" onClick={handleLogout}>
               Log Out
             </button>
           ) : (
-            <Link href="/auth" className={`mobile-link ${isActive('/auth') ? 'active' : ''}`}>
+            <Link href="/auth" className={`drawer-link ${isActive('/auth') ? 'active' : ''}`}>
               {getTranslation('nav.login', lang) || 'Login'}
             </Link>
           )}
         </div>
-      </nav>
+      </aside>
 
       <style jsx>{`
         .navbar-root {
@@ -146,9 +168,7 @@ export default function Navbar() {
           top: 0;
           z-index: 100;
           width: 100%;
-          max-width: 100vw;
-          overflow-x: clip;
-          background: rgba(5, 8, 22, 0.9);
+          background: rgba(5, 8, 22, 0.88);
           backdrop-filter: blur(18px);
           border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
@@ -156,12 +176,12 @@ export default function Navbar() {
         .navbar-shell {
           width: min(100%, 1180px);
           margin: 0 auto;
-          padding: 12px 14px;
+          min-height: 64px;
+          padding: 10px 14px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          min-width: 0;
         }
 
         .brand {
@@ -174,8 +194,8 @@ export default function Navbar() {
         }
 
         .brand-logo {
-          width: 40px;
-          height: 40px;
+          width: 38px;
+          height: 38px;
           object-fit: contain;
           border-radius: 999px;
           flex-shrink: 0;
@@ -183,8 +203,8 @@ export default function Navbar() {
         }
 
         .brand-name {
-          color: #e8ecff;
-          font-size: 1.1rem;
+          color: #edf1ff;
+          font-size: 1.04rem;
           font-weight: 700;
           letter-spacing: 0.01em;
           white-space: nowrap;
@@ -195,10 +215,7 @@ export default function Navbar() {
         .desktop-nav {
           display: none;
           align-items: center;
-          justify-content: flex-end;
           gap: 8px;
-          min-width: 0;
-          flex: 0 1 auto;
         }
 
         .nav-link {
@@ -231,13 +248,12 @@ export default function Navbar() {
         .lang-wrap {
           display: inline-flex;
           align-items: center;
-          max-width: 100%;
         }
 
         .menu-toggle {
           width: 42px;
           height: 42px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.12);
           border-radius: 12px;
           background: rgba(255, 255, 255, 0.04);
           display: inline-flex;
@@ -254,8 +270,8 @@ export default function Navbar() {
           width: 18px;
           height: 2px;
           border-radius: 999px;
-          background: #e8ecff;
-          transition: transform 0.2s ease, opacity 0.2s ease;
+          background: #eef2ff;
+          transition: transform 0.22s ease, opacity 0.22s ease;
         }
 
         .menu-toggle.open span:nth-child(1) {
@@ -270,64 +286,98 @@ export default function Navbar() {
           transform: translateY(-7px) rotate(-45deg);
         }
 
-        .mobile-panel {
-          display: grid;
-          grid-template-rows: 0fr;
-          transition: grid-template-rows 0.25s ease;
-          overflow: hidden;
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
+        .mobile-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 109;
+          background: rgba(2, 6, 18, 0.56);
+          border: 0;
+          padding: 0;
+          margin: 0;
         }
 
-        .mobile-panel.show {
-          grid-template-rows: 1fr;
+        .mobile-drawer {
+          position: fixed;
+          top: 0;
+          right: 0;
+          z-index: 110;
+          width: min(82vw, 320px);
+          height: 100dvh;
+          padding: 18px 14px 20px;
+          background: linear-gradient(180deg, rgba(8, 12, 28, 0.98), rgba(12, 14, 30, 0.98));
+          border-left: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: -20px 0 60px rgba(0, 0, 0, 0.45);
+          transform: translateX(100%);
+          transition: transform 0.25s ease;
+          overflow-y: auto;
         }
 
-        .mobile-panel :global(*) {
-          min-width: 0;
+        .mobile-drawer.show {
+          transform: translateX(0);
         }
 
-        .mobile-panel.show > :global(*) {
-          overflow: visible;
+        .drawer-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 4px 4px 16px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         }
 
-        .mobile-panel > * {
-          overflow: hidden;
+        .drawer-logo {
+          width: 34px;
+          height: 34px;
+          object-fit: contain;
+          border-radius: 999px;
+          display: block;
+          flex-shrink: 0;
         }
 
-        .mobile-panel.show {
-          padding: 0 14px 14px;
+        .drawer-title {
+          color: #edf1ff;
+          font-size: 1rem;
+          font-weight: 700;
         }
 
-        .mobile-link,
-        .mobile-logout {
+        .drawer-links {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding-top: 16px;
+        }
+
+        .drawer-link,
+        .drawer-button {
           width: 100%;
+          min-height: 46px;
           display: flex;
           align-items: center;
           justify-content: center;
-          min-height: 44px;
-          margin-top: 10px;
-          padding: 11px 14px;
+          padding: 12px 14px;
           border-radius: 14px;
-          text-decoration: none;
           border: 1px solid rgba(255, 255, 255, 0.08);
           background: rgba(255, 255, 255, 0.04);
           color: #dce4ff;
+          text-decoration: none;
           font-size: 0.95rem;
+          transition: 0.2s ease;
         }
 
-        .mobile-link.active {
+        .drawer-link.active,
+        .drawer-link:hover,
+        .drawer-button:hover {
           background: rgba(99, 102, 241, 0.14);
           border-color: rgba(129, 140, 248, 0.35);
         }
 
-        .mobile-logout {
+        .drawer-button {
           cursor: pointer;
         }
 
-        .mobile-lang {
-          margin-top: 10px;
+        .drawer-lang {
           display: flex;
           justify-content: center;
+          padding: 2px 0;
         }
 
         @media (min-width: 900px) {
@@ -335,11 +385,9 @@ export default function Navbar() {
             display: inline-flex;
           }
 
-          .menu-toggle {
-            display: none;
-          }
-
-          .mobile-panel {
+          .menu-toggle,
+          .mobile-overlay,
+          .mobile-drawer {
             display: none;
           }
         }
@@ -350,18 +398,15 @@ export default function Navbar() {
           }
         }
 
-        @media (max-width: 480px) {
+        @media (max-width: 420px) {
           .navbar-shell {
+            min-height: 60px;
             padding: 10px 12px;
           }
 
           .brand-logo {
             width: 36px;
             height: 36px;
-          }
-
-          .brand-name {
-            font-size: 0.98rem;
           }
 
           .menu-toggle {
