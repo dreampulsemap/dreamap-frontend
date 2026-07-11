@@ -55,7 +55,7 @@ export default async function handler(req, res) {
 
     if (cleanUsername) {
       const { data: existingUser, error: usernameCheckError } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('id, username')
         .eq('username', cleanUsername)
         .neq('id', userId)
@@ -71,21 +71,26 @@ export default async function handler(req, res) {
     }
 
     const updates = {
-      username: cleanUsername,
-      display_name: cleanDisplayName,
-      avatar_url: cleanAvatarUrl,
       updated_at: new Date().toISOString(),
     }
 
+    if (cleanUsername !== null) updates.username = cleanUsername
+    if (cleanDisplayName !== null) updates.display_name = cleanDisplayName
+    if (cleanAvatarUrl !== null) updates.avatar_url = cleanAvatarUrl
+
     const { data, error } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .update(updates)
       .eq('id', userId)
-      .select()
-      .single()
+      .select('*')
+      .maybeSingle()
 
     if (error) {
       return res.status(500).json({ error: error.message })
+    }
+
+    if (!data) {
+      return res.status(404).json({ error: 'Profile not found in user_profiles' })
     }
 
     return res.status(200).json({
@@ -97,4 +102,4 @@ export default async function handler(req, res) {
       error: error.message || 'Unexpected server error',
     })
   }
-}
+      }
