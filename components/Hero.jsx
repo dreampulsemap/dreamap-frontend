@@ -10,6 +10,7 @@ const HERO_UI = {
     subtitleFallback: 'Kolektif rüya zekâsı',
     descriptionFallback:
       'Lunosfer; rüya sinyallerini, arketipleri ve duygusal örüntüleri gerçek zamanlı keşfedebileceğin canlı bir bilinçaltı ağına dönüştürür.',
+    microLine: 'Arketiplerini keşfet, kolektif öngörülere katıl.',
     ctaMap: 'Dünyanın Bilinçaltına Bağlan',
     ctaAddDream: 'Rüyamı Haritaya İşle',
     ctaProphecy: 'Kolektif Kehanet',
@@ -38,6 +39,7 @@ const HERO_UI = {
     subtitleFallback: 'Collective dream intelligence',
     descriptionFallback:
       'Lunosfer turns dream signals, archetypes and emotional patterns into a living subconscious network you can explore in real time.',
+    microLine: 'Explore archetypes and join collective insight.',
     ctaMap: 'Connect to the World’s Subconscious',
     ctaAddDream: 'Add My Dream to the Map',
     ctaProphecy: 'Collective Prophecy',
@@ -66,6 +68,7 @@ const HERO_UI = {
     subtitleFallback: 'Inteligencia onírica colectiva',
     descriptionFallback:
       'Lunosfer convierte señales oníricas, arquetipos y patrones emocionales en una red viva del subconsciente que puedes explorar en tiempo real.',
+    microLine: 'Explora arquetipos y únete a la intuición colectiva.',
     ctaMap: 'Conéctate al Subconsciente del Mundo',
     ctaAddDream: 'Añadir mi Sueño al Mapa',
     ctaProphecy: 'Profecía Colectiva',
@@ -94,6 +97,7 @@ const HERO_UI = {
     subtitleFallback: 'Intelligence onirique collective',
     descriptionFallback:
       'Lunosfer transforme les signaux de rêve, les archétypes et les motifs émotionnels en un réseau vivant du subconscient à explorer en temps réel.',
+    microLine: 'Explore les archétypes et rejoins l’intuition collective.',
     ctaMap: 'Se Connecter au Subconscient du Monde',
     ctaAddDream: 'Ajouter Mon Rêve à la Carte',
     ctaProphecy: 'Prophétie Collective',
@@ -122,6 +126,7 @@ const HERO_UI = {
     subtitleFallback: 'Kollektive Traumintelligenz',
     descriptionFallback:
       'Lunosfer verwandelt Traumsignale, Archetypen und emotionale Muster in ein lebendiges Unterbewusstseins-Netzwerk, das du in Echtzeit erkunden kannst.',
+    microLine: 'Entdecke Archetypen und verbinde dich mit kollektiver Einsicht.',
     ctaMap: 'Mit dem Unterbewusstsein der Welt Verbinden',
     ctaAddDream: 'Meinen Traum zur Karte Hinzufügen',
     ctaProphecy: 'Kollektive Prophezeiung',
@@ -150,6 +155,7 @@ const HERO_UI = {
     subtitleFallback: 'Inteligência onírica coletiva',
     descriptionFallback:
       'Lunosfer transforma sinais de sonhos, arquétipos e padrões emocionais em uma rede viva do subconsciente que você pode explorar em tempo real.',
+    microLine: 'Explore arquétipos e participe da percepção coletiva.',
     ctaMap: 'Conectar ao Subconsciente do Mundo',
     ctaAddDream: 'Adicionar Meu Sonho ao Mapa',
     ctaProphecy: 'Profecia Coletiva',
@@ -178,6 +184,7 @@ const HERO_UI = {
     subtitleFallback: 'Коллективный интеллект сновидений',
     descriptionFallback:
       'Lunosfer превращает сигналы снов, архетипы и эмоциональные паттерны в живую сеть подсознания, которую можно исследовать в реальном времени.',
+    microLine: 'Исследуйте архетипы и подключайтесь к коллективному прозрению.',
     ctaMap: 'Подключиться к Подсознанию Мира',
     ctaAddDream: 'Добавить Мой Сон на Карту',
     ctaProphecy: 'Коллективное Пророчество',
@@ -206,6 +213,7 @@ const HERO_UI = {
     subtitleFallback: '集合的な夢の知性',
     descriptionFallback:
       'Lunosfer は夢のシグナル、アーキタイプ、感情パターンを、リアルタイムで探索できる生きた潜在意識ネットワークへ変換します。',
+    microLine: 'アーキタイプを探索し、集合的な洞察につながろう。',
     ctaMap: '世界の潜在意識に接続する',
     ctaAddDream: '自分の夢をマップに追加する',
     ctaProphecy: '集合的予言',
@@ -269,21 +277,26 @@ export default function Hero() {
       : ui.ctaProphecy
 
   return (
-    <section className="relative mb-6 overflow-hidden rounded-[28px] border border-white/10 bg-black/35 px-4 py-5 shadow-[0_0_80px_rgba(3,7,18,0.55)] backdrop-blur-2xl sm:mb-8 sm:rounded-[32px] sm:px-5 sm:py-6 lg:mb-10 lg:px-8 lg:py-8">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.14),transparent_24%),radial-gradient(circle_at_top_right,rgba(139,92,246,0.18),transparent_30%),radial-gradient(circle_at_bottom_center,rgba(249,115,22,0.08),transparent_24%),linear-gradient(180deg,rgba(3,7,18,0.76),rgba(2,6,23,0.94))]" />
+    <section className="relative mb-6 overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(2,6,23,0.82),rgba(3,7,18,0.96))] px-4 py-5 shadow-[0_0_100px_rgba(15,23,42,0.52)] backdrop-blur-2xl sm:mb-8 sm:rounded-[32px] sm:px-5 sm:py-6 lg:mb-10 lg:px-8 lg:py-8">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_24%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.16),transparent_30%),radial-gradient(circle_at_bottom_center,rgba(249,115,22,0.08),transparent_22%)]" />
       <div className="absolute -left-10 top-10 h-28 w-28 rounded-full bg-cyan-400/10 blur-3xl sm:h-36 sm:w-36" />
       <div className="absolute right-0 top-0 h-36 w-36 rounded-full bg-violet-500/10 blur-3xl sm:h-48 sm:w-48" />
-      <div className="absolute bottom-0 left-1/3 h-28 w-28 rounded-full bg-orange-500/10 blur-3xl sm:h-36 sm:w-36" />
 
       <div className="relative grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)] lg:items-center lg:gap-8">
         <div className="min-w-0">
-          <div className="cyber-badge mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-cyan-300/14 bg-cyan-400/8 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.22em] text-cyan-100/85 sm:mb-5 sm:px-4">
+          <div className="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-cyan-300/14 bg-cyan-400/8 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.22em] text-cyan-100/85 sm:mb-5 sm:px-4">
             <span className="signal-dot cyan" />
             {ui.badge}
           </div>
 
-          <h1 className="max-w-3xl text-[2rem] font-semibold leading-[0.98] text-white sm:text-[2.45rem] lg:text-6xl">
-            <span className="gradient-text break-words">{title}</span>
+          <div className="mb-3 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-slate-400">
+            LUNOSFER
+          </div>
+
+          <h1 className="max-w-3xl text-[2rem] font-semibold leading-[0.96] text-white sm:text-[2.6rem] lg:text-6xl">
+            <span className="bg-gradient-to-r from-white via-cyan-100 to-violet-200 bg-clip-text text-transparent">
+              {title}
+            </span>
           </h1>
 
           <p className="mt-3 text-[11px] font-medium uppercase tracking-[0.24em] text-cyan-100/75 sm:mt-4 sm:text-xs">
@@ -292,6 +305,10 @@ export default function Hero() {
 
           <p className="mt-4 max-w-2xl text-[15px] leading-7 text-slate-300 sm:mt-5 sm:text-base sm:leading-8 lg:max-w-xl lg:text-lg">
             {description}
+          </p>
+
+          <p className="mt-4 max-w-xl text-sm leading-7 text-slate-400">
+            {ui.microLine}
           </p>
 
           <div className="mt-5 grid grid-cols-1 gap-3 sm:mt-6 sm:grid-cols-2 xl:flex xl:flex-wrap">
@@ -318,7 +335,7 @@ export default function Hero() {
           </div>
 
           <div className="mt-5 grid grid-cols-1 gap-3 sm:mt-6 sm:grid-cols-3">
-            <div className="metric-tile rounded-[20px] border border-white/8 bg-white/4 p-4">
+            <div className="rounded-[20px] border border-white/8 bg-white/[0.035] p-4 backdrop-blur-xl">
               <p className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
                 {ui.metric1Label}
               </p>
@@ -328,7 +345,7 @@ export default function Hero() {
               <p className="mt-1 text-sm text-slate-400">{ui.metric1Sub}</p>
             </div>
 
-            <div className="metric-tile rounded-[20px] border border-white/8 bg-white/4 p-4">
+            <div className="rounded-[20px] border border-white/8 bg-white/[0.035] p-4 backdrop-blur-xl">
               <p className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
                 {ui.metric2Label}
               </p>
@@ -338,7 +355,7 @@ export default function Hero() {
               <p className="mt-1 text-sm text-slate-400">{ui.metric2Sub}</p>
             </div>
 
-            <div className="metric-tile rounded-[20px] border border-white/8 bg-white/4 p-4">
+            <div className="rounded-[20px] border border-white/8 bg-white/[0.035] p-4 backdrop-blur-xl">
               <p className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
                 {ui.metric3Label}
               </p>
@@ -354,7 +371,7 @@ export default function Hero() {
           <div className="relative w-full max-w-[420px] sm:max-w-[460px]">
             <div className="absolute inset-0 scale-95 rounded-[1.8rem] bg-gradient-to-br from-cyan-400/10 via-transparent to-violet-500/12 blur-3xl" />
 
-            <div className="glass-card relative overflow-hidden rounded-[26px] p-3 sm:p-4 lg:p-5">
+            <div className="relative overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.04] p-3 shadow-[0_18px_60px_rgba(2,6,23,0.45)] backdrop-blur-2xl sm:p-4 lg:p-5">
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">
