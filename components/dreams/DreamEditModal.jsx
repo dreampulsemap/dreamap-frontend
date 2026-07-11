@@ -18,63 +18,83 @@ export default function DreamEditModal({ dream, onClose, onSave, saving }) {
   if (!dream) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl p-6">
-        <h2 className="text-xl font-bold mb-4">Rüyayı Düzenle</h2>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md">
+      <div className="relative w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#060912]/95 p-6 shadow-[0_0_80px_rgba(139,92,246,0.18)]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.18),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(6,182,212,0.12),transparent_28%)]" />
 
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="w-full border rounded-lg p-3 min-h-[140px] mb-3"
-        />
+        <div className="relative">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.26em] text-slate-500">
+                Dream Editor
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-white">Rüyayı Düzenle</h2>
+            </div>
 
-        <input
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          placeholder="Konum"
-          className="w-full border rounded-lg px-3 py-2 mb-3"
-        />
+            <button
+              onClick={onClose}
+              className="energy-button inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
 
-        <select
-          value={visibility}
-          onChange={(e) => setVisibility(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2 mb-3"
-        >
-          <option value="public">Public</option>
-          <option value="private">Private</option>
-          <option value="friends">Friends</option>
-        </select>
-
-        <label className="flex items-center gap-2 mb-4">
-          <input
-            type="checkbox"
-            checked={inFeed}
-            onChange={(e) => setInFeed(e.target.checked)}
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="mb-4 min-h-[180px] w-full rounded-[1.4rem] border border-white/10 bg-black/30 p-4 text-white placeholder:text-white/30 focus:border-violet-400/30 focus:outline-none"
+            placeholder="Rüyanın içeriğini güncelle..."
           />
-          Feed'de göster
-        </label>
 
-        <div className="flex gap-2 justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-gray-200"
+          <input
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Konum"
+            className="mb-4 w-full rounded-[1.2rem] border border-white/10 bg-black/30 px-4 py-3 text-white placeholder:text-white/30 focus:border-cyan-400/30 focus:outline-none"
+          />
+
+          <select
+            value={visibility}
+            onChange={(e) => setVisibility(e.target.value)}
+            className="mb-4 w-full rounded-[1.2rem] border border-white/10 bg-black/30 px-4 py-3 text-white focus:border-violet-400/30 focus:outline-none"
           >
-            İptal
-          </button>
-          <button
-            onClick={() =>
-              onSave({
-                content,
-                location_name: location,
-                visibility,
-                in_feed: inFeed,
-              })
-            }
-            disabled={saving}
-            className="px-4 py-2 rounded-lg bg-indigo-600 text-white"
-          >
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
-          </button>
+            <option value="public">Public</option>
+            <option value="private">Private</option>
+            <option value="friends">Friends</option>
+          </select>
+
+          <label className="mb-6 flex items-center gap-3 rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={inFeed}
+              onChange={(e) => setInFeed(e.target.checked)}
+              className="h-4 w-4 accent-violet-500"
+            />
+            Feed'de göster
+          </label>
+
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              onClick={onClose}
+              className="energy-button rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/10"
+            >
+              İptal
+            </button>
+            <button
+              onClick={() =>
+                onSave({
+                  content,
+                  location_name: location,
+                  visibility,
+                  in_feed: inFeed,
+                })
+              }
+              disabled={saving}
+              className="energy-button rounded-full border border-violet-300/18 bg-violet-500/12 px-5 py-2.5 text-sm font-medium text-violet-100 hover:border-violet-300/34 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? 'Kaydediliyor...' : 'Kaydet'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
