@@ -1,13 +1,24 @@
 import { supabase } from '../lib/supabase'
 
 export async function getUserDreams(userId) {
+  if (!userId) return []
+
   const { data, error } = await supabase
     .from('dreams')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
-  if (error) throw error
+  if (error) {
+    console.error('getUserDreams error:', error)
+    throw error
+  }
+
+  console.log('getUserDreams result:', {
+    userId,
+    count: data?.length || 0,
+  })
+
   return data || []
 }
 
