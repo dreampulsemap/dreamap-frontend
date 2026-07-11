@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile'
-const OPENROUTER_FALLBACK_MODEL =
+const OPENROUTER_MODEL =
   process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free'
-const ANALYSIS_VERSION = 'jung-v6-groq-openrouter-fallback'
+const ANALYSIS_VERSION = 'jung-v7-primary-groq-fallback-openrouter-image'
 
 function normalizeText(value) {
   if (typeof value !== 'string') return null
@@ -11,12 +11,12 @@ function normalizeText(value) {
   return trimmed.length ? trimmed : null
 }
 
-function normalizeArray(value) {
+function normalizeArray(value, max = 8) {
   if (!Array.isArray(value)) return []
   return value
     .map((item) => (typeof item === 'string' ? item.trim() : ''))
     .filter(Boolean)
-    .slice(0, 8)
+    .slice(0, max)
 }
 
 function normalizeEmotionLabel(value) {
@@ -46,28 +46,8 @@ function pickLocalized(map, lang, fallback = 'en') {
   return normalizeText(map[lang]) || normalizeText(map[fallback]) || null
 }
 
-function buildImagePrompt({ archetypes, dominantEmotion, symbols, content }) {
-  const topArchetype = archetypes[0] || 'Dream'
-  const topSymbol = symbols[0]?.symbol || 'symbolic landscape'
-  const shortContent = String(content || '')
-    .replace(/s+/g, ' ')
-    .trim()
-    .slice(0, 240)
-
-  return [
-    `${topArchetype} archetype`,
-    `${dominantEmotion || 'mysterious'} atmosphere`,
-    `${topSymbol}`,
-    'surreal dreamscape',
-    'jungian symbolism',
-    'cinematic lighting',
-    'mystical visual language',
-    shortContent,
-  ].join(', ')
-}
-
-function getPrompt(content, language) {
-  const schemaGuide = {
+function buildSchemaGuide() {
+  return {
     title: {
       tr: 'string',
       en: 'string',
@@ -131,7 +111,9 @@ function getPrompt(content, language) {
       },
     ],
   }
+}
 
+function buildPrompt(content, language) {
   return `
 You are an expert Jungian dream analyst.
 
@@ -146,7 +128,7 @@ Dream text:
 ${content}
 
 Return exactly this JSON shape:
-${JSON.stringify(schemaGuide, null, 2)}
+${JSON.stringify(buildSchemaGuide(), null, 2)}
 
 Rules:
 - The tone must be psychologically deep, symbolically rich, and introspective.
@@ -169,18 +151,18 @@ Rules:
 }
 
 function parseAnalysis(rawContent) {
-  let analysis
+  let parsed
   try {
-    analysis = JSON.parse(rawContent)
+    parsed = JSON.parse(rawContent)
   } catch {
-    throw new Error('JSON parse edilemedi')
+    throw new Error('AI çıktısı JSON parse edilemedi')
   }
 
-  const archetypes = normalizeArray(analysis.archetypes)
-  const sentiment = normalizeEmotionLabel(analysis.sentiment) || 'Confusion'
+  const archetypes = normalizeArray(parsed.archetypes, 5)
+  const sentiment = normalizeEmotionLabel(parsed.sentiment) || 'Confusion'
 
-  const symbols = Array.isArray(analysis.symbols)
-    ? analysis.symbols
+  const symbols = Array.isArray(parsed.symbols)
+    ? parsed.symbols
         .map((item) => ({
           symbol: normalizeText(item?.symbol),
           meaning_tr: normalizeText(item?.meaning_tr),
@@ -191,8 +173,8 @@ function parseAnalysis(rawContent) {
         .slice(0, 8)
     : []
 
-  const emotions = Array.isArray(analysis.emotions)
-    ? analysis.emotions
+  const emotions = Array.isArray(parsed.emotions)
+    ? parsed.emotions
         .map((item) => ({
           emotion: normalizeEmotionLabel(item?.emotion),
           score: normalizeScore(item?.score, 0, 100),
@@ -201,19 +183,21 @@ function parseAnalysis(rawContent) {
         .slice(0, 5)
     : []
 
-  if (!archetypes.length) throw new Error('Archetype üretilemedi')
-  if (!symbols.length) throw new Error('Symbol üretilemedi')
-  if (!pickLocalized(analysis.summary, 'en', 'en')) throw new Error('Summary üretilemedi')
+  if (!archetypes.length) throw new Error('Arketip üretilemedi')
+  if (!symbols.length) throw new Error('Sembol üretilemedi')
+  if (!pickLocalized(parsed.summary, 'en', 'en')) {
+    throw new Error('Özet üretilemedi')
+  }
 
   return {
-    raw: analysis,
-    title: analysis.title || {},
-    summary: analysis.summary || {},
-    motiv: analysis.motiv || {},
-    shadow_focus: analysis.shadow_focus || {},
-    core_conflict: analysis.core_conflict || {},
-    individuation_path: analysis.individuation_path || {},
-    symbolic_reading: analysis.symbolic_reading || {},
+    raw: parsed,
+    title: parsed.title || {},
+    summary: parsed.summary || {},
+    motiv: parsed.motiv || {},
+    shadow_focus: parsed.shadow_focus || {},
+    core_conflict: parsed.core_conflict || {},
+    individuation_path: parsed.individuation_path || {},
+    symbolic_reading: parsed.symbolic_reading || {},
     archetypes,
     sentiment,
     symbols,
@@ -240,7 +224,7 @@ async function analyzeWithGroq({ content, language, groqKey }) {
         },
         {
           role: 'user',
-          content: getPrompt(content, language),
+          content: buildPrompt(content, language),
         },
       ],
       response_format: { type: 'json_object' },
@@ -254,7 +238,9 @@ async function analyzeWithGroq({ content, language, groqKey }) {
   }
 
   const rawContent = data?.choices?.[0]?.message?.content
-  if (!rawContent) throw new Error('Groq boş içerik döndürdü')
+  if (!rawContent) {
+    throw new Error('Groq boş içerik döndürdü')
+  }
 
   return parseAnalysis(rawContent)
 }
@@ -269,7 +255,7 @@ async function analyzeWithOpenRouter({ content, language, apiKey }) {
       'X-Title': 'Lunosfer',
     },
     body: JSON.stringify({
-      model: OPENROUTER_FALLBACK_MODEL,
+      model: OPENROUTER_MODEL,
       temperature: 0.65,
       max_tokens: 2200,
       messages: [
@@ -280,7 +266,7 @@ async function analyzeWithOpenRouter({ content, language, apiKey }) {
         },
         {
           role: 'user',
-          content: getPrompt(content, language),
+          content: buildPrompt(content, language),
         },
       ],
       response_format: { type: 'json_object' },
@@ -294,22 +280,66 @@ async function analyzeWithOpenRouter({ content, language, apiKey }) {
   }
 
   const rawContent = data?.choices?.[0]?.message?.content
-  if (!rawContent) throw new Error('OpenRouter boş içerik döndürdü')
+  if (!rawContent) {
+    throw new Error('OpenRouter boş içerik döndürdü')
+  }
 
   return parseAnalysis(rawContent)
 }
 
+function buildImagePrompt({ content, analysis, language }) {
+  const localizedSummary =
+    pickLocalized(analysis.summary, language, 'en') ||
+    pickLocalized(analysis.summary, 'en', 'en') ||
+    ''
+
+  const archetypes = analysis.archetypes.slice(0, 3).join(', ')
+  const symbolNames = analysis.symbols
+    .slice(0, 4)
+    .map((s) => s.symbol)
+    .filter(Boolean)
+    .join(', ')
+
+  const shortDream = String(content || '')
+    .replace(/s+/g, ' ')
+    .trim()
+    .slice(0, 280)
+
+  const shortSummary = String(localizedSummary || '')
+    .replace(/s+/g, ' ')
+    .trim()
+    .slice(0, 220)
+
+  return [
+    'surreal dreamscape',
+    'cinematic Jungian symbolism',
+    `dominant emotion: ${analysis.sentiment}`,
+    archetypes ? `archetypes: ${archetypes}` : null,
+    symbolNames ? `symbols: ${symbolNames}` : null,
+    shortSummary ? `psychological atmosphere: ${shortSummary}` : null,
+    shortDream ? `dream scene: ${shortDream}` : null,
+    'ethereal moonlit lighting',
+    'mythic unconscious imagery',
+    'high detail, evocative, haunting, symbolic',
+  ]
+    .filter(Boolean)
+    .join(', ')
+}
+
+function buildPollinationsImageUrl(prompt, seed) {
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(
+    prompt
+  )}?width=1280&height=1280&seed=${seed}&model=flux&nologo=true&enhance=true`
+}
+
 function buildDreamUpdate({ dreamId, content, language, analysis, provider, model }) {
   const imagePrompt = buildImagePrompt({
-    archetypes: analysis.archetypes,
-    dominantEmotion: analysis.sentiment,
-    symbols: analysis.symbols,
     content,
+    analysis,
+    language,
   })
 
-  const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
-    imagePrompt
-  )}?width=1200&height=630&nologo=true&seed=${dreamId}`
+  const imageUrl = buildPollinationsImageUrl(imagePrompt, dreamId)
 
   return {
     ai_title: pickLocalized(analysis.title, language, 'en'),
@@ -346,6 +376,10 @@ function buildDreamUpdate({ dreamId, content, language, analysis, provider, mode
     ai_sentiment: analysis.sentiment,
     ai_symbols: analysis.symbols,
     ai_emotions: analysis.emotions,
+
+    ai_image_prompt: imagePrompt,
+    ai_image_url: imageUrl,
+
     ai_jungian_analysis: {
       ...analysis.raw,
       shadow_focus: analysis.shadow_focus,
@@ -353,10 +387,10 @@ function buildDreamUpdate({ dreamId, content, language, analysis, provider, mode
       individuation_path: analysis.individuation_path,
       symbolic_reading: analysis.symbolic_reading,
       provider,
+      model,
+      image_prompt: imagePrompt,
+      image_url: imageUrl,
     },
-
-    ai_image_prompt: imagePrompt,
-    ai_image_url: imageUrl,
 
     analysis_model: model,
     analysis_version: ANALYSIS_VERSION,
@@ -426,6 +460,7 @@ export default async function handler(req, res) {
         model = GROQ_MODEL
       } catch (err) {
         groqError = err
+        console.error('Groq analyze failed:', err.message)
       }
     }
 
@@ -437,22 +472,21 @@ export default async function handler(req, res) {
           apiKey: OPENROUTER_API_KEY,
         })
         provider = 'openrouter'
-        model = OPENROUTER_FALLBACK_MODEL
+        model = OPENROUTER_MODEL
       } catch (openRouterErr) {
-        const combinedMessage = [
+        const combined = [
           groqError ? `Groq: ${groqError.message}` : null,
           `OpenRouter: ${openRouterErr.message}`,
         ]
           .filter(Boolean)
           .join(' | ')
-
-        throw new Error(combinedMessage)
+        throw new Error(combined)
       }
     }
 
     if (!analysis) {
       throw new Error(
-        groqError?.message || 'Ne Groq ne de OpenRouter kullanılabilir durumda değil'
+        groqError?.message || 'Ne Groq ne OpenRouter ile analiz alınamadı'
       )
     }
 
@@ -471,17 +505,19 @@ export default async function handler(req, res) {
       .eq('id', dreamId)
 
     if (updateError) {
-      throw new Error(updateError.message)
+      throw new Error(`Supabase update error: ${updateError.message}`)
     }
 
     return res.status(200).json({
       success: true,
       provider,
       model,
+      imageUrl: updates.ai_image_url,
       analysis: {
+        title: updates.ai_title,
+        summary: updates.ai_summary,
         sentiment: analysis.sentiment,
         archetypes: analysis.archetypes,
-        summary: pickLocalized(analysis.summary, language || 'en', 'en'),
       },
     })
   } catch (error) {
