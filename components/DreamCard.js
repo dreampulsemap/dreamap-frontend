@@ -423,4 +423,46 @@ export default function DreamCard({
                       </div>
 
                       {user && user.id === comment.user_id && (
-                        <bu
+                        <button
+                          onClick={() => handleDeleteComment(comment.id)}
+                          className="text-xs text-red-400 transition-colors hover:text-red-300"
+                        >
+                          {getTranslation('social.delete', currentLang)}
+                        </button>
+                      )}
+                    </div>
+
+                    <p className="text-sm leading-7 text-white/82">{comment.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4 text-sm text-white/58">
+          {dream.dream_date && (
+            <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
+              {dream.dream_date}
+            </span>
+          )}
+          {dream.location_name && (
+            <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
+              {dream.location_name}
+            </span>
+          )}
+          {dream.original_language && (
+            <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
+              {String(dream.original_language).toUpperCase()}
+            </span>
+          )}
+          {sentimentLabel && (
+            <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
+              {sentimentLabel}
+            </span>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+}
