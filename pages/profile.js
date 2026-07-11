@@ -45,9 +45,9 @@ export default function ProfilePage() {
         const friendData = await getFriends(user.id)
 
         setProfile(profileData)
-        setDreams(userDreams)
-        setFriends(friendData.friends || [])
-        setPendingRequests(friendData.pending || [])
+        setDreams(userDreams || [])
+        setFriends(friendData?.friends || [])
+        setPendingRequests(friendData?.pending || [])
       } catch (error) {
         console.error('Profil yükleme hatası:', error)
       } finally {
@@ -61,14 +61,14 @@ export default function ProfilePage() {
   async function reloadDreams() {
     if (!user) return
     const userDreams = await getUserDreams(user.id)
-    setDreams(userDreams)
+    setDreams(userDreams || [])
   }
 
   async function reloadFriends() {
     if (!user) return
     const friendData = await getFriends(user.id)
-    setFriends(friendData.friends || [])
-    setPendingRequests(friendData.pending || [])
+    setFriends(friendData?.friends || [])
+    setPendingRequests(friendData?.pending || [])
   }
 
   async function handleLogout() {
@@ -201,6 +201,7 @@ export default function ProfilePage() {
       <main className="relative mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <section className="relative mb-8 overflow-hidden rounded-[2rem] border border-white/10 bg-black/35 p-6 shadow-[0_0_80px_rgba(14,165,233,0.08)] backdrop-blur-2xl sm:p-8">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.15),transparent_24%),radial-gradient(circle_at_top_right,rgba(139,92,246,0.2),transparent_32%),radial-gradient(circle_at_bottom_center,rgba(16,185,129,0.08),transparent_22%),linear-gradient(180deg,rgba(3,7,18,0.72),rgba(2,6,23,0.94))]" />
+
           <div className="relative">
             <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="purple-badge w-fit">
@@ -215,6 +216,7 @@ export default function ProfilePage() {
                 >
                   ✦ Yeni Rüya
                 </Link>
+
                 <button
                   onClick={handleLogout}
                   className="energy-button inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/10"
@@ -225,6 +227,18 @@ export default function ProfilePage() {
             </div>
 
             <ProfileHeader user={user} profile={profile} />
+
+            <div className="mt-4 rounded-[1.5rem] border border-yellow-400/20 bg-yellow-500/10 p-4 text-sm text-yellow-100">
+              <p>
+                <strong>Debug user.id:</strong> {user?.id || 'yok'}
+              </p>
+              <p>
+                <strong>Debug profile.id:</strong> {profile?.id || 'yok'}
+              </p>
+              <p>
+                <strong>Dream count:</strong> {dreams.length}
+              </p>
+            </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="metric-tile p-5">
@@ -250,7 +264,9 @@ export default function ProfilePage() {
                 <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">
                   Total Dreams
                 </p>
-                <p className="mt-3 text-3xl font-semibold text-white">{stats.totalDreams}</p>
+                <p className="mt-3 text-3xl font-semibold text-white">
+                  {stats.totalDreams}
+                </p>
                 <p className="mt-2 text-sm text-slate-400">
                   bilinçaltı arşivinde kayıtlı toplam rüya
                 </p>
@@ -260,7 +276,9 @@ export default function ProfilePage() {
                 <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">
                   Resonance
                 </p>
-                <p className="mt-3 text-3xl font-semibold text-white">%{stats.resonance}</p>
+                <p className="mt-3 text-3xl font-semibold text-white">
+                  %{stats.resonance}
+                </p>
                 <p className="mt-2 text-sm text-cyan-300">
                   kolektif ağ ile senkronizasyon
                 </p>
@@ -332,13 +350,17 @@ export default function ProfilePage() {
                   <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
                     Friends
                   </p>
-                  <p className="mt-2 text-2xl font-semibold text-white">{stats.friendCount}</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">
+                    {stats.friendCount}
+                  </p>
                 </div>
                 <div className="rounded-[1.25rem] border border-white/10 bg-white/5 p-4">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
                     Pending
                   </p>
-                  <p className="mt-2 text-2xl font-semibold text-white">{stats.pendingCount}</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">
+                    {stats.pendingCount}
+                  </p>
                 </div>
               </div>
             </div>
