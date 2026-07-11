@@ -1,35 +1,85 @@
 import { createClient } from '@supabase/supabase-js'
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
+)
+
+function normalize(value) {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length ? trimmed : null
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'PUT') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { userId, username, display_name, avatar_url } = req.body || {}
-
-  if (!userId) {
-    return res.status(400).json({ error: 'Eksik userId' })
-  }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    {
-      auth: { autoRefreshToken: false, persistSession: false },
-    }
-  )
-
   try {
-    const payload = {
-      username: username?.trim() || null,
-      display_name: display_name?.trim() || null,
-      avatar_url: avatar_url?.trim() || null,
+    const { userId, username, display_name, avatar_url } = req.body || {}
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' })
+    }
+
+    const cleanUsername = normalize(username)
+    const cleanDisplayName = normalize(display_name)
+    const cleanAvatarUrl = normalize(avatar_url)
+
+    if (cleanUsername && cleanUsername.length < 3) {
+      return res.status(400).json({ error: 'Username must be at least 3 characters' })
+    }
+
+    if (cleanUsername && cleanUsername.length > 32) {
+      return res.status(400).json({ error: 'Username must be at most 32 characters' })
+    }
+
+    if (cleanDisplayName && cleanDisplayName.length > 60) {
+      return res.status(400).json({ error: 'Display name is too long' })
+    }
+
+    if (cleanAvatarUrl) {
+      try {
+        new URL(cleanAvatarUrl)
+      } catch {
+        return res.status(400).json({ error: 'Avatar URL is not valid' })
+      }
+    }
+
+    if (cleanUsername) {
+      const { data: existingUser, error: usernameCheckError } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .eq('username', cleanUsername)
+        .neq('id', userId)
+        .maybeSingle()
+
+      if (usernameCheckError) {
+        return res.status(500).json({ error: usernameCheckError.message })
+      }
+
+      if (existingUser) {
+        return res.status(409).json({ error: 'This username is already in use' })
+      }
+    }
+
+    const updates = {
+      username: cleanUsername,
+      display_name: cleanDisplayName,
+      avatar_url: cleanAvatarUrl,
       updated_at: new Date().toISOString(),
     }
 
     const { data, error } = await supabase
       .from('profiles')
-      .update(payload)
+      .update(updates)
       .eq('id', userId)
       .select()
       .single()
@@ -38,8 +88,13 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: error.message })
     }
 
-    return res.status(200).json({ success: true, profile: data })
+    return res.status(200).json({
+      success: true,
+      profile: data,
+    })
   } catch (error) {
-    return res.status(500).json({ error: error.message })
+    return res.status(500).json({
+      error: error.message || 'Unexpected server error',
+    })
   }
 }
