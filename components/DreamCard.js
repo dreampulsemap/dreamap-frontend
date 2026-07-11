@@ -205,9 +205,9 @@ export default function DreamCard({
     : null
 
   return (
-    <article className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-[0_0_40px_rgba(15,23,42,0.25)] backdrop-blur-xl transition-transform duration-300 hover:scale-[1.005]">
+    <article className="glass-card hover-lift overflow-hidden">
       {dreamImage && (
-        <div className="relative h-64 w-full overflow-hidden bg-black">
+        <div className="dream-image relative h-64 w-full overflow-hidden bg-black">
           <img
             src={dreamImage}
             alt="Dream"
@@ -216,25 +216,32 @@ export default function DreamCard({
               e.target.style.display = 'none'
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
+          <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-orange-500/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-orange-100">
+            <span className="signal-dot heat" />
+            Rare Signal
+          </div>
         </div>
       )}
 
-      <div className="p-6">
-        {Array.isArray(dream.ai_archetypes) && dream.ai_archetypes.length > 0 && (
-          <div className="mb-4 flex flex-wrap gap-2">
-            {dream.ai_archetypes.map((arch, i) => (
+      <div className="p-6 sm:p-7">
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          {Array.isArray(dream.ai_archetypes) && dream.ai_archetypes.length > 0 ? (
+            dream.ai_archetypes.map((arch, i) => (
               <span
                 key={`${dream.id}-arch-${i}`}
-                className="rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 px-3 py-1 text-xs text-fuchsia-200"
+                className="rounded-full border border-violet-300/18 bg-violet-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-violet-100"
               >
                 {arch}
               </span>
-            ))}
-          </div>
-        )}
+            ))
+          ) : (
+            <span className="rounded-full border border-cyan-300/16 bg-cyan-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-cyan-100">
+              Dream Fragment
+            </span>
+          )}
+        </div>
 
-        <p className="mb-6 whitespace-pre-wrap text-lg leading-relaxed text-white/90">
+        <p className="mb-6 whitespace-pre-wrap text-base leading-8 text-white/90 sm:text-lg">
           {displayContent || ''}
         </p>
 
@@ -242,7 +249,7 @@ export default function DreamCard({
           <button
             onClick={() => onTranslate(dream)}
             disabled={translating}
-            className="mb-4 inline-flex w-full items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 transition-all hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="energy-button mb-5 inline-flex w-full items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {translating ? (
               <span className="flex items-center gap-2">
@@ -302,35 +309,35 @@ export default function DreamCard({
         )}
 
         {displayAnalysis && (
-          <div className="mb-4 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/10 p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-lg">🜂</span>
-              <span className="font-semibold text-fuchsia-200">
+          <div className="mb-5 rounded-[1.5rem] border border-violet-300/18 bg-violet-500/8 p-4 sm:p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg text-violet-200">🜂</span>
+              <span className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-100">
                 {getTranslation('feed.jungianAnalysis', currentLang)}
               </span>
             </div>
 
-            <p className="text-sm leading-7 text-white/80">{displayAnalysis}</p>
+            <p className="text-sm leading-7 text-white/82">{displayAnalysis}</p>
 
             {dreamMotiv && (
-              <div className="mt-3 border-t border-fuchsia-400/20 pt-3">
-                <p className="text-xs italic text-fuchsia-100/70">💫 {dreamMotiv}</p>
+              <div className="mt-4 border-t border-violet-300/14 pt-3">
+                <p className="text-xs italic text-violet-100/78">💫 {dreamMotiv}</p>
               </div>
             )}
           </div>
         )}
 
-        <div className="flex items-center gap-4 border-t border-white/10 pt-4">
+        <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
           <button
             onClick={handleLike}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 transition-all ${
+            className={`energy-button inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm transition-all ${
               liked
-                ? 'bg-red-500/20 text-red-300'
+                ? 'border border-red-400/20 bg-red-500/16 text-red-200'
                 : 'border border-white/10 bg-white/5 text-white/80 hover:bg-red-500/10'
             }`}
           >
             <span>{liked ? '❤️' : '🤍'}</span>
-            <span className="text-sm">{likesCount}</span>
+            <span>{likesCount}</span>
           </button>
 
           <button
@@ -341,15 +348,15 @@ export default function DreamCard({
                 loadComments()
               }
             }}
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-white/80 transition-all hover:bg-blue-500/10"
+            className="energy-button inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/80 hover:bg-cyan-500/10"
           >
             <span>💬</span>
-            <span className="text-sm">{commentsCount}</span>
+            <span>{commentsCount}</span>
           </button>
         </div>
 
         {showComments && (
-          <div className="mt-4 border-t border-white/10 pt-4">
+          <div className="mt-5 border-t border-white/10 pt-5">
             {user && (
               <div className="mb-4 flex gap-2">
                 <input
@@ -362,12 +369,12 @@ export default function DreamCard({
                     }
                   }}
                   placeholder={getTranslation('social.addComment', currentLang)}
-                  className="flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-fuchsia-400/30 focus:outline-none"
+                  className="flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/35 focus:border-violet-400/30 focus:outline-none"
                 />
                 <button
                   onClick={handleAddComment}
                   disabled={!newComment.trim()}
-                  className="rounded-xl border border-fuchsia-300/20 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-100 transition-all hover:bg-fuchsia-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="energy-button rounded-2xl border border-violet-300/20 bg-violet-500/10 px-4 py-3 text-sm text-violet-100 hover:bg-violet-500/18 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {getTranslation('social.send', currentLang)}
                 </button>
@@ -401,11 +408,11 @@ export default function DreamCard({
                 {comments.map((comment) => (
                   <div
                     key={comment.id}
-                    className="rounded-2xl border border-white/10 bg-white/5 p-3"
+                    className="rounded-[1.35rem] border border-white/10 bg-white/5 p-3.5"
                   >
                     <div className="mb-2 flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-fuchsia-200">
+                        <span className="text-sm font-semibold text-violet-200">
                           {comment.user_profiles?.display_name ||
                             comment.user_profiles?.username ||
                             'Anonim'}
@@ -416,32 +423,4 @@ export default function DreamCard({
                       </div>
 
                       {user && user.id === comment.user_id && (
-                        <button
-                          onClick={() => handleDeleteComment(comment.id)}
-                          className="text-xs text-red-400 transition-colors hover:text-red-300"
-                        >
-                          {getTranslation('social.delete', currentLang)}
-                        </button>
-                      )}
-                    </div>
-
-                    <p className="text-sm text-white/80">{comment.content}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-white/10 pt-4 text-sm text-white/60">
-          {dream.dream_date && <span>{dream.dream_date}</span>}
-          {dream.location_name && <span>{dream.location_name}</span>}
-          {dream.original_language && (
-            <span>{String(dream.original_language).toUpperCase()}</span>
-          )}
-          {sentimentLabel && <span>{sentimentLabel}</span>}
-        </div>
-      </div>
-    </article>
-  )
-}
+                        <bu
