@@ -578,4 +578,42 @@ export default function ProfilePage() {
                 <input
                   type="radio"
                   name="vis"
-                  value="priva
+                  value="private"
+                  checked={editVisibility === 'private'}
+                  onChange={(e) => setEditVisibility(e.target.value)}
+                />
+                Gizli
+              </label>
+            </div>
+
+            <label className="flex items-center gap-2 mb-6">
+              <input
+                type="checkbox"
+                checked={editInFeed}
+                onChange={(e) => setEditInFeed(e.target.checked)}
+              />
+              Feed'de Göster
+            </label>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setEditingDream(null)}
+                className="flex-1 glass-card py-2"
+              >
+                İptal
+              </button>
+
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving}
+                className="flex-1 glass-card py-2 bg-purple-500/20"
+              >
+                {saving ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
