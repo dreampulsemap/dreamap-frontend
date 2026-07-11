@@ -77,9 +77,7 @@ export default function Hero() {
                 Live Field
               </p>
               <p className="mt-2 text-2xl font-semibold text-white">24/7</p>
-              <p className="mt-1 text-sm text-slate-400">
-                always awake
-              </p>
+              <p className="mt-1 text-sm text-slate-400">always awake</p>
             </div>
 
             <div className="metric-tile p-4">
@@ -87,9 +85,7 @@ export default function Hero() {
                 Archetypes
               </p>
               <p className="mt-2 text-2xl font-semibold text-white">∞</p>
-              <p className="mt-1 text-sm text-slate-400">
-                evolving identities
-              </p>
+              <p className="mt-1 text-sm text-slate-400">evolving identities</p>
             </div>
 
             <div className="metric-tile p-4">
@@ -97,55 +93,57 @@ export default function Hero() {
                 Resonance
               </p>
               <p className="mt-2 text-2xl font-semibold text-white">Live</p>
-              <p className="mt-1 text-sm text-slate-400">
-                collective pulse
-              </p>
+              <p className="mt-1 text-sm text-slate-400">collective pulse</p>
             </div>
           </div>
         </div>
 
-        <div className="relative">
-          <div className="absolute inset-0 scale-95 rounded-[2rem] bg-gradient-to-br from-cyan-400/10 via-transparent to-violet-500/12 blur-3xl" />
+        <div className="flex justify-center lg:justify-end">
+          <div className="relative w-full max-w-[440px]">
+            <div className="absolute inset-0 scale-95 rounded-[2rem] bg-gradient-to-br from-cyan-400/10 via-transparent to-violet-500/12 blur-3xl" />
 
-          <div className="glass-card relative overflow-hidden p-4 sm:p-6">
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">
-                  Lunosfer Signal
-                </p>
-                <p className="mt-1 text-sm text-slate-300">
-                  Real-time subconscious field preview
-                </p>
+            <div className="glass-card relative flex min-h-[560px] flex-col justify-between overflow-hidden p-4 sm:p-6">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">
+                    Lunosfer Signal
+                  </p>
+                  <p className="mt-1 text-sm text-slate-300">
+                    Real-time subconscious field preview
+                  </p>
+                </div>
+
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/18 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+                  <span className="signal-dot emerald" />
+                  Online
+                </div>
               </div>
 
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/18 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-                <span className="signal-dot emerald" />
-                Online
+              <div className="flex flex-1 items-center justify-center">
+                <div className="w-full overflow-hidden rounded-[1.75rem] border border-white/10 bg-black/30 py-4">
+                  <MiniGlobe />
+                </div>
               </div>
-            </div>
 
-            <div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-black/30">
-              <MiniGlobe />
-            </div>
-
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-white/8 bg-white/4 p-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
-                  Glows
-                </p>
-                <p className="mt-2 text-lg font-semibold text-white">Rare</p>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-white/4 p-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
-                  Nodes
-                </p>
-                <p className="mt-2 text-lg font-semibold text-white">Live</p>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-white/4 p-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
-                  Heat
-                </p>
-                <p className="mt-2 text-lg font-semibold text-white">Rising</p>
+              <div className="mt-5 grid grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-white/8 bg-white/4 p-3 text-center">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                    Glows
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-white">Rare</p>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-white/4 p-3 text-center">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                    Nodes
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-white">Live</p>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-white/4 p-3 text-center">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                    Heat
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-white">Rising</p>
+                </div>
               </div>
             </div>
           </div>
