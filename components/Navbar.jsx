@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/router'
 import { auth } from '../lib/supabase'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
@@ -9,121 +10,236 @@ export default function Navbar() {
   const [user, setUser] = useState(null)
   const { i18n } = useTranslation()
   const lang = i18n.language || 'en'
+  const router = useRouter()
 
   useEffect(() => {
-    let mounted = true
-
     async function checkUser() {
       try {
         if (auth && typeof auth.getUser === 'function') {
           const currentUser = await auth.getUser()
-          if (mounted) {
-            setUser(currentUser || null)
-          }
+          setUser(currentUser)
         }
-      } catch (error) {
-        console.error('Navbar user check error:', error)
+      } catch (err) {
+        console.error('Navbar user check error:', err)
       }
     }
 
     checkUser()
-
-    return () => {
-      mounted = false
-    }
   }, [])
 
+  async function handleLogout() {
+    try {
+      await auth.signOut()
+      setUser(null)
+      router.push('/')
+    } catch (err) {
+      console.error('Logout error:', err)
+    }
+  }
+
+  const isActive = (path) => router.pathname === path
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/55 backdrop-blur-2xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            aria-label={lang === 'tr' ? 'Menüyü aç' : 'Open menu'}
-            className="energy-button inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/90 shadow-[0_0_24px_rgba(139,92,246,0.12)] hover:border-cyan-300/30 hover:bg-cyan-400/10 hover:text-cyan-100"
-          >
-            <span className="flex flex-col gap-[3px]">
-              <span className="h-[2px] w-4 rounded-full bg-current" />
-              <span className="h-[2px] w-4 rounded-full bg-current" />
-              <span className="h-[2px] w-4 rounded-full bg-current" />
-            </span>
-          </button>
-
-          <Link
-            href="/"
-            className="group flex items-center gap-3 transition-transform duration-300 hover:scale-[1.01]"
-          >
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-cyan-400/20 blur-xl transition-opacity duration-300 group-hover:opacity-100" />
-              <div className="relative flex h-11 w-11 items-center justify-center rounded-full border border-cyan-300/25 bg-gradient-to-br from-cyan-400/10 via-transparent to-violet-500/20 text-lg text-white shadow-[0_0_32px_rgba(34,211,238,0.12)]">
-                ☾
-              </div>
+    <>
+      <nav className="navbar-root">
+        <div className="navbar-inner">
+          <Link href="/" className="navbar-brand" aria-label="Lunosfer ana sayfa">
+            <div className="navbar-brand-icon">
+              <div className="navbar-brand-moon" />
             </div>
 
-            <div className="flex flex-col">
-              <span className="gradient-text text-lg font-semibold tracking-[0.22em] sm:text-xl">
-                LUNOSFER
-              </span>
-              <span className="text-[10px] uppercase tracking-[0.32em] text-slate-500 sm:text-[11px]">
-                Collective Dream Network
-              </span>
+            <div className="navbar-brand-text">
+              <div className="navbar-brand-title">Dreamap</div>
+              <div className="navbar-brand-subtitle">LUNOSFER</div>
             </div>
           </Link>
-        </div>
 
-        <div className="hidden items-center gap-2 lg:flex">
-          <Link
-            href="/globe"
-            className="energy-button inline-flex rounded-full border border-cyan-300/15 bg-cyan-500/8 px-4 py-2 text-sm font-medium text-slate-200 shadow-[0_0_20px_rgba(6,182,212,0.08)] hover:border-cyan-300/40 hover:bg-cyan-400/12 hover:text-cyan-100"
-          >
-            🌐 {getTranslation('nav.globe', lang) || 'Küre'}
-          </Link>
-
-          <Link
-            href="/profile"
-            className="energy-button inline-flex rounded-full border border-fuchsia-300/15 bg-fuchsia-500/8 px-4 py-2 text-sm font-medium text-slate-200 shadow-[0_0_20px_rgba(139,92,246,0.08)] hover:border-fuchsia-300/35 hover:bg-fuchsia-500/14 hover:text-white"
-          >
-            👤 {getTranslation('nav.profile', lang) || 'Profil'}
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-2 sm:gap-3">
-          {user ? (
-            <Link
-              href="/add-dream"
-              className="energy-button inline-flex rounded-full border border-emerald-300/15 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 shadow-[0_0_28px_rgba(16,185,129,0.12)] hover:border-emerald-300/35 hover:bg-emerald-500/16"
-            >
-              ✦ {lang === 'tr' ? 'Rüya Ekle' : 'Add Dream'}
+          <div className="navbar-actions">
+            <Link href="/" className={`nav-pill ${isActive('/') ? 'active' : ''}`}>
+              Feed
             </Link>
-          ) : (
-            <Link
-              href="/auth"
-              className="energy-button inline-flex rounded-full border border-cyan-300/20 bg-gradient-to-r from-cyan-500/16 to-violet-500/14 px-4 py-2 text-sm font-medium text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,0.14)] hover:border-cyan-300/40 hover:from-cyan-500/24 hover:to-violet-500/20"
-            >
-              {getTranslation('nav.login', lang) || 'Giriş Yap'}
-            </Link>
-          )}
 
-          <div className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-slate-200">
-            <LanguageSwitcher />
+            <Link href="/globe" className={`nav-pill ${isActive('/globe') ? 'active' : ''}`}>
+              Dream Map
+            </Link>
+
+            <div className="nav-lang">
+              <LanguageSwitcher />
+            </div>
+
+            {user ? (
+              <>
+                <Link
+                  href="/profile"
+                  className={`nav-pill ${isActive('/profile') ? 'active' : ''}`}
+                >
+                  Profile
+                </Link>
+
+                <button type="button" className="nav-pill nav-logout" onClick={handleLogout}>
+                  Log Out
+                </button>
+              </>
+            ) : (
+              <Link href="/auth" className={`nav-pill ${isActive('/auth') ? 'active' : ''}`}>
+                {getTranslation('nav.login', lang) || 'Login'}
+              </Link>
+            )}
           </div>
         </div>
-      </div>
+      </nav>
 
-      <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 pb-3 lg:hidden sm:px-6">
-        <Link
-          href="/globe"
-          className="energy-button inline-flex rounded-full border border-cyan-300/15 bg-cyan-500/8 px-4 py-2 text-sm font-medium text-slate-200 hover:border-cyan-300/35 hover:bg-cyan-400/12 hover:text-cyan-100"
-        >
-          🌐 {getTranslation('nav.globe', lang) || 'Küre'}
-        </Link>
-        <Link
-          href="/profile"
-          className="energy-button inline-flex rounded-full border border-fuchsia-300/15 bg-fuchsia-500/8 px-4 py-2 text-sm font-medium text-slate-200 hover:border-fuchsia-300/35 hover:bg-fuchsia-500/14 hover:text-white"
-        >
-          👤 {getTranslation('nav.profile', lang) || 'Profil'}
-        </Link>
-      </div>
-    </header>
+      <style jsx>{`
+        .navbar-root {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          width: 100%;
+          max-width: 100vw;
+          overflow-x: clip;
+          backdrop-filter: blur(16px);
+          background: rgba(6, 10, 26, 0.86);
+          border-bottom: 1px solid rgba(139, 92, 246, 0.14);
+        }
+
+        .navbar-inner {
+          width: 100%;
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 12px 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .navbar-brand {
+          min-width: 0;
+          flex: 1 1 auto;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          text-decoration: none;
+        }
+
+        .navbar-brand-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 999px;
+          display: grid;
+          place-items: center;
+          background: radial-gradient(circle at 30% 30%, rgba(250, 204, 21, 0.95), rgba(245, 158, 11, 0.7) 35%, rgba(59, 130, 246, 0.08) 70%, transparent 72%);
+          box-shadow: 0 0 20px rgba(245, 158, 11, 0.22);
+          flex-shrink: 0;
+        }
+
+        .navbar-brand-moon {
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          box-shadow: -6px 0 0 2px #0b1026;
+          background: transparent;
+        }
+
+        .navbar-brand-text {
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .navbar-brand-title {
+          color: #dbe4ff;
+          font-size: 26px;
+          font-weight: 700;
+          line-height: 1;
+          letter-spacing: -0.02em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .navbar-brand-subtitle {
+          margin-top: 2px;
+          color: rgba(180, 193, 255, 0.72);
+          font-size: 9px;
+          letter-spacing: 0.28em;
+          line-height: 1;
+          white-space: nowrap;
+        }
+
+        .navbar-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 8px;
+          flex-wrap: wrap;
+          flex: 0 1 auto;
+          max-width: 100%;
+        }
+
+        .nav-pill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 38px;
+          padding: 8px 12px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.04);
+          color: #dbe4ff;
+          text-decoration: none;
+          font-size: 13px;
+          white-space: nowrap;
+          transition: all 0.2s ease;
+        }
+
+        .nav-pill:hover,
+        .nav-pill.active {
+          background: rgba(139, 92, 246, 0.14);
+          border-color: rgba(139, 92, 246, 0.32);
+        }
+
+        .nav-logout {
+          cursor: pointer;
+        }
+
+        .nav-lang {
+          display: inline-flex;
+          align-items: center;
+        }
+
+        @media (max-width: 640px) {
+          .navbar-inner {
+            padding: 10px 10px 12px;
+            gap: 10px;
+          }
+
+          .navbar-brand {
+            flex: 1 1 100%;
+          }
+
+          .navbar-brand-title {
+            font-size: 24px;
+            margin-left: 2px;
+          }
+
+          .navbar-brand-subtitle {
+            font-size: 8px;
+            letter-spacing: 0.24em;
+          }
+
+          .navbar-actions {
+            width: 100%;
+            justify-content: flex-start;
+          }
+
+          .nav-pill {
+            min-height: 36px;
+            padding: 8px 10px;
+            font-size: 12px;
+          }
+        }
+      `}</style>
+    </>
   )
 }
