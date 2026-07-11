@@ -36,12 +36,15 @@ export default function HomePage() {
           .from('daily_prophecy')
           .select('*')
           .eq('prophecy_date', today)
-          .single()
+          .maybeSingle()
 
-        const [{ data: dreamsData, error: dreamsError }, { data: prophecyData }] =
-          await Promise.all([dreamsQuery, prophecyQuery])
+        const [
+          { data: dreamsData, error: dreamsError },
+          { data: prophecyData, error: prophecyError },
+        ] = await Promise.all([dreamsQuery, prophecyQuery])
 
         if (dreamsError) throw dreamsError
+        if (prophecyError) console.error('Prophecy yüklenemedi:', prophecyError)
 
         setDreams(dreamsData || [])
         setDailyProphecy(prophecyData || null)
@@ -57,7 +60,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setOnlineCount((prev) => prev + Math.floor(Math.random() * 11 - 5))
+      setOnlineCount((prev) => Math.max(1, prev + Math.floor(Math.random() * 11 - 5)))
       setResonanceMatch(Math.floor(Math.random() * 20) + 76)
     }, 5000)
 
@@ -154,6 +157,23 @@ export default function HomePage() {
     dailyProphecy?.advice_en ||
     ''
 
+  const sectionTitle =
+    lang === 'tr'
+      ? 'Canlı Rüya Akışı'
+      : lang === 'es'
+      ? 'Feed de Sueños en Vivo'
+      : lang === 'fr'
+      ? 'Flux de Rêves en Direct'
+      : lang === 'de'
+      ? 'Live-Traumfeed'
+      : lang === 'pt'
+      ? 'Feed de Sonhos ao Vivo'
+      : lang === 'ru'
+      ? 'Лента Снов в Реальном Времени'
+      : lang === 'ja'
+      ? 'ライブ夢フィード'
+      : 'Live Dream Feed'
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-black text-white">
       <div className="starry-bg" />
@@ -165,23 +185,23 @@ export default function HomePage() {
 
       <Navbar />
 
-      <main className="feed-shell mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <main className="feed-shell mx-auto w-full max-w-[1200px] px-3 py-4 sm:px-4 sm:py-5 md:px-5 lg:px-6 lg:py-6">
         <Hero />
 
-        <section className="mb-8 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <section className="mb-6 grid grid-cols-1 gap-4 lg:mb-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)] lg:gap-5">
           <div
             id="prophecy"
-            className="glass-card relative overflow-hidden p-6 sm:p-7"
+            className="glass-card relative overflow-hidden rounded-[24px] p-4 sm:rounded-[26px] sm:p-5 lg:p-6"
           >
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(6,182,212,0.1),transparent_24%)]" />
 
-            <div className="relative">
-              <div className="purple-badge mb-4">
+            <div className="relative min-w-0">
+              <div className="purple-badge mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-fuchsia-300/16 bg-fuchsia-500/8 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-fuchsia-100/85">
                 <span className="signal-dot purple" />
                 {getTranslation('hero.ctaProphecy', lang) || 'Collective Prophecy'}
               </div>
 
-              <h2 className="text-2xl font-semibold text-white sm:text-3xl">
+              <h2 className="text-xl font-semibold leading-tight text-white sm:text-2xl lg:text-3xl">
                 {lang === 'tr'
                   ? 'Bugünün Kolektif Kehaneti'
                   : lang === 'es'
@@ -199,13 +219,13 @@ export default function HomePage() {
                   : 'Today’s Collective Prophecy'}
               </h2>
 
-              <p className="mt-4 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">
+              <p className="mt-3 text-[15px] leading-7 text-slate-200 sm:text-base sm:leading-8 lg:max-w-2xl lg:text-lg">
                 {prophecyText}
               </p>
 
               {prophecyAdvice ? (
-                <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
-                  <p className="mb-1 text-xs uppercase tracking-[0.18em] text-fuchsia-200/80">
+                <div className="mt-4 rounded-[20px] border border-white/10 bg-white/5 p-4">
+                  <p className="mb-1 text-[11px] uppercase tracking-[0.16em] text-fuchsia-200/80">
                     {lang === 'tr'
                       ? 'Pratik Yorum'
                       : lang === 'es'
@@ -230,14 +250,14 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="grid gap-6">
-            <div className="glass-card p-6 sm:p-7">
-              <div className="cyber-badge mb-4">
+          <div className="grid grid-cols-1 gap-4">
+            <div className="glass-card rounded-[24px] p-4 sm:rounded-[26px] sm:p-5 lg:p-6">
+              <div className="cyber-badge mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-cyan-300/16 bg-cyan-400/8 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-cyan-100/85">
                 <span className="signal-dot cyan" />
                 Live Resonance
               </div>
 
-              <h3 className="text-xl font-semibold text-white sm:text-2xl">
+              <h3 className="text-lg font-semibold leading-tight text-white sm:text-xl lg:text-2xl">
                 {lang === 'tr'
                   ? 'Bilinçaltı Rezonansı Yakalandı'
                   : lang === 'es'
@@ -273,8 +293,8 @@ export default function HomePage() {
                   : `Your synchronization with people sharing your mental frequency in the global dream network is: %${resonanceMatch}`}
               </p>
 
-              <div className="mt-5 rounded-[1.5rem] border border-emerald-400/12 bg-emerald-500/8 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-emerald-300/80">
+              <div className="mt-4 rounded-[20px] border border-emerald-400/12 bg-emerald-500/8 p-4">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-emerald-300/80">
                   {lang === 'tr'
                     ? 'Canlı Ağ'
                     : lang === 'es'
@@ -291,10 +311,12 @@ export default function HomePage() {
                     ? 'ライブネットワーク'
                     : 'Live Network'}
                 </p>
-                <p className="tabular-nums mt-2 text-3xl font-semibold text-white">
+
+                <p className="tabular-nums mt-2 break-words text-2xl font-semibold text-white sm:text-3xl">
                   {Math.max(onlineCount, 1).toLocaleString()}
                 </p>
-                <p className="mt-1 text-sm text-slate-300">
+
+                <p className="mt-1 text-sm leading-6 text-slate-300">
                   {lang === 'tr'
                     ? 'kişi şu anda rüya görüyor'
                     : lang === 'es'
@@ -314,9 +336,9 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="glass-card p-5">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+            <div className="glass-card rounded-[24px] p-4 sm:rounded-[26px] sm:p-5">
+              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
                   Discovery Filters
                 </p>
                 <span className="text-xs text-slate-500">
@@ -324,10 +346,10 @@ export default function HomePage() {
                 </span>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button
                   onClick={() => setActiveFilter('all')}
-                  className={`energy-button rounded-full border px-4 py-2 text-sm transition-all ${
+                  className={`energy-button min-h-[44px] rounded-full border px-4 py-2 text-sm transition-all ${
                     activeFilter === 'all'
                       ? 'border-cyan-300/30 bg-cyan-500/16 text-cyan-100 shadow-[0_0_22px_rgba(6,182,212,0.12)]'
                       : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
@@ -352,7 +374,7 @@ export default function HomePage() {
 
                 <button
                   onClick={() => setActiveFilter('archetypes')}
-                  className={`energy-button rounded-full border px-4 py-2 text-sm transition-all ${
+                  className={`energy-button min-h-[44px] rounded-full border px-4 py-2 text-sm transition-all ${
                     activeFilter === 'archetypes'
                       ? 'border-fuchsia-300/30 bg-fuchsia-500/16 text-fuchsia-100 shadow-[0_0_22px_rgba(139,92,246,0.12)]'
                       : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
@@ -377,7 +399,7 @@ export default function HomePage() {
 
                 <button
                   onClick={() => setActiveFilter('intense')}
-                  className={`energy-button rounded-full border px-4 py-2 text-sm transition-all ${
+                  className={`energy-button min-h-[44px] rounded-full border px-4 py-2 text-sm transition-all ${
                     activeFilter === 'intense'
                       ? 'border-orange-300/30 bg-orange-500/16 text-orange-100 shadow-[0_0_22px_rgba(249,115,22,0.14)]'
                       : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
@@ -402,7 +424,7 @@ export default function HomePage() {
 
                 <button
                   onClick={() => setActiveFilter('friends')}
-                  className={`energy-button rounded-full border px-4 py-2 text-sm transition-all ${
+                  className={`energy-button min-h-[44px] rounded-full border px-4 py-2 text-sm transition-all ${
                     activeFilter === 'friends'
                       ? 'border-emerald-300/30 bg-emerald-500/16 text-emerald-100 shadow-[0_0_22px_rgba(16,185,129,0.14)]'
                       : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
@@ -429,28 +451,16 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-500">
+        <section className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">
               Dream Feed
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">
-              {lang === 'tr'
-                ? 'Canlı Rüya Akışı'
-                : lang === 'es'
-                ? 'Feed de Sueños en Vivo'
-                : lang === 'fr'
-                ? 'Flux de Rêves en Direct'
-                : lang === 'de'
-                ? 'Live-Traumfeed'
-                : lang === 'pt'
-                ? 'Feed de Sonhos ao Vivo'
-                : lang === 'ru'
-                ? 'Лента Снов в Реальном Времени'
-                : lang === 'ja'
-                ? 'ライブ夢フィード'
-                : 'Live Dream Feed'}
+
+            <h2 className="mt-2 text-xl font-semibold leading-tight text-white sm:text-2xl lg:text-3xl">
+              {sectionTitle}
             </h2>
+
             <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
               {lang === 'tr'
                 ? 'Nadir sinyaller, yoğun duygular ve kolektif arketipler arasında akışta kal.'
@@ -458,7 +468,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+          <div className="inline-flex w-fit items-center gap-2 self-start rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 sm:self-auto">
             <span className="signal-dot cyan" />
             <span className="tabular-nums">{filteredDreams.length}</span>
             <span>
@@ -481,10 +491,10 @@ export default function HomePage() {
           </div>
         </section>
 
-        <div className="mystic-divider mb-6" />
+        <div className="mystic-divider mb-5 sm:mb-6" />
 
         {loading ? (
-          <div className="glass-card p-10 text-center text-slate-300">
+          <div className="glass-card rounded-[24px] p-8 text-center text-slate-300 sm:p-10">
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-violet-300/30 border-t-violet-300" />
             {lang === 'tr'
               ? 'Bilinçaltı dalgaları ayıklanıyor...'
@@ -503,11 +513,12 @@ export default function HomePage() {
               : 'Filtering subconscious waves...'}
           </div>
         ) : filteredDreams.length === 0 ? (
-          <div className="glass-card p-10 text-center">
+          <div className="glass-card rounded-[24px] p-8 text-center sm:p-10">
             <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full border border-violet-300/16 bg-violet-500/10 text-2xl text-violet-100">
               ✦
             </div>
-            <h3 className="text-2xl font-semibold text-white">
+
+            <h3 className="text-xl font-semibold text-white sm:text-2xl">
               {lang === 'tr'
                 ? 'Bu Frekansta Kimse Yok'
                 : lang === 'es'
@@ -524,7 +535,8 @@ export default function HomePage() {
                 ? 'この周波数には誰もいません'
                 : 'Nobody on This Frequency'}
             </h3>
-            <p className="mx-auto mt-4 max-w-2xl text-slate-300">
+
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
               {lang === 'tr'
                 ? 'Seçtiğin kriterlere uyan rüya bulunamadı. İlk dalgayı sen başlatmak ister misin?'
                 : lang === 'es'
@@ -543,15 +555,15 @@ export default function HomePage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-5 lg:space-y-6">
             {filteredDreams.map((dream, index) => {
               const translatedData = translatedDreams[dream.id]
               const isRareSlot = index > 0 && index % 5 === 0
 
               return (
-                <div key={dream.id} className="relative">
+                <div key={dream.id} className="relative min-w-0">
                   {isRareSlot && (
-                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-orange-500/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-orange-100">
+                    <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-orange-300/20 bg-orange-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-orange-100">
                       <span className="signal-dot heat" />
                       {lang === 'tr' ? 'Nadir Bilinçaltı Sinyali' : 'Rare Subconscious Signal'}
                     </div>
