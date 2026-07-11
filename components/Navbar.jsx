@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { auth } from '../lib/supabase'
@@ -8,6 +8,7 @@ import { getTranslation } from '../lib/translations'
 
 export default function Navbar() {
   const [user, setUser] = useState(null)
+  const [menuOpen, setMenuOpen] = useState(false)
   const { i18n } = useTranslation()
   const lang = i18n.language || 'en'
   const router = useRouter()
@@ -27,10 +28,15 @@ export default function Navbar() {
     checkUser()
   }, [])
 
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [router.pathname])
+
   async function handleLogout() {
     try {
       await auth.signOut()
       setUser(null)
+      setMenuOpen(false)
       router.push('/')
     } catch (err) {
       console.error('Logout error:', err)
@@ -42,50 +48,95 @@ export default function Navbar() {
   return (
     <>
       <nav className="navbar-root">
-        <div className="navbar-inner">
-          <Link href="/" className="navbar-brand" aria-label="Lunosfer ana sayfa">
-            <div className="navbar-brand-icon">
-              <div className="navbar-brand-moon" />
-            </div>
-
-            <div className="navbar-brand-text">
-              <div className="navbar-brand-title">Dreamap</div>
-              <div className="navbar-brand-subtitle">LUNOSFER</div>
-            </div>
+        <div className="navbar-shell">
+          <Link href="/" className="brand" aria-label="Lunosfer home">
+            <img
+              src="/logo.png"
+              alt="Lunosfer logo"
+              className="brand-logo"
+              width="40"
+              height="40"
+            />
+            <span className="brand-name">Lunosfer</span>
           </Link>
 
-          <div className="navbar-actions">
-            <Link href="/" className={`nav-pill ${isActive('/') ? 'active' : ''}`}>
+          <div className="desktop-nav">
+            <Link href="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>
               Feed
             </Link>
 
-            <Link href="/globe" className={`nav-pill ${isActive('/globe') ? 'active' : ''}`}>
-              Dream Map
+            <Link href="/globe" className={`nav-link ${isActive('/globe') ? 'active' : ''}`}>
+              {getTranslation('nav.globe', lang) || 'Dream Map'}
             </Link>
 
-            <div className="nav-lang">
+            {user && (
+              <Link
+                href="/profile"
+                className={`nav-link ${isActive('/profile') ? 'active' : ''}`}
+              >
+                Profile
+              </Link>
+            )}
+
+            <div className="lang-wrap">
               <LanguageSwitcher />
             </div>
 
             {user ? (
-              <>
-                <Link
-                  href="/profile"
-                  className={`nav-pill ${isActive('/profile') ? 'active' : ''}`}
-                >
-                  Profile
-                </Link>
-
-                <button type="button" className="nav-pill nav-logout" onClick={handleLogout}>
-                  Log Out
-                </button>
-              </>
+              <button type="button" className="nav-link logout-btn" onClick={handleLogout}>
+                Log Out
+              </button>
             ) : (
-              <Link href="/auth" className={`nav-pill ${isActive('/auth') ? 'active' : ''}`}>
+              <Link href="/auth" className={`nav-link ${isActive('/auth') ? 'active' : ''}`}>
                 {getTranslation('nav.login', lang) || 'Login'}
               </Link>
             )}
           </div>
+
+          <button
+            type="button"
+            className={`menu-toggle ${menuOpen ? 'open' : ''}`}
+            aria-label="Toggle menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((prev) => !prev)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        </div>
+
+        <div className={`mobile-panel ${menuOpen ? 'show' : ''}`}>
+          <Link href="/" className={`mobile-link ${isActive('/') ? 'active' : ''}`}>
+            Feed
+          </Link>
+
+          <Link href="/globe" className={`mobile-link ${isActive('/globe') ? 'active' : ''}`}>
+            {getTranslation('nav.globe', lang) || 'Dream Map'}
+          </Link>
+
+          {user && (
+            <Link
+              href="/profile"
+              className={`mobile-link ${isActive('/profile') ? 'active' : ''}`}
+            >
+              Profile
+            </Link>
+          )}
+
+          <div className="mobile-lang">
+            <LanguageSwitcher />
+          </div>
+
+          {user ? (
+            <button type="button" className="mobile-link mobile-logout" onClick={handleLogout}>
+              Log Out
+            </button>
+          ) : (
+            <Link href="/auth" className={`mobile-link ${isActive('/auth') ? 'active' : ''}`}>
+              {getTranslation('nav.login', lang) || 'Login'}
+            </Link>
+          )}
         </div>
       </nav>
 
@@ -93,150 +144,229 @@ export default function Navbar() {
         .navbar-root {
           position: sticky;
           top: 0;
-          z-index: 50;
+          z-index: 100;
           width: 100%;
           max-width: 100vw;
           overflow-x: clip;
-          backdrop-filter: blur(16px);
-          background: rgba(6, 10, 26, 0.86);
-          border-bottom: 1px solid rgba(139, 92, 246, 0.14);
+          background: rgba(5, 8, 22, 0.9);
+          backdrop-filter: blur(18px);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-        .navbar-inner {
-          width: 100%;
-          max-width: 1200px;
+        .navbar-shell {
+          width: min(100%, 1180px);
           margin: 0 auto;
           padding: 12px 14px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          flex-wrap: wrap;
+          min-width: 0;
         }
 
-        .navbar-brand {
-          min-width: 0;
-          flex: 1 1 auto;
-          display: flex;
+        .brand {
+          display: inline-flex;
           align-items: center;
           gap: 10px;
-          text-decoration: none;
-        }
-
-        .navbar-brand-icon {
-          width: 36px;
-          height: 36px;
-          border-radius: 999px;
-          display: grid;
-          place-items: center;
-          background: radial-gradient(circle at 30% 30%, rgba(250, 204, 21, 0.95), rgba(245, 158, 11, 0.7) 35%, rgba(59, 130, 246, 0.08) 70%, transparent 72%);
-          box-shadow: 0 0 20px rgba(245, 158, 11, 0.22);
-          flex-shrink: 0;
-        }
-
-        .navbar-brand-moon {
-          width: 18px;
-          height: 18px;
-          border-radius: 50%;
-          box-shadow: -6px 0 0 2px #0b1026;
-          background: transparent;
-        }
-
-        .navbar-brand-text {
           min-width: 0;
-          overflow: hidden;
+          text-decoration: none;
+          flex: 1 1 auto;
         }
 
-        .navbar-brand-title {
-          color: #dbe4ff;
-          font-size: 26px;
+        .brand-logo {
+          width: 40px;
+          height: 40px;
+          object-fit: contain;
+          border-radius: 999px;
+          flex-shrink: 0;
+          display: block;
+        }
+
+        .brand-name {
+          color: #e8ecff;
+          font-size: 1.1rem;
           font-weight: 700;
-          line-height: 1;
-          letter-spacing: -0.02em;
+          letter-spacing: 0.01em;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        .navbar-brand-subtitle {
-          margin-top: 2px;
-          color: rgba(180, 193, 255, 0.72);
-          font-size: 9px;
-          letter-spacing: 0.28em;
-          line-height: 1;
-          white-space: nowrap;
-        }
-
-        .navbar-actions {
-          display: flex;
+        .desktop-nav {
+          display: none;
           align-items: center;
           justify-content: flex-end;
           gap: 8px;
-          flex-wrap: wrap;
+          min-width: 0;
           flex: 0 1 auto;
-          max-width: 100%;
         }
 
-        .nav-pill {
+        .nav-link {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-height: 38px;
-          padding: 8px 12px;
+          min-height: 40px;
+          padding: 9px 14px;
           border-radius: 999px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(255, 255, 255, 0.04);
-          color: #dbe4ff;
           text-decoration: none;
-          font-size: 13px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.04);
+          color: #dce4ff;
+          font-size: 0.92rem;
+          line-height: 1;
           white-space: nowrap;
-          transition: all 0.2s ease;
+          transition: 0.2s ease;
         }
 
-        .nav-pill:hover,
-        .nav-pill.active {
-          background: rgba(139, 92, 246, 0.14);
-          border-color: rgba(139, 92, 246, 0.32);
+        .nav-link:hover,
+        .nav-link.active {
+          background: rgba(99, 102, 241, 0.14);
+          border-color: rgba(129, 140, 248, 0.35);
         }
 
-        .nav-logout {
+        .logout-btn {
           cursor: pointer;
         }
 
-        .nav-lang {
+        .lang-wrap {
           display: inline-flex;
           align-items: center;
+          max-width: 100%;
         }
 
-        @media (max-width: 640px) {
-          .navbar-inner {
-            padding: 10px 10px 12px;
-            gap: 10px;
+        .menu-toggle {
+          width: 42px;
+          height: 42px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.04);
+          display: inline-flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          gap: 5px;
+          flex-shrink: 0;
+          cursor: pointer;
+        }
+
+        .menu-toggle span {
+          display: block;
+          width: 18px;
+          height: 2px;
+          border-radius: 999px;
+          background: #e8ecff;
+          transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+
+        .menu-toggle.open span:nth-child(1) {
+          transform: translateY(7px) rotate(45deg);
+        }
+
+        .menu-toggle.open span:nth-child(2) {
+          opacity: 0;
+        }
+
+        .menu-toggle.open span:nth-child(3) {
+          transform: translateY(-7px) rotate(-45deg);
+        }
+
+        .mobile-panel {
+          display: grid;
+          grid-template-rows: 0fr;
+          transition: grid-template-rows 0.25s ease;
+          overflow: hidden;
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .mobile-panel.show {
+          grid-template-rows: 1fr;
+        }
+
+        .mobile-panel :global(*) {
+          min-width: 0;
+        }
+
+        .mobile-panel.show > :global(*) {
+          overflow: visible;
+        }
+
+        .mobile-panel > * {
+          overflow: hidden;
+        }
+
+        .mobile-panel.show {
+          padding: 0 14px 14px;
+        }
+
+        .mobile-link,
+        .mobile-logout {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 44px;
+          margin-top: 10px;
+          padding: 11px 14px;
+          border-radius: 14px;
+          text-decoration: none;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.04);
+          color: #dce4ff;
+          font-size: 0.95rem;
+        }
+
+        .mobile-link.active {
+          background: rgba(99, 102, 241, 0.14);
+          border-color: rgba(129, 140, 248, 0.35);
+        }
+
+        .mobile-logout {
+          cursor: pointer;
+        }
+
+        .mobile-lang {
+          margin-top: 10px;
+          display: flex;
+          justify-content: center;
+        }
+
+        @media (min-width: 900px) {
+          .desktop-nav {
+            display: inline-flex;
           }
 
-          .navbar-brand {
-            flex: 1 1 100%;
+          .menu-toggle {
+            display: none;
           }
 
-          .navbar-brand-title {
-            font-size: 24px;
-            margin-left: 2px;
+          .mobile-panel {
+            display: none;
+          }
+        }
+
+        @media (max-width: 899px) {
+          .brand-name {
+            font-size: 1rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .navbar-shell {
+            padding: 10px 12px;
           }
 
-          .navbar-brand-subtitle {
-            font-size: 8px;
-            letter-spacing: 0.24em;
+          .brand-logo {
+            width: 36px;
+            height: 36px;
           }
 
-          .navbar-actions {
-            width: 100%;
-            justify-content: flex-start;
+          .brand-name {
+            font-size: 0.98rem;
           }
 
-          .nav-pill {
-            min-height: 36px;
-            padding: 8px 10px;
-            font-size: 12px;
+          .menu-toggle {
+            width: 40px;
+            height: 40px;
           }
         }
       `}</style>
