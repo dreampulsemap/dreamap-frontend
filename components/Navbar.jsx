@@ -1,420 +1,240 @@
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/router'
+import { useState, useEffect } from 'react'
 import { auth } from '../lib/supabase'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '../lib/translations'
 
+const NAV_UI = {
+  tr: {
+    globe: 'Küre',
+    profile: 'Profilim',
+    addDream: 'Rüya Ekle',
+    prophecy: 'Kehanet',
+    menu: 'Menü',
+    close: 'Kapat',
+    tagline: 'kolektif rüya ağı',
+  },
+  en: {
+    globe: 'Globe',
+    profile: 'Profile',
+    addDream: 'Add Dream',
+    prophecy: 'Prophecy',
+    menu: 'Menu',
+    close: 'Close',
+    tagline: 'collective dream network',
+  },
+  es: {
+    globe: 'Globo',
+    profile: 'Perfil',
+    addDream: 'Añadir Sueño',
+    prophecy: 'Profecía',
+    menu: 'Menú',
+    close: 'Cerrar',
+    tagline: 'red colectiva de sueños',
+  },
+  fr: {
+    globe: 'Globe',
+    profile: 'Profil',
+    addDream: 'Ajouter un Rêve',
+    prophecy: 'Prophétie',
+    menu: 'Menu',
+    close: 'Fermer',
+    tagline: 'réseau collectif de rêves',
+  },
+  de: {
+    globe: 'Globus',
+    profile: 'Profil',
+    addDream: 'Traum Hinzufügen',
+    prophecy: 'Prophezeiung',
+    menu: 'Menü',
+    close: 'Schließen',
+    tagline: 'kollektives Traumnetzwerk',
+  },
+  pt: {
+    globe: 'Globo',
+    profile: 'Perfil',
+    addDream: 'Adicionar Sonho',
+    prophecy: 'Profecia',
+    menu: 'Menu',
+    close: 'Fechar',
+    tagline: 'rede coletiva de sonhos',
+  },
+  ru: {
+    globe: 'Глобус',
+    profile: 'Профиль',
+    addDream: 'Добавить Сон',
+    prophecy: 'Пророчество',
+    menu: 'Меню',
+    close: 'Закрыть',
+    tagline: 'коллективная сеть снов',
+  },
+  ja: {
+    globe: 'グローブ',
+    profile: 'プロフィール',
+    addDream: '夢を追加',
+    prophecy: '予言',
+    menu: 'メニュー',
+    close: '閉じる',
+    tagline: '集合的な夢のネットワーク',
+  },
+}
+
+function BrandMark() {
+  return (
+    <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/6 shadow-[0_0_30px_rgba(56,189,248,0.08)] backdrop-blur-xl">
+      <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.14),transparent_45%),radial-gradient(circle_at_70%_70%,rgba(168,85,247,0.16),transparent_50%)]" />
+      <div className="relative h-6 w-6 rounded-full border border-cyan-200/40">
+        <div className="absolute inset-[3px] rounded-full border border-violet-300/35" />
+        <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.65)]" />
+      </div>
+    </div>
+  )
+}
+
 export default function Navbar() {
   const [user, setUser] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const { i18n } = useTranslation()
-  const lang = i18n.language || 'en'
-  const router = useRouter()
+  const lang = NAV_UI[i18n.language] ? i18n.language : 'en'
+  const ui = NAV_UI[lang]
 
   useEffect(() => {
     async function checkUser() {
       try {
         if (auth && typeof auth.getUser === 'function') {
           const currentUser = await auth.getUser()
-          setUser(currentUser)
+          setUser(currentUser || null)
         }
-      } catch (err) {
-        console.error('Navbar user check error:', err)
+      } catch (error) {
+        console.error('Navbar user check failed:', error)
       }
     }
 
     checkUser()
   }, [])
 
-  useEffect(() => {
-    setMenuOpen(false)
-  }, [router.pathname])
+  const globeLabel =
+    getTranslation('nav.globe', lang) &&
+    getTranslation('nav.globe', lang) !== 'nav.globe'
+      ? getTranslation('nav.globe', lang)
+      : ui.globe
 
-  useEffect(() => {
-    document.body.style.overflow = menuOpen ? 'hidden' : ''
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [menuOpen])
-
-  async function handleLogout() {
-    try {
-      await auth.signOut()
-      setUser(null)
-      setMenuOpen(false)
-      router.push('/')
-    } catch (err) {
-      console.error('Logout error:', err)
-    }
-  }
-
-  const isActive = (path) => router.pathname === path
+  const profileLabel =
+    getTranslation('nav.profile', lang) &&
+    getTranslation('nav.profile', lang) !== 'nav.profile'
+      ? getTranslation('nav.profile', lang)
+      : ui.profile
 
   return (
-    <>
-      <nav className="navbar-root">
-        <div className="navbar-shell">
-          <Link href="/" className="brand" aria-label="Lunosfer home">
-            <img
-              src="/logo.png"
-              alt="Lunosfer logo"
-              className="brand-logo"
-              width="38"
-              height="38"
-            />
-            <span className="brand-name">Lunosfer</span>
+    <header className="sticky top-0 z-50 border-b border-white/8 bg-slate-950/70 backdrop-blur-2xl">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <Link href="/" className="group min-w-0">
+          <div className="flex items-center gap-3">
+            <BrandMark />
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="bg-gradient-to-r from-white via-cyan-100 to-violet-200 bg-clip-text text-[1.05rem] font-semibold tracking-[0.18em] text-transparent sm:text-[1.15rem]">
+                  LUNOSFER
+                </span>
+              </div>
+              <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.24em] text-slate-500 sm:text-[11px]">
+                {ui.tagline}
+              </p>
+            </div>
+          </div>
+        </Link>
+
+        <nav className="hidden items-center gap-2 md:flex">
+          <Link
+            href="/globe"
+            className="inline-flex min-h-[42px] items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-slate-200 transition hover:border-cyan-300/25 hover:bg-cyan-500/10 hover:text-white"
+          >
+            🌐 {globeLabel}
           </Link>
 
-          <div className="desktop-nav">
-            <Link href="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>
-              Feed
+          <Link
+            href="/add-dream"
+            className="inline-flex min-h-[42px] items-center justify-center rounded-full border border-violet-300/18 bg-violet-500/10 px-4 text-sm font-medium text-violet-100 transition hover:border-violet-300/35 hover:bg-violet-500/16"
+          >
+            ✨ {ui.addDream}
+          </Link>
+
+          <a
+            href="/#prophecy"
+            className="inline-flex min-h-[42px] items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-slate-200 transition hover:border-fuchsia-300/25 hover:bg-fuchsia-500/10 hover:text-white"
+          >
+            🔮 {ui.prophecy}
+          </a>
+
+          {user ? (
+            <Link
+              href="/profile"
+              className="inline-flex min-h-[42px] items-center justify-center rounded-full border border-emerald-300/16 bg-emerald-500/10 px-4 text-sm font-medium text-emerald-100 transition hover:border-emerald-300/30 hover:bg-emerald-500/16"
+            >
+              👤 {profileLabel}
             </Link>
+          ) : null}
 
-            <Link href="/globe" className={`nav-link ${isActive('/globe') ? 'active' : ''}`}>
-              {getTranslation('nav.globe', lang) || 'Dream Map'}
-            </Link>
-
-            {user && (
-              <Link
-                href="/profile"
-                className={`nav-link ${isActive('/profile') ? 'active' : ''}`}
-              >
-                Profile
-              </Link>
-            )}
-
-            <div className="lang-wrap">
-              <LanguageSwitcher />
-            </div>
-
-            {user ? (
-              <button type="button" className="nav-link logout-btn" onClick={handleLogout}>
-                Log Out
-              </button>
-            ) : (
-              <Link href="/auth" className={`nav-link ${isActive('/auth') ? 'active' : ''}`}>
-                {getTranslation('nav.login', lang) || 'Login'}
-              </Link>
-            )}
+          <div className="ml-1">
+            <LanguageSwitcher />
           </div>
+        </nav>
+
+        <div className="flex items-center gap-2 md:hidden">
+          <LanguageSwitcher />
 
           <button
             type="button"
-            className={`menu-toggle ${menuOpen ? 'open' : ''}`}
-            aria-label="Toggle menu"
-            aria-expanded={menuOpen}
+            aria-label={menuOpen ? ui.close : ui.menu}
             onClick={() => setMenuOpen((prev) => !prev)}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 transition hover:border-white/20 hover:bg-white/10"
           >
-            <span />
-            <span />
-            <span />
+            <span className="text-lg">{menuOpen ? '✕' : '☰'}</span>
           </button>
         </div>
-      </nav>
+      </div>
 
-      {menuOpen && <button className="mobile-overlay" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
-
-      <aside className={`mobile-drawer ${menuOpen ? 'show' : ''}`} aria-hidden={!menuOpen}>
-        <div className="drawer-header">
-          <img
-            src="/logo.png"
-            alt="Lunosfer logo"
-            className="drawer-logo"
-            width="34"
-            height="34"
-          />
-          <span className="drawer-title">Lunosfer</span>
-        </div>
-
-        <div className="drawer-links">
-          <Link href="/" className={`drawer-link ${isActive('/') ? 'active' : ''}`}>
-            Feed
-          </Link>
-
-          <Link href="/globe" className={`drawer-link ${isActive('/globe') ? 'active' : ''}`}>
-            {getTranslation('nav.globe', lang) || 'Dream Map'}
-          </Link>
-
-          {user && (
+      {menuOpen ? (
+        <div className="border-t border-white/8 bg-slate-950/92 px-4 py-4 backdrop-blur-2xl md:hidden">
+          <div className="mx-auto grid max-w-7xl grid-cols-1 gap-2">
             <Link
-              href="/profile"
-              className={`drawer-link ${isActive('/profile') ? 'active' : ''}`}
+              href="/globe"
+              onClick={() => setMenuOpen(false)}
+              className="inline-flex min-h-[48px] items-center rounded-2xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-slate-100"
             >
-              Profile
+              🌐 {globeLabel}
             </Link>
-          )}
 
-          <div className="drawer-lang">
-            <LanguageSwitcher />
+            <Link
+              href="/add-dream"
+              onClick={() => setMenuOpen(false)}
+              className="inline-flex min-h-[48px] items-center rounded-2xl border border-violet-300/18 bg-violet-500/10 px-4 text-sm font-medium text-violet-100"
+            >
+              ✨ {ui.addDream}
+            </Link>
+
+            <a
+              href="/#prophecy"
+              onClick={() => setMenuOpen(false)}
+              className="inline-flex min-h-[48px] items-center rounded-2xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-slate-100"
+            >
+              🔮 {ui.prophecy}
+            </a>
+
+            {user ? (
+              <Link
+                href="/profile"
+                onClick={() => setMenuOpen(false)}
+                className="inline-flex min-h-[48px] items-center rounded-2xl border border-emerald-300/16 bg-emerald-500/10 px-4 text-sm font-medium text-emerald-100"
+              >
+                👤 {profileLabel}
+              </Link>
+            ) : null}
           </div>
-
-          {user ? (
-            <button type="button" className="drawer-link drawer-button" onClick={handleLogout}>
-              Log Out
-            </button>
-          ) : (
-            <Link href="/auth" className={`drawer-link ${isActive('/auth') ? 'active' : ''}`}>
-              {getTranslation('nav.login', lang) || 'Login'}
-            </Link>
-          )}
         </div>
-      </aside>
-
-      <style jsx>{`
-        .navbar-root {
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          width: 100%;
-          background: rgba(5, 8, 22, 0.88);
-          backdrop-filter: blur(18px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .navbar-shell {
-          width: min(100%, 1180px);
-          margin: 0 auto;
-          min-height: 64px;
-          padding: 10px 14px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .brand {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          min-width: 0;
-          text-decoration: none;
-          flex: 1 1 auto;
-        }
-
-        .brand-logo {
-          width: 38px;
-          height: 38px;
-          object-fit: contain;
-          border-radius: 999px;
-          flex-shrink: 0;
-          display: block;
-        }
-
-        .brand-name {
-          color: #edf1ff;
-          font-size: 1.04rem;
-          font-weight: 700;
-          letter-spacing: 0.01em;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .desktop-nav {
-          display: none;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .nav-link {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 40px;
-          padding: 9px 14px;
-          border-radius: 999px;
-          text-decoration: none;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          background: rgba(255, 255, 255, 0.04);
-          color: #dce4ff;
-          font-size: 0.92rem;
-          line-height: 1;
-          white-space: nowrap;
-          transition: 0.2s ease;
-        }
-
-        .nav-link:hover,
-        .nav-link.active {
-          background: rgba(99, 102, 241, 0.14);
-          border-color: rgba(129, 140, 248, 0.35);
-        }
-
-        .logout-btn {
-          cursor: pointer;
-        }
-
-        .lang-wrap {
-          display: inline-flex;
-          align-items: center;
-        }
-
-        .menu-toggle {
-          width: 42px;
-          height: 42px;
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.04);
-          display: inline-flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          gap: 5px;
-          flex-shrink: 0;
-          cursor: pointer;
-        }
-
-        .menu-toggle span {
-          display: block;
-          width: 18px;
-          height: 2px;
-          border-radius: 999px;
-          background: #eef2ff;
-          transition: transform 0.22s ease, opacity 0.22s ease;
-        }
-
-        .menu-toggle.open span:nth-child(1) {
-          transform: translateY(7px) rotate(45deg);
-        }
-
-        .menu-toggle.open span:nth-child(2) {
-          opacity: 0;
-        }
-
-        .menu-toggle.open span:nth-child(3) {
-          transform: translateY(-7px) rotate(-45deg);
-        }
-
-        .mobile-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 109;
-          background: rgba(2, 6, 18, 0.56);
-          border: 0;
-          padding: 0;
-          margin: 0;
-        }
-
-        .mobile-drawer {
-          position: fixed;
-          top: 0;
-          right: 0;
-          z-index: 110;
-          width: min(82vw, 320px);
-          height: 100dvh;
-          padding: 18px 14px 20px;
-          background: linear-gradient(180deg, rgba(8, 12, 28, 0.98), rgba(12, 14, 30, 0.98));
-          border-left: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: -20px 0 60px rgba(0, 0, 0, 0.45);
-          transform: translateX(100%);
-          transition: transform 0.25s ease;
-          overflow-y: auto;
-        }
-
-        .mobile-drawer.show {
-          transform: translateX(0);
-        }
-
-        .drawer-header {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 4px 4px 16px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        }
-
-        .drawer-logo {
-          width: 34px;
-          height: 34px;
-          object-fit: contain;
-          border-radius: 999px;
-          display: block;
-          flex-shrink: 0;
-        }
-
-        .drawer-title {
-          color: #edf1ff;
-          font-size: 1rem;
-          font-weight: 700;
-        }
-
-        .drawer-links {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          padding-top: 16px;
-        }
-
-        .drawer-link,
-        .drawer-button {
-          width: 100%;
-          min-height: 46px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 12px 14px;
-          border-radius: 14px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(255, 255, 255, 0.04);
-          color: #dce4ff;
-          text-decoration: none;
-          font-size: 0.95rem;
-          transition: 0.2s ease;
-        }
-
-        .drawer-link.active,
-        .drawer-link:hover,
-        .drawer-button:hover {
-          background: rgba(99, 102, 241, 0.14);
-          border-color: rgba(129, 140, 248, 0.35);
-        }
-
-        .drawer-button {
-          cursor: pointer;
-        }
-
-        .drawer-lang {
-          display: flex;
-          justify-content: center;
-          padding: 2px 0;
-        }
-
-        @media (min-width: 900px) {
-          .desktop-nav {
-            display: inline-flex;
-          }
-
-          .menu-toggle,
-          .mobile-overlay,
-          .mobile-drawer {
-            display: none;
-          }
-        }
-
-        @media (max-width: 899px) {
-          .brand-name {
-            font-size: 1rem;
-          }
-        }
-
-        @media (max-width: 420px) {
-          .navbar-shell {
-            min-height: 60px;
-            padding: 10px 12px;
-          }
-
-          .brand-logo {
-            width: 36px;
-            height: 36px;
-          }
-
-          .menu-toggle {
-            width: 40px;
-            height: 40px;
-          }
-        }
-      `}</style>
-    </>
+      ) : null}
+    </header>
   )
 }
