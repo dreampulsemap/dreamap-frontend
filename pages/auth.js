@@ -1,21 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
-import { auth } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
+import { auth } from '../lib/supabase'
 import { getTranslation } from '../lib/translations'
 import LanguageSwitcher from '../components/LanguageSwitcher'
 
 const OAUTH_PROVIDERS = [
-  const OAUTH_PROVIDERS = [
   { key: 'google', label: 'Google ile devam et', icon: 'G' },
   { key: 'github', label: 'GitHub ile devam et', icon: '⌘' },
 ]
 
 export default function AuthPage() {
-  const { i18n } = useTranslation()
   const router = useRouter()
+  const { i18n } = useTranslation()
   const lang = i18n.language || 'en'
 
   const [isLogin, setIsLogin] = useState(true)
@@ -24,16 +23,16 @@ export default function AuthPage() {
   const [username, setUsername] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
+  const [user, setUser] = useState(null)
+  const [checkingUser, setCheckingUser] = useState(true)
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState('')
-  const [checkingUser, setCheckingUser] = useState(true)
   const [error, setError] = useState('')
-  const [user, setUser] = useState(null)
 
   useEffect(() => {
     let mounted = true
 
-    async function checkUser() {
+    const loadUser = async () => {
       try {
         const currentUser = await auth.getUser()
         if (!mounted) return
@@ -45,7 +44,7 @@ export default function AuthPage() {
       }
     }
 
-    checkUser()
+    loadUser()
 
     const { data } = auth.onAuthStateChange((event, session) => {
       if (!mounted) return
@@ -68,13 +67,14 @@ export default function AuthPage() {
     setEmail('')
     setPassword('')
     setUsername('')
-    setError('')
     setShowPassword(false)
+    setError('')
   }
 
-  function switchMode(nextMode) {
-    setIsLogin(nextMode)
+  function handleModeChange(nextIsLogin) {
+    setIsLogin(nextIsLogin)
     setError('')
+    setShowPassword(false)
   }
 
   async function handleSubmit(e) {
@@ -107,8 +107,8 @@ export default function AuthPage() {
   async function handleOAuth(provider) {
     if (loading || oauthLoading) return
 
-    setOauthLoading(provider)
     setError('')
+    setOauthLoading(provider)
 
     try {
       const redirectTo =
@@ -118,7 +118,7 @@ export default function AuthPage() {
 
       await auth.signInWithOAuth(provider, redirectTo)
     } catch (err) {
-      setError(err?.message || `${provider} ile giriş başlatılamadı.`)
+      setError(err?.message || 'Sosyal giriş başlatılamadı.')
       setOauthLoading('')
     }
   }
@@ -129,15 +129,15 @@ export default function AuthPage() {
       setUser(null)
       router.push('/')
     } catch (err) {
-      setError(err?.message || 'Çıkış yapılamadı.')
+      setError(err?.message || 'Çıkış yapılırken bir hata oluştu.')
     }
   }
 
-  const title = isLogin
+  const pageTitle = isLogin
     ? getTranslation('auth.title', lang) || 'Giriş Yap'
     : getTranslation('auth.registerTitle', lang) || 'Kayıt Ol'
 
-  const submitText = loading
+  const submitLabel = loading
     ? getTranslation('auth.loading', lang) || 'Yükleniyor...'
     : isLogin
     ? getTranslation('auth.login', lang) || 'Giriş Yap'
@@ -145,8 +145,8 @@ export default function AuthPage() {
 
   if (checkingUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050816] text-white">
-        <div className="glass-card px-5 py-3 text-sm text-white/70">
+      <div className="min-h-screen bg-[#050816] text-white flex items-center justify-center px-4">
+        <div className="glass-card px-6 py-4 text-sm text-white/70">
           {getTranslation('auth.loading', lang) || 'Yükleniyor...'}
         </div>
       </div>
@@ -159,7 +159,7 @@ export default function AuthPage() {
         <header className="sticky top-0 z-50 border-b border-white/10 backdrop-blur-xl bg-[#050816]/90">
           <div className="max-w-5xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
             <Link href="/" className="group flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-              <div className="rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 px-2 py-1.5 sm:px-3 sm:py-2 shrink-0 shadow-[0_0_30px_rgba(56,189,248,0.06)]">
+              <div className="rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 px-2 py-1.5 sm:px-3 sm:py-2 shadow-[0_0_30px_rgba(56,189,248,0.06)] shrink-0">
                 <Image
                   src="/logo.png"
                   alt="Lunosfer"
@@ -226,6 +226,7 @@ export default function AuthPage() {
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <button
+                type="button"
                 onClick={() => router.push('/profile')}
                 className="flex-1 glass-card px-5 py-3 text-sm sm:text-base text-white/90 hover:bg-purple-500/20"
               >
@@ -233,6 +234,7 @@ export default function AuthPage() {
               </button>
 
               <button
+                type="button"
                 onClick={handleLogout}
                 className="flex-1 glass-card px-5 py-3 text-sm sm:text-base text-red-300 hover:bg-red-500/20"
               >
@@ -250,7 +252,7 @@ export default function AuthPage() {
       <header className="sticky top-0 z-50 border-b border-white/10 backdrop-blur-xl bg-[#050816]/90">
         <div className="max-w-5xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <Link href="/" className="group flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-            <div className="rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 px-2 py-1.5 sm:px-3 sm:py-2 shrink-0 shadow-[0_0_30px_rgba(56,189,248,0.06)]">
+            <div className="rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 px-2 py-1.5 sm:px-3 sm:py-2 shadow-[0_0_30px_rgba(56,189,248,0.06)] shrink-0">
               <Image
                 src="/logo.png"
                 alt="Lunosfer"
@@ -295,7 +297,7 @@ export default function AuthPage() {
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-bold gradient-text">
-                {title}
+                {pageTitle}
               </h1>
 
               <p className="mt-3 text-sm sm:text-base text-white/60 max-w-sm mx-auto">
@@ -308,24 +310,24 @@ export default function AuthPage() {
             </div>
 
             <div className="space-y-3 mb-5">
-  {OAUTH_PROVIDERS.map((provider) => (
-    <button
-      key={provider.key}
-      type="button"
-      onClick={() => handleOAuth(provider.key)}
-      disabled={!!oauthLoading}
-      className="w-full rounded-2xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm sm:text-base text-white transition-all hover:bg-white/[0.08] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-    >
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-sm font-bold">
-        {provider.icon}
-      </span>
+              {OAUTH_PROVIDERS.map((provider) => (
+                <button
+                  key={provider.key}
+                  type="button"
+                  onClick={() => handleOAuth(provider.key)}
+                  disabled={Boolean(oauthLoading)}
+                  className="w-full rounded-2xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm sm:text-base text-white transition-all hover:bg-white/[0.08] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                >
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-sm font-bold">
+                    {provider.icon}
+                  </span>
 
-      <span>
-        {oauthLoading === provider.key ? 'Yönlendiriliyor...' : provider.label}
-      </span>
-    </button>
-  ))}
-</div>
+                  <span>
+                    {oauthLoading === provider.key ? 'Yönlendiriliyor...' : provider.label}
+                  </span>
+                </button>
+              ))}
+            </div>
 
             <div className="relative my-5">
               <div className="border-t border-white/10" />
@@ -337,7 +339,7 @@ export default function AuthPage() {
             <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
               <button
                 type="button"
-                onClick={() => switchMode(true)}
+                onClick={() => handleModeChange(true)}
                 className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
                   isLogin
                     ? 'bg-white text-slate-900 shadow-[0_8px_30px_rgba(255,255,255,0.12)]'
@@ -349,7 +351,7 @@ export default function AuthPage() {
 
               <button
                 type="button"
-                onClick={() => switchMode(false)}
+                onClick={() => handleModeChange(false)}
                 className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
                   !isLogin
                     ? 'bg-white text-slate-900 shadow-[0_8px_30px_rgba(255,255,255,0.12)]'
@@ -429,17 +431,17 @@ export default function AuthPage() {
 
               <button
                 type="submit"
-                disabled={loading || !!oauthLoading}
+                disabled={loading || Boolean(oauthLoading)}
                 className="w-full rounded-2xl border border-violet-300/20 bg-violet-500/15 px-6 py-3.5 text-sm sm:text-base font-semibold text-white transition-all hover:border-violet-300/40 hover:bg-violet-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {submitText}
+                {submitLabel}
               </button>
             </form>
 
             <div className="mt-6 text-center">
               <button
                 type="button"
-                onClick={() => switchMode(!isLogin)}
+                onClick={() => handleModeChange(!isLogin)}
                 className="text-sm text-purple-300 hover:text-purple-200 transition-colors"
               >
                 {isLogin
