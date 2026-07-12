@@ -156,12 +156,12 @@ export default function ProfilePage() {
     if (!file || !user) return
 
     if (!file.type.startsWith('image/')) {
-      alert('Lütfen bir görsel dosyası seç')
+      alert('LÃ¼tfen bir gÃ¶rsel dosyasÄ± seÃ§')
       return
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('Görsel boyutu 5MB’dan küçük olmalı')
+      alert('GÃ¶rsel boyutu 5MBâ€™dan kÃ¼Ã§Ã¼k olmalÄ±')
       return
     }
 
@@ -248,7 +248,7 @@ export default function ProfilePage() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Profil güncellenemedi')
+        throw new Error(data.error || 'Profil gÃ¼ncellenemedi')
       }
 
       setProfileAvatarUrl(uploadedAvatarUrl || profileAvatarUrl)
@@ -267,7 +267,7 @@ export default function ProfilePage() {
   }
 
   async function handleRemoveFromFeed(dream) {
-    if (!confirm("Feed'den kaldırılsın mı?")) return
+    if (!confirm("Feed'den kaldÄ±rÄ±lsÄ±n mÄ±?")) return
 
     try {
       const res = await fetch('/api/delete-dream', {
@@ -376,7 +376,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black text-white">
-        {getTranslation('auth.loading', lang) || 'Yükleniyor...'}
+        {getTranslation('auth.loading', lang) || 'YÃ¼kleniyor...'}
       </div>
     )
   }
@@ -388,7 +388,7 @@ export default function ProfilePage() {
       <header className="sticky top-0 z-50 border-b border-white/10 backdrop-blur-xl bg-[#050816]/90">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <a href="/" className="flex items-center gap-3 group min-w-0">
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 shadow-[0_0_30px_rgba(56,189,248,0.06)]">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 shadow-[0_0_30px_rgba(56,189,248,0.06)] transition-all duration-300 group-hover:border-cyan-300/20 group-hover:shadow-[0_0_40px_rgba(34,211,238,0.12)]">
               <Image
                 src="/logo.png"
                 alt="Lunosfer"
@@ -398,6 +398,26 @@ export default function ProfilePage() {
                 className="h-8 w-auto object-contain sm:h-10"
               />
             </div>
+
+            <div className="min-w-0 flex flex-col leading-none">
+              <span
+                className="
+                  text-[1.05rem] sm:text-[1.35rem] md:text-[1.55rem]
+                  font-black tracking-[0.38em] uppercase
+                  text-transparent bg-clip-text
+                  bg-gradient-to-r from-fuchsia-300 via-cyan-200 to-violet-300
+                  [text-shadow:0_0_10px_rgba(168,85,247,0.35),0_0_22px_rgba(34,211,238,0.18)]
+                  transition-all duration-300
+                  group-hover:from-fuchsia-200 group-hover:via-cyan-100 group-hover:to-violet-200
+                "
+              >
+                LUNOSFER
+              </span>
+
+              <span className="mt-1 hidden sm:block text-[10px] uppercase tracking-[0.42em] text-cyan-200/55">
+                Dream Nexus
+              </span>
+            </div>
           </a>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -405,7 +425,7 @@ export default function ProfilePage() {
               href="/"
               className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white"
             >
-              {getTranslation('nav.feed', lang) || 'Akış'}
+              {getTranslation('nav.feed', lang) || 'AkÄ±ÅŸ'}
             </a>
             <a
               href="/globe"
@@ -418,7 +438,7 @@ export default function ProfilePage() {
               onClick={handleLogout}
               className="glass-card px-3 sm:px-4 py-2 text-sm text-red-300 hover:text-red-200"
             >
-              {getTranslation('auth.logout', lang) || 'Çıkış'}
+              {getTranslation('auth.logout', lang) || 'Ã‡Ä±kÄ±ÅŸ'}
             </button>
           </div>
         </div>
@@ -442,7 +462,7 @@ export default function ProfilePage() {
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-purple-500/20 to-pink-500/10">
-                    🌙
+                    ğŸŒ™
                   </div>
                 )}
               </div>
@@ -645,15 +665,15 @@ export default function ProfilePage() {
                 <div className="flex justify-between items-start mb-4 gap-4">
                   <span className="text-white/60 text-sm">
                     {dream.dream_date || dream.created_at}
-                    {dream.location_name ? ` • ${dream.location_name}` : ''}
+                    {dream.location_name ? ` â€¢ ${dream.location_name}` : ''}
                   </span>
 
                   <span className="text-xs glass-card px-2 py-1">
                     {dream.visibility === 'public'
-                      ? '🌍'
+                      ? 'ğŸŒ'
                       : dream.visibility === 'friends'
-                      ? '👥'
-                      : '🔒'}
+                      ? 'ğŸ‘¥'
+                      : 'ğŸ”’'}
                   </span>
                 </div>
 
@@ -678,14 +698,14 @@ export default function ProfilePage() {
                 {getDreamAnalysis(dream) && (
                   <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/30 mb-4">
                     <div className="font-semibold text-purple-300 mb-2 flex items-center gap-2">
-                      <span>🔮</span>
+                      <span>ğŸ”®</span>
                       {getTranslation('feed.jungianAnalysis', lang) || 'Jungian Analiz'}
                     </div>
                     <p className="text-white/80 text-sm">{getDreamAnalysis(dream)}</p>
 
                     {getDreamMotiv(dream) && (
                       <p className="text-white/60 text-xs italic mt-2 pt-2 border-t border-purple-500/30">
-                        💫 {getDreamMotiv(dream)}
+                        ğŸ’« {getDreamMotiv(dream)}
                       </p>
                     )}
                   </div>
@@ -779,7 +799,7 @@ export default function ProfilePage() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/10">
-                      🌙
+                      ğŸŒ™
                     </div>
                   )}
                 </div>
@@ -792,11 +812,11 @@ export default function ProfilePage() {
                     className="block w-full text-sm text-white file:mr-4 file:rounded-full file:border-0 file:bg-purple-500/20 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-purple-500/30"
                   />
                   <p className="text-xs text-white/40 mt-2">
-                    {getTranslation('profile.changePhoto', lang) || 'Cihazından görsel yükle'}
+                    {getTranslation('profile.changePhoto', lang) || 'CihazÄ±ndan gÃ¶rsel yÃ¼kle'}
                   </p>
                   {avatarUploading ? (
                     <p className="text-xs text-purple-300 mt-2">
-                      {getTranslation('profile.uploading', lang) || 'Görsel yükleniyor...'}
+                      {getTranslation('profile.uploading', lang) || 'GÃ¶rsel yÃ¼kleniyor...'}
                     </p>
                   ) : null}
                 </div>
