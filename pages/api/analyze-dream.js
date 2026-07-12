@@ -1,588 +1,272 @@
 import { createClient } from '@supabase/supabase-js'
 
-const GROQ_MODEL = 'llama-3.1-8b-instant'
-const OPENROUTER_MODEL = 'meta-llama/llama-3.1-8b-instruct'
-const ANALYSIS_VERSION = 'jung-v9-view-aligned-structured'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-const SUPPORTED_LANGS = ['tr', 'en', 'es', 'fr', 'de', 'pt', 'ru', 'ja']
-const ALLOWED_EMOTIONS = [
-  'Fear',
-  'Joy',
-  'Sadness',
-  'Peace',
-  'Anxiety',
-  'Awe',
-  'Confusion',
-  'Surprise',
-]
-
-function normalizeText(value, maxLen = 4000) {
-  if (typeof value !== 'string') return null
-  const trimmed = value.replace(/\s+/g, ' ').trim()
-  if (!trimmed) return null
-  return trimmed.slice(0, maxLen)
+if (!supabaseUrl) {
+  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL')
 }
 
-function normalizeArray(value, max = 8) {
-  if (!Array.isArray(value)) return []
-  return value
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter(Boolean)
-    .slice(0, max)
+if (!supabaseServiceRoleKey) {
+  throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY')
 }
 
-function normalizeEmotionLabel(value) {
-  if (typeof value !== 'string') return null
-  const cleaned = value.trim()
-  return ALLOWED_EMOTIONS.includes(cleaned) ? cleaned : null
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+
+function normalizeText(value, fallback = '') {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback
 }
 
-function normalizeScore(value, min = 0, max = 100) {
-  const n = Number(value)
-  if (!Number.isFinite(n)) return min
-  return Math.max(min, Math.min(max, Math.round(n)))
-}
+function makeFallbackAnalysis(dream) {
+  const text = normalizeText(dream?.content)
+  const shortText = text.slice(0, 220)
 
-function normalizeHex(value, fallback = '#6B7280') {
-  if (typeof value !== 'string') return fallback
-  const v = value.trim()
-  return /^#([0-9A-Fa-f]{6})$/.test(v) ? v : fallback
-}
+  const titleTr = dream?.ai_title || 'Bilinçdışının Eşiğinde'
+  const titleEn = dream?.ai_title_en || 'At the Threshold of the Unconscious'
 
-function pickLocalized(map, lang, fallback = 'en') {
-  if (!map || typeof map !== 'object') return null
-  return normalizeText(map[lang]) || normalizeText(map[fallback]) || null
-}
-
-function ensureMultilangText(value, fallbackLang = 'en') {
-  const out = {}
-  const source = value && typeof value === 'object' ? value : {}
-  for (const lang of SUPPORTED_LANGS) {
-    out[lang] =
-      normalizeText(source[lang]) ||
-      normalizeText(source[fallbackLang]) ||
-      normalizeText(source.en) ||
-      normalizeText(source.tr) ||
-      null
-  }
-  return out
-}
-
-function ensureBilingualArray(value, max = 6) {
-  const source = value && typeof value === 'object' ? value : {}
   return {
-    tr: normalizeArray(source.tr, max),
-    en: normalizeArray(source.en, max),
-  }
-}
-
-function ensureThemeBlock(value, fallback = {}) {
-  const src = value && typeof value === 'object' ? value : {}
-  return {
-    aura: normalizeText(src.aura, 200) || fallback.aura || null,
-    primary_color: normalizeHex(src.primary_color, fallback.primary_color || '#1F2937'),
-    secondary_color: normalizeHex(src.secondary_color, fallback.secondary_color || '#374151'),
-    accent_color: normalizeHex(src.accent_color, fallback.accent_color || '#C084FC'),
-    gradient_suggestion:
-      normalizeText(src.gradient_suggestion, 200) || fallback.gradient_suggestion || null,
-  }
-}
-
-function buildMultilangSpec(shortRule) {
-  return Object.fromEntries(SUPPORTED_LANGS.map((lang) => [lang, shortRule]))
-}
-
-function buildSchemaGuide() {
-  return {
-    title: buildMultilangSpec('short evocative title'),
-    summary: buildMultilangSpec(
-      '90-170 words, deep Jungian summary with symbolic and emotional richness'
-    ),
-    motiv: buildMultilangSpec(
-      '40-80 words, reflective integration guidance, psychologically grounded'
-    ),
+    title: {
+      tr: titleTr,
+      en: titleEn,
+      es: titleEn,
+      fr: titleEn,
+      de: titleEn,
+      pt: titleEn,
+      ru: titleEn,
+      ja: titleEn,
+    },
+    summary: {
+      tr:
+        `Bu rüya, bilinçdışının bastırılmış duyguları ve iç gerilimleri semboller üzerinden sahneye taşıdığı bir alan gibi görünüyor. ` +
+        `Rüyanın temel hareketi, kişinin dış dünyaya sunduğu benlik ile daha derinde saklı ihtiyaçları arasındaki ayrımı görünür kılıyor. ` +
+        `Özellikle şu içerik dikkat çekiyor: "${shortText}".`,
+      en:
+        `This dream appears to stage repressed feelings and inner tensions through symbolic imagery. ` +
+        `Its central movement suggests a split between the self presented to the world and deeper unmet inner needs. ` +
+        `A notable fragment is: "${shortText}".`,
+    },
+    motiv: {
+      tr: 'Bu rüya senden korkuyu bastırmak yerine onun hangi ihtiyacı örttüğünü anlamanı istiyor olabilir.',
+      en: 'This dream may be asking you not to suppress fear, but to understand what need it is covering.',
+    },
     shadow_focus: {
-      tr: '1-3 sentences on disowned psychic material',
-      en: '1-3 sentences on disowned psychic material',
+      tr: 'Geri plana itilmiş kırılganlık, kontrol ihtiyacı ve duygusal savunmalar öne çıkıyor.',
+      en: 'Disowned vulnerability, the need for control, and emotional defenses stand out.',
     },
     core_conflict: {
-      tr: '1-2 sentences naming the central inner tension',
-      en: '1-2 sentences naming the central inner tension',
+      tr: 'Kontrol etme arzusu ile içsel teslimiyet ihtiyacı arasında bir gerilim var.',
+      en: 'There is tension between the wish to control and the need for inner surrender.',
     },
     individuation_path: {
-      tr: '1-3 sentences suggesting movement toward wholeness',
-      en: '1-3 sentences suggesting movement toward wholeness',
+      tr: 'Rüya, bastırılmış duygulara daha dürüst yaklaşmayı ve sembollerin taşıdığı çağrıyı dinlemeyi öneriyor.',
+      en: 'The dream suggests approaching repressed emotions more honestly and listening to what the symbols are asking of you.',
     },
     symbolic_reading: {
-      tr: '60-120 words symbolic reading',
-      en: '60-120 words symbolic reading',
+      tr: 'Semboller burada yalnızca olay örgüsü değil, psişenin kendi dili gibi çalışıyor. Rüyanın atmosferi, bilinçli tutumun tek başına yetmediğini ve daha derindeki bir duygusal gerçeğin tanınmak istediğini düşündürüyor.',
+      en: 'The symbols here function not merely as plot elements but as the language of the psyche itself. The dream atmosphere suggests that the conscious attitude is no longer sufficient and that a deeper emotional truth seeks recognition.',
     },
     persona_profile: {
-      name: buildMultilangSpec('premium evocative Jungian persona name'),
-      tagline: buildMultilangSpec('short emotionally striking one-line persona tagline'),
+      name: {
+        tr: 'Eşiği Bekleyen Benlik',
+        en: 'The Self at the Threshold',
+        es: 'The Self at the Threshold',
+        fr: 'The Self at the Threshold',
+        de: 'The Self at the Threshold',
+        pt: 'The Self at the Threshold',
+        ru: 'The Self at the Threshold',
+        ja: 'The Self at the Threshold',
+      },
+      tagline: {
+        tr: 'Dışarıda güçlü, içeride çözülmeyi bekleyen bir düğüm.',
+        en: 'Strong on the outside, inwardly holding an unresolved knot.',
+        es: 'Strong on the outside, inwardly holding an unresolved knot.',
+        fr: 'Strong on the outside, inwardly holding an unresolved knot.',
+        de: 'Strong on the outside, inwardly holding an unresolved knot.',
+        pt: 'Strong on the outside, inwardly holding an unresolved knot.',
+        ru: 'Strong on the outside, inwardly holding an unresolved knot.',
+        ja: 'Strong on the outside, inwardly holding an unresolved knot.',
+      },
       archetypal_style: {
-        tr: '1-2 sentences',
-        en: '1-2 sentences',
+        tr: 'Koruyucu ama tetikte bir yapı; geri çekilmeden önce çevreyi okumaya çalışıyor.',
+        en: 'A protective yet watchful structure; it tries to read the environment before yielding.',
       },
       public_self: {
-        tr: '1-2 sentences about social mask',
-        en: '1-2 sentences about social mask',
+        tr: 'Dış dünyada daha kontrollü, işlevsel ve düzen kurucu bir yüz gösteriliyor.',
+        en: 'In the outer world, a more controlled, functional, and organizing face is presented.',
       },
       hidden_self: {
-        tr: '1-2 sentences about hidden self',
-        en: '1-2 sentences about hidden self',
+        tr: 'İçeride daha kırılgan, görülmek isteyen ama kendini saklayan bir duygusal alan var.',
+        en: 'Inside, there is a more vulnerable emotional field that wants to be seen yet remains concealed.',
       },
-      strengths: { tr: ['string'], en: ['string'] },
-      shadow_sides: { tr: ['string'], en: ['string'] },
-      core_fears: { tr: ['string'], en: ['string'] },
-      emotional_needs: { tr: ['string'], en: ['string'] },
-      defenses: { tr: ['string'], en: ['string'] },
+      strengths: {
+        tr: ['Dayanıklılık', 'Sembolik sezgi', 'İç gözlem kapasitesi'],
+        en: ['Resilience', 'Symbolic intuition', 'Capacity for introspection'],
+      },
+      shadow_sides: {
+        tr: ['Aşırı kontrol', 'Duygusal geri çekilme', 'Savunmacı sertlik'],
+        en: ['Overcontrol', 'Emotional withdrawal', 'Defensive hardness'],
+      },
+      core_fears: {
+        tr: ['Dağılmak', 'Anlaşılmamak', 'Savunmasız kalmak'],
+        en: ['Falling apart', 'Being misunderstood', 'Being left unprotected'],
+      },
+      emotional_needs: {
+        tr: ['Güven', 'Duygusal tanınma', 'İçsel istikrar'],
+        en: ['Safety', 'Emotional recognition', 'Inner stability'],
+      },
+      defenses: {
+        tr: ['Mesafe koyma', 'Aşırı zihinselleştirme', 'Kontrolü elde tutma'],
+        en: ['Distancing', 'Over-intellectualization', 'Holding control tightly'],
+      },
     },
     visual_theme: {
-      overall_mood: 'string',
-      aura: 'string',
-      primary_color: '#RRGGBB',
-      secondary_color: '#RRGGBB',
-      accent_color: '#RRGGBB',
-      background_color: '#RRGGBB',
-      text_color: '#RRGGBB',
-      gradient_suggestion: 'string',
-      texture_hint: 'string',
-      highlight_style: 'string',
-      card_style: 'string',
+      overall_mood: 'dark introspective',
+      aura: 'velvet shadow, moonlit depth, restrained tension',
+      primary_color: '#312E81',
+      secondary_color: '#111827',
+      accent_color: '#C084FC',
+      background_color: '#050816',
+      text_color: '#F9FAFB',
+      gradient_suggestion: 'indigo shadow into midnight blue',
+      texture_hint: 'soft grain with low-contrast cosmic haze',
+      highlight_style: 'subtle amethyst glow',
+      card_style: 'glass-dark with cinematic depth',
     },
     section_themes: {
       persona: {
-        aura: 'string',
-        primary_color: '#RRGGBB',
-        secondary_color: '#RRGGBB',
-        accent_color: '#RRGGBB',
-        gradient_suggestion: 'string',
+        aura: 'reflective, poised, enigmatic',
+        primary_color: '#1F3A5F',
+        secondary_color: '#111827',
+        accent_color: '#93C5FD',
+        gradient_suggestion: 'deep steel blue into night',
       },
       shadow: {
-        aura: 'string',
-        primary_color: '#RRGGBB',
-        secondary_color: '#RRGGBB',
-        accent_color: '#RRGGBB',
-        gradient_suggestion: 'string',
+        aura: 'dense, buried, magnetic',
+        primary_color: '#3B0764',
+        secondary_color: '#111827',
+        accent_color: '#C084FC',
+        gradient_suggestion: 'violet shadow into abyssal navy',
       },
       transformation: {
-        aura: 'string',
-        primary_color: '#RRGGBB',
-        secondary_color: '#RRGGBB',
-        accent_color: '#RRGGBB',
-        gradient_suggestion: 'string',
+        aura: 'emergence, breath, integration',
+        primary_color: '#0F766E',
+        secondary_color: '#164E63',
+        accent_color: '#99F6E4',
+        gradient_suggestion: 'teal rebirth into blue light',
       },
     },
-    archetypes: ['string'],
-    sentiment: 'Fear | Joy | Sadness | Peace | Anxiety | Awe | Confusion | Surprise',
+    archetypes: ['Seeker', 'Shadow Bearer'],
+    sentiment: dream?.user_selected_sentiment || 'Confusion',
     symbols: [
       {
-        symbol: 'string',
-        meaning_tr: 'string',
-        meaning_en: 'string',
-        emotional_charge: 'string',
-        intensity: 'integer 0-100',
-        color: '#RRGGBB',
+        symbol: 'Eşik',
+        meaning_tr: 'Psikolojik geçiş alanı; eski tutumdan yenisine geçiş.',
+        meaning_en: 'A psychological threshold; movement from an old attitude to a new one.',
+        emotional_charge: 'Tension, uncertainty, transformation',
+        intensity: 82,
+        color: '#C084FC',
+      },
+      {
+        symbol: 'Gölge',
+        meaning_tr: 'Bastırılmış içeriklerin görünür olma çabası.',
+        meaning_en: 'The effort of repressed contents to become visible.',
+        emotional_charge: 'Fear, gravity, exposure',
+        intensity: 76,
+        color: '#7C3AED',
+      },
+      {
+        symbol: 'Yol',
+        meaning_tr: 'Bireyleşme yönünde ilerleme ve içsel hareket.',
+        meaning_en: 'Movement and progress in the direction of individuation.',
+        emotional_charge: 'Search, uncertainty, becoming',
+        intensity: 68,
+        color: '#22D3EE',
       },
     ],
     emotions: [
-      {
-        emotion: 'Fear | Joy | Sadness | Peace | Anxiety | Awe | Confusion | Surprise',
-        score: 'integer 0-100',
-      },
+      { emotion: dream?.user_selected_sentiment || 'Confusion', score: 76 },
+      { emotion: 'Fear', score: 48 },
+      { emotion: 'Awe', score: 41 },
     ],
     reflection_questions: {
-      tr: ['string'],
-      en: ['string'],
-    },
-  }
-}
-
-function buildJsonSchema() {
-  return {
-    name: 'dream_analysis',
-    strict: true,
-    schema: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        title: { type: 'object' },
-        summary: { type: 'object' },
-        motiv: { type: 'object' },
-        shadow_focus: { type: 'object' },
-        core_conflict: { type: 'object' },
-        individuation_path: { type: 'object' },
-        symbolic_reading: { type: 'object' },
-        persona_profile: { type: 'object' },
-        visual_theme: { type: 'object' },
-        section_themes: { type: 'object' },
-        archetypes: { type: 'array', items: { type: 'string' } },
-        sentiment: { type: 'string', enum: ALLOWED_EMOTIONS },
-        symbols: { type: 'array', items: { type: 'object' } },
-        emotions: { type: 'array', items: { type: 'object' } },
-        reflection_questions: { type: 'object' },
-      },
-      required: [
-        'title',
-        'summary',
-        'motiv',
-        'shadow_focus',
-        'core_conflict',
-        'individuation_path',
-        'symbolic_reading',
-        'persona_profile',
-        'visual_theme',
-        'section_themes',
-        'archetypes',
-        'sentiment',
-        'symbols',
-        'emotions',
-        'reflection_questions',
+      tr: [
+        'Bu rüyada en çok hangi sembol seni rahatsız etti ya da çekti?',
+        'Dışarıda gösterdiğin benlik ile içeride yaşadığın duygu arasında nasıl bir fark var?',
+        'Kontrolü bıraksan hangi duygu görünür hale gelir?',
+      ],
+      en: [
+        'Which symbol in this dream disturbed or attracted you most?',
+        'What is the difference between the self you show outside and the feeling you carry inside?',
+        'If you loosened control, which emotion would become visible?',
       ],
     },
   }
 }
 
-function buildPrompt(content, language) {
-  return `
-You are an elite Jungian dream analyst generating structured output for the Lunosfer premium dream analysis experience.
-
-Return ONLY valid JSON. No markdown. No explanation. No code fences.
-
-Dream language hint: ${language}
-
-Dream text:
-${content}
-
-Frontend contract:
-The response will be rendered directly in a visual DreamAnalysisView screen with these sections:
-1. Header: title, persona_profile.name, persona_profile.tagline, sentiment, archetypes
-2. Genel Yorum: summary, motiv
-3. Persona Profili: persona_profile.archetypal_style, public_self, hidden_self, strengths, shadow_sides, core_fears, emotional_needs
-4. Gölge Analizi: shadow_focus, core_conflict
-5. Sembolik Okuma: symbolic_reading, symbols
-6. Dönüşüm Yolu: individuation_path
-7. Düşündürmesi Gereken Sorular: reflection_questions
-8. Visual theming: visual_theme and section_themes for premium cinematic UI styling
-
-Return exactly this JSON shape:
-${JSON.stringify(buildSchemaGuide(), null, 2)}
-
-Interpretation rules:
-- Use Jungian depth psychology, not generic inspiration.
-- Treat the dream as symbolic communication from the unconscious.
-- Consider persona, shadow, compensation, anima/animus tension, defensive structure, blocked vitality, fear, and individuation.
-- Do not diagnose disorders.
-- Do not use deterministic certainty.
-- Be psychologically deep, elegant, emotionally intelligent, and symbolically coherent.
-- summary must be rich and premium, not shallow.
-- motiv must be integration guidance, not self-help cheerleading.
-- shadow_focus must identify rejected/disowned psychic material.
-- core_conflict must name the central psychic tension.
-- symbolic_reading must explain dream logic and symbolic movement.
-- individuation_path must suggest the next psychologically meaningful step.
-
-Persona profile rules:
-- persona_profile.name must feel distinctive, premium, memorable, and psychologically specific.
-- tagline should feel elegant and shareable.
-- public_self and hidden_self should be meaningfully contrasted.
-- strengths, shadow_sides, core_fears, emotional_needs, defenses must be coherent with the same psyche.
-
-Visual theme rules:
-- visual_theme and section_themes must be tightly linked to the psychology of the dream.
-- Use elegant premium palettes suitable for a dark immersive interface.
-- Avoid childish, neon, comedic, random, or muddy palettes.
-- All color fields must be valid 6-digit HEX values.
-- section_themes must include persona, shadow, and transformation.
-- gradient_suggestion must be short and visual.
-- texture_hint, highlight_style, and card_style must be UI-friendly and aesthetically refined.
-
-Coverage rules:
-- title, summary, motiv must be present in all of: tr, en, es, fr, de, pt, ru, ja.
-- shadow_focus, core_conflict, individuation_path, symbolic_reading should at least contain tr and en.
-- persona_profile.name and persona_profile.tagline should be present in all 8 languages.
-- persona_profile.archetypal_style, public_self, hidden_self should at least contain tr and en.
-- strengths, shadow_sides, core_fears, emotional_needs, defenses should at least contain tr and en arrays.
-- archetypes: 1 to 5 items.
-- symbols: 3 to 8 items.
-- emotions: 1 to 5 items.
-- reflection_questions: 3 to 6 items in tr and en.
-- sentiment must be exactly one of: ${ALLOWED_EMOTIONS.join(', ')}
-- All intensity and score fields must be integers 0-100.
-
-Quality bar:
-This must feel like a premium psychological mirror, not an AI template.
-
-Output ONLY JSON.
-`.trim()
-}
-
-function extractJsonString(rawContent) {
-  if (typeof rawContent !== 'string') {
-    throw new Error('AI çıktısı metin değil')
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', ['POST'])
+    return res.status(405).json({ error: 'Method not allowed' })
   }
-
-  const trimmed = rawContent.trim()
 
   try {
-    JSON.parse(trimmed)
-    return trimmed
-  } catch {}
+    const dreamId = req.body?.dreamId
 
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
-  if (fenced?.[1]) {
-    const candidate = fenced[1].trim()
-    JSON.parse(candidate)
-    return candidate
+    if (!dreamId) {
+      return res.status(400).json({ error: 'dreamId is required' })
+    }
+
+    const { data: dream, error: fetchError } = await supabase
+      .from('dreams')
+      .select('*')
+      .eq('id', dreamId)
+      .single()
+
+    if (fetchError || !dream) {
+      return res.status(404).json({ error: 'Dream not found' })
+    }
+
+    const analysis = makeFallbackAnalysis(dream)
+
+    const updatePayload = {
+      ai_title: analysis.title.tr || analysis.title.en,
+      ai_title_en: analysis.title.en,
+      ai_title_tr: analysis.title.tr,
+      ai_summary: analysis.summary.tr || analysis.summary.en,
+      ai_summary_en: analysis.summary.en,
+      ai_summary_tr: analysis.summary.tr,
+      ai_motiv: analysis.motiv.tr || analysis.motiv.en,
+      ai_motiv_en: analysis.motiv.en,
+      ai_motiv_tr: analysis.motiv.tr,
+      ai_archetypes: analysis.archetypes,
+      ai_symbols: analysis.symbols,
+      ai_emotions: analysis.emotions,
+      ai_jungian_analysis: analysis,
+      ai_sentiment: analysis.sentiment,
+      analysis_model: 'fallback-local',
+      analysis_version: 'fallback-v1',
+      analysis_status: 'completed',
+      analysis_error: null,
+      analyzed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data: updatedDream, error: updateError } = await supabase
+      .from('dreams')
+      .update(updatePayload)
+      .eq('id', dreamId)
+      .select('*')
+      .single()
+
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message || 'Failed to update dream' })
+    }
+
+    return res.status(200).json({ dream: updatedDream })
+  } catch (error) {
+    console.error('analyze-dream error:', error)
+    return res.status(500).json({
+      error: error?.message || 'Unexpected server error',
+    })
   }
-
-  const firstBrace = trimmed.indexOf('{')
-  const lastBrace = trimmed.lastIndexOf('}')
-  if (firstBrace >= 0 && lastBrace > firstBrace) {
-    const candidate = trimmed.slice(firstBrace, lastBrace + 1)
-    JSON.parse(candidate)
-    return candidate
-  }
-
-  throw new Error('AI çıktısı JSON parse edilemedi')
 }
-
-function parseAnalysis(rawContent) {
-  let parsed
-  try {
-    parsed = JSON.parse(extractJsonString(rawContent))
-  } catch {
-    throw new Error('AI çıktısı JSON parse edilemedi')
-  }
-
-  const archetypes = normalizeArray(parsed.archetypes, 5)
-  const sentiment = normalizeEmotionLabel(parsed.sentiment) || 'Confusion'
-
-  const symbols = Array.isArray(parsed.symbols)
-    ? parsed.symbols
-        .map((item) => ({
-          symbol: normalizeText(item?.symbol, 120),
-          meaning_tr: normalizeText(item?.meaning_tr, 300),
-          meaning_en: normalizeText(item?.meaning_en, 300),
-          emotional_charge: normalizeText(item?.emotional_charge, 160),
-          intensity: normalizeScore(item?.intensity, 0, 100),
-          color: normalizeHex(item?.color, '#6B7280'),
-        }))
-        .filter((item) => item.symbol && item.meaning_tr && item.meaning_en)
-        .slice(0, 8)
-    : []
-
-  const emotions = Array.isArray(parsed.emotions)
-    ? parsed.emotions
-        .map((item) => ({
-          emotion: normalizeEmotionLabel(item?.emotion),
-          score: normalizeScore(item?.score, 0, 100),
-        }))
-        .filter((item) => item.emotion)
-        .slice(0, 5)
-    : []
-
-  const personaProfile = {
-    name: ensureMultilangText(parsed?.persona_profile?.name),
-    tagline: ensureMultilangText(parsed?.persona_profile?.tagline),
-    archetypal_style: {
-      tr: normalizeText(parsed?.persona_profile?.archetypal_style?.tr, 600),
-      en: normalizeText(parsed?.persona_profile?.archetypal_style?.en, 600),
-    },
-    public_self: {
-      tr: normalizeText(parsed?.persona_profile?.public_self?.tr, 600),
-      en: normalizeText(parsed?.persona_profile?.public_self?.en, 600),
-    },
-    hidden_self: {
-      tr: normalizeText(parsed?.persona_profile?.hidden_self?.tr, 600),
-      en: normalizeText(parsed?.persona_profile?.hidden_self?.en, 600),
-    },
-    strengths: ensureBilingualArray(parsed?.persona_profile?.strengths, 6),
-    shadow_sides: ensureBilingualArray(parsed?.persona_profile?.shadow_sides, 6),
-    core_fears: ensureBilingualArray(parsed?.persona_profile?.core_fears, 6),
-    emotional_needs: ensureBilingualArray(parsed?.persona_profile?.emotional_needs, 6),
-    defenses: ensureBilingualArray(parsed?.persona_profile?.defenses, 6),
-  }
-
-  const visualTheme = {
-    overall_mood: normalizeText(parsed?.visual_theme?.overall_mood, 200),
-    aura: normalizeText(parsed?.visual_theme?.aura, 200),
-    primary_color: normalizeHex(parsed?.visual_theme?.primary_color, '#1F2937'),
-    secondary_color: normalizeHex(parsed?.visual_theme?.secondary_color, '#374151'),
-    accent_color: normalizeHex(parsed?.visual_theme?.accent_color, '#C084FC'),
-    background_color: normalizeHex(parsed?.visual_theme?.background_color, '#0B1020'),
-    text_color: normalizeHex(parsed?.visual_theme?.text_color, '#F9FAFB'),
-    gradient_suggestion: normalizeText(parsed?.visual_theme?.gradient_suggestion, 200),
-    texture_hint: normalizeText(parsed?.visual_theme?.texture_hint, 120),
-    highlight_style: normalizeText(parsed?.visual_theme?.highlight_style, 120),
-    card_style: normalizeText(parsed?.visual_theme?.card_style, 120),
-  }
-
-  const sectionThemes = {
-    persona: ensureThemeBlock(parsed?.section_themes?.persona, {
-      aura: visualTheme.aura,
-      primary_color: visualTheme.primary_color,
-      secondary_color: visualTheme.secondary_color,
-      accent_color: visualTheme.accent_color,
-      gradient_suggestion: visualTheme.gradient_suggestion,
-    }),
-    shadow: ensureThemeBlock(parsed?.section_themes?.shadow, {
-      aura: 'shadowed, introspective, dense',
-      primary_color: '#241833',
-      secondary_color: '#0F172A',
-      accent_color: '#7C3AED',
-      gradient_suggestion: 'deep plum into midnight blue',
-    }),
-    transformation: ensureThemeBlock(parsed?.section_themes?.transformation, {
-      aura: 'renewal, integration, emergence',
-      primary_color: '#0F766E',
-      secondary_color: '#164E63',
-      accent_color: '#99F6E4',
-      gradient_suggestion: 'deep teal into silver-blue light',
-    }),
-  }
-
-  const result = {
-    raw: parsed,
-    title: ensureMultilangText(parsed.title),
-    summary: ensureMultilangText(parsed.summary),
-    motiv: ensureMultilangText(parsed.motiv),
-    shadow_focus: {
-      tr: normalizeText(parsed?.shadow_focus?.tr, 1000),
-      en: normalizeText(parsed?.shadow_focus?.en, 1000),
-    },
-    core_conflict: {
-      tr: normalizeText(parsed?.core_conflict?.tr, 1000),
-      en: normalizeText(parsed?.core_conflict?.en, 1000),
-    },
-    individuation_path: {
-      tr: normalizeText(parsed?.individuation_path?.tr, 1000),
-      en: normalizeText(parsed?.individuation_path?.en, 1000),
-    },
-    symbolic_reading: {
-      tr: normalizeText(parsed?.symbolic_reading?.tr, 1500),
-      en: normalizeText(parsed?.symbolic_reading?.en, 1500),
-    },
-    persona_profile: personaProfile,
-    visual_theme: visualTheme,
-    section_themes: sectionThemes,
-    reflection_questions: ensureBilingualArray(parsed?.reflection_questions, 6),
-    archetypes,
-    sentiment,
-    symbols,
-    emotions,
-  }
-
-  if (!result.archetypes.length) throw new Error('Arketip üretilemedi')
-  if (!result.symbols.length) throw new Error('Sembol üretilemedi')
-  if (!pickLocalized(result.summary, 'en', 'en')) throw new Error('Özet üretilemedi')
-  if (!pickLocalized(result.persona_profile.name, 'en', 'en')) {
-    throw new Error('Persona adı üretilemedi')
-  }
-
-  return result
-}
-
-async function analyzeWithGroq({ content, language, groqKey, userId }) {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${groqKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      temperature: 0.7,
-      max_completion_tokens: 3200,
-      user: userId ? String(userId) : undefined,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You return only valid JSON. No markdown. No commentary. Produce a premium Jungian structured dream analysis for Lunosfer.',
-        },
-        {
-          role: 'user',
-          content: buildPrompt(content, language),
-        },
-      ],
-      response_format: {
-        type: 'json_schema',
-        json_schema: buildJsonSchema(),
-      },
-    }),
-  })
-
-  const data = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(data?.error?.message || `Groq error ${response.status}`)
-  }
-
-  const rawContent = data?.choices?.[0]?.message?.content
-  if (!rawContent) {
-    throw new Error('Groq boş içerik döndürdü')
-  }
-
-  return parseAnalysis(rawContent)
-}
-
-async function analyzeWithOpenRouter({ content, language, apiKey, userId }) {
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://lunosfer.com',
-      'X-OpenRouter-Title': 'Lunosfer',
-    },
-    body: JSON.stringify({
-      model: OPENROUTER_MODEL,
-      temperature: 0.7,
-      max_tokens: 3200,
-      user: userId ? String(userId) : undefined,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You return only valid JSON. No markdown. No commentary. Produce a premium Jungian structured dream analysis for Lunosfer.',
-        },
-        {
-          role: 'user',
-          content: buildPrompt(content, language),
-        },
-      ],
-      response_format: {
-        type: 'json_schema',
-        json_schema: buildJsonSchema(),
-      },
-    }),
-  })
-
-  const data = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(data?.error?.message || `OpenRouter error ${response.status}`)
-  }
-
-  const rawContent = data?.choices?.[0]?.message?.content
-  if (!rawContent) {
-    throw new Error('OpenRouter boş içerik döndürdü')
-  }
-
-  return parseAnalysis(rawContent)
-}
-
-function buildImagePrompt({ content, analysis, language }) {
-  const localizedSummary =
-    pickLocalized(analysis.summary, language, 'en') ||
-    pickLocalized(analysis.summary, 'en', 'en') ||
-    ''
-
-  const personaName =
-    pickLocalized(analysis.persona_profile?.name, language, 'en') ||
-    pickLocalized(analysis.persona_profile?.name, 'en', 'en') ||
-    ''
-
-  const 
