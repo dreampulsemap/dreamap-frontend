@@ -390,7 +390,7 @@ export default function ProfilePage() {
           <a href="/" className="flex items-center gap-3 group min-w-0">
             <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 shadow-[0_0_30px_rgba(56,189,248,0.06)]">
               <Image
-                src="/logo.jpg"
+                src="/Logo.jpg"
                 alt="Lunosfer"
                 width={132}
                 height={40}
