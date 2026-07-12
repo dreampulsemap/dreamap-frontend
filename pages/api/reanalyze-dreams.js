@@ -50,7 +50,7 @@ function buildImagePrompt({ archetypes, dominantEmotion, symbols, content }) {
   const topArchetype = archetypes[0] || 'Dream'
   const topSymbol = symbols[0]?.symbol || 'symbolic landscape'
   const shortContent = String(content || '')
-    .replace(/s+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 240)
 
