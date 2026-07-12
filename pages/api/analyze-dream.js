@@ -1,5 +1,3 @@
-// pages/api/analyze-dream.js (veya app/api/.../route.js adaptasyonu)
-
 import { createClient } from '@supabase/supabase-js'
 
 const GROQ_MODEL = 'llama-3.1-8b-instant'
@@ -20,7 +18,7 @@ const ALLOWED_EMOTIONS = [
 
 function normalizeText(value, maxLen = 4000) {
   if (typeof value !== 'string') return null
-  const trimmed = value.replace(/s+/g, ' ').trim()
+  const trimmed = value.replace(/\s+/g, ' ').trim()
   if (!trimmed) return null
   return trimmed.slice(0, maxLen)
 }
@@ -278,11 +276,35 @@ Interpretation rules:
 - Do not diagnose disorders.
 - Do not use deterministic certainty.
 - Be psychologically deep, elegant, emotionally intelligent, and symbolically coherent.
+- summary must be rich and premium, not shallow.
+- motiv must be integration guidance, not self-help cheerleading.
+- shadow_focus must identify rejected/disowned psychic material.
+- core_conflict must name the central psychic tension.
+- symbolic_reading must explain dream logic and symbolic movement.
+- individuation_path must suggest the next psychologically meaningful step.
+
+Persona profile rules:
+- persona_profile.name must feel distinctive, premium, memorable, and psychologically specific.
+- tagline should feel elegant and shareable.
+- public_self and hidden_self should be meaningfully contrasted.
+- strengths, shadow_sides, core_fears, emotional_needs, defenses must be coherent with the same psyche.
+
+Visual theme rules:
+- visual_theme and section_themes must be tightly linked to the psychology of the dream.
+- Use elegant premium palettes suitable for a dark immersive interface.
+- Avoid childish, neon, comedic, random, or muddy palettes.
+- All color fields must be valid 6-digit HEX values.
+- section_themes must include persona, shadow, and transformation.
+- gradient_suggestion must be short and visual.
+- texture_hint, highlight_style, and card_style must be UI-friendly and aesthetically refined.
 
 Coverage rules:
 - title, summary, motiv must be present in all of: tr, en, es, fr, de, pt, ru, ja.
 - shadow_focus, core_conflict, individuation_path, symbolic_reading should at least contain tr and en.
 - persona_profile.name and persona_profile.tagline should be present in all 8 languages.
+- persona_profile.archetypal_style, public_self, hidden_self should at least contain tr and en.
+- strengths, shadow_sides, core_fears, emotional_needs, defenses should at least contain tr and en arrays.
+- archetypes: 1 to 5 items.
 - symbols: 3 to 8 items.
 - emotions: 1 to 5 items.
 - reflection_questions: 3 to 6 items in tr and en.
@@ -300,17 +322,21 @@ function extractJsonString(rawContent) {
   if (typeof rawContent !== 'string') {
     throw new Error('AI çıktısı metin değil')
   }
+
   const trimmed = rawContent.trim()
+
   try {
     JSON.parse(trimmed)
     return trimmed
   } catch {}
-  const fenced = trimmed.match(/```(?:json)?s*([sS]*?)s*```/i)
+
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
   if (fenced?.[1]) {
     const candidate = fenced[1].trim()
     JSON.parse(candidate)
     return candidate
   }
+
   const firstBrace = trimmed.indexOf('{')
   const lastBrace = trimmed.lastIndexOf('}')
   if (firstBrace >= 0 && lastBrace > firstBrace) {
@@ -318,6 +344,7 @@ function extractJsonString(rawContent) {
     JSON.parse(candidate)
     return candidate
   }
+
   throw new Error('AI çıktısı JSON parse edilemedi')
 }
 
@@ -558,273 +585,4 @@ function buildImagePrompt({ content, analysis, language }) {
     pickLocalized(analysis.persona_profile?.name, 'en', 'en') ||
     ''
 
-  const archetypes = analysis.archetypes.slice(0, 3).join(', ')
-  const symbolNames = analysis.symbols
-    .slice(0, 4)
-    .map((s) => s.symbol)
-    .filter(Boolean)
-    .join(', ')
-
-  const shortDream = String(content || '')
-    .replace(/s+/g, ' ')
-    .trim()
-    .slice(0, 280)
-
-  const shortSummary = String(localizedSummary || '')
-    .replace(/s+/g, ' ')
-    .trim()
-    .slice(0, 220)
-
-  const palette = [
-    analysis.visual_theme?.primary_color,
-    analysis.visual_theme?.secondary_color,
-    analysis.visual_theme?.accent_color,
-  ]
-    .filter(Boolean)
-    .join(', ')
-
-  return [
-    'surreal dreamscape',
-    'cinematic Jungian symbolism',
-    `dominant emotion: ${analysis.sentiment}`,
-    personaName ? `persona archetype: ${personaName}` : null,
-    archetypes ? `archetypes: ${archetypes}` : null,
-    symbolNames ? `symbols: ${symbolNames}` : null,
-    shortSummary ? `psychological atmosphere: ${shortSummary}` : null,
-    palette ? `color palette: ${palette}` : null,
-    analysis.visual_theme?.aura ? `aura: ${analysis.visual_theme.aura}` : null,
-    shortDream ? `dream scene: ${shortDream}` : null,
-    'ethereal moonlit lighting',
-    'mythic unconscious imagery',
-    'high detail, evocative, haunting, symbolic',
-  ]
-    .filter(Boolean)
-    .join(', ')
-}
-
-function buildPollinationsImageUrl(prompt, seed) {
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(
-    prompt
-  )}?width=1280&height=1280&seed=${seed}&model=flux&nologo=true&enhance=true`
-}
-
-function buildDreamUpdate({ dreamId, content, language, analysis, provider, model }) {
-  const imagePrompt = buildImagePrompt({
-    content,
-    analysis,
-    language,
-  })
-
-  const imageUrl = buildPollinationsImageUrl(imagePrompt, dreamId)
-
-  return {
-    ai_title: pickLocalized(analysis.title, language, 'en'),
-    ai_title_en: pickLocalized(analysis.title, 'en', 'en'),
-    ai_title_tr: pickLocalized(analysis.title, 'tr', 'en'),
-    ai_title_es: pickLocalized(analysis.title, 'es', 'en'),
-    ai_title_fr: pickLocalized(analysis.title, 'fr', 'en'),
-    ai_title_de: pickLocalized(analysis.title, 'de', 'en'),
-    ai_title_pt: pickLocalized(analysis.title, 'pt', 'en'),
-    ai_title_ru: pickLocalized(analysis.title, 'ru', 'en'),
-    ai_title_ja: pickLocalized(analysis.title, 'ja', 'en'),
-
-    ai_summary: pickLocalized(analysis.summary, language, 'en'),
-    ai_summary_en: pickLocalized(analysis.summary, 'en', 'en'),
-    ai_summary_tr: pickLocalized(analysis.summary, 'tr', 'en'),
-    ai_summary_es: pickLocalized(analysis.summary, 'es', 'en'),
-    ai_summary_fr: pickLocalized(analysis.summary, 'fr', 'en'),
-    ai_summary_de: pickLocalized(analysis.summary, 'de', 'en'),
-    ai_summary_pt: pickLocalized(analysis.summary, 'pt', 'en'),
-    ai_summary_ru: pickLocalized(analysis.summary, 'ru', 'en'),
-    ai_summary_ja: pickLocalized(analysis.summary, 'ja', 'en'),
-
-    ai_motiv: pickLocalized(analysis.motiv, language, 'en'),
-    ai_motiv_en: pickLocalized(analysis.motiv, 'en', 'en'),
-    ai_motiv_tr: pickLocalized(analysis.motiv, 'tr', 'en'),
-    ai_motiv_es: pickLocalized(analysis.motiv, 'es', 'en'),
-    ai_motiv_fr: pickLocalized(analysis.motiv, 'fr', 'en'),
-    ai_motiv_de: pickLocalized(analysis.motiv, 'de', 'en'),
-    ai_motiv_pt: pickLocalized(analysis.motiv, 'pt', 'en'),
-    ai_motiv_ru: pickLocalized(analysis.motiv, 'ru', 'en'),
-    ai_motiv_ja: pickLocalized(analysis.motiv, 'ja', 'en'),
-
-    ai_archetypes: analysis.archetypes,
-    ai_sentiment: analysis.sentiment,
-    ai_symbols: analysis.symbols,
-    ai_emotions: analysis.emotions,
-
-    ai_image_prompt: imagePrompt,
-    ai_image_url: imageUrl,
-
-    ai_jungian_analysis: {
-      ...analysis.raw,
-      title: analysis.title,
-      summary: analysis.summary,
-      motiv: analysis.motiv,
-      shadow_focus: analysis.shadow_focus,
-      core_conflict: analysis.core_conflict,
-      individuation_path: analysis.individuation_path,
-      symbolic_reading: analysis.symbolic_reading,
-      persona_profile: analysis.persona_profile,
-      visual_theme: analysis.visual_theme,
-      section_themes: analysis.section_themes,
-      reflection_questions: analysis.reflection_questions,
-      archetypes: analysis.archetypes,
-      sentiment: analysis.sentiment,
-      symbols: analysis.symbols,
-      emotions: analysis.emotions,
-      provider,
-      model,
-      analysis_version: ANALYSIS_VERSION,
-      image_prompt: imagePrompt,
-      image_url: imageUrl,
-    },
-
-    analysis_model: model,
-    analysis_version: ANALYSIS_VERSION,
-    analysis_status: 'completed',
-    analysis_error: null,
-    analyzed_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-}
-
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
-
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const GROQ_KEY = process.env.GROQ_KEY || process.env.GROQ_API_KEY
-  const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({
-      error: 'Supabase env eksik',
-      debug: {
-        hasSupabaseUrl: !!SUPABASE_URL,
-        hasServiceKey: !!SUPABASE_SERVICE_KEY,
-      },
-    })
-  }
-
-  const { dreamId, content, language, userId } = req.body || {}
-
-  if (!dreamId || !content) {
-    return res.status(400).json({ error: 'dreamId ve content zorunlu' })
-  }
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  })
-
-  try {
-    await supabase
-      .from('dreams')
-      .update({
-        analysis_status: 'processing',
-        analysis_error: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', dreamId)
-
-    let analysis = null
-    let provider = null
-    let model = null
-    let groqError = null
-
-    if (GROQ_KEY) {
-      try {
-        analysis = await analyzeWithGroq({
-          content,
-          language: language || 'en',
-          groqKey: GROQ_KEY,
-          userId: userId || dreamId,
-        })
-        provider = 'groq'
-        model = GROQ_MODEL
-      } catch (err) {
-        groqError = err
-        console.error('Groq analyze failed:', err.message)
-      }
-    }
-
-    if (!analysis && OPENROUTER_API_KEY) {
-      try {
-        analysis = await analyzeWithOpenRouter({
-          content,
-          language: language || 'en',
-          apiKey: OPENROUTER_API_KEY,
-          userId: userId || dreamId,
-        })
-        provider = 'openrouter'
-        model = OPENROUTER_MODEL
-      } catch (openRouterErr) {
-        const combined = [
-          groqError ? `Groq: ${groqError.message}` : null,
-          `OpenRouter: ${openRouterErr.message}`,
-        ]
-          .filter(Boolean)
-          .join(' | ')
-        throw new Error(combined)
-      }
-    }
-
-    if (!analysis) {
-      throw new Error(groqError?.message || 'Ne Groq ne OpenRouter ile analiz alınamadı')
-    }
-
-    const updates = buildDreamUpdate({
-      dreamId,
-      content,
-      language: language || 'en',
-      analysis,
-      provider,
-      model,
-    })
-
-    const { error: updateError } = await supabase
-      .from('dreams')
-      .update(updates)
-      .eq('id', dreamId)
-
-    if (updateError) {
-      throw new Error(`Supabase update error: ${updateError.message}`)
-    }
-
-    return res.status(200).json({
-      success: true,
-      provider,
-      model,
-      imageUrl: updates.ai_image_url,
-      analysis: {
-        title: updates.ai_title,
-        summary: updates.ai_summary,
-        motiv: updates.ai_motiv,
-        sentiment: analysis.sentiment,
-        archetypes: analysis.archetypes,
-        personaName:
-          pickLocalized(analysis.persona_profile?.name, language || 'en', 'en') ||
-          pickLocalized(analysis.persona_profile?.name, 'en', 'en'),
-        colors: analysis.visual_theme,
-      },
-    })
-  } catch (error) {
-    await supabase
-      .from('dreams')
-      .update({
-        analysis_status: 'failed',
-        analysis_error: String(error.message || error).slice(0, 1000),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', dreamId)
-
-    return res.status(500).json({
-      error: `Analiz hatası: ${error.message}`,
-    })
-  }
-}
+  const 
