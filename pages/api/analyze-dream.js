@@ -16,10 +16,10 @@ const ALLOWED_EMOTIONS = [
   'Surprise',
 ]
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-const groqKey = process.env.GROQ_API_KEY
-const openRouterKey = process.env.OPENROUTER_API_KEY
+const supabaseUrl = NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceRoleKey = SUPABASE_SERVICE_ROLE_KEY
+const groqKey = GROQ_API_KEY
+const openRouterKey = OPENROUTER_API_KEY
 
 if (!supabaseUrl) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL')
 if (!supabaseServiceRoleKey) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY')
