@@ -10,7 +10,7 @@ const OPENROUTER_MODEL =
 const ANALYSIS_VERSION = 'jung-v12-history-aware'
 
 // Paylaşım tablosunun gerçek adını burada ayarla:
-const SHARES_TABLE_NAME = 'dream_shares'
+const SHARES_TABLE_NAME = 'dreams'
 
 const SUPPORTED_LANGS = ['tr', 'en', 'es', 'fr', 'de', 'pt', 'ru', 'ja']
 const ALLOWED_EMOTIONS = [
