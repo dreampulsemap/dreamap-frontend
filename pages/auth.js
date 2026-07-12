@@ -8,9 +8,9 @@ import { getTranslation } from '../lib/translations'
 import LanguageSwitcher from '../components/LanguageSwitcher'
 
 const OAUTH_PROVIDERS = [
-  { key: 'google', label: 'Google', icon: 'G' },
-  { key: 'facebook', label: 'Facebook', icon: 'f' },
-  { key: 'github', label: 'GitHub', icon: '⌘' },
+  const OAUTH_PROVIDERS = [
+  { key: 'google', label: 'Google ile devam et', icon: 'G' },
+  { key: 'github', label: 'GitHub ile devam et', icon: '⌘' },
 ]
 
 export default function AuthPage() {
