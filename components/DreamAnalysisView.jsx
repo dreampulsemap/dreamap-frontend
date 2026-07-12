@@ -194,20 +194,6 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
   const secondary = visual?.secondary_color || '#2B2238'
   const accent = visual?.accent_color || '#8FD3C1'
 
-  const debugJson = JSON.stringify(
-    {
-      summary,
-      motiv,
-      persona_profile: analysis?.persona_profile,
-      shadow_focus: analysis?.shadow_focus,
-      core_conflict: analysis?.core_conflict,
-      symbolic_reading: analysis?.symbolic_reading,
-      individuation_path: analysis?.individuation_path,
-    },
-    null,
-    2
-  )
-
   return (
     <div
       style={{
@@ -215,67 +201,46 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
         background: bg,
         color: text,
         padding: '32px 20px 80px',
+        position: 'relative',
       }}
     >
+      <Link
+        href="/"
+        style={{
+          position: 'fixed',
+          top: 20,
+          left: 20,
+          zIndex: 1000,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '12px 18px',
+          borderRadius: 999,
+          fontSize: 14,
+          fontWeight: 700,
+          color: '#F8F5EF',
+          background: 'rgba(13,16,24,0.72)',
+          border: '1px solid rgba(255,255,255,0.16)',
+          textDecoration: 'none',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          boxShadow: '0 12px 30px rgba(0,0,0,0.28)',
+        }}
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M19 12H5M12 19l-7-7 7-7" />
+        </svg>
+        Ana Sayfa
+      </Link>
+
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-            marginBottom: 16,
-            flexWrap: 'wrap',
-          }}
-        >
-          <Link
-            href="/"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '10px 18px',
-              borderRadius: 999,
-              fontSize: 14,
-              fontWeight: 700,
-              color: '#F8F5EF',
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.18)',
-              textDecoration: 'none',
-              backdropFilter: 'blur(6px)',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
-            }}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-            Ana Sayfa
-          </Link>
-        </div>
-
-        {/* DEBUG İÇERİK - GEÇİCİ */}
-        <pre
-          style={{
-            background: '#000',
-            color: '#0f0',
-            padding: 12,
-            borderRadius: 12,
-            fontSize: 10,
-            maxHeight: 200,
-            overflow: 'auto',
-            marginBottom: 12,
-          }}
-        >
-          {debugJson}
-        </pre>
-
         <header
           style={{
             background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 60%, ${accent} 100%)`,
