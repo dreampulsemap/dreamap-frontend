@@ -1,10 +1,13 @@
 import React from 'react'
 
-function pickLocalized(map, lang = 'tr', fallback = 'en') {
-  if (!map || typeof map !== 'object') return ''
-  return map?.[lang] || map?.[fallback] || ''
+function pickLocalized(value, lang = 'tr', fallback = 'en') {
+  if (!value) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'object') {
+    return value?.[lang] || value?.[fallback] || ''
+  }
+  return ''
 }
-
 function safeArray(value) {
   return Array.isArray(value) ? value : []
 }
