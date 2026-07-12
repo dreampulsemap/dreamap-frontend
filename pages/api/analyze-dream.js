@@ -756,4 +756,63 @@ export default async function handler(req, res) {
         model,
         version: ANALYSIS_VERSION,
         history_dream_count: history.length,
-        share_c
+        share_count: shares.length,
+      },
+    }
+
+    const updatePayload = {
+      ...buildLocalizedColumns(result, baseLang),
+      ai_sentiment: result.sentiment,
+      ai_archetypes: result.archetypes,
+      ai_symbols: result.symbols,
+      ai_emotions: result.emotions,
+      ai_jungian_analysis: aiJungianAnalysis,
+      analysis_model: model,
+      analysis_version: ANALYSIS_VERSION,
+      analysis_status: 'completed',
+      analysis_error: null,
+      analyzed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data: updatedDream, error: updateError } = await supabase
+      .from('dreams')
+      .update(updatePayload)
+      .eq('id', dreamId)
+      .select('*')
+      .single()
+
+    if (updateError) {
+      throw new Error(updateError.message || 'Failed to update dream')
+    }
+
+    return res.status(200).json({
+      dream: updatedDream,
+      meta: {
+        provider,
+        model,
+        version: ANALYSIS_VERSION,
+        historyDreams: history.length,
+        shares: shares.length,
+      },
+    })
+  } catch (error) {
+    console.error('analyze-dream error:', error)
+
+    const dreamId = req.body?.dreamId
+    if (dreamId) {
+      await supabase
+        .from('dreams')
+        .update({
+          analysis_status: 'failed',
+          analysis_error: error?.message || 'Unexpected analysis error',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', dreamId)
+    }
+
+    return res.status(500).json({
+      error: error?.message || 'Unexpected server error',
+    })
+  }
+}
