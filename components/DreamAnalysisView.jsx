@@ -218,20 +218,19 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
     >
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         {/* DEBUG İÇERİK - GEÇİCİ: prod'da kaldırabilirsiniz */}
-        <pre
-          style={{
-            background: '#000',
-            color: '#0f0',
-            padding: 12,
-            borderRadius: 12,
-            fontSize: 10,
-            maxHeight: 200,
-            overflow: 'auto',
-            marginBottom: 12,
-          }}
-        >
-          {debugJson}
-        </pre>
+      <pre
+  style={{
+    background: 'red',
+    color: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    fontSize: 16,
+    marginBottom: 20,
+  }}
+>
+  DEBUG KUTUSU BURADA
+</pre>
+       
 
         <header
           style={{
