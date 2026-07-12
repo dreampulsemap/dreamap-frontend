@@ -217,6 +217,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
       }}
     >
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+        {/* DEBUG İÇERİK - GEÇİCİ: prod'da kaldırabilirsiniz */}
         <pre
           style={{
             background: '#000',
@@ -307,9 +308,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
         >
           <div style={{ gridColumn: 'span 12' }}>
             <SectionCard title="Genel Yorum" colors={visual}>
-              <p style={{ marginTop: 0 }}>
-                {summary || 'Bu rüya için detaylı özet henüz üretilemedi.'}
-              </p>
+              <p style={{ marginTop: 0 }}>{summary}</p>
               {motiv ? <p style={{ marginBottom: 0, opacity: 0.92 }}>{motiv}</p> : null}
             </SectionCard>
           </div>
@@ -325,15 +324,15 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
               >
                 <div>
                   <h3 style={{ marginTop: 0 }}>Arketipsel Stil</h3>
-                  <p>{archetypalStyle || 'Belirgin bir arketipsel stil henüz çıkarılamadı.'}</p>
+                  <p>{archetypalStyle}</p>
                 </div>
                 <div>
                   <h3 style={{ marginTop: 0 }}>Dışarıya Gösterilen Benlik</h3>
-                  <p>{publicSelf || 'Dış benlik profili henüz netleşmedi.'}</p>
+                  <p>{publicSelf}</p>
                 </div>
                 <div>
                   <h3 style={{ marginTop: 0 }}>Gizli Benlik</h3>
-                  <p>{hiddenSelf || 'Gizli benlik katmanı henüz netleşmedi.'}</p>
+                  <p>{hiddenSelf}</p>
                 </div>
               </div>
 
@@ -388,30 +387,30 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
           <div style={{ gridColumn: 'span 12' }}>
             <SectionCard title="Gölge Analizi" colors={sectionThemes?.shadow || visual} dark>
               <p>
-                <strong>Shadow Focus:</strong>{' '}
-                {shadowFocus || 'Gölge odağı bu rüya için açık biçimde oluşmadı.'}
+                <strong>Shadow Focus:</strong> {shadowFocus}
               </p>
               <p style={{ marginBottom: 0 }}>
-                <strong>Core Conflict:</strong>{' '}
-                {coreConflict || 'Merkezi iç çatışma henüz net biçimde tanımlanmadı.'}
+                <strong>Core Conflict:</strong> {coreConflict}
               </p>
             </SectionCard>
           </div>
 
           <div style={{ gridColumn: 'span 12' }}>
             <SectionCard title="Sembolik Okuma" colors={visual}>
-              <p style={{ marginTop: 0 }}>
-                {symbolicReading || 'Sembolik okuma bu rüya için henüz üretilemedi.'}
-              </p>
-              <SymbolGrid symbols={safeArray(dream?.ai_symbols || analysis?.symbols)} lang={lang} />
+              <p style={{ marginTop: 0 }}>{symbolicReading}</p>
+              <SymbolGrid
+                symbols={safeArray(dream?.ai_symbols || analysis?.symbols)}
+                lang={lang}
+              />
             </SectionCard>
           </div>
 
           <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard title="Dönüşüm Yolu" colors={sectionThemes?.transformation || visual}>
-              <p style={{ marginTop: 0 }}>
-                {individuationPath || 'Dönüşüm yolu bu analizde henüz netleştirilemedi.'}
-              </p>
+            <SectionCard
+              title="Dönüşüm Yolu"
+              colors={sectionThemes?.transformation || visual}
+            >
+              <p style={{ marginTop: 0 }}>{individuationPath}</p>
             </SectionCard>
           </div>
 
