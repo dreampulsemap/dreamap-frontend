@@ -7,7 +7,7 @@ import { tAddDream, normalizeAddDreamLang } from '../lib/addDreamTranslations'
 export default function AddDreamPage() {
   const { i18n } = useTranslation()
   const router = useRouter()
-  const lang = normalizeAddDreamLang(i18n.language)
+  const lang = normalizeAddDreamLang(i18n.resolvedLanguage || i18n.language)
 
   const [user, setUser] = useState(null)
   const [content, setContent] = useState('')
@@ -21,22 +21,22 @@ export default function AddDreamPage() {
 
   const emotions = useMemo(
     () => [
-      { value: 'Joy', emoji: 'ğŸ˜Š', label: tAddDream('emotion.joy', lang) },
-      { value: 'Peace', emoji: 'ğŸ˜Œ', label: tAddDream('emotion.peace', lang) },
-      { value: 'Love', emoji: 'ğŸ¥°', label: tAddDream('emotion.love', lang) },
-      { value: 'Hope', emoji: 'âœ¨', label: tAddDream('emotion.hope', lang) },
-      { value: 'Awe', emoji: 'ğŸ˜²', label: tAddDream('emotion.awe', lang) },
-      { value: 'Surprise', emoji: 'ğŸ˜®', label: tAddDream('emotion.surprise', lang) },
-      { value: 'Curiosity', emoji: 'ğŸ¤”', label: tAddDream('emotion.curiosity', lang) },
-      { value: 'Confusion', emoji: 'ğŸ˜•', label: tAddDream('emotion.confusion', lang) },
-      { value: 'Fear', emoji: 'ğŸ˜¨', label: tAddDream('emotion.fear', lang) },
-      { value: 'Anxiety', emoji: 'ğŸ˜°', label: tAddDream('emotion.anxiety', lang) },
-      { value: 'Sadness', emoji: 'ğŸ˜¢', label: tAddDream('emotion.sadness', lang) },
-      { value: 'Loneliness', emoji: 'ğŸ«¥', label: tAddDream('emotion.loneliness', lang) },
-      { value: 'Anger', emoji: 'ğŸ˜¡', label: tAddDream('emotion.anger', lang) },
-      { value: 'Shame', emoji: 'ğŸ˜', label: tAddDream('emotion.shame', lang) },
-      { value: 'Disgust', emoji: 'ğŸ¤¢', label: tAddDream('emotion.disgust', lang) },
-      { value: 'Relief', emoji: 'ğŸ˜®â€ğŸ’¨', label: tAddDream('emotion.relief', lang) }
+      { value: 'Joy', emoji: '😊', label: tAddDream('emotion.joy', lang) },
+      { value: 'Peace', emoji: '😌', label: tAddDream('emotion.peace', lang) },
+      { value: 'Love', emoji: '🥰', label: tAddDream('emotion.love', lang) },
+      { value: 'Hope', emoji: '✨', label: tAddDream('emotion.hope', lang) },
+      { value: 'Awe', emoji: '😲', label: tAddDream('emotion.awe', lang) },
+      { value: 'Surprise', emoji: '😮', label: tAddDream('emotion.surprise', lang) },
+      { value: 'Curiosity', emoji: '🤔', label: tAddDream('emotion.curiosity', lang) },
+      { value: 'Confusion', emoji: '😕', label: tAddDream('emotion.confusion', lang) },
+      { value: 'Fear', emoji: '😨', label: tAddDream('emotion.fear', lang) },
+      { value: 'Anxiety', emoji: '😰', label: tAddDream('emotion.anxiety', lang) },
+      { value: 'Sadness', emoji: '😢', label: tAddDream('emotion.sadness', lang) },
+      { value: 'Loneliness', emoji: '🫥', label: tAddDream('emotion.loneliness', lang) },
+      { value: 'Anger', emoji: '😡', label: tAddDream('emotion.anger', lang) },
+      { value: 'Shame', emoji: '😞', label: tAddDream('emotion.shame', lang) },
+      { value: 'Disgust', emoji: '🤢', label: tAddDream('emotion.disgust', lang) },
+      { value: 'Relief', emoji: '😮‍💨', label: tAddDream('emotion.relief', lang) }
     ],
     [lang]
   )
@@ -76,6 +76,7 @@ export default function AddDreamPage() {
     try {
       const response = await fetch('https://ipapi.co/json/')
       const data = await response.json()
+
       if (data?.city && data?.country_name) {
         setLocation(`${data.city}, ${data.country_name}`)
       }
@@ -90,8 +91,11 @@ export default function AddDreamPage() {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place)}&limit=1`,
-        { headers: { Accept: 'application/json' } }
+        {
+          headers: { Accept: 'application/json' }
+        }
       )
+
       const data = await response.json()
 
       if (Array.isArray(data) && data[0]) {
@@ -172,7 +176,9 @@ export default function AddDreamPage() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-white text-xl animate-pulse">{tAddDream('auth.loading', lang)}</div>
+        <div className="text-white text-xl animate-pulse">
+          {tAddDream('auth.loading', lang)}
+        </div>
       </div>
     )
   }
@@ -181,15 +187,13 @@ export default function AddDreamPage() {
     <div className="min-h-screen bg-black">
       <header className="sticky top-0 z-50 glass-card border-b border-white/10" style={{ borderRadius: 0 }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-all">
-              <img src="/logo.png" alt="Lunosfer Logo" className="w-10 h-10 object-contain" />
-              <span className="text-xl font-bold gradient-text">{tAddDream('brand.name', lang)}</span>
-            </a>
-          </div>
+          <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-all">
+            <img src="/logo.png" alt="Lunosfer Logo" className="w-10 h-10 object-contain" />
+            <span className="text-xl font-bold gradient-text">{tAddDream('brand.name', lang)}</span>
+          </a>
 
           <a href="/" className="glass-card px-4 py-2 text-white/80 hover:text-white transition-all flex items-center gap-2">
-            <span>â†</span>
+            <span>←</span>
             <span>{tAddDream('nav.backToHome', lang)}</span>
           </a>
         </div>
@@ -197,11 +201,15 @@ export default function AddDreamPage() {
 
       <div className="max-w-2xl mx-auto p-4">
         <div className="glass-card p-6 sm:p-8">
-          <h1 className="text-3xl font-bold gradient-text mb-8">{tAddDream('dream.addTitle', lang)}</h1>
+          <h1 className="text-3xl font-bold gradient-text mb-8">
+            {tAddDream('dream.addTitle', lang)}
+          </h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="text-sm text-white/60 block mb-2">{tAddDream('dream.dreamText', lang)}</label>
+              <label className="text-sm text-white/60 block mb-2">
+                {tAddDream('dream.dreamText', lang)}
+              </label>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
@@ -212,7 +220,9 @@ export default function AddDreamPage() {
             </div>
 
             <div>
-              <label className="text-sm text-white/60 block mb-2">{tAddDream('dream.location', lang)}</label>
+              <label className="text-sm text-white/60 block mb-2">
+                {tAddDream('dream.location', lang)}
+              </label>
               <input
                 type="text"
                 value={location}
@@ -223,7 +233,9 @@ export default function AddDreamPage() {
             </div>
 
             <div className="glass-card p-4 bg-purple-500/10">
-              <h3 className="text-lg font-semibold text-purple-300 mb-4">{tAddDream('dream.shareOptions', lang)}</h3>
+              <h3 className="text-lg font-semibold text-purple-300 mb-4">
+                {tAddDream('dream.shareOptions', lang)}
+              </h3>
 
               <div className="flex items-center gap-3 mb-4">
                 <input
@@ -239,7 +251,9 @@ export default function AddDreamPage() {
               </div>
 
               <div className="mb-4">
-                <label className="text-sm text-white/60 block mb-2">{tAddDream('dream.mapDetail', lang)}</label>
+                <label className="text-sm text-white/60 block mb-2">
+                  {tAddDream('dream.mapDetail', lang)}
+                </label>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -268,7 +282,9 @@ export default function AddDreamPage() {
               </div>
 
               <div>
-                <label className="text-sm text-white/60 block mb-2">{tAddDream('dream.visibility', lang)}</label>
+                <label className="text-sm text-white/60 block mb-2">
+                  {tAddDream('dream.visibility', lang)}
+                </label>
                 <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -310,15 +326,22 @@ export default function AddDreamPage() {
             </div>
 
             <div className="glass-card p-4 bg-purple-500/10">
-              <h3 className="text-lg font-semibold text-purple-300 mb-4">{tAddDream('dream.emotions', lang)}</h3>
-              <p className="text-white/60 text-sm mb-4">{tAddDream('dream.emotionsHelp', lang)}</p>
+              <h3 className="text-lg font-semibold text-purple-300 mb-4">
+                {tAddDream('dream.emotions', lang)}
+              </h3>
+
+              <p className="text-white/60 text-sm mb-4">
+                {tAddDream('dream.emotionsHelp', lang)}
+              </p>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {emotions.map((emotion) => (
                   <button
                     key={emotion.value}
                     type="button"
-                    onClick={() => setUserSentiment(userSentiment === emotion.value ? '' : emotion.value)}
+                    onClick={() =>
+                      setUserSentiment(userSentiment === emotion.value ? '' : emotion.value)
+                    }
                     className={`p-3 rounded-lg border transition-all ${
                       userSentiment === emotion.value
                         ? 'bg-purple-500/30 border-purple-500 text-white'
@@ -332,7 +355,11 @@ export default function AddDreamPage() {
               </div>
             </div>
 
-            {error && <div className="text-red-400 text-sm bg-red-500/10 p-3 rounded-lg">{error}</div>}
+            {error && (
+              <div className="text-red-400 text-sm bg-red-500/10 p-3 rounded-lg">
+                {error}
+              </div>
+            )}
 
             <button
               type="submit"
