@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '../lib/translations'
 import { auth } from '../lib/supabase'
@@ -24,35 +24,56 @@ export default function DreamCard({
   const [commentsCount, setCommentsCount] = useState(dream.comments_count || 0)
   const [commentsLoading, setCommentsLoading] = useState(false)
 
-  const getDreamAnalysis = () =>
-    dream[`ai_summary_${currentLang}`] ||
-    dream.ai_summary ||
-    dream.ai_summary_en ||
-    ''
+  useEffect(() => {
+    setLikesCount(dream.likes_count || 0)
+    setCommentsCount(dream.comments_count || 0)
+    setComments([])
+    setShowComments(false)
+    setLiked(false)
+  }, [dream.id, dream.likes_count, dream.comments_count])
 
-  const getDreamMotiv = () =>
-    dream[`ai_motiv_${currentLang}`] ||
-    dream.ai_motiv ||
-    dream.ai_motiv_en ||
-    ''
+  const getDreamAnalysis = useCallback(() => {
+    return (
+      dream[`ai_summary_${currentLang}`] ||
+      dream.ai_summary ||
+      dream.ai_summary_en ||
+      ''
+    )
+  }, [dream, currentLang])
 
-  const getDreamImage = () => dream.ai_image_url || null
+  const getDreamMotiv = useCallback(() => {
+    return (
+      dream[`ai_motiv_${currentLang}`] ||
+      dream.ai_motiv ||
+      dream.ai_motiv_en ||
+      ''
+    )
+  }, [dream, currentLang])
+
+  const dreamImage = useMemo(() => dream.ai_image_url || null, [dream])
+  const dreamMotiv = useMemo(() => getDreamMotiv(), [getDreamMotiv])
 
   useEffect(() => {
     let mounted = true
 
     async function checkUser() {
       try {
-        const currentUser = await auth.getUser()
+        const {
+          data: { user },
+          error,
+        } = await auth.getUser()
+
+        if (error) throw error
         if (!mounted) return
 
-        setUser(currentUser || null)
+        setUser(user || null)
 
-        if (currentUser) {
-          await checkIfLiked(currentUser.id)
+        if (user?.id) {
+          await checkIfLiked(user.id)
         }
       } catch (err) {
         console.error('User check error:', err)
+        if (mounted) setUser(null)
       }
     }
 
@@ -65,18 +86,21 @@ export default function DreamCard({
 
   async function checkIfLiked(userId) {
     try {
-      const res = await fetch(`/api/like?dreamId=${dream.id}&userId=${userId}`)
-      if (res.ok) {
-        const data = await res.json()
-        setLiked(!!data.liked)
-      }
+      const res = await fetch(
+        `/api/like?dreamId=${encodeURIComponent(dream.id)}&userId=${encodeURIComponent(userId)}`
+      )
+
+      if (!res.ok) return
+
+      const data = await res.json()
+      setLiked(Boolean(data.liked))
     } catch (err) {
       console.error('Check like error:', err)
     }
   }
 
   async function handleLike() {
-    if (!user) {
+    if (!user?.id) {
       alert(getTranslation('social.loginToLike', currentLang))
       return
     }
@@ -93,17 +117,23 @@ export default function DreamCard({
         }),
       })
 
-      if (res.ok) {
-        const data = await res.json()
-        setLiked(!liked)
-        setLikesCount(
+      if (!res.ok) throw new Error('Like request failed')
+
+      const data = await res.json()
+
+      setLiked((prevLiked) => {
+        const nextLiked = !prevLiked
+
+        setLikesCount((prevCount) =>
           data.count !== undefined
             ? data.count
-            : liked
-            ? likesCount - 1
-            : likesCount + 1
+            : nextLiked
+            ? prevCount + 1
+            : Math.max(0, prevCount - 1)
         )
-      }
+
+        return nextLiked
+      })
     } catch (err) {
       console.error('Like error:', err)
     }
@@ -113,23 +143,27 @@ export default function DreamCard({
     setCommentsLoading(true)
 
     try {
-      const res = await fetch(`/api/comment?dreamId=${dream.id}`)
+      const res = await fetch(`/api/comment?dreamId=${encodeURIComponent(dream.id)}`)
+      if (!res.ok) throw new Error('Comments request failed')
+
       const data = await res.json()
-      setComments(data.comments || [])
+      setComments(Array.isArray(data.comments) ? data.comments : [])
     } catch (err) {
       console.error('Load comments error:', err)
+      setComments([])
     } finally {
       setCommentsLoading(false)
     }
   }
 
   async function handleAddComment() {
-    if (!user) {
+    if (!user?.id) {
       alert(getTranslation('social.loginToComment', currentLang))
       return
     }
 
-    if (!newComment.trim()) return
+    const content = newComment.trim()
+    if (!content) return
 
     try {
       const res = await fetch('/api/comment', {
@@ -138,22 +172,25 @@ export default function DreamCard({
         body: JSON.stringify({
           dreamId: dream.id,
           userId: user.id,
-          content: newComment,
+          content,
         }),
       })
 
-      if (res.ok) {
-        const data = await res.json()
-        setComments([data.comment, ...comments])
-        setNewComment('')
-        setCommentsCount((prev) => prev + 1)
-      }
+      if (!res.ok) throw new Error('Add comment request failed')
+
+      const data = await res.json()
+
+      setComments((prev) => [data.comment, ...prev])
+      setNewComment('')
+      setCommentsCount((prev) => prev + 1)
     } catch (err) {
       console.error('Add comment error:', err)
     }
   }
 
   async function handleDeleteComment(commentId) {
+    if (!user?.id) return
+
     const confirmText =
       currentLang === 'tr'
         ? 'Yorumu silmek istediğine emin misin?'
@@ -171,7 +208,7 @@ export default function DreamCard({
         ? 'このコメントを削除してもよろしいですか？'
         : 'Are you sure you want to delete this comment?'
 
-    if (!confirm(confirmText)) return
+    if (!window.confirm(confirmText)) return
 
     try {
       const res = await fetch('/api/comment', {
@@ -183,10 +220,10 @@ export default function DreamCard({
         }),
       })
 
-      if (res.ok) {
-        setComments(comments.filter((c) => c.id !== commentId))
-        setCommentsCount((prev) => Math.max(0, prev - 1))
-      }
+      if (!res.ok) throw new Error('Delete comment request failed')
+
+      setComments((prev) => prev.filter((c) => c.id !== commentId))
+      setCommentsCount((prev) => Math.max(0, prev - 1))
     } catch (err) {
       console.error('Delete comment error:', err)
     }
@@ -194,8 +231,6 @@ export default function DreamCard({
 
   const displayContent = translated ? translatedContent : dream.content
   const displayAnalysis = translated ? translatedAnalysis : getDreamAnalysis()
-  const dreamMotiv = useMemo(() => getDreamMotiv(), [dream, currentLang])
-  const dreamImage = useMemo(() => getDreamImage(), [dream])
 
   const sentimentLabel = dream.user_selected_sentiment
     ? getTranslation(
@@ -213,7 +248,7 @@ export default function DreamCard({
             alt="Dream"
             className="h-full w-full object-cover"
             onError={(e) => {
-              e.target.style.display = 'none'
+              e.currentTarget.style.display = 'none'
             }}
           />
           <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-orange-500/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-orange-100">
@@ -247,7 +282,7 @@ export default function DreamCard({
 
         {dream.original_language !== currentLang && dream.content && (
           <button
-            onClick={() => onTranslate(dream)}
+            onClick={() => onTranslate?.(dream)}
             disabled={translating}
             className="energy-button mb-5 inline-flex w-full items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -344,7 +379,7 @@ export default function DreamCard({
             onClick={() => {
               const nextValue = !showComments
               setShowComments(nextValue)
-              if (nextValue) {
+              if (nextValue && comments.length === 0) {
                 loadComments()
               }
             }}
@@ -363,8 +398,9 @@ export default function DreamCard({
                   type="text"
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  onKeyPress={(e) => {
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter') {
+                      e.preventDefault()
                       handleAddComment()
                     }
                   }}
@@ -422,7 +458,7 @@ export default function DreamCard({
                         </span>
                       </div>
 
-                      {user && user.id === comment.user_id && (
+                      {user?.id === comment.user_id && (
                         <button
                           onClick={() => handleDeleteComment(comment.id)}
                           className="text-xs text-red-400 transition-colors hover:text-red-300"
