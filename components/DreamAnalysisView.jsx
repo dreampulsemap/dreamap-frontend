@@ -1,18 +1,12 @@
 import React from 'react'
 import Link from 'next/link'
-
-function pickLocalized(value, lang = 'tr', fallback = 'en') {
-  if (!value) return ''
-  if (typeof value === 'string') return value
-  if (typeof value === 'object') {
-    return value?.[lang] || value?.[fallback] || ''
-  }
-  return ''
-}
-
-function safeArray(value) {
-  return Array.isArray(value) ? value : []
-}
+import { useRouter } from 'next/router'
+import {
+  getDreamUiText,
+  normalizeLang,
+  pickLocalized,
+  safeArray,
+} from '../lib/dreamAnalysisI18n'
 
 function SectionCard({ title, children, colors = {}, dark = false }) {
   const bg = colors?.primary_color || (dark ? '#161925' : '#1f2433')
@@ -82,7 +76,7 @@ function BulletList({ items = [] }) {
   )
 }
 
-function SymbolGrid({ symbols = [], lang = 'tr' }) {
+function SymbolGrid({ symbols = [], lang = 'en' }) {
   if (!symbols.length) return null
 
   return (
@@ -160,19 +154,21 @@ function EmotionRow({ emotions = [] }) {
   )
 }
 
-export default function DreamAnalysisView({ dream, lang = 'tr' }) {
+export default function DreamAnalysisView({ dream, lang: langProp }) {
+  const router = useRouter()
+  const lang = normalizeLang(langProp || router?.locale || dream?.original_language || 'en')
+  const t = getDreamUiText(lang)
+
   const analysis = dream?.ai_jungian_analysis || {}
-  const title = dream?.ai_title || pickLocalized(analysis?.title, lang, 'en')
-  const summary = dream?.ai_summary || pickLocalized(analysis?.summary, lang, 'en')
-  const motiv = dream?.ai_motiv || pickLocalized(analysis?.motiv, lang, 'en')
+  const title = dream?.[`ai_title_${lang}`] || dream?.ai_title || pickLocalized(analysis?.title, lang, 'en')
+  const summary =
+    dream?.[`ai_summary_${lang}`] || dream?.ai_summary || pickLocalized(analysis?.summary, lang, 'en')
+  const motiv =
+    dream?.[`ai_motiv_${lang}`] || dream?.ai_motiv || pickLocalized(analysis?.motiv, lang, 'en')
 
   const personaName = pickLocalized(analysis?.persona_profile?.name, lang, 'en')
   const personaTagline = pickLocalized(analysis?.persona_profile?.tagline, lang, 'en')
-  const archetypalStyle = pickLocalized(
-    analysis?.persona_profile?.archetypal_style,
-    lang,
-    'en'
-  )
+  const archetypalStyle = pickLocalized(analysis?.persona_profile?.archetypal_style, lang, 'en')
   const publicSelf = pickLocalized(analysis?.persona_profile?.public_self, lang, 'en')
   const hiddenSelf = pickLocalized(analysis?.persona_profile?.hidden_self, lang, 'en')
 
@@ -182,7 +178,9 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
   const symbolicReading = pickLocalized(analysis?.symbolic_reading, lang, 'en')
 
   const reflectionQuestions = safeArray(
-    analysis?.reflection_questions?.[lang] || analysis?.reflection_questions?.en
+    analysis?.reflection_questions?.[lang] ||
+      analysis?.reflection_questions?.en ||
+      analysis?.reflection_questions?.tr
   )
 
   const visual = analysis?.visual_theme || {}
@@ -237,7 +235,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
         >
           <path d="M19 12H5M12 19l-7-7 7-7" />
         </svg>
-        Ana Sayfa
+        {t.home}
       </Link>
 
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
@@ -253,7 +251,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
         >
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
             <Badge color="#fff" bg="rgba(255,255,255,0.12)">
-              {analysis?.sentiment || 'Confusion'}
+              {analysis?.sentiment || t.fallbackSentiment}
             </Badge>
             {safeArray(analysis?.archetypes).map((arc, i) => (
               <Badge key={i} color="#fff" bg="rgba(255,255,255,0.10)">
@@ -315,14 +313,14 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
           }}
         >
           <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard title="Genel Yorum" colors={visual}>
+            <SectionCard title={t.summary} colors={visual}>
               <p style={{ marginTop: 0 }}>{summary}</p>
               {motiv ? <p style={{ marginBottom: 0, opacity: 0.92 }}>{motiv}</p> : null}
             </SectionCard>
           </div>
 
           <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard title="Persona Profili" colors={sectionThemes?.persona || visual}>
+            <SectionCard title={t.persona} colors={sectionThemes?.persona || visual}>
               <div
                 style={{
                   display: 'grid',
@@ -331,15 +329,15 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
                 }}
               >
                 <div>
-                  <h3 style={{ marginTop: 0 }}>Arketipsel Stil</h3>
+                  <h3 style={{ marginTop: 0 }}>{t.archetypalStyle}</h3>
                   <p>{archetypalStyle}</p>
                 </div>
                 <div>
-                  <h3 style={{ marginTop: 0 }}>Dışarıya Gösterilen Benlik</h3>
+                  <h3 style={{ marginTop: 0 }}>{t.publicSelf}</h3>
                   <p>{publicSelf}</p>
                 </div>
                 <div>
-                  <h3 style={{ marginTop: 0 }}>Gizli Benlik</h3>
+                  <h3 style={{ marginTop: 0 }}>{t.hiddenSelf}</h3>
                   <p>{hiddenSelf}</p>
                 </div>
               </div>
@@ -353,38 +351,42 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
                 }}
               >
                 <div>
-                  <h3>Güçlü Yönler</h3>
+                  <h3>{t.strengths}</h3>
                   <BulletList
                     items={safeArray(
                       analysis?.persona_profile?.strengths?.[lang] ||
-                        analysis?.persona_profile?.strengths?.en
+                        analysis?.persona_profile?.strengths?.en ||
+                        analysis?.persona_profile?.strengths?.tr
                     )}
                   />
                 </div>
                 <div>
-                  <h3>Gölge Yönler</h3>
+                  <h3>{t.shadowSides}</h3>
                   <BulletList
                     items={safeArray(
                       analysis?.persona_profile?.shadow_sides?.[lang] ||
-                        analysis?.persona_profile?.shadow_sides?.en
+                        analysis?.persona_profile?.shadow_sides?.en ||
+                        analysis?.persona_profile?.shadow_sides?.tr
                     )}
                   />
                 </div>
                 <div>
-                  <h3>Temel Korkular</h3>
+                  <h3>{t.coreFears}</h3>
                   <BulletList
                     items={safeArray(
                       analysis?.persona_profile?.core_fears?.[lang] ||
-                        analysis?.persona_profile?.core_fears?.en
+                        analysis?.persona_profile?.core_fears?.en ||
+                        analysis?.persona_profile?.core_fears?.tr
                     )}
                   />
                 </div>
                 <div>
-                  <h3>Duygusal İhtiyaçlar</h3>
+                  <h3>{t.emotionalNeeds}</h3>
                   <BulletList
                     items={safeArray(
                       analysis?.persona_profile?.emotional_needs?.[lang] ||
-                        analysis?.persona_profile?.emotional_needs?.en
+                        analysis?.persona_profile?.emotional_needs?.en ||
+                        analysis?.persona_profile?.emotional_needs?.tr
                     )}
                   />
                 </div>
@@ -393,32 +395,32 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
           </div>
 
           <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard title="Gölge Analizi" colors={sectionThemes?.shadow || visual} dark>
+            <SectionCard title={t.shadow} colors={sectionThemes?.shadow || visual} dark>
               <p>
-                <strong>Shadow Focus:</strong> {shadowFocus}
+                <strong>{t.shadowFocus}:</strong> {shadowFocus}
               </p>
               <p style={{ marginBottom: 0 }}>
-                <strong>Core Conflict:</strong> {coreConflict}
+                <strong>{t.coreConflict}:</strong> {coreConflict}
               </p>
             </SectionCard>
           </div>
 
           <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard title="Sembolik Okuma" colors={visual}>
+            <SectionCard title={t.symbols} colors={visual}>
               <p style={{ marginTop: 0 }}>{symbolicReading}</p>
               <SymbolGrid symbols={safeArray(dream?.ai_symbols || analysis?.symbols)} lang={lang} />
             </SectionCard>
           </div>
 
           <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard title="Dönüşüm Yolu" colors={sectionThemes?.transformation || visual}>
+            <SectionCard title={t.transformation} colors={sectionThemes?.transformation || visual}>
               <p style={{ marginTop: 0 }}>{individuationPath}</p>
             </SectionCard>
           </div>
 
           {!!reflectionQuestions.length && (
             <div style={{ gridColumn: 'span 12' }}>
-              <SectionCard title="Düşündürmesi Gereken Sorular" colors={visual}>
+              <SectionCard title={t.questions} colors={visual}>
                 <BulletList items={reflectionQuestions} />
               </SectionCard>
             </div>
