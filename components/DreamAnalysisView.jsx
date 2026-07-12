@@ -169,7 +169,6 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
   const summary = dream?.ai_summary || pickLocalized(analysis?.summary, lang, 'en')
   const motiv = dream?.ai_motiv || pickLocalized(analysis?.motiv, lang, 'en')
 
-  // GEÇİCİ DEBUG BLOKU:
   const debugJson = JSON.stringify(
     {
       summary,
