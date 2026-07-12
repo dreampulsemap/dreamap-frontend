@@ -308,25 +308,24 @@ export default function AuthPage() {
             </div>
 
             <div className="space-y-3 mb-5">
-              {OAUTH_PROVIDERS.map((provider) => (
-                <button
-                  key={provider.key}
-                  type="button"
-                  onClick={() => handleOAuth(provider.key)}
-                  disabled={!!oauthLoading}
-                  className="w-full rounded-2xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm sm:text-base text-white transition-all hover:bg-white/[0.08] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-                >
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-sm font-bold">
-                    {provider.icon}
-                  </span>
-                  <span>
-                    {oauthLoading === provider.key
-                      ? `${provider.label}...`
-                      : `${provider.label} ile devam et`}
-                  </span>
-                </button>
-              ))}
-            </div>
+  {OAUTH_PROVIDERS.map((provider) => (
+    <button
+      key={provider.key}
+      type="button"
+      onClick={() => handleOAuth(provider.key)}
+      disabled={!!oauthLoading}
+      className="w-full rounded-2xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm sm:text-base text-white transition-all hover:bg-white/[0.08] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+    >
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-sm font-bold">
+        {provider.icon}
+      </span>
+
+      <span>
+        {oauthLoading === provider.key ? 'Yönlendiriliyor...' : provider.label}
+      </span>
+    </button>
+  ))}
+</div>
 
             <div className="relative my-5">
               <div className="border-t border-white/10" />
