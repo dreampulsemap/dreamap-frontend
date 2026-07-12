@@ -163,7 +163,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
   const title = dream?.ai_title || pickLocalized(analysis?.title, lang, 'en')
   const summary = dream?.ai_summary || pickLocalized(analysis?.summary, lang, 'en')
   const motiv = dream?.ai_motiv || pickLocalized(analysis?.motiv, lang, 'en')
- export default function DreamAnalysisView({ dream, lang = 'tr' }) {
+ 
   const analysis = dream?.ai_jungian_analysis || {}
   const title = dream?.ai_title || pickLocalized(analysis?.title, lang, 'en')
   const summary = dream?.ai_summary || pickLocalized(analysis?.summary, lang, 'en')
