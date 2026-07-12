@@ -5,8 +5,7 @@ import { createClient } from '@supabase/supabase-js'
  * CONFIG
  */
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
-const OPENROUTER_MODEL =
-  process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct'
+
 const ANALYSIS_VERSION = 'jung-v12-history-aware'
 
 // Paylaşım tablosunun gerçek adını burada ayarla:
@@ -23,15 +22,14 @@ const ALLOWED_EMOTIONS = [
   'Confusion',
   'Surprise',
 ]
-
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const groqKey = process.env.GROQ_API_KEY
-const openRouterKey = process.env.OPENROUTER_API_KEY
+
 
 if (!supabaseUrl) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL')
 if (!supabaseServiceRoleKey) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY')
-if (!groqKey && !openRouterKey) {
+if (!groqKey) {
   throw new Error('Missing AI provider keys (GROQ_API_KEY / OPENROUTER_API_KEY)')
 }
 
