@@ -14,6 +14,7 @@ const NAV_UI = {
     prophecy: 'Kehanet',
     menu: 'Menü',
     close: 'Kapat',
+    signIn: 'Giriş Yap',
   },
   en: {
     globe: 'Globe',
@@ -22,6 +23,7 @@ const NAV_UI = {
     prophecy: 'Prophecy',
     menu: 'Menu',
     close: 'Close',
+    signIn: 'Sign In',
   },
   es: {
     globe: 'Globo',
@@ -30,6 +32,7 @@ const NAV_UI = {
     prophecy: 'Profecía',
     menu: 'Menú',
     close: 'Cerrar',
+    signIn: 'Iniciar Sesión',
   },
   fr: {
     globe: 'Globe',
@@ -38,6 +41,7 @@ const NAV_UI = {
     prophecy: 'Prophétie',
     menu: 'Menu',
     close: 'Fermer',
+    signIn: 'Se Connecter',
   },
   de: {
     globe: 'Globus',
@@ -46,6 +50,7 @@ const NAV_UI = {
     prophecy: 'Prophezeiung',
     menu: 'Menü',
     close: 'Schließen',
+    signIn: 'Anmelden',
   },
   pt: {
     globe: 'Globo',
@@ -54,6 +59,7 @@ const NAV_UI = {
     prophecy: 'Profecia',
     menu: 'Menu',
     close: 'Fechar',
+    signIn: 'Entrar',
   },
   ru: {
     globe: 'Глобус',
@@ -62,6 +68,7 @@ const NAV_UI = {
     prophecy: 'Пророчество',
     menu: 'Меню',
     close: 'Закрыть',
+    signIn: 'Войти',
   },
   ja: {
     globe: 'グローブ',
@@ -70,11 +77,13 @@ const NAV_UI = {
     prophecy: '予言',
     menu: 'メニュー',
     close: '閉じる',
+    signIn: 'ログイン',
   },
 }
 
 export default function Navbar() {
   const [user, setUser] = useState(null)
+  const [avatarUrl, setAvatarUrl] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const { i18n } = useTranslation()
   const lang = NAV_UI[i18n.language] ? i18n.language : 'en'
@@ -86,6 +95,16 @@ export default function Navbar() {
         if (auth && typeof auth.getUser === 'function') {
           const currentUser = await auth.getUser()
           setUser(currentUser || null)
+
+          if (currentUser && typeof auth.getProfile === 'function') {
+            const profile = await auth.getProfile(currentUser.id)
+            setAvatarUrl(
+              profile?.avatar_url ||
+                profile?.avatar ||
+                currentUser?.user_metadata?.avatar_url ||
+                ''
+            )
+          }
         }
       } catch (error) {
         console.error('Navbar user check failed:', error)
@@ -105,6 +124,28 @@ export default function Navbar() {
     getTranslation('nav.profile', lang) !== 'nav.profile'
       ? getTranslation('nav.profile', lang)
       : ui.profile
+
+  const AvatarCircle = ({ size = 32 }) => (
+    <div
+      style={{ width: size, height: size }}
+      className="overflow-hidden rounded-full border border-emerald-300/30 bg-white/5 shrink-0"
+    >
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={profileLabel}
+          className="h-full w-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none'
+          }}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-sm">
+          👤
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/8 bg-slate-950/70 backdrop-blur-2xl">
@@ -171,12 +212,20 @@ export default function Navbar() {
           {user ? (
             <Link
               href="/profile"
-              className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3.5 text-sm font-medium text-emerald-100 transition-all duration-200 hover:border-emerald-300/40 hover:bg-emerald-500/18 lg:px-4"
+              aria-label={profileLabel}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-300/20 bg-emerald-500/10 transition-all duration-200 hover:border-emerald-300/40 hover:bg-emerald-500/18"
             >
-              <span aria-hidden="true">👤</span>
-              <span>{profileLabel}</span>
+              <AvatarCircle size={28} />
             </Link>
-          ) : null}
+          ) : (
+            <Link
+              href="/auth"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/25 bg-cyan-500/10 px-4 text-sm font-medium text-cyan-100 transition-all duration-200 hover:border-cyan-300/45 hover:bg-cyan-500/20 lg:px-5"
+            >
+              <span aria-hidden="true">🔑</span>
+              <span>{ui.signIn}</span>
+            </Link>
+          )}
 
           <div className="ml-1 shrink-0 border-l border-white/10 pl-2 lg:pl-3">
             <LanguageSwitcher />
@@ -187,12 +236,20 @@ export default function Navbar() {
           {user ? (
             <Link
               href="/profile"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-300/20 bg-emerald-500/10 text-sm text-emerald-100 transition-all duration-200 hover:border-emerald-300/40 hover:bg-emerald-500/18"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-300/20 bg-emerald-500/10 transition-all duration-200 hover:border-emerald-300/40 hover:bg-emerald-500/18"
               aria-label={profileLabel}
             >
-              <span aria-hidden="true">👤</span>
+              <AvatarCircle size={28} />
             </Link>
-          ) : null}
+          ) : (
+            <Link
+              href="/auth"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 text-xs font-medium text-cyan-100 transition-all duration-200 hover:border-cyan-300/45 hover:bg-cyan-500/20"
+            >
+              <span aria-hidden="true">🔑</span>
+              <span>{ui.signIn}</span>
+            </Link>
+          )}
 
           <div className="shrink-0">
             <LanguageSwitcher />
@@ -239,6 +296,17 @@ export default function Navbar() {
               <span aria-hidden="true">🔮</span>
               <span>{ui.prophecy}</span>
             </a>
+
+            {!user ? (
+              <Link
+                href="/auth"
+                onClick={() => setMenuOpen(false)}
+                className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-500/10 px-4 text-sm font-medium text-cyan-100"
+              >
+                <span aria-hidden="true">🔑</span>
+                <span>{ui.signIn}</span>
+              </Link>
+            ) : null}
           </div>
         </div>
       ) : null}
