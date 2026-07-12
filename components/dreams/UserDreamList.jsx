@@ -15,9 +15,7 @@ export default function UserDreamList({
 
         <h3 className="text-2xl font-semibold text-white">Henüz rüya görünmüyor</h3>
         <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
-          Eğer rüya eklemiş olmana rağmen burada görünmüyorsa, sorun yalnızca arayüz değil;
-          kayıtların kullanıcı hesabınla eşleşmesinde ya da profil sorgusunda bir kopukluk
-          olabilir.
+          Rüyalarını burada görebilmek için ilk rüyanı ekleyerek başlayabilirsin.
         </p>
 
         <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -88,7 +86,7 @@ export default function UserDreamList({
               ) : null}
             </div>
 
-            {dream.ai_summary_tr && (
+            {(dream.ai_summary_tr || dream.ai_summary || dream.ai_summary_en) && (
               <div className="mt-5 rounded-[1.5rem] border border-cyan-300/14 bg-cyan-500/8 p-4">
                 <div className="mb-2 flex items-center gap-2">
                   <span className="text-cyan-200">🜂</span>
@@ -96,7 +94,9 @@ export default function UserDreamList({
                     Jungian Analysis
                   </p>
                 </div>
-                <p className="text-sm leading-7 text-slate-200">{dream.ai_summary_tr}</p>
+                <p className="text-sm leading-7 text-slate-200">
+                  {dream.ai_summary_tr || dream.ai_summary || dream.ai_summary_en}
+                </p>
               </div>
             )}
 
