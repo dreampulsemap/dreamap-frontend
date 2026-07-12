@@ -25,9 +25,10 @@ export default function AddDreamPage() {
     { value: 'Sadness', emoji: '😢', label: getTranslation('emotion.sadness', lang) },
     { value: 'Peace', emoji: '😌', label: getTranslation('emotion.peace', lang) },
     { value: 'Anxiety', emoji: '😰', label: getTranslation('emotion.anxiety', lang) },
-    { value: 'Awe', emoji: '', label: getTranslation('emotion.awe', lang) },
+    { value: 'Awe', emoji: '🙄', label: getTranslation('emotion.awe', lang) },
     { value: 'Confusion', emoji: '😕', label: getTranslation('emotion.confusion', lang) },
-    { value: 'Surprise', emoji: '', label: getTranslation('emotion.surprise', lang) }
+    { value: 'Surprise', emoji: '😮', label: getTranslation('emotion.surprise', lang) }
+    { value: 'Anger', emoji: '😡', label: getTranslation('emotion.surprise', lang) }
   ]
 
   useEffect(() => {
