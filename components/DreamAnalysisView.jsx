@@ -8,6 +8,7 @@ function pickLocalized(value, lang = 'tr', fallback = 'en') {
   }
   return ''
 }
+
 function safeArray(value) {
   return Array.isArray(value) ? value : []
 }
@@ -163,13 +164,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
   const title = dream?.ai_title || pickLocalized(analysis?.title, lang, 'en')
   const summary = dream?.ai_summary || pickLocalized(analysis?.summary, lang, 'en')
   const motiv = dream?.ai_motiv || pickLocalized(analysis?.motiv, lang, 'en')
- 
-  const analysis = dream?.ai_jungian_analysis || {}
-  const title = dream?.ai_title || pickLocalized(analysis?.title, lang, 'en')
-  const summary = dream?.ai_summary || pickLocalized(analysis?.summary, lang, 'en')
-  const motiv = dream?.ai_motiv || pickLocalized(analysis?.motiv, lang, 'en')
 
- 
   const personaName = pickLocalized(analysis?.persona_profile?.name, lang, 'en')
   const personaTagline = pickLocalized(analysis?.persona_profile?.tagline, lang, 'en')
   const archetypalStyle = pickLocalized(
@@ -197,6 +192,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
   const primary = visual?.primary_color || '#C8A96B'
   const secondary = visual?.secondary_color || '#2B2238'
   const accent = visual?.accent_color || '#8FD3C1'
+
   const debugJson = JSON.stringify(
     {
       summary,
@@ -210,6 +206,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
     null,
     2
   )
+
   return (
     <div
       style={{
@@ -220,21 +217,21 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
       }}
     >
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
-              {/* DEBUG İÇERİK - GEÇİCİ */}
-      <pre
-        style={{
-          background: '#000',
-          color: '#0f0',
-          padding: 12,
-          borderRadius: 12,
-          fontSize: 10,
-          maxHeight: 200,
-          overflow: 'auto',
-          marginBottom: 12,
-        }}
-      >
-        {debugJson}
-      </pre>
+        <pre
+          style={{
+            background: '#000',
+            color: '#0f0',
+            padding: 12,
+            borderRadius: 12,
+            fontSize: 10,
+            maxHeight: 200,
+            overflow: 'auto',
+            marginBottom: 12,
+          }}
+        >
+          {debugJson}
+        </pre>
+
         <header
           style={{
             background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 60%, ${accent} 100%)`,
@@ -310,7 +307,9 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
         >
           <div style={{ gridColumn: 'span 12' }}>
             <SectionCard title="Genel Yorum" colors={visual}>
-              <p style={{ marginTop: 0 }}>{summary}</p>
+              <p style={{ marginTop: 0 }}>
+                {summary || 'Bu rüya için detaylı özet henüz üretilemedi.'}
+              </p>
               {motiv ? <p style={{ marginBottom: 0, opacity: 0.92 }}>{motiv}</p> : null}
             </SectionCard>
           </div>
@@ -326,15 +325,15 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
               >
                 <div>
                   <h3 style={{ marginTop: 0 }}>Arketipsel Stil</h3>
-                  <p>{archetypalStyle}</p>
+                  <p>{archetypalStyle || 'Belirgin bir arketipsel stil henüz çıkarılamadı.'}</p>
                 </div>
                 <div>
                   <h3 style={{ marginTop: 0 }}>Dışarıya Gösterilen Benlik</h3>
-                  <p>{publicSelf}</p>
+                  <p>{publicSelf || 'Dış benlik profili henüz netleşmedi.'}</p>
                 </div>
                 <div>
                   <h3 style={{ marginTop: 0 }}>Gizli Benlik</h3>
-                  <p>{hiddenSelf}</p>
+                  <p>{hiddenSelf || 'Gizli benlik katmanı henüz netleşmedi.'}</p>
                 </div>
               </div>
 
@@ -389,24 +388,30 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
           <div style={{ gridColumn: 'span 12' }}>
             <SectionCard title="Gölge Analizi" colors={sectionThemes?.shadow || visual} dark>
               <p>
-                <strong>Shadow Focus:</strong> {shadowFocus}
+                <strong>Shadow Focus:</strong>{' '}
+                {shadowFocus || 'Gölge odağı bu rüya için açık biçimde oluşmadı.'}
               </p>
               <p style={{ marginBottom: 0 }}>
-                <strong>Core Conflict:</strong> {coreConflict}
+                <strong>Core Conflict:</strong>{' '}
+                {coreConflict || 'Merkezi iç çatışma henüz net biçimde tanımlanmadı.'}
               </p>
             </SectionCard>
           </div>
 
           <div style={{ gridColumn: 'span 12' }}>
             <SectionCard title="Sembolik Okuma" colors={visual}>
-              <p style={{ marginTop: 0 }}>{symbolicReading}</p>
+              <p style={{ marginTop: 0 }}>
+                {symbolicReading || 'Sembolik okuma bu rüya için henüz üretilemedi.'}
+              </p>
               <SymbolGrid symbols={safeArray(dream?.ai_symbols || analysis?.symbols)} lang={lang} />
             </SectionCard>
           </div>
 
           <div style={{ gridColumn: 'span 12' }}>
             <SectionCard title="Dönüşüm Yolu" colors={sectionThemes?.transformation || visual}>
-              <p style={{ marginTop: 0 }}>{individuationPath}</p>
+              <p style={{ marginTop: 0 }}>
+                {individuationPath || 'Dönüşüm yolu bu analizde henüz netleştirilemedi.'}
+              </p>
             </SectionCard>
           </div>
 
