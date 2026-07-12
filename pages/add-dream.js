@@ -99,18 +99,22 @@ export default function AddDreamPage() {
       if (error) throw error
 
       if (data && data[0]) {
-        await fetch('/api/analyze-dream', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            dreamId: data[0].id, 
-            content: content,
-            language: lang
-          })
-        })
-      }
+  const analyzeRes = await fetch('/api/analyze-dream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      dreamId: data[0].id,
+      content: content,
+      language: lang
+    })
+  })
 
-      router.push('/profile')
+  if (!analyzeRes.ok) {
+    throw new Error('Rüya analizi başlatılamadı')
+  }
+
+  router.push(`/dream/${data[0].id}`)
+}
     } catch (err) {
       setError(err.message)
     } finally {
