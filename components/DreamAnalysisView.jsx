@@ -169,19 +169,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
   const summary = dream?.ai_summary || pickLocalized(analysis?.summary, lang, 'en')
   const motiv = dream?.ai_motiv || pickLocalized(analysis?.motiv, lang, 'en')
 
-  const debugJson = JSON.stringify(
-    {
-      summary,
-      motiv,
-      persona_profile: analysis?.persona_profile,
-      shadow_focus: analysis?.shadow_focus,
-      core_conflict: analysis?.core_conflict,
-      symbolic_reading: analysis?.symbolic_reading,
-      individuation_path: analysis?.individuation_path,
-    },
-    null,
-    2
-  )
+ 
   const personaName = pickLocalized(analysis?.persona_profile?.name, lang, 'en')
   const personaTagline = pickLocalized(analysis?.persona_profile?.tagline, lang, 'en')
   const archetypalStyle = pickLocalized(
