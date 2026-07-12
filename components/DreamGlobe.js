@@ -1,4 +1,3 @@
-// components/DreamGlobe.js
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
@@ -20,6 +19,17 @@ const locationCoords = {
   Australia: { lat: -25.2744, lng: 133.7751 },
   Unknown: { lat: 0, lng: 0 }
 }
+
+const supportedLanguages = [
+  { code: 'en', label: 'EN' },
+  { code: 'tr', label: 'TR' },
+  { code: 'de', label: 'DE' },
+  { code: 'fr', label: 'FR' },
+  { code: 'es', label: 'ES' },
+  { code: 'pt', label: 'PT' },
+  { code: 'ru', label: 'RU' },
+  { code: 'ja', label: 'JA' }
+]
 
 function getCoords(location) {
   if (!location) return null
@@ -87,6 +97,13 @@ export default function DreamGlobe() {
     return trans?.translated ? trans.translatedAnalysis : getDreamAnalysis(dream)
   }
 
+  const changeLanguage = async (newLang) => {
+    await i18n.changeLanguage(newLang)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lunosfer_lang', newLang)
+    }
+  }
+
   async function handleTranslateDream(dream) {
     const dreamId = dream.id
 
@@ -110,7 +127,7 @@ export default function DreamGlobe() {
         body: JSON.stringify({
           dreamText: dream.content,
           analysisText: getDreamAnalysis(dream),
-          targetLang: lang,
+          targetLang: (i18n.language || 'en').split('-')[0],
           dreamId: dream.id
         })
       })
@@ -123,7 +140,8 @@ export default function DreamGlobe() {
           [dreamId]: {
             translated: true,
             translatedContent: data.translated,
-            translatedAnalysis: data.analysisTranslated
+            translatedAnalysis: data.analysisTranslated,
+            loading: false
           }
         }))
       }
@@ -138,32 +156,33 @@ export default function DreamGlobe() {
   }
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedLang = localStorage.getItem('lunosfer_lang')
+      if (savedLang && savedLang !== lang) {
+        i18n.changeLanguage(savedLang)
+      }
+    }
+  }, [i18n, lang])
+
+  useEffect(() => {
     async function fetchData() {
       const [dreamsRes, predRes] = await Promise.all([
-        supabase
-          .from('dreams')
-          .select('*')
-          .eq('in_feed', true)
-          .order('created_at', { ascending: false })
-          .limit(2000),
-        supabase
-          .from('collective_predictions')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(5)
+        supabase.from('dreams').select('*').eq('in_feed', true).order('created_at', { ascending: false }).limit(2000),
+        supabase.from('collective_predictions').select('*').order('created_at', { ascending: false }).limit(5)
       ])
 
       setDreams(dreamsRes.data || [])
       setPredictions(predRes.data || [])
       setLoading(false)
     }
+
     fetchData()
   }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !globeContainer.current) return
     if (typeof window.Globe === 'undefined') {
-      setError(t('globe.libraryFailed'))
+      setError(t('globe.libraryFailed', 'Three Globe library could not be loaded'))
       return
     }
 
@@ -195,7 +214,7 @@ export default function DreamGlobe() {
           dream
         }
       })
-      .filter((p) => p !== null)
+      .filter(Boolean)
 
     if (globeInstance.current) {
       globeInstance.current.pointsData(pointsData)
@@ -204,8 +223,7 @@ export default function DreamGlobe() {
 
     function initGlobe() {
       try {
-        const globe = window
-          .Globe()
+        const globe = window.Globe()
           .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
           .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
           .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
@@ -225,27 +243,25 @@ export default function DreamGlobe() {
             setSelectedDream(point.dream)
           })
 
-        if (globeContainer.current) {
-          globeContainer.current.innerHTML = ''
-          globe(globeContainer.current)
-          globe.width(window.innerWidth)
-          globe.height(window.innerHeight)
+        globeContainer.current.innerHTML = ''
+        globe(globeContainer.current)
+        globe.width(window.innerWidth)
+        globe.height(window.innerHeight)
 
-          const controls = globe.controls()
-          controls.autoRotate = false
-          controls.autoRotateSpeed = 0
-          controls.enableZoom = true
-          controls.enablePan = true
-        }
+        const controls = globe.controls()
+        controls.autoRotate = false
+        controls.autoRotateSpeed = 0
+        controls.enableZoom = true
+        controls.enablePan = true
 
         globeInstance.current = globe
       } catch (err) {
         console.error('Globe init error:', err)
-        setError(`${t('globe.initFailed')}: ${err.message}`)
+        setError(`${t('globe.initFailed', 'Globe could not be initialized')}: ${err.message}`)
       }
     }
 
-    setTimeout(initGlobe, 500)
+    setTimeout(initGlobe, 300)
 
     return () => {
       if (globeInstance.current && globeContainer.current) {
@@ -253,14 +269,13 @@ export default function DreamGlobe() {
         globeInstance.current = null
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dreams, t])
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-white text-xl animate-pulse">
-          {t('globe.loading')}
+          {t('globe.loading', 'Loading...')}
         </div>
       </div>
     )
@@ -268,42 +283,43 @@ export default function DreamGlobe() {
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      <div
-        ref={globeContainer}
-        className="w-full h-full"
-        style={{ width: '100vw', height: '100vh' }}
-      />
+      <div ref={globeContainer} className="w-full h-full" style={{ width: '100vw', height: '100vh' }} />
 
-      {/* Header / Branding */}
       <div className="absolute top-0 left-0 right-0 p-3 sm:p-4 bg-gradient-to-b from-black/90 to-transparent pointer-events-none z-20">
-        <div className="max-w-7xl mx-auto flex items-center justify-between pointer-events-auto">
-          <a
-            href="/"
-            className="flex items-center gap-2 glass-card px-3 py-2 sm:px-4 sm:py-2 hover:bg-white/10"
-          >
-            <img
-              src="/logo.png"
-              alt="Lunosfer"
-              className="w-8 h-8 object-contain"
-            />
-            <span className="font-bold">Lunosfer</span>
-          </a>
-          <a
-            href="/"
-            className="glass-card px-3 py-2 text-white/80 hover:text-white"
-          >
-            ← {t('common.back')}
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 pointer-events-auto">
+          <div className="flex items-center gap-2">
+            <a href="/" className="flex items-center gap-2 glass-card px-3 py-2 hover:bg-white/10">
+              <img src="/logo.png" alt="Lunosfer" className="w-8 h-8 object-contain" />
+              <span className="font-bold">Lunosfer</span>
+            </a>
+
+            <select
+              value={lang}
+              onChange={(e) => changeLanguage(e.target.value)}
+              className="glass-card px-3 py-2 bg-black/40 text-white text-sm outline-none border border-white/10 rounded-lg"
+              aria-label={t('common.language', 'Language')}
+            >
+              {supportedLanguages.map((item) => (
+                <option key={item.code} value={item.code} className="bg-black text-white">
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <a href="/" className="glass-card px-3 py-2 text-white/80 hover:text-white whitespace-nowrap">
+            ← {t('common.back', 'Back')}
           </a>
         </div>
       </div>
 
-      {/* Collective predictions panel */}
       {predictions.length > 0 && (
         <div className="absolute z-20 pointer-events-auto top-20 left-3 right-3 sm:top-24 sm:left-6 sm:right-auto sm:max-w-sm">
           <div className="glass-card p-3 sm:p-4 max-h-[38vh] sm:max-h-[70vh] overflow-y-auto">
             <h3 className="text-base sm:text-lg font-bold gradient-text mb-3">
-              🔮 {t('globe.collectivePredictions')}
+              🔮 {t('globe.collectivePredictions', 'Collective Predictions')}
             </h3>
+
             <div className="space-y-2">
               {predictions.map((pred) => (
                 <button
@@ -315,7 +331,7 @@ export default function DreamGlobe() {
                     {pred[`title_${lang}`] || pred.title_en || pred.title}
                   </div>
                   <div className="text-xs text-white/60 mt-1">
-                    {pred.dream_count} {t('globe.dreamCount')}
+                    {pred.dream_count} {t('globe.dreamCount', 'dreams')}
                   </div>
                 </button>
               ))}
@@ -324,91 +340,64 @@ export default function DreamGlobe() {
         </div>
       )}
 
-      {/* Dream modal */}
       {selectedDream && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-          <div
-            className="absolute inset-0 bg-black/70"
-            onClick={() => setSelectedDream(null)}
-          />
+          <div className="absolute inset-0 bg-black/70" onClick={() => setSelectedDream(null)} />
           <div className="relative glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setSelectedDream(null)}
-              className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white"
-            >
-              ×
-            </button>
+            <button onClick={() => setSelectedDream(null)} className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white">×</button>
 
             {getDreamImage(selectedDream) && (
               <div className="w-full h-64 mb-6 overflow-hidden rounded-lg bg-black">
                 <img
                   src={getDreamImage(selectedDream)}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.style.display = 'none'
-                  }}
                   alt={selectedDream.location_name || 'Dream image'}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.target.style.display = 'none' }}
                 />
               </div>
             )}
 
-            <h3 className="text-xl font-bold mb-4">
-              📍 {selectedDream.location_name}
-            </h3>
+            <h3 className="text-xl font-bold mb-4">📍 {selectedDream.location_name}</h3>
 
             {selectedDream.ai_archetypes?.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {selectedDream.ai_archetypes.map((a, i) => (
-                  <span
-                    key={i}
-                    className="glass-card px-3 py-1 text-xs text-purple-300"
-                  >
-                    {a}
-                  </span>
+                  <span key={i} className="glass-card px-3 py-1 text-xs text-purple-300">{a}</span>
                 ))}
               </div>
             )}
 
             {getTranslatedContent(selectedDream) ? (
-              <p className="text-white/90 mb-6 whitespace-pre-wrap">
-                {getTranslatedContent(selectedDream)}
-              </p>
+              <p className="text-white/90 mb-6 whitespace-pre-wrap">{getTranslatedContent(selectedDream)}</p>
             ) : (
-              <p className="text-white/40 italic mb-6">
-                {t('globe.deletedContent')}
-              </p>
+              <p className="text-white/40 italic mb-6">{t('globe.deletedContent', '[Content deleted]')}</p>
             )}
 
-            {selectedDream.original_language !== lang &&
-              selectedDream.content && (
-                <button
-                  onClick={() => handleTranslateDream(selectedDream)}
-                  disabled={translatingDreams[selectedDream.id]?.loading}
-                  className="w-full glass-card px-4 py-2 mb-4 text-sm hover:bg-purple-500/20 transition-all disabled:opacity-50"
-                >
-                  {translatingDreams[selectedDream.id]?.loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-                      {t('globe.translating')}
-                    </span>
-                  ) : translatingDreams[selectedDream.id]?.translated ? (
-                    t('globe.showOriginal')
-                  ) : (
-                    t('globe.translateToLanguage', {
-                      lang: lang.toUpperCase()
-                    })
-                  )}
-                </button>
-              )}
+            {selectedDream.original_language !== lang && selectedDream.content && (
+              <button
+                onClick={() => handleTranslateDream(selectedDream)}
+                disabled={translatingDreams[selectedDream.id]?.loading}
+                className="w-full glass-card px-4 py-2 mb-4 text-sm hover:bg-purple-500/20 transition-all disabled:opacity-50"
+              >
+                {translatingDreams[selectedDream.id]?.loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                    {t('globe.translating', 'Translating...')}
+                  </span>
+                ) : translatingDreams[selectedDream.id]?.translated ? (
+                  t('globe.showOriginal', 'Show original')
+                ) : (
+                  t('globe.translateToLanguage', { lang: lang.toUpperCase(), defaultValue: 'Translate to {{lang}}' })
+                )}
+              </button>
+            )}
 
             {getTranslatedAnalysis(selectedDream) && (
               <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/30 mb-6">
                 <div className="font-semibold text-purple-300 mb-2 flex items-center gap-2">
-                  <span>🔮</span> {t('globe.jungianAnalysis')}
+                  <span>🔮</span> {t('globe.jungianAnalysis', 'Jungian Analysis')}
                 </div>
-                <p className="text-white/80 text-sm mb-2">
-                  {getTranslatedAnalysis(selectedDream)}
-                </p>
+                <p className="text-white/80 text-sm mb-2">{getTranslatedAnalysis(selectedDream)}</p>
                 {getDreamMotiv(selectedDream) && (
                   <p className="text-white/60 text-xs italic pt-2 border-t border-purple-500/30">
                     💫 {getDreamMotiv(selectedDream)}
@@ -425,36 +414,20 @@ export default function DreamGlobe() {
         </div>
       )}
 
-      {/* Prediction modal */}
       {selectedPrediction && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-          <div
-            className="absolute inset-0 bg-black/70"
-            onClick={() => setSelectedPrediction(null)}
-          />
+          <div className="absolute inset-0 bg-black/70" onClick={() => setSelectedPrediction(null)} />
           <div className="relative glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setSelectedPrediction(null)}
-              className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white"
-            >
-              ×
-            </button>
+            <button onClick={() => setSelectedPrediction(null)} className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white">×</button>
             <h2 className="text-2xl font-bold gradient-text mb-4">
-              🔮{' '}
-              {selectedPrediction[`title_${lang}`] ||
-                selectedPrediction.title_en ||
-                selectedPrediction.title}
+              🔮 {selectedPrediction[`title_${lang}`] || selectedPrediction.title_en || selectedPrediction.title}
             </h2>
             <p className="text-white/90 mb-6 whitespace-pre-wrap">
-              {selectedPrediction[`content_${lang}`] ||
-                selectedPrediction.content_en ||
-                selectedPrediction.content}
+              {selectedPrediction[`content_${lang}`] || selectedPrediction.content_en || selectedPrediction.content}
             </p>
             <div className="flex flex-wrap gap-2">
-              {selectedPrediction.themes?.map((tTheme, i) => (
-                <span key={i} className="glass-card px-3 py-1 text-xs">
-                  #{tTheme}
-                </span>
+              {selectedPrediction.themes?.map((theme, i) => (
+                <span key={i} className="glass-card px-3 py-1 text-xs">#{theme}</span>
               ))}
             </div>
           </div>
