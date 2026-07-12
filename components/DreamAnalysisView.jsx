@@ -163,7 +163,14 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
   const title = dream?.ai_title || pickLocalized(analysis?.title, lang, 'en')
   const summary = dream?.ai_summary || pickLocalized(analysis?.summary, lang, 'en')
   const motiv = dream?.ai_motiv || pickLocalized(analysis?.motiv, lang, 'en')
-
+  console.log('DEBUG dream.ai_jungian_analysis:', analysis)
+  console.log('DEBUG summary:', summary)
+  console.log('DEBUG motiv:', motiv)
+  console.log('DEBUG persona_profile:', analysis?.persona_profile)
+  console.log('DEBUG shadow_focus:', analysis?.shadow_focus)
+  console.log('DEBUG core_conflict:', analysis?.core_conflict)
+  console.log('DEBUG symbolic_reading:', analysis?.symbolic_reading)
+  console.log('DEBUG individuation_path:', analysis?.individuation_path)
   const personaName = pickLocalized(analysis?.persona_profile?.name, lang, 'en')
   const personaTagline = pickLocalized(analysis?.persona_profile?.tagline, lang, 'en')
   const archetypalStyle = pickLocalized(
