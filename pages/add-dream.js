@@ -110,8 +110,11 @@ export default function AddDreamPage() {
   })
 
   if (!analyzeRes.ok) {
-    throw new Error('Rüya analizi başlatılamadı')
-  }
+  const errorData = await analyzeRes.json().catch(() => null)
+  throw new Error(
+    errorData?.error || 'Rüya analizi başlatılamadı'
+  )
+}
 
   router.push(`/dream/${data[0].id}`)
 }
