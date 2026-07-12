@@ -1,24 +1,24 @@
+// components/DreamGlobe.js
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
-import { getTranslation } from '../lib/translations'
 
 const locationCoords = {
-  'Turkey': { lat: 39, lng: 35 },
-  'Istanbul': { lat: 41.0082, lng: 28.9784 },
-  'Ankara': { lat: 39.9334, lng: 32.8597 },
-  'Osmaniye': { lat: 37.0741, lng: 36.2478 },
+  Turkey: { lat: 39, lng: 35 },
+  Istanbul: { lat: 41.0082, lng: 28.9784 },
+  Ankara: { lat: 39.9334, lng: 32.8597 },
+  Osmaniye: { lat: 37.0741, lng: 36.2478 },
   'United States': { lat: 37.0902, lng: -95.7129 },
-  'Russia': { lat: 61.5240, lng: 105.3188 },
-  'Germany': { lat: 51.1657, lng: 10.4515 },
-  'France': { lat: 46.6034, lng: 1.8883 },
-  'United Kingdom': { lat: 55.3781, lng: -3.4360 },
-  'Japan': { lat: 36.2048, lng: 138.2529 },
-  'China': { lat: 35.8617, lng: 104.1954 },
-  'India': { lat: 20.5937, lng: 78.9629 },
-  'Brazil': { lat: -14.2350, lng: -51.9253 },
-  'Australia': { lat: -25.2744, lng: 133.7751 },
-  'Unknown': { lat: 0, lng: 0 }
+  Russia: { lat: 61.524, lng: 105.3188 },
+  Germany: { lat: 51.1657, lng: 10.4515 },
+  France: { lat: 46.6034, lng: 1.8883 },
+  'United Kingdom': { lat: 55.3781, lng: -3.436 },
+  Japan: { lat: 36.2048, lng: 138.2529 },
+  China: { lat: 35.8617, lng: 104.1954 },
+  India: { lat: 20.5937, lng: 78.9629 },
+  Brazil: { lat: -14.235, lng: -51.9253 },
+  Australia: { lat: -25.2744, lng: 133.7751 },
+  Unknown: { lat: 0, lng: 0 }
 }
 
 function getCoords(location) {
@@ -32,9 +32,15 @@ function getCoords(location) {
 
 function getColorBySentiment(sentiment) {
   const colors = {
-    'Fear': '#ef4444', 'Anxiety': '#f97316', 'Joy': '#22c55e',
-    'Peace': '#3b82f6', 'Sadness': '#6366f1', 'Awe': '#a855f7',
-    'Confusion': '#eab308', 'Anger': '#dc2626', 'Surprise': '#ec4899'
+    Fear: '#ef4444',
+    Anxiety: '#f97316',
+    Joy: '#22c55e',
+    Peace: '#3b82f6',
+    Sadness: '#6366f1',
+    Awe: '#a855f7',
+    Confusion: '#eab308',
+    Anger: '#dc2626',
+    Surprise: '#ec4899'
   }
   return colors[sentiment] || '#8b5cf6'
 }
@@ -45,14 +51,16 @@ function getStableRandom(id, range = 0.4) {
   for (let i = 0; i < id.length; i++) {
     hash = ((hash << 5) - hash) + id.charCodeAt(i)
   }
-  return (Math.abs(hash) % 100) / 100 * range - (range / 2)
+  return ((Math.abs(hash) % 100) / 100) * range - range / 2
 }
 
 export default function DreamGlobe() {
-  const { i18n } = useTranslation()
-  const lang = i18n.language || 'en'
+  const { i18n, t } = useTranslation()
+  const lang = (i18n.language || 'en').split('-')[0]
+
   const globeContainer = useRef(null)
   const globeInstance = useRef(null)
+
   const [dreams, setDreams] = useState([])
   const [predictions, setPredictions] = useState([])
   const [selectedDream, setSelectedDream] = useState(null)
@@ -61,8 +69,12 @@ export default function DreamGlobe() {
   const [error, setError] = useState(null)
   const [translatingDreams, setTranslatingDreams] = useState({})
 
-  const getDreamAnalysis = (dream) => dream[`ai_summary_${lang}`] || dream.ai_summary || dream.ai_summary_en || ''
-  const getDreamMotiv = (dream) => dream[`ai_motiv_${lang}`] || dream.ai_motiv || dream.ai_motiv_en || ''
+  const getDreamAnalysis = (dream) =>
+    dream[`ai_summary_${lang}`] || dream.ai_summary || dream.ai_summary_en || ''
+
+  const getDreamMotiv = (dream) =>
+    dream[`ai_motiv_${lang}`] || dream.ai_motiv || dream.ai_motiv_en || ''
+
   const getDreamImage = (dream) => dream.ai_image_url || null
 
   const getTranslatedContent = (dream) => {
@@ -77,16 +89,16 @@ export default function DreamGlobe() {
 
   async function handleTranslateDream(dream) {
     const dreamId = dream.id
-    
+
     if (translatingDreams[dreamId]?.translated) {
-      setTranslatingDreams(prev => ({
+      setTranslatingDreams((prev) => ({
         ...prev,
         [dreamId]: { ...prev[dreamId], translated: false }
       }))
       return
     }
 
-    setTranslatingDreams(prev => ({
+    setTranslatingDreams((prev) => ({
       ...prev,
       [dreamId]: { ...prev[dreamId], loading: true }
     }))
@@ -102,23 +114,23 @@ export default function DreamGlobe() {
           dreamId: dream.id
         })
       })
-      
+
       const data = await res.json()
-      
+
       if (data.translated) {
-        setTranslatingDreams(prev => ({
+        setTranslatingDreams((prev) => ({
           ...prev,
-          [dreamId]: { 
+          [dreamId]: {
             translated: true,
             translatedContent: data.translated,
-            translatedAnalysis: data.analysisTranslated 
+            translatedAnalysis: data.analysisTranslated
           }
         }))
       }
     } catch (err) {
       console.error('Translation error:', err)
     } finally {
-      setTranslatingDreams(prev => ({
+      setTranslatingDreams((prev) => ({
         ...prev,
         [dreamId]: { ...prev[dreamId], loading: false }
       }))
@@ -128,10 +140,19 @@ export default function DreamGlobe() {
   useEffect(() => {
     async function fetchData() {
       const [dreamsRes, predRes] = await Promise.all([
-        supabase.from('dreams').select('*').eq('in_feed', true).order('created_at', { ascending: false }).limit(2000),
-        supabase.from('collective_predictions').select('*').order('created_at', { ascending: false }).limit(5)
+        supabase
+          .from('dreams')
+          .select('*')
+          .eq('in_feed', true)
+          .order('created_at', { ascending: false })
+          .limit(2000),
+        supabase
+          .from('collective_predictions')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(5)
       ])
-      
+
       setDreams(dreamsRes.data || [])
       setPredictions(predRes.data || [])
       setLoading(false)
@@ -142,37 +163,39 @@ export default function DreamGlobe() {
   useEffect(() => {
     if (typeof window === 'undefined' || !globeContainer.current) return
     if (typeof window.Globe === 'undefined') {
-      setError('Three Globe kütüphanesi yüklenemedi')
+      setError(t('globe.libraryFailed'))
       return
     }
 
-    const pointsData = dreams.map(dream => {
-      let lat = dream.latitude
-      let lng = dream.longitude
+    const pointsData = dreams
+      .map((dream) => {
+        let lat = dream.latitude
+        let lng = dream.longitude
 
-      if (!lat || !lng) {
-        const coords = getCoords(dream.location_name)
-        if (coords) {
-          lat = coords.lat
-          lng = coords.lng
-        } else {
-          return null
+        if (!lat || !lng) {
+          const coords = getCoords(dream.location_name)
+          if (coords) {
+            lat = coords.lat
+            lng = coords.lng
+          } else {
+            return null
+          }
         }
-      }
 
-      const latJitter = getStableRandom(dream.id, 0.3)
-      const lngJitter = getStableRandom(dream.id, 0.3)
-      const altJitter = Math.abs(getStableRandom(dream.id, 0.02))
+        const latJitter = getStableRandom(dream.id, 0.3)
+        const lngJitter = getStableRandom(dream.id, 0.3)
+        const altJitter = Math.abs(getStableRandom(dream.id, 0.02))
 
-      return {
-        lat: lat + latJitter,
-        lng: lng + lngJitter,
-        altitude: 0.01 + altJitter,
-        radius: 0.6,
-        color: getColorBySentiment(dream.ai_sentiment),
-        dream: dream
-      }
-    }).filter(p => p !== null)
+        return {
+          lat: lat + latJitter,
+          lng: lng + lngJitter,
+          altitude: 0.01 + altJitter,
+          radius: 0.6,
+          color: getColorBySentiment(dream.ai_sentiment),
+          dream
+        }
+      })
+      .filter((p) => p !== null)
 
     if (globeInstance.current) {
       globeInstance.current.pointsData(pointsData)
@@ -181,7 +204,8 @@ export default function DreamGlobe() {
 
     function initGlobe() {
       try {
-        const globe = window.Globe()
+        const globe = window
+          .Globe()
           .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
           .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
           .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
@@ -217,7 +241,7 @@ export default function DreamGlobe() {
         globeInstance.current = globe
       } catch (err) {
         console.error('Globe init error:', err)
-        setError('Globe başlatılamadı: ' + err.message)
+        setError(`${t('globe.initFailed')}: ${err.message}`)
       }
     }
 
@@ -229,36 +253,57 @@ export default function DreamGlobe() {
         globeInstance.current = null
       }
     }
-  }, [dreams])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dreams, t])
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-white text-xl animate-pulse">Yükleniyor...</div>
+        <div className="text-white text-xl animate-pulse">
+          {t('globe.loading')}
+        </div>
       </div>
     )
   }
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      <div ref={globeContainer} className="w-full h-full" style={{ width: '100vw', height: '100vh' }} />
+      <div
+        ref={globeContainer}
+        className="w-full h-full"
+        style={{ width: '100vw', height: '100vh' }}
+      />
 
-      <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/90 to-transparent pointer-events-none z-20">
+      {/* Header / Branding */}
+      <div className="absolute top-0 left-0 right-0 p-3 sm:p-4 bg-gradient-to-b from-black/90 to-transparent pointer-events-none z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between pointer-events-auto">
-          <a href="/" className="flex items-center gap-2 glass-card px-4 py-2 hover:bg-white/10">
-            <span className="text-2xl">🌙</span>
-            <span className="font-bold">Dreamap</span>
+          <a
+            href="/"
+            className="flex items-center gap-2 glass-card px-3 py-2 sm:px-4 sm:py-2 hover:bg-white/10"
+          >
+            <img
+              src="/logo.png"
+              alt="Lunosfer"
+              className="w-8 h-8 object-contain"
+            />
+            <span className="font-bold">Lunosfer</span>
           </a>
-          <a href="/" className="glass-card px-4 py-2 text-white/80 hover:text-white">
-            ← Geri
+          <a
+            href="/"
+            className="glass-card px-3 py-2 text-white/80 hover:text-white"
+          >
+            ← {t('common.back')}
           </a>
         </div>
       </div>
 
+      {/* Collective predictions panel */}
       {predictions.length > 0 && (
-        <div className="absolute top-24 left-6 z-20 pointer-events-auto max-w-sm">
-          <div className="glass-card p-4">
-            <h3 className="text-lg font-bold gradient-text mb-3">🔮 Kolektif Öngörüler</h3>
+        <div className="absolute z-20 pointer-events-auto top-20 left-3 right-3 sm:top-24 sm:left-6 sm:right-auto sm:max-w-sm">
+          <div className="glass-card p-3 sm:p-4 max-h-[38vh] sm:max-h-[70vh] overflow-y-auto">
+            <h3 className="text-base sm:text-lg font-bold gradient-text mb-3">
+              🔮 {t('globe.collectivePredictions')}
+            </h3>
             <div className="space-y-2">
               {predictions.map((pred) => (
                 <button
@@ -270,7 +315,7 @@ export default function DreamGlobe() {
                     {pred[`title_${lang}`] || pred.title_en || pred.title}
                   </div>
                   <div className="text-xs text-white/60 mt-1">
-                    {pred.dream_count} rüya
+                    {pred.dream_count} {t('globe.dreamCount')}
                   </div>
                 </button>
               ))}
@@ -279,66 +324,100 @@ export default function DreamGlobe() {
         </div>
       )}
 
+      {/* Dream modal */}
       {selectedDream && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setSelectedDream(null)} />
+          <div
+            className="absolute inset-0 bg-black/70"
+            onClick={() => setSelectedDream(null)}
+          />
           <div className="relative glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <button onClick={() => setSelectedDream(null)} className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white">×</button>
-            
+            <button
+              onClick={() => setSelectedDream(null)}
+              className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white"
+            >
+              ×
+            </button>
+
             {getDreamImage(selectedDream) && (
               <div className="w-full h-64 mb-6 overflow-hidden rounded-lg bg-black">
-                <img src={getDreamImage(selectedDream)} className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} />
+                <img
+                  src={getDreamImage(selectedDream)}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none'
+                  }}
+                  alt={selectedDream.location_name || 'Dream image'}
+                />
               </div>
             )}
 
-            <h3 className="text-xl font-bold mb-4">📍 {selectedDream.location_name}</h3>
+            <h3 className="text-xl font-bold mb-4">
+              📍 {selectedDream.location_name}
+            </h3>
 
             {selectedDream.ai_archetypes?.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {selectedDream.ai_archetypes.map((a, i) => (
-                  <span key={i} className="glass-card px-3 py-1 text-xs text-purple-300">{a}</span>
+                  <span
+                    key={i}
+                    className="glass-card px-3 py-1 text-xs text-purple-300"
+                  >
+                    {a}
+                  </span>
                 ))}
               </div>
             )}
 
             {getTranslatedContent(selectedDream) ? (
-              <p className="text-white/90 mb-6 whitespace-pre-wrap">{getTranslatedContent(selectedDream)}</p>
+              <p className="text-white/90 mb-6 whitespace-pre-wrap">
+                {getTranslatedContent(selectedDream)}
+              </p>
             ) : (
-              <p className="text-white/40 italic mb-6">[İçerik silindi]</p>
+              <p className="text-white/40 italic mb-6">
+                {t('globe.deletedContent')}
+              </p>
             )}
 
-            {selectedDream.original_language !== lang && selectedDream.content && (
-              <button
-                onClick={() => handleTranslateDream(selectedDream)}
-                disabled={translatingDreams[selectedDream.id]?.loading}
-                className="w-full glass-card px-4 py-2 mb-4 text-sm hover:bg-purple-500/20 transition-all disabled:opacity-50"
-              >
-                {translatingDreams[selectedDream.id]?.loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
-                    Çevriliyor...
-                  </span>
-                ) : translatingDreams[selectedDream.id]?.translated ? (
-                  '🔄 Orijinali Göster'
-                ) : (
-                  `🌐 ${lang.toUpperCase()} Diline Çevir`
-                )}
-              </button>
-            )}
+            {selectedDream.original_language !== lang &&
+              selectedDream.content && (
+                <button
+                  onClick={() => handleTranslateDream(selectedDream)}
+                  disabled={translatingDreams[selectedDream.id]?.loading}
+                  className="w-full glass-card px-4 py-2 mb-4 text-sm hover:bg-purple-500/20 transition-all disabled:opacity-50"
+                >
+                  {translatingDreams[selectedDream.id]?.loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                      {t('globe.translating')}
+                    </span>
+                  ) : translatingDreams[selectedDream.id]?.translated ? (
+                    t('globe.showOriginal')
+                  ) : (
+                    t('globe.translateToLanguage', {
+                      lang: lang.toUpperCase()
+                    })
+                  )}
+                </button>
+              )}
 
             {getTranslatedAnalysis(selectedDream) && (
               <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/30 mb-6">
                 <div className="font-semibold text-purple-300 mb-2 flex items-center gap-2">
-                  <span>🔮</span> Jungian Analiz
+                  <span>🔮</span> {t('globe.jungianAnalysis')}
                 </div>
-                <p className="text-white/80 text-sm mb-2">{getTranslatedAnalysis(selectedDream)}</p>
+                <p className="text-white/80 text-sm mb-2">
+                  {getTranslatedAnalysis(selectedDream)}
+                </p>
                 {getDreamMotiv(selectedDream) && (
-                  <p className="text-white/60 text-xs italic pt-2 border-t border-purple-500/30">💫 {getDreamMotiv(selectedDream)}</p>
+                  <p className="text-white/60 text-xs italic pt-2 border-t border-purple-500/30">
+                    💫 {getDreamMotiv(selectedDream)}
+                  </p>
                 )}
               </div>
             )}
 
-            <div className="flex gap-4 text-sm text-white/60 pt-4 border-t border-white/10">
+            <div className="flex flex-wrap gap-4 text-sm text-white/60 pt-4 border-t border-white/10">
               <span>📅 {selectedDream.dream_date}</span>
               <span>💭 {selectedDream.ai_sentiment}</span>
             </div>
@@ -346,18 +425,36 @@ export default function DreamGlobe() {
         </div>
       )}
 
+      {/* Prediction modal */}
       {selectedPrediction && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setSelectedPrediction(null)} />
+          <div
+            className="absolute inset-0 bg-black/70"
+            onClick={() => setSelectedPrediction(null)}
+          />
           <div className="relative glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <button onClick={() => setSelectedPrediction(null)} className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white">×</button>
-            <h2 className="text-2xl font-bold gradient-text mb-4">🔮 {selectedPrediction[`title_${lang}`] || selectedPrediction.title_en}</h2>
+            <button
+              onClick={() => setSelectedPrediction(null)}
+              className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white"
+            >
+              ×
+            </button>
+            <h2 className="text-2xl font-bold gradient-text mb-4">
+              🔮{' '}
+              {selectedPrediction[`title_${lang}`] ||
+                selectedPrediction.title_en ||
+                selectedPrediction.title}
+            </h2>
             <p className="text-white/90 mb-6 whitespace-pre-wrap">
-              {selectedPrediction[`content_${lang}`] || selectedPrediction.content_en}
+              {selectedPrediction[`content_${lang}`] ||
+                selectedPrediction.content_en ||
+                selectedPrediction.content}
             </p>
             <div className="flex flex-wrap gap-2">
-              {selectedPrediction.themes?.map((t, i) => (
-                <span key={i} className="glass-card px-3 py-1 text-xs">#{t}</span>
+              {selectedPrediction.themes?.map((tTheme, i) => (
+                <span key={i} className="glass-card px-3 py-1 text-xs">
+                  #{tTheme}
+                </span>
               ))}
             </div>
           </div>
@@ -371,4 +468,4 @@ export default function DreamGlobe() {
       )}
     </div>
   )
-                  }
+}
