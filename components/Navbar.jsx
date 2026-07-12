@@ -7,78 +7,14 @@ import { useTranslation } from 'react-i18next'
 import { getTranslation } from '../lib/translations'
 
 const NAV_UI = {
-  tr: {
-    globe: 'Küre',
-    profile: 'Profilim',
-    addDream: 'Rüya Ekle',
-    prophecy: 'Kehanet',
-    menu: 'Menü',
-    close: 'Kapat',
-    signIn: 'Giriş Yap',
-  },
-  en: {
-    globe: 'Globe',
-    profile: 'Profile',
-    addDream: 'Add Dream',
-    prophecy: 'Prophecy',
-    menu: 'Menu',
-    close: 'Close',
-    signIn: 'Sign In',
-  },
-  es: {
-    globe: 'Globo',
-    profile: 'Perfil',
-    addDream: 'Añadir Sueño',
-    prophecy: 'Profecía',
-    menu: 'Menú',
-    close: 'Cerrar',
-    signIn: 'Iniciar Sesión',
-  },
-  fr: {
-    globe: 'Globe',
-    profile: 'Profil',
-    addDream: 'Ajouter un Rêve',
-    prophecy: 'Prophétie',
-    menu: 'Menu',
-    close: 'Fermer',
-    signIn: 'Se Connecter',
-  },
-  de: {
-    globe: 'Globus',
-    profile: 'Profil',
-    addDream: 'Traum Hinzufügen',
-    prophecy: 'Prophezeiung',
-    menu: 'Menü',
-    close: 'Schließen',
-    signIn: 'Anmelden',
-  },
-  pt: {
-    globe: 'Globo',
-    profile: 'Perfil',
-    addDream: 'Adicionar Sonho',
-    prophecy: 'Profecia',
-    menu: 'Menu',
-    close: 'Fechar',
-    signIn: 'Entrar',
-  },
-  ru: {
-    globe: 'Глобус',
-    profile: 'Профиль',
-    addDream: 'Добавить Сон',
-    prophecy: 'Пророчество',
-    menu: 'Меню',
-    close: 'Закрыть',
-    signIn: 'Войти',
-  },
-  ja: {
-    globe: 'グローブ',
-    profile: 'プロフィール',
-    addDream: '夢を追加',
-    prophecy: '予言',
-    menu: 'メニュー',
-    close: '閉じる',
-    signIn: 'ログイン',
-  },
+  tr: { globe: 'Küre', profile: 'Profilim', addDream: 'Rüya Ekle', prophecy: 'Kehanet', menu: 'Menü', close: 'Kapat', signIn: 'Giriş Yap' },
+  en: { globe: 'Globe', profile: 'Profile', addDream: 'Add Dream', prophecy: 'Prophecy', menu: 'Menu', close: 'Close', signIn: 'Sign In' },
+  es: { globe: 'Globo', profile: 'Perfil', addDream: 'Añadir Sueño', prophecy: 'Profecía', menu: 'Menú', close: 'Cerrar', signIn: 'Iniciar Sesión' },
+  fr: { globe: 'Globe', profile: 'Profil', addDream: 'Ajouter un Rêve', prophecy: 'Prophétie', menu: 'Menu', close: 'Fermer', signIn: 'Se Connecter' },
+  de: { globe: 'Globus', profile: 'Profil', addDream: 'Traum Hinzufügen', prophecy: 'Prophezeiung', menu: 'Menü', close: 'Schließen', signIn: 'Anmelden' },
+  pt: { globe: 'Globo', profile: 'Perfil', addDream: 'Adicionar Sonho', prophecy: 'Profecia', menu: 'Menu', close: 'Fechar', signIn: 'Entrar' },
+  ru: { globe: 'Глобус', profile: 'Профиль', addDream: 'Добавить Сон', prophecy: 'Пророчество', menu: 'Меню', close: 'Закрыть', signIn: 'Войти' },
+  ja: { globe: 'グローブ', profile: 'プロフィール', addDream: '夢を追加', prophecy: '予言', menu: 'メニュー', close: '閉じる', signIn: 'ログイン' },
 }
 
 export default function Navbar() {
@@ -114,18 +50,16 @@ export default function Navbar() {
   }, [])
 
   const globeLabel =
-    getTranslation('nav.globe', lang) &&
-    getTranslation('nav.globe', lang) !== 'nav.globe'
+    getTranslation('nav.globe', lang) && getTranslation('nav.globe', lang) !== 'nav.globe'
       ? getTranslation('nav.globe', lang)
       : ui.globe
 
   const profileLabel =
-    getTranslation('nav.profile', lang) &&
-    getTranslation('nav.profile', lang) !== 'nav.profile'
+    getTranslation('nav.profile', lang) && getTranslation('nav.profile', lang) !== 'nav.profile'
       ? getTranslation('nav.profile', lang)
       : ui.profile
 
-  const AvatarCircle = ({ size = 32 }) => (
+  const AvatarCircle = ({ size = 28 }) => (
     <div
       style={{ width: size, height: size }}
       className="overflow-hidden rounded-full border border-emerald-300/30 bg-white/5 shrink-0"
@@ -135,14 +69,10 @@ export default function Navbar() {
           src={avatarUrl}
           alt={profileLabel}
           className="h-full w-full object-cover"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none'
-          }}
+          onError={(e) => { e.currentTarget.style.display = 'none' }}
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center text-sm">
-          👤
-        </div>
+        <div className="flex h-full w-full items-center justify-center text-sm">👤</div>
       )}
     </div>
   )
@@ -165,8 +95,8 @@ export default function Navbar() {
           <div className="flex min-w-0 flex-col leading-none">
             <span
               className="
-                whitespace-nowrap text-[0.8rem] font-black uppercase
-                tracking-[0.14em] text-transparent
+                whitespace-nowrap text-[0.75rem] font-black uppercase
+                tracking-[0.1em] text-transparent
                 sm:text-[1.05rem] sm:tracking-[0.18em]
                 md:text-[1.3rem]
                 bg-clip-text bg-gradient-to-r from-fuchsia-300 via-cyan-200 to-violet-300
@@ -184,76 +114,28 @@ export default function Navbar() {
           </div>
         </Link>
 
-        <nav className="hidden min-w-0 flex-1 items-center justify-end gap-1.5 md:flex lg:gap-2">
-          <Link
-            href="/globe"
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-3.5 text-sm font-medium text-slate-200 transition-all duration-200 hover:border-cyan-300/30 hover:bg-cyan-500/10 hover:text-white lg:px-4"
-          >
-            <span aria-hidden="true">🌐</span>
-            <span>{globeLabel}</span>
-          </Link>
-
-          <Link
-            href="/add-dream"
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-violet-300/20 bg-violet-500/10 px-3.5 text-sm font-medium text-violet-100 transition-all duration-200 hover:border-violet-300/40 hover:bg-violet-500/18 lg:px-4"
-          >
-            <span aria-hidden="true">✨</span>
-            <span>{ui.addDream}</span>
-          </Link>
-
-          <a
-            href="/#prophecy"
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-3.5 text-sm font-medium text-slate-200 transition-all duration-200 hover:border-fuchsia-300/30 hover:bg-fuchsia-500/10 hover:text-white lg:px-4"
-          >
-            <span aria-hidden="true">🔮</span>
-            <span>{ui.prophecy}</span>
-          </a>
-
-          {user ? (
-            <Link
-              href="/profile"
-              aria-label={profileLabel}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-300/20 bg-emerald-500/10 transition-all duration-200 hover:border-emerald-300/40 hover:bg-emerald-500/18"
-            >
-              <AvatarCircle size={28} />
-            </Link>
-          ) : (
-            <Link
-              href="/auth"
-              className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/25 bg-cyan-500/10 px-4 text-sm font-medium text-cyan-100 transition-all duration-200 hover:border-cyan-300/45 hover:bg-cyan-500/20 lg:px-5"
-            >
-              <span aria-hidden="true">🔑</span>
-              <span>{ui.signIn}</span>
-            </Link>
-          )}
-
-          <div className="ml-1 shrink-0 border-l border-white/10 pl-2 lg:pl-3">
-            <LanguageSwitcher />
-          </div>
-        </nav>
-
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 md:hidden">
-          {user ? (
-            <Link
-              href="/profile"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-300/20 bg-emerald-500/10 transition-all duration-200 hover:border-emerald-300/40 hover:bg-emerald-500/18"
-              aria-label={profileLabel}
-            >
-              <AvatarCircle size={28} />
-            </Link>
-          ) : (
-            <Link
-              href="/auth"
-              className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 text-xs font-medium text-cyan-100 transition-all duration-200 hover:border-cyan-300/45 hover:bg-cyan-500/20"
-            >
-              <span aria-hidden="true">🔑</span>
-              <span>{ui.signIn}</span>
-            </Link>
-          )}
-
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <div className="shrink-0">
             <LanguageSwitcher />
           </div>
+
+          {user ? (
+            <Link
+              href="/profile"
+              aria-label={profileLabel}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-300/20 bg-emerald-500/10 transition-all duration-200 hover:border-emerald-300/40 hover:bg-emerald-500/18"
+            >
+              <AvatarCircle size={28} />
+            </Link>
+          ) : (
+            <Link
+              href="/auth"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 text-xs font-medium text-cyan-100 transition-all duration-200 hover:border-cyan-300/45 hover:bg-cyan-500/20 sm:px-4 sm:text-sm"
+            >
+              <span aria-hidden="true">🔑</span>
+              <span className="hidden sm:inline">{ui.signIn}</span>
+            </Link>
+          )}
 
           <button
             type="button"
@@ -268,7 +150,7 @@ export default function Navbar() {
       </div>
 
       {menuOpen ? (
-        <div className="border-t border-white/8 bg-slate-950/95 px-3 py-4 backdrop-blur-2xl sm:px-4 md:hidden">
+        <div className="border-t border-white/8 bg-slate-950/95 px-3 py-4 backdrop-blur-2xl sm:px-4">
           <div className="mx-auto grid max-w-7xl grid-cols-1 gap-2">
             <Link
               href="/globe"
@@ -296,17 +178,6 @@ export default function Navbar() {
               <span aria-hidden="true">🔮</span>
               <span>{ui.prophecy}</span>
             </a>
-
-            {!user ? (
-              <Link
-                href="/auth"
-                onClick={() => setMenuOpen(false)}
-                className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-500/10 px-4 text-sm font-medium text-cyan-100"
-              >
-                <span aria-hidden="true">🔑</span>
-                <span>{ui.signIn}</span>
-              </Link>
-            ) : null}
           </div>
         </div>
       ) : null}
