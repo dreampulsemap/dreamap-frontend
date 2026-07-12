@@ -210,7 +210,19 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
   const primary = visual?.primary_color || '#C8A96B'
   const secondary = visual?.secondary_color || '#2B2238'
   const accent = visual?.accent_color || '#8FD3C1'
-
+  const debugJson = JSON.stringify(
+    {
+      summary,
+      motiv,
+      persona_profile: analysis?.persona_profile,
+      shadow_focus: analysis?.shadow_focus,
+      core_conflict: analysis?.core_conflict,
+      symbolic_reading: analysis?.symbolic_reading,
+      individuation_path: analysis?.individuation_path,
+    },
+    null,
+    2
+  )
   return (
     <div
       style={{
@@ -221,6 +233,21 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
       }}
     >
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+              {/* DEBUG İÇERİK - GEÇİCİ */}
+      <pre
+        style={{
+          background: '#000',
+          color: '#0f0',
+          padding: 12,
+          borderRadius: 12,
+          fontSize: 10,
+          maxHeight: 200,
+          overflow: 'auto',
+          marginBottom: 12,
+        }}
+      >
+        {debugJson}
+      </pre>
         <header
           style={{
             background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 60%, ${accent} 100%)`,
