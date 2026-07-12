@@ -178,7 +178,7 @@ export default function ProfilePage() {
 
     try {
       const fileExt = avatarFile.name.split('.').pop() || 'png'
-      const filePath = `avatars/${user.id}-${Date.now()}.${fileExt}`
+      const filePath = `${user.id}/${Date.now()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
@@ -521,9 +521,7 @@ export default function ProfilePage() {
                     >
                       <div>
                         <div className="font-semibold">{result.username}</div>
-                        <div className="text-sm text-white/60">
-                          {result.display_name}
-                        </div>
+                        <div className="text-sm text-white/60">{result.display_name}</div>
                       </div>
 
                       {result.friendshipStatus === null && (
