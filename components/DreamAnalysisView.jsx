@@ -1,5 +1,3 @@
-// components/DreamAnalysisView.jsx
-
 import React from 'react'
 
 function pickLocalized(value, lang = 'tr', fallback = 'en') {
@@ -163,62 +161,27 @@ function EmotionRow({ emotions = [] }) {
 
 export default function DreamAnalysisView({ dream, lang = 'tr' }) {
   const analysis = dream?.ai_jungian_analysis || {}
-
-  const title =
-    dream?.ai_title ||
-    pickLocalized(analysis?.title, lang, 'en') ||
-    dream?.title ||
-    ''
-
-  const summary =
-    dream?.ai_summary ||
-    pickLocalized(analysis?.summary, lang, 'en') ||
-    ''
-
-  const motiv =
-    dream?.ai_motiv ||
-    pickLocalized(analysis?.motiv, lang, 'en') ||
-    ''
+  const title = dream?.ai_title || pickLocalized(analysis?.title, lang, 'en')
+  const summary = dream?.ai_summary || pickLocalized(analysis?.summary, lang, 'en')
+  const motiv = dream?.ai_motiv || pickLocalized(analysis?.motiv, lang, 'en')
 
   const personaName = pickLocalized(analysis?.persona_profile?.name, lang, 'en')
-  const personaTagline = pickLocalized(
-    analysis?.persona_profile?.tagline,
-    lang,
-    'en'
-  )
-
+  const personaTagline = pickLocalized(analysis?.persona_profile?.tagline, lang, 'en')
   const archetypalStyle = pickLocalized(
     analysis?.persona_profile?.archetypal_style,
     lang,
     'en'
   )
-  const publicSelf = pickLocalized(
-    analysis?.persona_profile?.public_self,
-    lang,
-    'en'
-  )
-  const hiddenSelf = pickLocalized(
-    analysis?.persona_profile?.hidden_self,
-    lang,
-    'en'
-  )
+  const publicSelf = pickLocalized(analysis?.persona_profile?.public_self, lang, 'en')
+  const hiddenSelf = pickLocalized(analysis?.persona_profile?.hidden_self, lang, 'en')
 
   const shadowFocus = pickLocalized(analysis?.shadow_focus, lang, 'en')
   const coreConflict = pickLocalized(analysis?.core_conflict, lang, 'en')
-  const individuationPath = pickLocalized(
-    analysis?.individuation_path,
-    lang,
-    'en'
-  )
-  const symbolicReading = pickLocalized(
-    analysis?.symbolic_reading,
-    lang,
-    'en'
-  )
+  const individuationPath = pickLocalized(analysis?.individuation_path, lang, 'en')
+  const symbolicReading = pickLocalized(analysis?.symbolic_reading, lang, 'en')
 
   const reflectionQuestions = safeArray(
-    analysis?.reflection_questions?.[lang] ||
-      analysis?.reflection_questions?.en
+    analysis?.reflection_questions?.[lang] || analysis?.reflection_questions?.en
   )
 
   const visual = analysis?.visual_theme || {}
@@ -230,25 +193,6 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
   const secondary = visual?.secondary_color || '#2B2238'
   const accent = visual?.accent_color || '#8FD3C1'
 
-  const emotions =
-    safeArray(dream?.ai_emotions) || safeArray(analysis?.emotions)
-  const symbols =
-    safeArray(dream?.ai_symbols) || safeArray(analysis?.symbols)
-
-  const debugJson = JSON.stringify(
-    {
-      summary,
-      motiv,
-      persona_profile: analysis?.persona_profile,
-      shadow_focus: analysis?.shadow_focus,
-      core_conflict: analysis?.core_conflict,
-      symbolic_reading: analysis?.symbolic_reading,
-      individuation_path: analysis?.individuation_path,
-    },
-    null,
-    2
-  )
-
   return (
     <div
       style={{
@@ -259,22 +203,6 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
       }}
     >
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
-        {/* DEBUG: prod'da kaldırılabilir */}
-        <pre
-          style={{
-            background: '#000',
-            color: '#0f0',
-            padding: 12,
-            borderRadius: 12,
-            fontSize: 10,
-            maxHeight: 200,
-            overflow: 'auto',
-            marginBottom: 12,
-          }}
-        >
-          {debugJson}
-        </pre>
-
         <header
           style={{
             background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 60%, ${accent} 100%)`,
@@ -285,24 +213,15 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
             color: '#fff',
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 10,
-              marginBottom: 18,
-            }}
-          >
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
             <Badge color="#fff" bg="rgba(255,255,255,0.12)">
-              {dream?.ai_sentiment || analysis?.sentiment || 'Confusion'}
+              {analysis?.sentiment || 'Confusion'}
             </Badge>
-            {safeArray(dream?.ai_archetypes || analysis?.archetypes).map(
-              (arc, i) => (
-                <Badge key={i} color="#fff" bg="rgba(255,255,255,0.10)">
-                  {arc}
-                </Badge>
-              )
-            )}
+            {safeArray(analysis?.archetypes).map((arc, i) => (
+              <Badge key={i} color="#fff" bg="rgba(255,255,255,0.10)">
+                {arc}
+              </Badge>
+            ))}
           </div>
 
           <h1
@@ -347,7 +266,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
         </header>
 
         <div style={{ marginBottom: 24 }}>
-          <EmotionRow emotions={emotions} />
+          <EmotionRow emotions={safeArray(dream?.ai_emotions || analysis?.emotions)} />
         </div>
 
         <div
@@ -360,22 +279,16 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
           <div style={{ gridColumn: 'span 12' }}>
             <SectionCard title="Genel Yorum" colors={visual}>
               <p style={{ marginTop: 0 }}>{summary}</p>
-              {motiv ? (
-                <p style={{ marginBottom: 0, opacity: 0.92 }}>{motiv}</p>
-              ) : null}
+              {motiv ? <p style={{ marginBottom: 0, opacity: 0.92 }}>{motiv}</p> : null}
             </SectionCard>
           </div>
 
           <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard
-              title="Persona Profili"
-              colors={sectionThemes?.persona || visual}
-            >
+            <SectionCard title="Persona Profili" colors={sectionThemes?.persona || visual}>
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(220px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
                   gap: 18,
                 }}
               >
@@ -397,8 +310,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
                 style={{
                   marginTop: 22,
                   display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(220px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
                   gap: 18,
                 }}
               >
@@ -443,11 +355,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
           </div>
 
           <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard
-              title="Gölge Analizi"
-              colors={sectionThemes?.shadow || visual}
-              dark
-            >
+            <SectionCard title="Gölge Analizi" colors={sectionThemes?.shadow || visual} dark>
               <p>
                 <strong>Shadow Focus:</strong> {shadowFocus}
               </p>
@@ -460,7 +368,10 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
           <div style={{ gridColumn: 'span 12' }}>
             <SectionCard title="Sembolik Okuma" colors={visual}>
               <p style={{ marginTop: 0 }}>{symbolicReading}</p>
-              <SymbolGrid symbols={symbols} lang={lang} />
+              <SymbolGrid
+                symbols={safeArray(dream?.ai_symbols || analysis?.symbols)}
+                lang={lang}
+              />
             </SectionCard>
           </div>
 
@@ -475,10 +386,7 @@ export default function DreamAnalysisView({ dream, lang = 'tr' }) {
 
           {!!reflectionQuestions.length && (
             <div style={{ gridColumn: 'span 12' }}>
-              <SectionCard
-                title="Düşündürmesi Gereken Sorular"
-                colors={visual}
-              >
+              <SectionCard title="Düşündürmesi Gereken Sorular" colors={visual}>
                 <BulletList items={reflectionQuestions} />
               </SectionCard>
             </div>
