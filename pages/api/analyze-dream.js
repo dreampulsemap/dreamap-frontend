@@ -2,12 +2,25 @@ import { createClient } from '@supabase/supabase-js'
 
 const GROQ_MODEL = 'llama-3.1-8b-instant'
 const OPENROUTER_MODEL = 'meta-llama/llama-3.1-8b-instruct'
-const ANALYSIS_VERSION = 'jung-v8-persona-color-structured'
+const ANALYSIS_VERSION = 'jung-v9-view-aligned-structured'
 
-function normalizeText(value) {
+const SUPPORTED_LANGS = ['tr', 'en', 'es', 'fr', 'de', 'pt', 'ru', 'ja']
+const ALLOWED_EMOTIONS = [
+  'Fear',
+  'Joy',
+  'Sadness',
+  'Peace',
+  'Anxiety',
+  'Awe',
+  'Confusion',
+  'Surprise',
+]
+
+function normalizeText(value, maxLen = 4000) {
   if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
+  const trimmed = value.replace(/s+/g, ' ').trim()
+  if (!trimmed) return null
+  return trimmed.slice(0, maxLen)
 }
 
 function normalizeArray(value, max = 8) {
@@ -21,17 +34,7 @@ function normalizeArray(value, max = 8) {
 function normalizeEmotionLabel(value) {
   if (typeof value !== 'string') return null
   const cleaned = value.trim()
-  const allowed = [
-    'Fear',
-    'Joy',
-    'Sadness',
-    'Peace',
-    'Anxiety',
-    'Awe',
-    'Confusion',
-    'Surprise',
-  ]
-  return allowed.includes(cleaned) ? cleaned : null
+  return ALLOWED_EMOTIONS.includes(cleaned) ? cleaned : null
 }
 
 function normalizeScore(value, min = 0, max = 100) {
@@ -51,17 +54,42 @@ function pickLocalized(map, lang, fallback = 'en') {
   return normalizeText(map[lang]) || normalizeText(map[fallback]) || null
 }
 
-function buildMultilangSpec(shortRule) {
-  return {
-    tr: shortRule,
-    en: shortRule,
-    es: shortRule,
-    fr: shortRule,
-    de: shortRule,
-    pt: shortRule,
-    ru: shortRule,
-    ja: shortRule,
+function ensureMultilangText(value, fallbackLang = 'en') {
+  const out = {}
+  const source = value && typeof value === 'object' ? value : {}
+  for (const lang of SUPPORTED_LANGS) {
+    out[lang] =
+      normalizeText(source[lang]) ||
+      normalizeText(source[fallbackLang]) ||
+      normalizeText(source.en) ||
+      normalizeText(source.tr) ||
+      null
   }
+  return out
+}
+
+function ensureBilingualArray(value, max = 6) {
+  const source = value && typeof value === 'object' ? value : {}
+  return {
+    tr: normalizeArray(source.tr, max),
+    en: normalizeArray(source.en, max),
+  }
+}
+
+function ensureThemeBlock(value, fallback = {}) {
+  const src = value && typeof value === 'object' ? value : {}
+  return {
+    aura: normalizeText(src.aura, 200) || fallback.aura || null,
+    primary_color: normalizeHex(src.primary_color, fallback.primary_color || '#1F2937'),
+    secondary_color: normalizeHex(src.secondary_color, fallback.secondary_color || '#374151'),
+    accent_color: normalizeHex(src.accent_color, fallback.accent_color || '#C084FC'),
+    gradient_suggestion:
+      normalizeText(src.gradient_suggestion, 200) || fallback.gradient_suggestion || null,
+  }
+}
+
+function buildMultilangSpec(shortRule) {
+  return Object.fromEntries(SUPPORTED_LANGS.map((lang) => [lang, shortRule]))
 }
 
 function buildSchemaGuide() {
@@ -71,52 +99,44 @@ function buildSchemaGuide() {
       '90-170 words, deep Jungian summary with symbolic and emotional richness'
     ),
     motiv: buildMultilangSpec(
-      '40-80 words, integration guidance, reflective not generic'
+      '40-80 words, reflective integration guidance, psychologically grounded'
     ),
-    shadow_focus: buildMultilangSpec(
-      '1-3 sentences identifying disowned/rejected psychic material'
-    ),
-    core_conflict: buildMultilangSpec(
-      '1-2 sentences naming the central inner tension'
-    ),
-    individuation_path: buildMultilangSpec(
-      '1-3 sentences suggesting the next inner movement toward wholeness'
-    ),
-    symbolic_reading: buildMultilangSpec(
-      '60-120 words deep symbolic reading of dream logic'
-    ),
+    shadow_focus: {
+      tr: '1-3 sentences on disowned psychic material',
+      en: '1-3 sentences on disowned psychic material',
+    },
+    core_conflict: {
+      tr: '1-2 sentences naming the central inner tension',
+      en: '1-2 sentences naming the central inner tension',
+    },
+    individuation_path: {
+      tr: '1-3 sentences suggesting movement toward wholeness',
+      en: '1-3 sentences suggesting movement toward wholeness',
+    },
+    symbolic_reading: {
+      tr: '60-120 words symbolic reading',
+      en: '60-120 words symbolic reading',
+    },
     persona_profile: {
-      name: buildMultilangSpec('creative, shareable Jungian persona name'),
-      archetypal_style: buildMultilangSpec(
-        '1-2 sentences describing the persona style'
-      ),
-      public_self: buildMultilangSpec(
-        '1-2 sentences about outward identity or social mask'
-      ),
-      hidden_self: buildMultilangSpec(
-        '1-2 sentences about hidden or disowned side'
-      ),
-      strengths: {
-        tr: ['string'],
-        en: ['string'],
-      },
-      shadow_sides: {
-        tr: ['string'],
-        en: ['string'],
-      },
-      core_fears: {
-        tr: ['string'],
-        en: ['string'],
-      },
-      emotional_needs: {
-        tr: ['string'],
-        en: ['string'],
-      },
-      defenses: {
-        tr: ['string'],
-        en: ['string'],
-      },
+      name: buildMultilangSpec('premium evocative Jungian persona name'),
       tagline: buildMultilangSpec('short emotionally striking one-line persona tagline'),
+      archetypal_style: {
+        tr: '1-2 sentences',
+        en: '1-2 sentences',
+      },
+      public_self: {
+        tr: '1-2 sentences about social mask',
+        en: '1-2 sentences about social mask',
+      },
+      hidden_self: {
+        tr: '1-2 sentences about hidden self',
+        en: '1-2 sentences about hidden self',
+      },
+      strengths: { tr: ['string'], en: ['string'] },
+      shadow_sides: { tr: ['string'], en: ['string'] },
+      core_fears: { tr: ['string'], en: ['string'] },
+      emotional_needs: { tr: ['string'], en: ['string'] },
+      defenses: { tr: ['string'], en: ['string'] },
     },
     visual_theme: {
       overall_mood: 'string',
@@ -140,13 +160,6 @@ function buildSchemaGuide() {
         gradient_suggestion: 'string',
       },
       shadow: {
-        aura: 'string',
-        primary_color: '#RRGGBB',
-        secondary_color: '#RRGGBB',
-        accent_color: '#RRGGBB',
-        gradient_suggestion: 'string',
-      },
-      anima_animus: {
         aura: 'string',
         primary_color: '#RRGGBB',
         secondary_color: '#RRGGBB',
@@ -186,82 +199,159 @@ function buildSchemaGuide() {
   }
 }
 
+function buildJsonSchema() {
+  return {
+    name: 'dream_analysis',
+    strict: true,
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        title: { type: 'object' },
+        summary: { type: 'object' },
+        motiv: { type: 'object' },
+        shadow_focus: { type: 'object' },
+        core_conflict: { type: 'object' },
+        individuation_path: { type: 'object' },
+        symbolic_reading: { type: 'object' },
+        persona_profile: { type: 'object' },
+        visual_theme: { type: 'object' },
+        section_themes: { type: 'object' },
+        archetypes: { type: 'array', items: { type: 'string' } },
+        sentiment: { type: 'string', enum: ALLOWED_EMOTIONS },
+        symbols: { type: 'array', items: { type: 'object' } },
+        emotions: { type: 'array', items: { type: 'object' } },
+        reflection_questions: { type: 'object' },
+      },
+      required: [
+        'title',
+        'summary',
+        'motiv',
+        'shadow_focus',
+        'core_conflict',
+        'individuation_path',
+        'symbolic_reading',
+        'persona_profile',
+        'visual_theme',
+        'section_themes',
+        'archetypes',
+        'sentiment',
+        'symbols',
+        'emotions',
+        'reflection_questions',
+      ],
+    },
+  }
+}
+
 function buildPrompt(content, language) {
   return `
-You are an elite Jungian dream analyst generating structured output for a premium dream interpretation product.
+You are an elite Jungian dream analyst generating structured output for the Lunosfer premium dream analysis experience.
 
-Your task:
-Analyze the dream as a symbolic communication from the unconscious using Jungian depth psychology.
-Treat the dream as potentially expressing persona dynamics, shadow material, anima/animus tension, blocked vitality, hidden fear, compensation, or an individuation movement.
-
-Return ONLY a valid JSON object.
+Return ONLY valid JSON. No markdown. No explanation. No code fences.
 
 Dream language hint: ${language}
 
 Dream text:
 ${content}
 
+Frontend contract:
+The response will be rendered directly in a visual DreamAnalysisView screen with these sections:
+1. Header: title, persona_profile.name, persona_profile.tagline, sentiment, archetypes
+2. Genel Yorum: summary, motiv
+3. Persona Profili: persona_profile.archetypal_style, public_self, hidden_self, strengths, shadow_sides, core_fears, emotional_needs
+4. Gölge Analizi: shadow_focus, core_conflict
+5. Sembolik Okuma: symbolic_reading, symbols
+6. Dönüşüm Yolu: individuation_path
+7. Düşündürmesi Gereken Sorular: reflection_questions
+8. Visual theming: visual_theme and section_themes for premium cinematic UI styling
+
 Return exactly this JSON shape:
 ${JSON.stringify(buildSchemaGuide(), null, 2)}
 
-Core interpretation rules:
-- Be psychologically deep, symbolically rich, aesthetically compelling, and introspective.
-- Do NOT sound like generic self-help, astrology, fortune telling, or shallow motivation.
-- Do NOT diagnose psychiatric disorders.
-- Do NOT use absolute certainty. Use interpretive probability.
-- The summary must feel like a refined Jungian reading of the psyche.
-- The motiv field must offer integration guidance, not cheerleading.
-- symbolic_reading must explain the symbolic logic and psychic movement of the dream.
-- shadow_focus must identify what disowned or rejected part may be appearing.
-- core_conflict must name the central inner tension.
-- individuation_path must suggest the next movement toward inner wholeness.
+Interpretation rules:
+- Use Jungian depth psychology, not generic inspiration.
+- Treat the dream as symbolic communication from the unconscious.
+- Consider persona, shadow, compensation, anima/animus tension, defensive structure, blocked vitality, fear, and individuation.
+- Do not diagnose disorders.
+- Do not use deterministic certainty.
+- Be psychologically deep, elegant, emotionally intelligent, and symbolically coherent.
+- summary must be rich and premium, not shallow.
+- motiv must be integration guidance, not self-help cheerleading.
+- shadow_focus must identify rejected/disowned psychic material.
+- core_conflict must name the central psychic tension.
+- symbolic_reading must explain dream logic and symbolic movement.
+- individuation_path must suggest the next psychologically meaningful step.
 
 Persona profile rules:
-- Create a distinctive, emotionally resonant, shareable Jungian persona name.
-- The persona name should feel premium, psychologically evocative, and specific to the dream.
-- Avoid cliché labels.
-- public_self should describe the outward adaptation or social mask.
-- hidden_self should describe what may be concealed, repressed, or unowned.
-- strengths, shadow_sides, core_fears, emotional_needs, and defenses should be psychologically coherent and not generic.
+- persona_profile.name must feel distinctive, premium, memorable, and psychologically specific.
+- tagline should feel elegant and shareable.
+- public_self and hidden_self should be meaningfully contrasted.
+- strengths, shadow_sides, core_fears, emotional_needs, defenses must be coherent with the same psyche.
 
-Color and visual theme rules:
-- The output must support a visually rich frontend.
-- visual_theme and section_themes are required and must be meaningfully tied to the psychology of the dream.
-- Use elegant, premium, emotionally intelligent color logic.
-- Avoid childish, neon, comedic, or chaotic palettes.
-- Good references:
-  - persona: gold, champagne, amber, ivory
-  - shadow: plum, indigo, midnight blue, black cherry
-  - anima/animus: silver, dusty rose, mist blue, pale emerald
-  - fear: cold gray, muted violet, ice blue
-  - transformation: emerald, deep teal, petrol blue, silver light
+Visual theme rules:
+- visual_theme and section_themes must be tightly linked to the psychology of the dream.
+- Use elegant premium palettes suitable for a dark immersive interface.
+- Avoid childish, neon, comedic, random, or muddy palettes.
 - All color fields must be valid 6-digit HEX values.
-- gradient_suggestion should be short but visual, like "deep indigo to plum with soft silver edge glow".
-- texture_hint can suggest velvet, mist, moonlight haze, obsidian gloss, brushed gold, soft grain, etc.
-- highlight_style and card_style should be UI-friendly phrases.
+- section_themes must include persona, shadow, and transformation.
+- gradient_suggestion must be short and visual.
+- texture_hint, highlight_style, and card_style must be UI-friendly and aesthetically refined.
 
-Output coverage rules:
-- Identify 1 to 5 Jungian archetypes.
-- sentiment must be exactly one of: Fear, Joy, Sadness, Peace, Anxiety, Awe, Confusion, Surprise
-- title, summary, motiv, shadow_focus, core_conflict, individuation_path, symbolic_reading, and persona_profile.name/tagline must be natural and strong.
-- Write natural text for all 8 languages in title, summary, and motiv.
-- For deeper sections, at minimum provide high-quality tr and en values where applicable.
-- symbols should include 3 to 8 psychologically meaningful elements.
-- emotions should contain 1 to 5 items.
-- reflection_questions should contain 3 to 6 meaningful questions in tr and en.
-- All scores and intensity values must be integers from 0 to 100.
+Coverage rules:
+- title, summary, motiv must be present in all of: tr, en, es, fr, de, pt, ru, ja.
+- shadow_focus, core_conflict, individuation_path, symbolic_reading should at least contain tr and en.
+- persona_profile.name and persona_profile.tagline should be present in all 8 languages.
+- persona_profile.archetypal_style, public_self, hidden_self should at least contain tr and en.
+- strengths, shadow_sides, core_fears, emotional_needs, defenses should at least contain tr and en arrays.
+- archetypes: 1 to 5 items.
+- symbols: 3 to 8 items.
+- emotions: 1 to 5 items.
+- reflection_questions: 3 to 6 items in tr and en.
+- sentiment must be exactly one of: ${ALLOWED_EMOTIONS.join(', ')}
+- All intensity and score fields must be integers 0-100.
 
-Important quality bar:
-This should feel like a premium psychological insight experience, not a generic AI summary.
+Quality bar:
+This must feel like a premium psychological mirror, not an AI template.
 
 Output ONLY JSON.
 `.trim()
 }
 
+function extractJsonString(rawContent) {
+  if (typeof rawContent !== 'string') {
+    throw new Error('AI çıktısı metin değil')
+  }
+
+  const trimmed = rawContent.trim()
+
+  try {
+    JSON.parse(trimmed)
+    return trimmed
+  } catch {}
+
+  const fenced = trimmed.match(/```(?:json)?s*([sS]*?)s*```/i)
+  if (fenced?.[1]) {
+    const candidate = fenced[1].trim()
+    JSON.parse(candidate)
+    return candidate
+  }
+
+  const firstBrace = trimmed.indexOf('{')
+  const lastBrace = trimmed.lastIndexOf('}')
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    const candidate = trimmed.slice(firstBrace, lastBrace + 1)
+    JSON.parse(candidate)
+    return candidate
+  }
+
+  throw new Error('AI çıktısı JSON parse edilemedi')
+}
+
 function parseAnalysis(rawContent) {
   let parsed
   try {
-    parsed = JSON.parse(rawContent)
+    parsed = JSON.parse(extractJsonString(rawContent))
   } catch {
     throw new Error('AI çıktısı JSON parse edilemedi')
   }
@@ -272,10 +362,10 @@ function parseAnalysis(rawContent) {
   const symbols = Array.isArray(parsed.symbols)
     ? parsed.symbols
         .map((item) => ({
-          symbol: normalizeText(item?.symbol),
-          meaning_tr: normalizeText(item?.meaning_tr),
-          meaning_en: normalizeText(item?.meaning_en),
-          emotional_charge: normalizeText(item?.emotional_charge),
+          symbol: normalizeText(item?.symbol, 120),
+          meaning_tr: normalizeText(item?.meaning_tr, 300),
+          meaning_en: normalizeText(item?.meaning_en, 300),
+          emotional_charge: normalizeText(item?.emotional_charge, 160),
           intensity: normalizeScore(item?.intensity, 0, 100),
           color: normalizeHex(item?.color, '#6B7280'),
         }))
@@ -294,64 +384,107 @@ function parseAnalysis(rawContent) {
     : []
 
   const personaProfile = {
-    name: parsed?.persona_profile?.name || {},
-    archetypal_style: parsed?.persona_profile?.archetypal_style || {},
-    public_self: parsed?.persona_profile?.public_self || {},
-    hidden_self: parsed?.persona_profile?.hidden_self || {},
-    strengths: parsed?.persona_profile?.strengths || {},
-    shadow_sides: parsed?.persona_profile?.shadow_sides || {},
-    core_fears: parsed?.persona_profile?.core_fears || {},
-    emotional_needs: parsed?.persona_profile?.emotional_needs || {},
-    defenses: parsed?.persona_profile?.defenses || {},
-    tagline: parsed?.persona_profile?.tagline || {},
+    name: ensureMultilangText(parsed?.persona_profile?.name),
+    tagline: ensureMultilangText(parsed?.persona_profile?.tagline),
+    archetypal_style: {
+      tr: normalizeText(parsed?.persona_profile?.archetypal_style?.tr, 600),
+      en: normalizeText(parsed?.persona_profile?.archetypal_style?.en, 600),
+    },
+    public_self: {
+      tr: normalizeText(parsed?.persona_profile?.public_self?.tr, 600),
+      en: normalizeText(parsed?.persona_profile?.public_self?.en, 600),
+    },
+    hidden_self: {
+      tr: normalizeText(parsed?.persona_profile?.hidden_self?.tr, 600),
+      en: normalizeText(parsed?.persona_profile?.hidden_self?.en, 600),
+    },
+    strengths: ensureBilingualArray(parsed?.persona_profile?.strengths, 6),
+    shadow_sides: ensureBilingualArray(parsed?.persona_profile?.shadow_sides, 6),
+    core_fears: ensureBilingualArray(parsed?.persona_profile?.core_fears, 6),
+    emotional_needs: ensureBilingualArray(parsed?.persona_profile?.emotional_needs, 6),
+    defenses: ensureBilingualArray(parsed?.persona_profile?.defenses, 6),
   }
 
   const visualTheme = {
-    overall_mood: normalizeText(parsed?.visual_theme?.overall_mood),
-    aura: normalizeText(parsed?.visual_theme?.aura),
+    overall_mood: normalizeText(parsed?.visual_theme?.overall_mood, 200),
+    aura: normalizeText(parsed?.visual_theme?.aura, 200),
     primary_color: normalizeHex(parsed?.visual_theme?.primary_color, '#1F2937'),
     secondary_color: normalizeHex(parsed?.visual_theme?.secondary_color, '#374151'),
     accent_color: normalizeHex(parsed?.visual_theme?.accent_color, '#C084FC'),
     background_color: normalizeHex(parsed?.visual_theme?.background_color, '#0B1020'),
     text_color: normalizeHex(parsed?.visual_theme?.text_color, '#F9FAFB'),
-    gradient_suggestion: normalizeText(parsed?.visual_theme?.gradient_suggestion),
-    texture_hint: normalizeText(parsed?.visual_theme?.texture_hint),
-    highlight_style: normalizeText(parsed?.visual_theme?.highlight_style),
-    card_style: normalizeText(parsed?.visual_theme?.card_style),
+    gradient_suggestion: normalizeText(parsed?.visual_theme?.gradient_suggestion, 200),
+    texture_hint: normalizeText(parsed?.visual_theme?.texture_hint, 120),
+    highlight_style: normalizeText(parsed?.visual_theme?.highlight_style, 120),
+    card_style: normalizeText(parsed?.visual_theme?.card_style, 120),
   }
 
-  const sectionThemes = parsed?.section_themes || {}
-
-  if (!archetypes.length) throw new Error('Arketip üretilemedi')
-  if (!symbols.length) throw new Error('Sembol üretilemedi')
-  if (!pickLocalized(parsed.summary, 'en', 'en')) {
-    throw new Error('Özet üretilemedi')
+  const sectionThemes = {
+    persona: ensureThemeBlock(parsed?.section_themes?.persona, {
+      aura: visualTheme.aura,
+      primary_color: visualTheme.primary_color,
+      secondary_color: visualTheme.secondary_color,
+      accent_color: visualTheme.accent_color,
+      gradient_suggestion: visualTheme.gradient_suggestion,
+    }),
+    shadow: ensureThemeBlock(parsed?.section_themes?.shadow, {
+      aura: 'shadowed, introspective, dense',
+      primary_color: '#241833',
+      secondary_color: '#0F172A',
+      accent_color: '#7C3AED',
+      gradient_suggestion: 'deep plum into midnight blue',
+    }),
+    transformation: ensureThemeBlock(parsed?.section_themes?.transformation, {
+      aura: 'renewal, integration, emergence',
+      primary_color: '#0F766E',
+      secondary_color: '#164E63',
+      accent_color: '#99F6E4',
+      gradient_suggestion: 'deep teal into silver-blue light',
+    }),
   }
-  if (!pickLocalized(personaProfile.name, 'en', 'en')) {
-    throw new Error('Persona adı üretilemedi')
-  }
 
-  return {
+  const result = {
     raw: parsed,
-    title: parsed.title || {},
-    summary: parsed.summary || {},
-    motiv: parsed.motiv || {},
-    shadow_focus: parsed.shadow_focus || {},
-    core_conflict: parsed.core_conflict || {},
-    individuation_path: parsed.individuation_path || {},
-    symbolic_reading: parsed.symbolic_reading || {},
+    title: ensureMultilangText(parsed.title),
+    summary: ensureMultilangText(parsed.summary),
+    motiv: ensureMultilangText(parsed.motiv),
+    shadow_focus: {
+      tr: normalizeText(parsed?.shadow_focus?.tr, 1000),
+      en: normalizeText(parsed?.shadow_focus?.en, 1000),
+    },
+    core_conflict: {
+      tr: normalizeText(parsed?.core_conflict?.tr, 1000),
+      en: normalizeText(parsed?.core_conflict?.en, 1000),
+    },
+    individuation_path: {
+      tr: normalizeText(parsed?.individuation_path?.tr, 1000),
+      en: normalizeText(parsed?.individuation_path?.en, 1000),
+    },
+    symbolic_reading: {
+      tr: normalizeText(parsed?.symbolic_reading?.tr, 1500),
+      en: normalizeText(parsed?.symbolic_reading?.en, 1500),
+    },
     persona_profile: personaProfile,
     visual_theme: visualTheme,
     section_themes: sectionThemes,
-    reflection_questions: parsed.reflection_questions || {},
+    reflection_questions: ensureBilingualArray(parsed?.reflection_questions, 6),
     archetypes,
     sentiment,
     symbols,
     emotions,
   }
+
+  if (!result.archetypes.length) throw new Error('Arketip üretilemedi')
+  if (!result.symbols.length) throw new Error('Sembol üretilemedi')
+  if (!pickLocalized(result.summary, 'en', 'en')) throw new Error('Özet üretilemedi')
+  if (!pickLocalized(result.persona_profile.name, 'en', 'en')) {
+    throw new Error('Persona adı üretilemedi')
+  }
+
+  return result
 }
 
-async function analyzeWithGroq({ content, language, groqKey }) {
+async function analyzeWithGroq({ content, language, groqKey, userId }) {
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -361,19 +494,23 @@ async function analyzeWithGroq({ content, language, groqKey }) {
     body: JSON.stringify({
       model: GROQ_MODEL,
       temperature: 0.7,
-      max_tokens: 3200,
+      max_completion_tokens: 3200,
+      user: userId ? String(userId) : undefined,
       messages: [
         {
           role: 'system',
           content:
-            'You return only valid JSON. You are a refined Jungian depth analyst producing premium structured dream interpretations for an immersive psychological product.',
+            'You return only valid JSON. No markdown. No commentary. Produce a premium Jungian structured dream analysis for Lunosfer.',
         },
         {
           role: 'user',
           content: buildPrompt(content, language),
         },
       ],
-      response_format: { type: 'json_object' },
+      response_format: {
+        type: 'json_schema',
+        json_schema: buildJsonSchema(),
+      },
     }),
   })
 
@@ -391,31 +528,35 @@ async function analyzeWithGroq({ content, language, groqKey }) {
   return parseAnalysis(rawContent)
 }
 
-async function analyzeWithOpenRouter({ content, language, apiKey }) {
+async function analyzeWithOpenRouter({ content, language, apiKey, userId }) {
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': 'https://lunosfer.com',
-      'X-Title': 'Lunosfer',
+      'X-OpenRouter-Title': 'Lunosfer',
     },
     body: JSON.stringify({
       model: OPENROUTER_MODEL,
       temperature: 0.7,
       max_tokens: 3200,
+      user: userId ? String(userId) : undefined,
       messages: [
         {
           role: 'system',
           content:
-            'You return only valid JSON. You are a refined Jungian depth analyst producing premium structured dream interpretations for an immersive psychological product.',
+            'You return only valid JSON. No markdown. No commentary. Produce a premium Jungian structured dream analysis for Lunosfer.',
         },
         {
           role: 'user',
           content: buildPrompt(content, language),
         },
       ],
-      response_format: { type: 'json_object' },
+      response_format: {
+        type: 'json_schema',
+        json_schema: buildJsonSchema(),
+      },
     }),
   })
 
@@ -544,6 +685,9 @@ function buildDreamUpdate({ dreamId, content, language, analysis, provider, mode
 
     ai_jungian_analysis: {
       ...analysis.raw,
+      title: analysis.title,
+      summary: analysis.summary,
+      motiv: analysis.motiv,
       shadow_focus: analysis.shadow_focus,
       core_conflict: analysis.core_conflict,
       individuation_path: analysis.individuation_path,
@@ -552,8 +696,13 @@ function buildDreamUpdate({ dreamId, content, language, analysis, provider, mode
       visual_theme: analysis.visual_theme,
       section_themes: analysis.section_themes,
       reflection_questions: analysis.reflection_questions,
+      archetypes: analysis.archetypes,
+      sentiment: analysis.sentiment,
+      symbols: analysis.symbols,
+      emotions: analysis.emotions,
       provider,
       model,
+      analysis_version: ANALYSIS_VERSION,
       image_prompt: imagePrompt,
       image_url: imageUrl,
     },
@@ -576,11 +725,7 @@ export default async function handler(req, res) {
   const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
   const GROQ_KEY = process.env.GROQ_KEY || process.env.GROQ_API_KEY
   const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
-return res.status(200).json({
-  debug: true,
-  groqModel: GROQ_MODEL,
-  openrouterModel: OPENROUTER_MODEL,
-})
+
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return res.status(500).json({
       error: 'Supabase env eksik',
@@ -591,7 +736,7 @@ return res.status(200).json({
     })
   }
 
-  const { dreamId, content, language } = req.body || {}
+  const { dreamId, content, language, userId } = req.body || {}
 
   if (!dreamId || !content) {
     return res.status(400).json({ error: 'dreamId ve content zorunlu' })
@@ -625,6 +770,7 @@ return res.status(200).json({
           content,
           language: language || 'en',
           groqKey: GROQ_KEY,
+          userId: userId || dreamId,
         })
         provider = 'groq'
         model = GROQ_MODEL
@@ -640,6 +786,7 @@ return res.status(200).json({
           content,
           language: language || 'en',
           apiKey: OPENROUTER_API_KEY,
+          userId: userId || dreamId,
         })
         provider = 'openrouter'
         model = OPENROUTER_MODEL
@@ -655,9 +802,7 @@ return res.status(200).json({
     }
 
     if (!analysis) {
-      throw new Error(
-        groqError?.message || 'Ne Groq ne OpenRouter ile analiz alınamadı'
-      )
+      throw new Error(groqError?.message || 'Ne Groq ne OpenRouter ile analiz alınamadı')
     }
 
     const updates = buildDreamUpdate({
@@ -686,6 +831,7 @@ return res.status(200).json({
       analysis: {
         title: updates.ai_title,
         summary: updates.ai_summary,
+        motiv: updates.ai_motiv,
         sentiment: analysis.sentiment,
         archetypes: analysis.archetypes,
         personaName:
