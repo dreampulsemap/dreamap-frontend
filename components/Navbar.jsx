@@ -91,7 +91,6 @@ export default function Navbar() {
         console.error('Navbar user check failed:', error)
       }
     }
-
     checkUser()
   }, [])
 
@@ -115,10 +114,10 @@ export default function Navbar() {
             <Image
               src="/logo.png"
               alt="Lunosfer"
-              width={136}
+              width={132}
               height={40}
               priority
-              className="h-9 w-auto object-contain sm:h-10"
+              className="h-8 w-auto object-contain sm:h-10"
             />
           </div>
         </Link>
@@ -160,6 +159,15 @@ export default function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2 md:hidden">
+          {user ? (
+            <Link
+              href="/profile"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-emerald-300/16 bg-emerald-500/10 px-3 text-sm font-medium text-emerald-100 transition hover:border-emerald-300/30 hover:bg-emerald-500/16"
+            >
+              👤
+            </Link>
+          ) : null}
+
           <LanguageSwitcher />
 
           <button
@@ -199,16 +207,6 @@ export default function Navbar() {
             >
               🔮 {ui.prophecy}
             </a>
-
-            {user ? (
-              <Link
-                href="/profile"
-                onClick={() => setMenuOpen(false)}
-                className="inline-flex min-h-[48px] items-center rounded-2xl border border-emerald-300/16 bg-emerald-500/10 px-4 text-sm font-medium text-emerald-100"
-              >
-                👤 {profileLabel}
-              </Link>
-            ) : null}
           </div>
         </div>
       ) : null}
