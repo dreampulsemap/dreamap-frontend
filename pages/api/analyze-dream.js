@@ -1,3 +1,5 @@
+// pages/api/analyze-dream.js (veya app/api/.../route.js adaptasyonu)
+
 import { createClient } from '@supabase/supabase-js'
 
 const GROQ_MODEL = 'llama-3.1-8b-instant'
@@ -276,35 +278,11 @@ Interpretation rules:
 - Do not diagnose disorders.
 - Do not use deterministic certainty.
 - Be psychologically deep, elegant, emotionally intelligent, and symbolically coherent.
-- summary must be rich and premium, not shallow.
-- motiv must be integration guidance, not self-help cheerleading.
-- shadow_focus must identify rejected/disowned psychic material.
-- core_conflict must name the central psychic tension.
-- symbolic_reading must explain dream logic and symbolic movement.
-- individuation_path must suggest the next psychologically meaningful step.
-
-Persona profile rules:
-- persona_profile.name must feel distinctive, premium, memorable, and psychologically specific.
-- tagline should feel elegant and shareable.
-- public_self and hidden_self should be meaningfully contrasted.
-- strengths, shadow_sides, core_fears, emotional_needs, defenses must be coherent with the same psyche.
-
-Visual theme rules:
-- visual_theme and section_themes must be tightly linked to the psychology of the dream.
-- Use elegant premium palettes suitable for a dark immersive interface.
-- Avoid childish, neon, comedic, random, or muddy palettes.
-- All color fields must be valid 6-digit HEX values.
-- section_themes must include persona, shadow, and transformation.
-- gradient_suggestion must be short and visual.
-- texture_hint, highlight_style, and card_style must be UI-friendly and aesthetically refined.
 
 Coverage rules:
 - title, summary, motiv must be present in all of: tr, en, es, fr, de, pt, ru, ja.
 - shadow_focus, core_conflict, individuation_path, symbolic_reading should at least contain tr and en.
 - persona_profile.name and persona_profile.tagline should be present in all 8 languages.
-- persona_profile.archetypal_style, public_self, hidden_self should at least contain tr and en.
-- strengths, shadow_sides, core_fears, emotional_needs, defenses should at least contain tr and en arrays.
-- archetypes: 1 to 5 items.
 - symbols: 3 to 8 items.
 - emotions: 1 to 5 items.
 - reflection_questions: 3 to 6 items in tr and en.
@@ -322,21 +300,17 @@ function extractJsonString(rawContent) {
   if (typeof rawContent !== 'string') {
     throw new Error('AI çıktısı metin değil')
   }
-
   const trimmed = rawContent.trim()
-
   try {
     JSON.parse(trimmed)
     return trimmed
   } catch {}
-
   const fenced = trimmed.match(/```(?:json)?s*([sS]*?)s*```/i)
   if (fenced?.[1]) {
     const candidate = fenced[1].trim()
     JSON.parse(candidate)
     return candidate
   }
-
   const firstBrace = trimmed.indexOf('{')
   const lastBrace = trimmed.lastIndexOf('}')
   if (firstBrace >= 0 && lastBrace > firstBrace) {
@@ -344,7 +318,6 @@ function extractJsonString(rawContent) {
     JSON.parse(candidate)
     return candidate
   }
-
   throw new Error('AI çıktısı JSON parse edilemedi')
 }
 
