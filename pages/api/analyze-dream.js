@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile'
-const OPENROUTER_MODEL =
-  process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct'
+const OPENROUTER_MODEL = 'meta-llama/llama-3.1-8b-instruct'
 const ANALYSIS_VERSION = 'jung-v8-persona-color-structured'
 
 function normalizeText(value) {
