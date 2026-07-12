@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import { auth } from '../lib/supabase'
 import LanguageSwitcher from './LanguageSwitcher'
@@ -13,7 +14,6 @@ const NAV_UI = {
     prophecy: 'Kehanet',
     menu: 'Menü',
     close: 'Kapat',
-    tagline: 'kolektif rüya ağı',
   },
   en: {
     globe: 'Globe',
@@ -22,7 +22,6 @@ const NAV_UI = {
     prophecy: 'Prophecy',
     menu: 'Menu',
     close: 'Close',
-    tagline: 'collective dream network',
   },
   es: {
     globe: 'Globo',
@@ -31,7 +30,6 @@ const NAV_UI = {
     prophecy: 'Profecía',
     menu: 'Menú',
     close: 'Cerrar',
-    tagline: 'red colectiva de sueños',
   },
   fr: {
     globe: 'Globe',
@@ -40,7 +38,6 @@ const NAV_UI = {
     prophecy: 'Prophétie',
     menu: 'Menu',
     close: 'Fermer',
-    tagline: 'réseau collectif de rêves',
   },
   de: {
     globe: 'Globus',
@@ -49,7 +46,6 @@ const NAV_UI = {
     prophecy: 'Prophezeiung',
     menu: 'Menü',
     close: 'Schließen',
-    tagline: 'kollektives Traumnetzwerk',
   },
   pt: {
     globe: 'Globo',
@@ -58,7 +54,6 @@ const NAV_UI = {
     prophecy: 'Profecia',
     menu: 'Menu',
     close: 'Fechar',
-    tagline: 'rede coletiva de sonhos',
   },
   ru: {
     globe: 'Глобус',
@@ -67,7 +62,6 @@ const NAV_UI = {
     prophecy: 'Пророчество',
     menu: 'Меню',
     close: 'Закрыть',
-    tagline: 'коллективная сеть снов',
   },
   ja: {
     globe: 'グローブ',
@@ -76,20 +70,7 @@ const NAV_UI = {
     prophecy: '予言',
     menu: 'メニュー',
     close: '閉じる',
-    tagline: '集合的な夢のネットワーク',
   },
-}
-
-function BrandMark() {
-  return (
-    <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/6 shadow-[0_0_30px_rgba(56,189,248,0.08)] backdrop-blur-xl">
-      <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.14),transparent_45%),radial-gradient(circle_at_70%_70%,rgba(168,85,247,0.16),transparent_50%)]" />
-      <div className="relative h-6 w-6 rounded-full border border-cyan-200/40">
-        <div className="absolute inset-[3px] rounded-full border border-violet-300/35" />
-        <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.65)]" />
-      </div>
-    </div>
-  )
 }
 
 export default function Navbar() {
@@ -129,20 +110,16 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/8 bg-slate-950/70 backdrop-blur-2xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" className="group min-w-0">
-          <div className="flex items-center gap-3">
-            <BrandMark />
-
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="bg-gradient-to-r from-white via-cyan-100 to-violet-200 bg-clip-text text-[1.05rem] font-semibold tracking-[0.18em] text-transparent sm:text-[1.15rem]">
-                  LUNOSFER
-                </span>
-              </div>
-              <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.24em] text-slate-500 sm:text-[11px]">
-                {ui.tagline}
-              </p>
-            </div>
+        <Link href="/" className="shrink-0">
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 px-3 py-2 shadow-[0_0_30px_rgba(56,189,248,0.06)]">
+            <Image
+              src="/logo.png"
+              alt="Lunosfer"
+              width={136}
+              height={40}
+              priority
+              className="h-9 w-auto object-contain sm:h-10"
+            />
           </div>
         </Link>
 
@@ -177,7 +154,7 @@ export default function Navbar() {
             </Link>
           ) : null}
 
-          <div className="ml-1">
+          <div className="ml-1 shrink-0">
             <LanguageSwitcher />
           </div>
         </nav>
