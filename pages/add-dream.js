@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/router'
-import { auth, supabase } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '../lib/translations'
 
 export default function AddDreamPage() {
   const { i18n } = useTranslation()
   const router = useRouter()
-  const lang = i18n.language || 'en'
+  const lang = (i18n.language || 'en').split('-')[0]
+
   const [user, setUser] = useState(null)
   const [content, setContent] = useState('')
   const [location, setLocation] = useState('')
@@ -18,109 +19,159 @@ export default function AddDreamPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // Duygular - 8 dilde
-  const emotions = [
-    { value: 'Fear', emoji: '😨', label: getTranslation('emotion.fear', lang) },
-    { value: 'Joy', emoji: '😊', label: getTranslation('emotion.joy', lang) },
-    { value: 'Sadness', emoji: '😢', label: getTranslation('emotion.sadness', lang) },
-    { value: 'Peace', emoji: '😌', label: getTranslation('emotion.peace', lang) },
-    { value: 'Anxiety', emoji: '😰', label: getTranslation('emotion.anxiety', lang) },
-    { value: 'Awe', emoji: '🙄', label: getTranslation('emotion.awe', lang) },
-    { value: 'Confusion', emoji: '😕', label: getTranslation('emotion.confusion', lang) },
-    { value: 'Surprise', emoji: '😮', label: getTranslation('emotion.surprise', lang) }
-    { value: 'Anger', emoji: '😡', label: getTranslation('emotion.surprise', lang) }
-  ]
+  const emotions = useMemo(
+    () => [
+      { value: 'Joy', emoji: '😊', label: getTranslation('emotion.joy', lang) },
+      { value: 'Peace', emoji: '😌', label: getTranslation('emotion.peace', lang) },
+      { value: 'Love', emoji: '🥰', label: getTranslation('emotion.love', lang) },
+      { value: 'Hope', emoji: '✨', label: getTranslation('emotion.hope', lang) },
+      { value: 'Awe', emoji: '😲', label: getTranslation('emotion.awe', lang) },
+      { value: 'Surprise', emoji: '😮', label: getTranslation('emotion.surprise', lang) },
+      { value: 'Curiosity', emoji: '🤔', label: getTranslation('emotion.curiosity', lang) },
+      { value: 'Confusion', emoji: '😕', label: getTranslation('emotion.confusion', lang) },
+      { value: 'Fear', emoji: '😨', label: getTranslation('emotion.fear', lang) },
+      { value: 'Anxiety', emoji: '😰', label: getTranslation('emotion.anxiety', lang) },
+      { value: 'Sadness', emoji: '😢', label: getTranslation('emotion.sadness', lang) },
+      { value: 'Loneliness', emoji: '🫥', label: getTranslation('emotion.loneliness', lang) },
+      { value: 'Anger', emoji: '😡', label: getTranslation('emotion.anger', lang) },
+      { value: 'Shame', emoji: '😞', label: getTranslation('emotion.shame', lang) },
+      { value: 'Disgust', emoji: '🤢', label: getTranslation('emotion.disgust', lang) },
+      { value: 'Relief', emoji: '😮‍💨', label: getTranslation('emotion.relief', lang) }
+    ],
+    [lang]
+  )
 
   useEffect(() => {
+    let active = true
+
     async function checkUser() {
-      const currentUser = await auth.getUser()
-      if (!currentUser) {
+      try {
+        const {
+          data: { user: currentUser },
+          error: userError
+        } = await supabase.auth.getUser()
+
+        if (userError || !currentUser) {
+          router.push('/auth')
+          return
+        }
+
+        if (!active) return
+        setUser(currentUser)
+        fetchLocationFromIP()
+      } catch (err) {
+        console.error('User check failed:', err)
         router.push('/auth')
-        return
       }
-      setUser(currentUser)
-      fetchLocationFromIP()
     }
+
     checkUser()
+
+    return () => {
+      active = false
+    }
   }, [router])
 
   async function fetchLocationFromIP() {
     try {
       const response = await fetch('https://ipapi.co/json/')
       const data = await response.json()
-      if (data.city && data.country_name) {
+
+      if (data?.city && data?.country_name) {
         setLocation(`${data.city}, ${data.country_name}`)
       }
-    } catch (error) {
-      console.error('Konum alınamadı:', error)
+    } catch (err) {
+      console.error('Location could not be fetched:', err)
     }
+  }
+
+  async function getCoordinatesFromLocation(place) {
+    if (!place) return { lat: null, lng: null }
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place)}&limit=1`,
+        {
+          headers: {
+            Accept: 'application/json'
+          }
+        }
+      )
+
+      const data = await response.json()
+
+      if (Array.isArray(data) && data[0]) {
+        return {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon)
+        }
+      }
+    } catch (err) {
+      console.error('Coordinates could not be fetched:', err)
+    }
+
+    return { lat: null, lng: null }
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
+
+    if (!content.trim()) {
+      setError(getTranslation('dream.validationContent', lang))
+      return
+    }
+
     setLoading(true)
     setError(null)
 
     try {
-      // Konumdan koordinat al
-      let lat = null
-      let lng = null
-      
-      if (location) {
-        try {
-          const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1`)
-          const data = await response.json()
-          if (data && data[0]) {
-            lat = parseFloat(data[0].lat)
-            lng = parseFloat(data[0].lon)
-          }
-        } catch (err) {
-          console.error('Koordinat alınamadı:', err)
-        }
-      }
+      const { lat, lng } = await getCoordinatesFromLocation(location)
 
-      const { data, error } = await supabase
+      const { data, error: insertError } = await supabase
         .from('dreams')
-        .insert([{
-          user_id: user.id,
-          content: content,
-          location_name: location || getTranslation('location.unknown', lang),
-          latitude: lat,
-          longitude: lng,
-          in_feed: inFeed,
-          map_detail: mapDetail,
-          visibility: visibility,
-          user_selected_sentiment: userSentiment || null,
-          dream_date: new Date().toISOString().split('T')[0],
-          original_language: lang,
-          created_at: new Date().toISOString()
-        }])
+        .insert([
+          {
+            user_id: user.id,
+            content: content.trim(),
+            location_name: location.trim() || getTranslation('location.unknown', lang),
+            latitude: lat,
+            longitude: lng,
+            in_feed: inFeed,
+            map_detail: mapDetail,
+            visibility,
+            user_selected_sentiment: userSentiment || null,
+            dream_date: new Date().toISOString().split('T')[0],
+            original_language: lang,
+            created_at: new Date().toISOString()
+          }
+        ])
         .select()
 
-      if (error) throw error
+      if (insertError) throw insertError
+      if (!data || !data[0]) {
+        throw new Error(getTranslation('dream.createFailed', lang))
+      }
 
-      if (data && data[0]) {
-  const analyzeRes = await fetch('/api/analyze-dream', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      dreamId: data[0].id,
-      content: content,
-      language: lang
-    })
-  })
+      const analyzeRes = await fetch('/api/analyze-dream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dreamId: data[0].id,
+          content: content.trim(),
+          language: lang
+        })
+      })
 
-  if (!analyzeRes.ok) {
-  const errorData = await analyzeRes.json().catch(() => null)
-  throw new Error(
-    errorData?.error || 'Rüya analizi başlatılamadı'
-  )
-}
+      if (!analyzeRes.ok) {
+        const errorData = await analyzeRes.json().catch(() => null)
+        throw new Error(
+          errorData?.error || getTranslation('dream.analysisFailed', lang)
+        )
+      }
 
-  router.push(`/dream/${data[0].id}`)
-}
+      router.push(`/dream/${data[0].id}`)
     } catch (err) {
-      setError(err.message)
+      setError(err?.message || getTranslation('common.errorGeneric', lang))
     } finally {
       setLoading(false)
     }
@@ -129,23 +180,35 @@ export default function AddDreamPage() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-white text-xl animate-pulse">{getTranslation('auth.loading', lang)}</div>
+        <div className="text-white text-xl animate-pulse">
+          {getTranslation('auth.loading', lang)}
+        </div>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header */}
-      <header className="sticky top-0 z-50 glass-card border-b border-white/10" style={{ borderRadius: 0 }}>
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+      <header
+        className="sticky top-0 z-50 glass-card border-b border-white/10"
+        style={{ borderRadius: 0 }}
+      >
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <a href="/" className="flex items-center gap-2 hover:opacity-80 transition-all">
-              <span className="text-3xl">🌙</span>
-              <span className="text-xl font-bold gradient-text">Dreamap</span>
+            <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-all">
+              <img
+                src="/logo.png"
+                alt="Lunosfer Logo"
+                className="w-10 h-10 object-contain"
+              />
+              <span className="text-xl font-bold gradient-text">Lunosfer</span>
             </a>
           </div>
-          <a href="/" className="glass-card px-4 py-2 text-white/80 hover:text-white transition-all flex items-center gap-2">
+
+          <a
+            href="/"
+            className="glass-card px-4 py-2 text-white/80 hover:text-white transition-all flex items-center gap-2"
+          >
             <span>←</span>
             <span>{getTranslation('nav.backToHome', lang)}</span>
           </a>
@@ -153,13 +216,12 @@ export default function AddDreamPage() {
       </header>
 
       <div className="max-w-2xl mx-auto p-4">
-        <div className="glass-card p-8">
+        <div className="glass-card p-6 sm:p-8">
           <h1 className="text-3xl font-bold gradient-text mb-8">
             {getTranslation('dream.addTitle', lang)}
           </h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Rüya Metni */}
             <div>
               <label className="text-sm text-white/60 block mb-2">
                 {getTranslation('dream.dreamText', lang)}
@@ -173,7 +235,6 @@ export default function AddDreamPage() {
               />
             </div>
 
-            {/* Konum */}
             <div>
               <label className="text-sm text-white/60 block mb-2">
                 {getTranslation('dream.location', lang)}
@@ -187,7 +248,6 @@ export default function AddDreamPage() {
               />
             </div>
 
-            {/* Paylaşım Seçenekleri */}
             <div className="glass-card p-4 bg-purple-500/10">
               <h3 className="text-lg font-semibold text-purple-300 mb-4">
                 {getTranslation('dream.shareOptions', lang)}
@@ -220,8 +280,11 @@ export default function AddDreamPage() {
                       onChange={(e) => setMapDetail(e.target.value)}
                       className="w-4 h-4"
                     />
-                    <span className="text-white/80">{getTranslation('dream.fullText', lang)}</span>
+                    <span className="text-white/80">
+                      {getTranslation('dream.fullText', lang)}
+                    </span>
                   </label>
+
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
@@ -231,7 +294,9 @@ export default function AddDreamPage() {
                       onChange={(e) => setMapDetail(e.target.value)}
                       className="w-4 h-4"
                     />
-                    <span className="text-white/80">{getTranslation('dream.summaryOnly', lang)}</span>
+                    <span className="text-white/80">
+                      {getTranslation('dream.summaryOnly', lang)}
+                    </span>
                   </label>
                 </div>
               </div>
@@ -250,8 +315,11 @@ export default function AddDreamPage() {
                       onChange={(e) => setVisibility(e.target.value)}
                       className="w-4 h-4"
                     />
-                    <span className="text-white/80">{getTranslation('dream.public', lang)}</span>
+                    <span className="text-white/80">
+                      {getTranslation('dream.public', lang)}
+                    </span>
                   </label>
+
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
@@ -261,8 +329,11 @@ export default function AddDreamPage() {
                       onChange={(e) => setVisibility(e.target.value)}
                       className="w-4 h-4"
                     />
-                    <span className="text-white/80">{getTranslation('dream.friends', lang)}</span>
+                    <span className="text-white/80">
+                      {getTranslation('dream.friends', lang)}
+                    </span>
                   </label>
+
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
@@ -272,13 +343,14 @@ export default function AddDreamPage() {
                       onChange={(e) => setVisibility(e.target.value)}
                       className="w-4 h-4"
                     />
-                    <span className="text-white/80">{getTranslation('dream.private', lang)}</span>
+                    <span className="text-white/80">
+                      {getTranslation('dream.private', lang)}
+                    </span>
                   </label>
                 </div>
               </div>
             </div>
 
-            {/* Kullanıcı Duygu Seçimi */}
             <div className="glass-card p-4 bg-purple-500/10">
               <h3 className="text-lg font-semibold text-purple-300 mb-4">
                 {getTranslation('dream.emotions', lang)}
@@ -286,13 +358,17 @@ export default function AddDreamPage() {
               <p className="text-white/60 text-sm mb-4">
                 {getTranslation('dream.emotionsHelp', lang)}
               </p>
-              
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {emotions.map((emotion) => (
                   <button
                     key={emotion.value}
                     type="button"
-                    onClick={() => setUserSentiment(userSentiment === emotion.value ? '' : emotion.value)}
+                    onClick={() =>
+                      setUserSentiment(
+                        userSentiment === emotion.value ? '' : emotion.value
+                      )
+                    }
                     className={`p-3 rounded-lg border transition-all ${
                       userSentiment === emotion.value
                         ? 'bg-purple-500/30 border-purple-500 text-white'
@@ -317,11 +393,13 @@ export default function AddDreamPage() {
               disabled={loading}
               className="w-full glass-card px-6 py-3 text-white font-semibold hover:bg-purple-500/20 transition-all disabled:opacity-50"
             >
-              {loading ? getTranslation('auth.loading', lang) : getTranslation('dream.submit', lang)}
+              {loading
+                ? getTranslation('auth.loading', lang)
+                : getTranslation('dream.submit', lang)}
             </button>
           </form>
         </div>
       </div>
     </div>
   )
-                            }
+}
