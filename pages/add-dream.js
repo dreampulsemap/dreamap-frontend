@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
-import { getTranslation } from '../lib/translations'
+import { getTranslation } from '../lib/i18n'
 
 export default function AddDreamPage() {
   const { i18n } = useTranslation()
@@ -21,22 +21,22 @@ export default function AddDreamPage() {
 
   const emotions = useMemo(
     () => [
-      { value: 'Joy', emoji: '😊', label: getTranslation('emotion.joy', lang) },
-      { value: 'Peace', emoji: '😌', label: getTranslation('emotion.peace', lang) },
-      { value: 'Love', emoji: '🥰', label: getTranslation('emotion.love', lang) },
-      { value: 'Hope', emoji: '✨', label: getTranslation('emotion.hope', lang) },
-      { value: 'Awe', emoji: '😲', label: getTranslation('emotion.awe', lang) },
-      { value: 'Surprise', emoji: '😮', label: getTranslation('emotion.surprise', lang) },
-      { value: 'Curiosity', emoji: '🤔', label: getTranslation('emotion.curiosity', lang) },
-      { value: 'Confusion', emoji: '😕', label: getTranslation('emotion.confusion', lang) },
-      { value: 'Fear', emoji: '😨', label: getTranslation('emotion.fear', lang) },
-      { value: 'Anxiety', emoji: '😰', label: getTranslation('emotion.anxiety', lang) },
-      { value: 'Sadness', emoji: '😢', label: getTranslation('emotion.sadness', lang) },
-      { value: 'Loneliness', emoji: '🫥', label: getTranslation('emotion.loneliness', lang) },
-      { value: 'Anger', emoji: '😡', label: getTranslation('emotion.anger', lang) },
-      { value: 'Shame', emoji: '😞', label: getTranslation('emotion.shame', lang) },
-      { value: 'Disgust', emoji: '🤢', label: getTranslation('emotion.disgust', lang) },
-      { value: 'Relief', emoji: '😮‍💨', label: getTranslation('emotion.relief', lang) }
+      { value: 'Joy',        emoji: '😊',   label: getTranslation('emotion.joy', lang) },
+      { value: 'Peace',      emoji: '😌',   label: getTranslation('emotion.peace', lang) },
+      { value: 'Love',       emoji: '🥰',   label: getTranslation('emotion.love', lang) },
+      { value: 'Hope',       emoji: '✨',   label: getTranslation('emotion.hope', lang) },
+      { value: 'Awe',        emoji: '😲',   label: getTranslation('emotion.awe', lang) },
+      { value: 'Surprise',   emoji: '😮',   label: getTranslation('emotion.surprise', lang) },
+      { value: 'Curiosity',  emoji: '🤔',   label: getTranslation('emotion.curiosity', lang) },
+      { value: 'Confusion',  emoji: '😕',   label: getTranslation('emotion.confusion', lang) },
+      { value: 'Fear',       emoji: '😨',   label: getTranslation('emotion.fear', lang) },
+      { value: 'Anxiety',    emoji: '😰',   label: getTranslation('emotion.anxiety', lang) },
+      { value: 'Sadness',    emoji: '😢',   label: getTranslation('emotion.sadness', lang) },
+      { value: 'Loneliness', emoji: '🫥',   label: getTranslation('emotion.loneliness', lang) },
+      { value: 'Anger',      emoji: '😡',   label: getTranslation('emotion.anger', lang) },
+      { value: 'Shame',      emoji: '😞',   label: getTranslation('emotion.shame', lang) },
+      { value: 'Disgust',    emoji: '🤢',   label: getTranslation('emotion.disgust', lang) },
+      { value: 'Relief',     emoji: '😮‍💨', label: getTranslation('emotion.relief', lang) }
     ],
     [lang]
   )
@@ -90,11 +90,11 @@ export default function AddDreamPage() {
 
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place)}&limit=1`,
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          place
+        )}&limit=1`,
         {
-          headers: {
-            Accept: 'application/json'
-          }
+          headers: { Accept: 'application/json' }
         }
       )
 
@@ -133,7 +133,8 @@ export default function AddDreamPage() {
           {
             user_id: user.id,
             content: content.trim(),
-            location_name: location.trim() || getTranslation('location.unknown', lang),
+            location_name:
+              location.trim() || getTranslation('location.unknown', lang),
             latitude: lat,
             longitude: lng,
             in_feed: inFeed,
@@ -195,7 +196,10 @@ export default function AddDreamPage() {
       >
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-all">
+            <a
+              href="/"
+              className="flex items-center gap-3 hover:opacity-80 transition-all"
+            >
               <img
                 src="/logo.png"
                 alt="Lunosfer Logo"
@@ -261,7 +265,10 @@ export default function AddDreamPage() {
                   onChange={(e) => setInFeed(e.target.checked)}
                   className="w-5 h-5 rounded"
                 />
-                <label htmlFor="inFeed" className="text-white/80 cursor-pointer">
+                <label
+                  htmlFor="inFeed"
+                  className="text-white/80 cursor-pointer"
+                >
                   {getTranslation('dream.shareInFeed', lang)}
                 </label>
               </div>
