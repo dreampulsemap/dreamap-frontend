@@ -575,7 +575,7 @@ export default async function handler(req, res) {
 
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
   const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const GROQ_KEY = process.env.GROQ_KEY
+  const GROQ_KEY = process.env.GROQ_KEY || process.env.GROQ_API_KEY
   const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
