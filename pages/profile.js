@@ -61,12 +61,15 @@ export default function ProfilePage() {
 
     async function loadData() {
       try {
-        const {
-          data: { user: currentUser },
-          error,
-        } = await auth.getUser()
+        const authResult = await auth.getUser()
 
-        if (error || !currentUser) {
+        const currentUser =
+          authResult?.data?.user ||
+          authResult?.user ||
+          authResult ||
+          null
+
+        if (!currentUser?.id) {
           router.push('/auth')
           return
         }
@@ -106,24 +109,29 @@ export default function ProfilePage() {
 
     return () => {
       mounted = false
+    }
+  }, [router])
+
+  useEffect(() => {
+    return () => {
       if (avatarPreview) URL.revokeObjectURL(avatarPreview)
     }
-  }, [router, avatarPreview])
+  }, [avatarPreview])
 
   async function loadDreams(userId) {
-    const { data, error } = await supabase
-      .from('dreams')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+    try {
+      const { data, error } = await supabase
+        .from('dreams')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Load dreams error:', error)
+      if (error) throw error
+      setDreams(data || [])
+    } catch (err) {
+      console.error('Load dreams error:', err)
       setDreams([])
-      return
     }
-
-    setDreams(data || [])
   }
 
   async function loadFriends(userId) {
@@ -424,43 +432,20 @@ export default function ProfilePage() {
             </div>
 
             <div className="min-w-0 flex flex-col leading-none">
-              <span
-                className="
-                  text-[0.75rem] sm:text-[1.1rem] md:text-[1.4rem]
-                  font-black tracking-[0.22em] sm:tracking-[0.32em] uppercase
-                  text-transparent bg-clip-text
-                  bg-gradient-to-r from-fuchsia-300 via-cyan-200 to-violet-300
-                  [text-shadow:0_0_8px_rgba(168,85,247,0.3),0_0_16px_rgba(34,211,238,0.15)]
-                  transition-all duration-300
-                  group-hover:from-fuchsia-200 group-hover:via-cyan-100 group-hover:to-violet-200
-                  whitespace-nowrap
-                "
-              >
+              <span className="text-[0.75rem] sm:text-[1.1rem] md:text-[1.4rem] font-black tracking-[0.22em] sm:tracking-[0.32em] uppercase text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-300 via-cyan-200 to-violet-300 [text-shadow:0_0_8px_rgba(168,85,247,0.3),0_0_16px_rgba(34,211,238,0.15)] transition-all duration-300 group-hover:from-fuchsia-200 group-hover:via-cyan-100 group-hover:to-violet-200 whitespace-nowrap">
                 LUNOSFER
               </span>
-
               <span className="mt-0.5 hidden md:block text-[10px] uppercase tracking-[0.42em] text-cyan-200/55 whitespace-nowrap">
                 Dream Nexus
               </span>
             </div>
           </a>
 
-          <nav
-            className="
-              hidden sm:flex items-center gap-2 sm:gap-3
-              overflow-x-auto [&::-webkit-scrollbar]:hidden
-            "
-          >
-            <a
-              href="/"
-              className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white shrink-0 whitespace-nowrap"
-            >
+          <nav className="hidden sm:flex items-center gap-2 sm:gap-3 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+            <a href="/" className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white shrink-0 whitespace-nowrap">
               {getTranslation('nav.feed', lang) || 'Akış'}
             </a>
-            <a
-              href="/globe"
-              className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white shrink-0 whitespace-nowrap"
-            >
+            <a href="/globe" className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white shrink-0 whitespace-nowrap">
               {getTranslation('nav.globe', lang)}
             </a>
             <LanguageSwitcher />
@@ -493,16 +478,10 @@ export default function ProfilePage() {
         {mobileMenuOpen && (
           <div className="sm:hidden border-t border-white/10 bg-[#050816]/95 px-3 py-3">
             <div className="flex flex-col gap-2">
-              <a
-                href="/"
-                className="glass-card px-4 py-3 text-sm text-white/80 hover:text-white text-center"
-              >
+              <a href="/" className="glass-card px-4 py-3 text-sm text-white/80 hover:text-white text-center">
                 {getTranslation('nav.feed', lang) || 'Akış'}
               </a>
-              <a
-                href="/globe"
-                className="glass-card px-4 py-3 text-sm text-white/80 hover:text-white text-center"
-              >
+              <a href="/globe" className="glass-card px-4 py-3 text-sm text-white/80 hover:text-white text-center">
                 {getTranslation('nav.globe', lang)}
               </a>
               <div className="flex justify-center">
@@ -520,7 +499,6 @@ export default function ProfilePage() {
       </header>
 
       <div className="max-w-5xl mx-auto px-3 sm:px-6 py-5 sm:py-8">
-        {/* Profil header */}
         <div className="glass-card p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 overflow-hidden relative">
           <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-purple-500/10 via-transparent to-pink-500/10" />
 
@@ -585,15 +563,142 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Friends blokları değişmedi */}
         {showFriends && (
           <div className="glass-card p-4 sm:p-6 mb-4 sm:mb-6">
-            {/* ... friends/search kodu aynı kalabilir ... */}
-            {/* Burayı aynen senin mevcut sürümden bırakıyorum */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder={getTranslation('friends.searchPlaceholder', lang)}
+                className="flex-1 bg-black/40 border border-white/20 rounded px-4 py-2.5 text-white text-sm sm:text-base"
+              />
+              <button
+                onClick={handleSearch}
+                className="glass-card px-4 py-2.5 hover:bg-purple-500/20 text-sm sm:text-base"
+              >
+                {getTranslation('friends.search', lang) || 'Ara'}
+              </button>
+            </div>
+
+            {showSearch && searchResults.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-3">
+                  {getTranslation('friends.searchResults', lang)}
+                </h3>
+                <div className="space-y-2">
+                  {searchResults.map((result) => (
+                    <div
+                      key={result.id}
+                      className="glass-card p-3 flex items-center justify-between gap-3 sm:gap-4"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm sm:text-base truncate">{result.username}</div>
+                        <div className="text-xs sm:text-sm text-white/60 truncate">{result.display_name}</div>
+                      </div>
+
+                      {result.friendshipStatus === null && (
+                        <button
+                          onClick={() => handleSendRequest(result.id)}
+                          className="glass-card px-3 py-1.5 text-xs sm:text-sm hover:bg-purple-500/20 shrink-0"
+                        >
+                          {getTranslation('friends.sendRequest', lang)}
+                        </button>
+                      )}
+
+                      {result.friendshipStatus === 'pending' && (
+                        <span className="text-yellow-400 text-xs sm:text-sm shrink-0">
+                          {getTranslation('friends.pending', lang)}
+                        </span>
+                      )}
+
+                      {result.friendshipStatus === 'accepted' && (
+                        <span className="text-green-400 text-xs sm:text-sm shrink-0">
+                          {getTranslation('friends.accepted', lang)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {pendingRequests.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-3">
+                  {getTranslation('friends.incomingRequests', lang)} ({pendingRequests.length})
+                </h3>
+                <div className="space-y-2">
+                  {pendingRequests.map((req) => (
+                    <div
+                      key={req.id}
+                      className="glass-card p-3 flex items-center justify-between gap-3 sm:gap-4"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm sm:text-base truncate">{req.user_profiles?.username}</div>
+                        <div className="text-xs sm:text-sm text-white/60 truncate">
+                          {req.user_profiles?.display_name}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          onClick={() => handleRespondRequest(req.id, 'accepted')}
+                          className="glass-card px-3 py-1.5 text-xs sm:text-sm bg-green-500/20 hover:bg-green-500/30"
+                        >
+                          {getTranslation('friends.accept', lang)}
+                        </button>
+                        <button
+                          onClick={() => handleRespondRequest(req.id, 'rejected')}
+                          className="glass-card px-3 py-1.5 text-xs sm:text-sm bg-red-500/20 hover:bg-red-500/30"
+                        >
+                          {getTranslation('friends.reject', lang)}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold mb-3">
+                {getTranslation('friends.title', lang)}
+              </h3>
+
+              {friends.length === 0 ? (
+                <p className="text-white/60 text-sm sm:text-base">{getTranslation('friends.noFriends', lang)}</p>
+              ) : (
+                <div className="space-y-2">
+                  {friends.map((friend) => (
+                    <div
+                      key={friend.id}
+                      className="glass-card p-3 flex items-center justify-between gap-3 sm:gap-4"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm sm:text-base truncate">
+                          {friend.user_profiles?.username || friend.friend_profiles?.username}
+                        </div>
+                        <div className="text-xs sm:text-sm text-white/60 truncate">
+                          {friend.user_profiles?.display_name || friend.friend_profiles?.display_name}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleRemoveFriend(friend.id)}
+                        className="glass-card px-3 py-1.5 text-xs sm:text-sm text-red-400 hover:bg-red-500/20 shrink-0"
+                      >
+                        {getTranslation('friends.removeFriend', lang)}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {/* DreamCard kullanılan profil feed’i */}
         <div className="space-y-4 sm:space-y-6">
           {dreams.map((dream) => (
             <div key={dream.id} className="space-y-3">
@@ -607,7 +712,7 @@ export default function ProfilePage() {
                 translatedAnalysis=""
               />
 
-              <div className="flex flex-wrap gap-2 px-1 border-t border-white/10 pt-3 sm:pt-4">
+              <div className="flex flex-wrap gap-2 px-1">
                 <button
                   onClick={() => {
                     setEditingDream(dream)
@@ -648,7 +753,6 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Profil edit modalı */}
       {showProfileEditor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80">
           <div className="glass-card p-4 sm:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
@@ -746,7 +850,6 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Dream edit modalı */}
       {editingDream && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80">
           <div className="glass-card p-4 sm:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
