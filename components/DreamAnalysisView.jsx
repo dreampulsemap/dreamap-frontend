@@ -1,432 +1,646 @@
-import React from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/router'
-import {
-  getDreamUiText,
-  normalizeLang,
-  pickLocalized,
-  safeArray,
-} from '../lib/dreamAnalysisI18n'
+import React, { useMemo } from 'react'
+import { getTranslation } from '../lib/translations'
+import { useTranslation } from 'react-i18next'
 
-function SectionCard({ title, children, colors = {}, dark = false }) {
-  const bg = colors?.primary_color || (dark ? '#161925' : '#1f2433')
-  const secondary = colors?.secondary_color || '#2b3245'
-  const accent = colors?.accent_color || '#c8a96b'
-
-  return (
-    <section
-      style={{
-        background: `linear-gradient(135deg, ${bg} 0%, ${secondary} 100%)`,
-        border: `1px solid ${accent}33`,
-        borderRadius: 24,
-        padding: 24,
-        boxShadow: `0 10px 30px ${accent}22`,
-        color: '#F8F5EF',
-      }}
-    >
-      <h2
-        style={{
-          margin: 0,
-          marginBottom: 16,
-          fontSize: 24,
-          fontWeight: 800,
-          color: '#fff',
-          letterSpacing: '-0.02em',
-        }}
-      >
-        {title}
-      </h2>
-      <div style={{ color: '#EDE7DC', lineHeight: 1.75 }}>{children}</div>
-    </section>
-  )
+function normalizeLang(lang) {
+  if (!lang) return 'en'
+  const short = String(lang).toLowerCase().split('-')[0]
+  return short
 }
 
-function Badge({ children, color = '#c8a96b', bg = '#ffffff14' }) {
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '8px 14px',
-        borderRadius: 999,
-        fontSize: 13,
-        fontWeight: 700,
-        color,
-        background: bg,
-        border: `1px solid ${color}44`,
-        backdropFilter: 'blur(8px)',
-      }}
-    >
-      {children}
-    </span>
-  )
-}
+export default function DreamAnalysisView({ dream, lang }) {
+  const { i18n } = useTranslation()
+  const currentLang = normalizeLang(lang || i18n.language || 'en')
 
-function BulletList({ items = [] }) {
-  if (!items?.length) return null
-  return (
-    <ul style={{ margin: 0, paddingLeft: 20 }}>
-      {items.map((item, i) => (
-        <li key={i} style={{ marginBottom: 8 }}>
-          {item}
-        </li>
-      ))}
-    </ul>
-  )
-}
+  const analysis =
+    dream?.premium_deep_analysis || dream?.ai_jungian_analysis || {}
 
-function SymbolGrid({ symbols = [], lang = 'en' }) {
-  if (!symbols.length) return null
-
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: 16,
-      }}
-    >
-      {symbols.map((symbol, i) => (
-        <div
-          key={i}
-          style={{
-            borderRadius: 20,
-            padding: 18,
-            background: 'rgba(255,255,255,0.05)',
-            border: `1px solid ${symbol.color || '#ffffff22'}`,
-            boxShadow: `0 6px 24px ${(symbol.color || '#ffffff')}22`,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 18,
-              fontWeight: 800,
-              marginBottom: 8,
-              color: symbol.color || '#F8F5EF',
-            }}
-          >
-            {symbol.symbol}
-          </div>
-          <div style={{ fontSize: 14, opacity: 0.95, marginBottom: 10 }}>
-            {lang === 'tr' ? symbol.meaning_tr : symbol.meaning_en}
-          </div>
-          {symbol.emotional_charge ? (
-            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 10 }}>
-              {symbol.emotional_charge}
-            </div>
-          ) : null}
-          <div
-            style={{
-              marginTop: 10,
-              height: 8,
-              borderRadius: 999,
-              background: 'rgba(255,255,255,0.12)',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                width: `${symbol.intensity || 0}%`,
-                height: '100%',
-                borderRadius: 999,
-                background: symbol.color || '#c8a96b',
-              }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function EmotionRow({ emotions = [] }) {
-  if (!emotions.length) return null
-
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-      {emotions.map((emotion, i) => (
-        <Badge key={i}>
-          {emotion.emotion} • {emotion.score}
-        </Badge>
-      ))}
-    </div>
-  )
-}
-
-export default function DreamAnalysisView({ dream, lang: langProp }) {
-  const router = useRouter()
-  const lang = normalizeLang(langProp || router?.locale || dream?.original_language || 'en')
-  const t = getDreamUiText(lang)
-
-  const analysis = dream?.ai_jungian_analysis || {}
-  const title = dream?.[`ai_title_${lang}`] || dream?.ai_title || pickLocalized(analysis?.title, lang, 'en')
   const summary =
-    dream?.[`ai_summary_${lang}`] || dream?.ai_summary || pickLocalized(analysis?.summary, lang, 'en')
+    analysis?.summary?.[currentLang] ||
+    analysis?.summary?.en ||
+    ''
   const motiv =
-    dream?.[`ai_motiv_${lang}`] || dream?.ai_motiv || pickLocalized(analysis?.motiv, lang, 'en')
+    analysis?.motiv?.[currentLang] ||
+    analysis?.motiv?.en ||
+    ''
+  const shadowFocus =
+    analysis?.shadow_focus?.[currentLang] ||
+    analysis?.shadow_focus?.en ||
+    ''
+  const coreConflict =
+    analysis?.core_conflict?.[currentLang] ||
+    analysis?.core_conflict?.en ||
+    ''
+  const individuationPath =
+    analysis?.individuation_path?.[currentLang] ||
+    analysis?.individuation_path?.en ||
+    ''
+  const symbolicReading =
+    analysis?.symbolic_reading?.[currentLang] ||
+    analysis?.symbolic_reading?.en ||
+    ''
 
-  const personaName = pickLocalized(analysis?.persona_profile?.name, lang, 'en')
-  const personaTagline = pickLocalized(analysis?.persona_profile?.tagline, lang, 'en')
-  const archetypalStyle = pickLocalized(analysis?.persona_profile?.archetypal_style, lang, 'en')
-  const publicSelf = pickLocalized(analysis?.persona_profile?.public_self, lang, 'en')
-  const hiddenSelf = pickLocalized(analysis?.persona_profile?.hidden_self, lang, 'en')
+  const personaProfile = analysis?.persona_profile || {}
+  const symbols = Array.isArray(analysis?.symbols) ? analysis.symbols : []
+  const emotions = Array.isArray(analysis?.emotions) ? analysis.emotions : []
 
-  const shadowFocus = pickLocalized(analysis?.shadow_focus, lang, 'en')
-  const coreConflict = pickLocalized(analysis?.core_conflict, lang, 'en')
-  const individuationPath = pickLocalized(analysis?.individuation_path, lang, 'en')
-  const symbolicReading = pickLocalized(analysis?.symbolic_reading, lang, 'en')
+  const reflectionQuestions =
+    analysis?.reflection_questions?.[currentLang] ||
+    analysis?.reflection_questions?.en ||
+    []
 
-  const reflectionQuestions = safeArray(
-    analysis?.reflection_questions?.[lang] ||
-      analysis?.reflection_questions?.en ||
-      analysis?.reflection_questions?.tr
-  )
-
-  const visual = analysis?.visual_theme || {}
+  const visualTheme = analysis?.visual_theme || {}
   const sectionThemes = analysis?.section_themes || {}
 
-  const bg = visual?.background_color || '#0D1018'
-  const text = visual?.text_color || '#F8F5EF'
-  const primary = visual?.primary_color || '#C8A96B'
-  const secondary = visual?.secondary_color || '#2B2238'
-  const accent = visual?.accent_color || '#8FD3C1'
+  const title =
+    dream?.[`ai_title_${currentLang}`] ||
+    dream?.ai_title ||
+    analysis?.title?.[currentLang] ||
+    analysis?.title?.en ||
+    getTranslation('feed.jungianAnalysis', currentLang)
+
+  const isPremium = Boolean(dream?.premium_deep_analysis)
+
+  const sentimentLabel = useMemo(() => {
+    if (!analysis?.sentiment) return null
+    const key = String(analysis.sentiment).toLowerCase()
+    return getTranslation(`emotion.${key}`, currentLang)
+  }, [analysis?.sentiment, currentLang])
+
+  const bgColor = visualTheme.background_color || '#050814'
+  const textColor = visualTheme.text_color || '#F8F5EF'
+  const primaryColor = visualTheme.primary_color || '#C8A96B'
+  const secondaryColor = visualTheme.secondary_color || '#8FD3C1'
+  const accentColor = visualTheme.accent_color || '#A259FF'
+
+  const personaTheme = sectionThemes.persona || {}
+  const shadowTheme = sectionThemes.shadow || {}
+  const transformationTheme = sectionThemes.transformation || {}
 
   return (
     <div
+      className="px-5 pb-6 pt-2 sm:px-8 sm:pb-8 sm:pt-5"
       style={{
-        minHeight: '100vh',
-        background: bg,
-        color: text,
-        padding: '32px 20px 80px',
-        position: 'relative',
+        background: bgColor,
+        color: textColor,
       }}
     >
-      <Link
-        href="/"
-        style={{
-          position: 'fixed',
-          top: 20,
-          left: 20,
-          zIndex: 1000,
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '12px 18px',
-          borderRadius: 999,
-          fontSize: 14,
-          fontWeight: 700,
-          color: '#F8F5EF',
-          background: 'rgba(13,16,24,0.72)',
-          border: '1px solid rgba(255,255,255,0.16)',
-          textDecoration: 'none',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          boxShadow: '0 12px 30px rgba(0,0,0,0.28)',
-        }}
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M19 12H5M12 19l-7-7 7-7" />
-        </svg>
-        {t.home}
-      </Link>
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="mb-2 text-xs uppercase tracking-[0.2em] text-white/40">
+            {isPremium
+              ? currentLang === 'tr'
+                ? 'Premium Jungiyen Derin Analiz'
+                : currentLang === 'es'
+                ? 'Análisis profundo junguiano premium'
+                : currentLang === 'fr'
+                ? 'Analyse junguienne profonde premium'
+                : currentLang === 'de'
+                ? 'Premium-jungianische Tiefenanalyse'
+                : currentLang === 'pt'
+                ? 'Análise profunda junguiana premium'
+                : currentLang === 'ru'
+                ? 'Премиум глубинный юнгианский анализ'
+                : currentLang === 'ja'
+                ? 'プレミアム・ユング派ディープ分析'
+                : 'Premium Jungian Deep Analysis'
+              : getTranslation('feed.jungianAnalysis', currentLang)}
+          </p>
+          <h2 className="text-xl font-semibold text-white/92 sm:text-2xl">
+            {title}
+          </h2>
+        </div>
 
-      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
-        <header
-          style={{
-            background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 60%, ${accent} 100%)`,
-            borderRadius: 32,
-            padding: '36px 28px',
-            boxShadow: `0 20px 60px ${primary}22`,
-            marginBottom: 24,
-            color: '#fff',
-          }}
-        >
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
-            <Badge color="#fff" bg="rgba(255,255,255,0.12)">
-              {analysis?.sentiment || t.fallbackSentiment}
-            </Badge>
-            {safeArray(analysis?.archetypes).map((arc, i) => (
-              <Badge key={i} color="#fff" bg="rgba(255,255,255,0.10)">
-                {arc}
-              </Badge>
-            ))}
+        {sentimentLabel && (
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-black/30 px-3 py-1.5 text-xs text-white/75">
+            <span>☯</span>
+            <span>{sentimentLabel}</span>
           </div>
+        )}
+      </header>
 
-          <h1
+      {summary && (
+        <section className="mb-6 rounded-2xl border border-white/10 bg-white/4 p-4">
+          <h3 className="mb-2 text-xs uppercase tracking-[0.16em] text-white/60">
+            {currentLang === 'tr'
+              ? 'Rüyanın Özeti'
+              : currentLang === 'es'
+              ? 'Resumen del sueño'
+              : currentLang === 'fr'
+              ? 'Résumé du rêve'
+              : currentLang === 'de'
+              ? 'Zusammenfassung des Traums'
+              : currentLang === 'pt'
+              ? 'Resumo do sonho'
+              : currentLang === 'ru'
+              ? 'Краткое содержание сна'
+              : currentLang === 'ja'
+              ? '夢の概要'
+              : 'Dream Summary'}
+          </h3>
+          <p className="text-sm leading-7 text-white/85">{summary}</p>
+        </section>
+      )}
+
+      {motiv && (
+        <section className="mb-6 rounded-2xl border border-amber-300/20 bg-amber-500/10 p-4">
+          <h3 className="mb-2 text-xs uppercase tracking-[0.16em] text-amber-100/80">
+            {currentLang === 'tr'
+              ? 'Rüyanın Ana Motifi'
+              : currentLang === 'es'
+              ? 'Motivo principal del sueño'
+              : currentLang === 'fr'
+              ? 'Motif principal du rêve'
+              : currentLang === 'de'
+              ? 'Hauptmotiv des Traums'
+              : currentLang === 'pt'
+              ? 'Motivo principal do sonho'
+              : currentLang === 'ru'
+              ? 'Главный мотив сна'
+              : currentLang === 'ja'
+              ? '夢の主要モチーフ'
+              : 'Key Motif'}
+          </h3>
+          <p className="text-sm leading-7 text-amber-50/92">{motiv}</p>
+        </section>
+      )}
+
+      <section className="mb-6 grid gap-4 sm:grid-cols-2">
+        {shadowFocus && (
+          <div className="rounded-2xl border border-rose-300/20 bg-rose-500/8 p-4">
+            <h3 className="mb-2 text-xs uppercase tracking-[0.16em] text-rose-100/82">
+              {currentLang === 'tr'
+                ? 'Gölge Alanı'
+                : currentLang === 'es'
+                ? 'Zona de sombra'
+                : currentLang === 'fr'
+                ? 'Zone d’ombre'
+                : currentLang === 'de'
+                ? 'Schattenbereich'
+                : currentLang === 'pt'
+                ? 'Zona de sombra'
+                : currentLang === 'ru'
+                ? 'Область тени'
+                : currentLang === 'ja'
+                ? 'シャドウ領域'
+                : 'Shadow Focus'}
+            </h3>
+            <p className="text-sm leading-7 text-rose-50/92">{shadowFocus}</p>
+          </div>
+        )}
+
+        {coreConflict && (
+          <div className="rounded-2xl border border-cyan-300/20 bg-cyan-500/8 p-4">
+            <h3 className="mb-2 text-xs uppercase tracking-[0.16em] text-cyan-100/82">
+              {currentLang === 'tr'
+                ? 'Çekirdek Çatışma'
+                : currentLang === 'es'
+                ? 'Conflicto central'
+                : currentLang === 'fr'
+                ? 'Conflit central'
+                : currentLang === 'de'
+                ? 'Kernkonflikt'
+                : currentLang === 'pt'
+                ? 'Conflito central'
+                : currentLang === 'ru'
+                ? 'Основной конфликт'
+                : currentLang === 'ja'
+                ? '核となる葛藤'
+                : 'Core Conflict'}
+            </h3>
+            <p className="text-sm leading-7 text-cyan-50/92">{coreConflict}</p>
+          </div>
+        )}
+      </section>
+
+      <section className="mb-6 grid gap-4 sm:grid-cols-2">
+        {individuationPath && (
+          <div
+            className="rounded-2xl border border-emerald-300/20 bg-emerald-500/8 p-4"
             style={{
-              margin: 0,
-              fontSize: 'clamp(2rem, 5vw, 4rem)',
-              lineHeight: 1.02,
-              fontWeight: 900,
-              letterSpacing: '-0.04em',
+              borderColor: transformationTheme.primary_color || undefined,
+              background:
+                transformationTheme.secondary_color
+                  ? `${transformationTheme.secondary_color}14`
+                  : undefined,
             }}
           >
-            {title}
-          </h1>
-
-          {personaName ? (
-            <div
-              style={{
-                marginTop: 14,
-                fontSize: 20,
-                fontWeight: 700,
-                color: '#FDF7E7',
-              }}
-            >
-              {personaName}
-            </div>
-          ) : null}
-
-          {personaTagline ? (
-            <p
-              style={{
-                marginTop: 12,
-                marginBottom: 0,
-                maxWidth: 860,
-                fontSize: 17,
-                lineHeight: 1.75,
-                color: 'rgba(255,255,255,0.92)',
-              }}
-            >
-              {personaTagline}
+            <h3 className="mb-2 text-xs uppercase tracking-[0.16em] text-emerald-100/82">
+              {currentLang === 'tr'
+                ? 'Bireyleşme Yolu'
+                : currentLang === 'es'
+                ? 'Camino de individuación'
+                : currentLang === 'fr'
+                ? 'Chemin d’individuation'
+                : currentLang === 'de'
+                ? 'Individuationsweg'
+                : currentLang === 'pt'
+                ? 'Caminho de individuação'
+                : currentLang === 'ru'
+                ? 'Путь индивидуации'
+                : currentLang === 'ja'
+                ? '個性化への道筋'
+                : 'Individuation Path'}
+            </h3>
+            <p className="text-sm leading-7 text-emerald-50/92">
+              {individuationPath}
             </p>
-          ) : null}
-        </header>
+          </div>
+        )}
 
-        <div style={{ marginBottom: 24 }}>
-          <EmotionRow emotions={safeArray(dream?.ai_emotions || analysis?.emotions)} />
-        </div>
+        {symbolicReading && (
+          <div
+            className="rounded-2xl border border-violet-300/20 bg-violet-500/8 p-4"
+            style={{
+              borderColor: sectionThemes?.persona?.primary_color || undefined,
+            }}
+          >
+            <h3 className="mb-2 text-xs uppercase tracking-[0.16em] text-violet-100/82">
+              {currentLang === 'tr'
+                ? 'Sembolik Okuma'
+                : currentLang === 'es'
+                ? 'Lectura simbólica'
+                : currentLang === 'fr'
+                ? 'Lecture symbolique'
+                : currentLang === 'de'
+                ? 'Symbolische Deutung'
+                : currentLang === 'pt'
+                ? 'Leitura simbólica'
+                : currentLang === 'ru'
+                ? 'Символическое прочтение'
+                : currentLang === 'ja'
+                ? '象徴的な読み解き'
+                : 'Symbolic Reading'}
+            </h3>
+            <p className="text-sm leading-7 text-violet-50/92">
+              {symbolicReading}
+            </p>
+          </div>
+        )}
+      </section>
 
-        <div
+      {personaProfile && Object.keys(personaProfile).length > 0 && (
+        <section
+          className="mb-6 rounded-2xl border border-white/12 bg-white/3 p-4 sm:p-5"
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
-            gap: 20,
+            borderColor: personaTheme.primary_color || undefined,
           }}
         >
-          <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard title={t.summary} colors={visual}>
-              <p style={{ marginTop: 0 }}>{summary}</p>
-              {motiv ? <p style={{ marginBottom: 0, opacity: 0.92 }}>{motiv}</p> : null}
-            </SectionCard>
-          </div>
+          <h3 className="mb-3 text-xs uppercase tracking-[0.16em] text-white/65">
+            {currentLang === 'tr'
+              ? 'Rüya Persona Portresi'
+              : currentLang === 'es'
+              ? 'Retrato de la persona onírica'
+              : currentLang === 'fr'
+              ? 'Portrait de la persona onirique'
+              : currentLang === 'de'
+              ? 'Traumpersona-Porträt'
+              : currentLang === 'pt'
+              ? 'Retrato da persona do sonho'
+              : currentLang === 'ru'
+              ? 'Портрет персона сна'
+              : currentLang === 'ja'
+              ? '夢のペルソナのポートレート'
+              : 'Dream Persona Portrait'}
+          </h3>
 
-          <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard title={t.persona} colors={sectionThemes?.persona || visual}>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                  gap: 18,
-                }}
-              >
-                <div>
-                  <h3 style={{ marginTop: 0 }}>{t.archetypalStyle}</h3>
-                  <p>{archetypalStyle}</p>
-                </div>
-                <div>
-                  <h3 style={{ marginTop: 0 }}>{t.publicSelf}</h3>
-                  <p>{publicSelf}</p>
-                </div>
-                <div>
-                  <h3 style={{ marginTop: 0 }}>{t.hiddenSelf}</h3>
-                  <p>{hiddenSelf}</p>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  marginTop: 22,
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                  gap: 18,
-                }}
-              >
-                <div>
-                  <h3>{t.strengths}</h3>
-                  <BulletList
-                    items={safeArray(
-                      analysis?.persona_profile?.strengths?.[lang] ||
-                        analysis?.persona_profile?.strengths?.en ||
-                        analysis?.persona_profile?.strengths?.tr
-                    )}
-                  />
-                </div>
-                <div>
-                  <h3>{t.shadowSides}</h3>
-                  <BulletList
-                    items={safeArray(
-                      analysis?.persona_profile?.shadow_sides?.[lang] ||
-                        analysis?.persona_profile?.shadow_sides?.en ||
-                        analysis?.persona_profile?.shadow_sides?.tr
-                    )}
-                  />
-                </div>
-                <div>
-                  <h3>{t.coreFears}</h3>
-                  <BulletList
-                    items={safeArray(
-                      analysis?.persona_profile?.core_fears?.[lang] ||
-                        analysis?.persona_profile?.core_fears?.en ||
-                        analysis?.persona_profile?.core_fears?.tr
-                    )}
-                  />
-                </div>
-                <div>
-                  <h3>{t.emotionalNeeds}</h3>
-                  <BulletList
-                    items={safeArray(
-                      analysis?.persona_profile?.emotional_needs?.[lang] ||
-                        analysis?.persona_profile?.emotional_needs?.en ||
-                        analysis?.persona_profile?.emotional_needs?.tr
-                    )}
-                  />
-                </div>
-              </div>
-            </SectionCard>
-          </div>
-
-          <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard title={t.shadow} colors={sectionThemes?.shadow || visual} dark>
-              <p>
-                <strong>{t.shadowFocus}:</strong> {shadowFocus}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-white/85">
+                {personaProfile.name?.[currentLang] ||
+                  personaProfile.name?.en ||
+                  ''}
               </p>
-              <p style={{ marginBottom: 0 }}>
-                <strong>{t.coreConflict}:</strong> {coreConflict}
+              <p className="text-xs italic text-white/70">
+                {personaProfile.tagline?.[currentLang] ||
+                  personaProfile.tagline?.en ||
+                  ''}
               </p>
-            </SectionCard>
-          </div>
-
-          <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard title={t.symbols} colors={visual}>
-              <p style={{ marginTop: 0 }}>{symbolicReading}</p>
-              <SymbolGrid symbols={safeArray(dream?.ai_symbols || analysis?.symbols)} lang={lang} />
-            </SectionCard>
-          </div>
-
-          <div style={{ gridColumn: 'span 12' }}>
-            <SectionCard title={t.transformation} colors={sectionThemes?.transformation || visual}>
-              <p style={{ marginTop: 0 }}>{individuationPath}</p>
-            </SectionCard>
-          </div>
-
-          {!!reflectionQuestions.length && (
-            <div style={{ gridColumn: 'span 12' }}>
-              <SectionCard title={t.questions} colors={visual}>
-                <BulletList items={reflectionQuestions} />
-              </SectionCard>
+              <p className="text-xs text-white/60">
+                {personaProfile.archetypal_style?.[currentLang] ||
+                  personaProfile.archetypal_style?.en ||
+                  ''}
+              </p>
             </div>
-          )}
-        </div>
-      </div>
+
+            <div className="space-y-2 text-xs text-white/72">
+              <p>
+                <span className="font-semibold">
+                  {currentLang === 'tr'
+                    ? 'Görünür ben: '
+                    : currentLang === 'es'
+                    ? 'Yo visible: '
+                    : currentLang === 'fr'
+                    ? 'Moi visible : '
+                    : currentLang === 'de'
+                    ? 'Sichtbares Ich: '
+                    : currentLang === 'pt'
+                    ? 'Eu visível: '
+                    : currentLang === 'ru'
+                    ? 'Видимое Я: '
+                    : currentLang === 'ja'
+                    ? '見える自分: '
+                    : 'Public self: '}
+                </span>
+                {personaProfile.public_self?.[currentLang] ||
+                  personaProfile.public_self?.en ||
+                  ''}
+              </p>
+              <p>
+                <span className="font-semibold">
+                  {currentLang === 'tr'
+                    ? 'Gizli ben: '
+                    : currentLang === 'es'
+                    ? 'Yo oculto: '
+                    : currentLang === 'fr'
+                    ? 'Moi caché : '
+                    : currentLang === 'de'
+                    ? 'Verborgenes Ich: '
+                    : currentLang === 'pt'
+                    ? 'Eu oculto: '
+                    : currentLang === 'ru'
+                    ? 'Скрытое Я: '
+                    : currentLang === 'ja'
+                    ? '隠された自分: '
+                    : 'Hidden self: '}
+                </span>
+                {personaProfile.hidden_self?.[currentLang] ||
+                  personaProfile.hidden_self?.en ||
+                  ''}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div>
+              <p className="mb-1 text-xs font-semibold text-white/70">
+                {currentLang === 'tr'
+                  ? 'Güçlü Yanlar'
+                  : currentLang === 'es'
+                  ? 'Fortalezas'
+                  : currentLang === 'fr'
+                  ? 'Forces'
+                  : currentLang === 'de'
+                  ? 'Stärken'
+                  : currentLang === 'pt'
+                  ? 'Forças'
+                  : currentLang === 'ru'
+                  ? 'Сильные стороны'
+                  : currentLang === 'ja'
+                  ? '強み'
+                  : 'Strengths'}
+              </p>
+              <ul className="space-y-1 text-xs text-white/76">
+                {(personaProfile.strengths?.[currentLang] ||
+                  personaProfile.strengths?.en ||
+                  []
+                ).map((item, idx) => (
+                  <li key={`strength-${idx}`}>• {item}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <p className="mb-1 text-xs font-semibold text-white/70">
+                {currentLang === 'tr'
+                  ? 'Gölge Yanlar'
+                  : currentLang === 'es'
+                  ? 'Lados sombra'
+                  : currentLang === 'fr'
+                  ? 'Parties d’ombre'
+                  : currentLang === 'de'
+                  ? 'Schattenseiten'
+                  : currentLang === 'pt'
+                  ? 'Lados sombra'
+                  : currentLang === 'ru'
+                  ? 'Теневые стороны'
+                  : currentLang === 'ja'
+                  ? 'シャドウ面'
+                  : 'Shadow sides'}
+              </p>
+              <ul className="space-y-1 text-xs text-white/76">
+                {(personaProfile.shadow_sides?.[currentLang] ||
+                  personaProfile.shadow_sides?.en ||
+                  []
+                ).map((item, idx) => (
+                  <li key={`shadow-${idx}`}>• {item}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <p className="mb-1 text-xs font-semibold text-white/70">
+                {currentLang === 'tr'
+                  ? 'Temel Korkular'
+                  : currentLang === 'es'
+                  ? 'Miedos centrales'
+                  : currentLang === 'fr'
+                  ? 'Peurs centrales'
+                  : currentLang === 'de'
+                  ? 'Grundängste'
+                  : currentLang === 'pt'
+                  ? 'Medos centrais'
+                  : currentLang === 'ru'
+                  ? 'Основные страхи'
+                  : currentLang === 'ja'
+                  ? '根本的な恐れ'
+                  : 'Core fears'}
+              </p>
+              <ul className="space-y-1 text-xs text-white/76">
+                {(personaProfile.core_fears?.[currentLang] ||
+                  personaProfile.core_fears?.en ||
+                  []
+                ).map((item, idx) => (
+                  <li key={`fear-${idx}`}>• {item}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-1 text-xs font-semibold text-white/70">
+              {currentLang === 'tr'
+                ? 'Duygusal İhtiyaçlar'
+                : currentLang === 'es'
+                ? 'Necesidades emocionales'
+                : currentLang === 'fr'
+                ? 'Besoins émotionnels'
+                : currentLang === 'de'
+                ? 'Emotionale Bedürfnisse'
+                : currentLang === 'pt'
+                ? 'Necessidades emocionais'
+                : currentLang === 'ru'
+                ? 'Эмоциональные потребности'
+                : currentLang === 'ja'
+                ? '感情的ニーズ'
+                : 'Emotional needs'}
+            </p>
+            <ul className="space-y-1 text-xs text-white/76">
+              {(personaProfile.emotional_needs?.[currentLang] ||
+                personaProfile.emotional_needs?.en ||
+                []
+              ).map((item, idx) => (
+                <li key={`need-${idx}`}>• {item}</li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
+      {symbols.length > 0 && (
+        <section className="mb-6 rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5">
+          <h3 className="mb-3 text-xs uppercase tracking-[0.16em] text-white/65">
+            {currentLang === 'tr'
+              ? 'Rüyanın Ana Sembolleri'
+              : currentLang === 'es'
+              ? 'Símbolos clave del sueño'
+              : currentLang === 'fr'
+              ? 'Symboles clés du rêve'
+              : currentLang === 'de'
+              ? 'Zentrale Traumsymbole'
+              : currentLang === 'pt'
+              ? 'Símbolos principais do sonho'
+              : currentLang === 'ru'
+              ? 'Ключевые символы сна'
+              : currentLang === 'ja'
+              ? '夢の主要なシンボル'
+              : 'Key Symbols'}
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {symbols.map((s, idx) => (
+              <div
+                key={`symbol-${idx}`}
+                className="rounded-xl border border-white/12 bg-white/3 p-3"
+              >
+                <p className="mb-1 text-xs font-semibold text-white/85">
+                  {s.symbol}
+                </p>
+                <p className="mb-1 text-xs text-white/70">
+                  {currentLang === 'tr'
+                    ? s.meaning_tr || s.meaning_en
+                    : s.meaning_en || s.meaning_tr}
+                </p>
+                {s.emotional_charge && (
+                  <p className="text-[11px] text-white/55">
+                    {currentLang === 'tr'
+                      ? `Duygusal yük: ${s.emotional_charge}`
+                      : currentLang === 'es'
+                      ? `Carga emocional: ${s.emotional_charge}`
+                      : currentLang === 'fr'
+                      ? `Charge émotionnelle : ${s.emotional_charge}`
+                      : currentLang === 'de'
+                      ? `Emotionale Ladung: ${s.emotional_charge}`
+                      : currentLang === 'pt'
+                      ? `Carga emocional: ${s.emotional_charge}`
+                      : currentLang === 'ru'
+                      ? `Эмоциональный заряд: ${s.emotional_charge}`
+                      : currentLang === 'ja'
+                      ? `感情的な負荷: ${s.emotional_charge}`
+                      : `Emotional charge: ${s.emotional_charge}`}
+                  </p>
+                )}
+                {typeof s.intensity === 'number' && (
+                  <p className="mt-1 text-[11px] text-white/55">
+                    {currentLang === 'tr'
+                      ? `Şiddet: ${s.intensity}/10`
+                      : currentLang === 'es'
+                      ? `Intensidad: ${s.intensity}/10`
+                      : currentLang === 'fr'
+                      ? `Intensité : ${s.intensity}/10`
+                      : currentLang === 'de'
+                      ? `Intensität: ${s.intensity}/10`
+                      : currentLang === 'pt'
+                      ? `Intensidade: ${s.intensity}/10`
+                      : currentLang === 'ru'
+                      ? `Интенсивность: ${s.intensity}/10`
+                      : currentLang === 'ja'
+                      ? `強度: ${s.intensity}/10`
+                      : `Intensity: ${s.intensity}/10`}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {emotions.length > 0 && (
+        <section className="mb-6 rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5">
+          <h3 className="mb-3 text-xs uppercase tracking-[0.16em] text-white/65">
+            {currentLang === 'tr'
+              ? 'Duygusal Manzara'
+              : currentLang === 'es'
+              ? 'Paisaje emocional'
+              : currentLang === 'fr'
+              ? 'Paysage émotionnel'
+              : currentLang === 'de'
+              ? 'Emotionale Landschaft'
+              : currentLang === 'pt'
+              ? 'Paisagem emocional'
+              : currentLang === 'ru'
+              ? 'Эмоциональный ландшафт'
+              : currentLang === 'ja'
+              ? '感情の風景'
+              : 'Emotional Landscape'}
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {emotions.map((e, idx) => (
+              <div
+                key={`emotion-${idx}`}
+                className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/3 px-3 py-1.5 text-xs text-white/80"
+              >
+                <span>{getTranslation(`emotion.${String(e.emotion).toLowerCase()}`, currentLang)}</span>
+                {typeof e.score === 'number' && (
+                  <span className="text-[11px] text-white/55">
+                    {currentLang === 'tr'
+                      ? `yoğunluk: ${e.score}/10`
+                      : currentLang === 'es'
+                      ? `intensidad: ${e.score}/10`
+                      : currentLang === 'fr'
+                      ? `intensité : ${e.score}/10`
+                      : currentLang === 'de'
+                      ? `Intensität: ${e.score}/10`
+                      : currentLang === 'pt'
+                      ? `intensidade: ${e.score}/10`
+                      : currentLang === 'ru'
+                      ? `интенсивность: ${e.score}/10`
+                      : currentLang === 'ja'
+                      ? `強度: ${e.score}/10`
+                      : `intensity: ${e.score}/10`}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {reflectionQuestions.length > 0 && (
+        <section className="mb-2 rounded-2xl border border-white/12 bg-white/3 p-4 sm:p-5">
+          <h3 className="mb-3 text-xs uppercase tracking-[0.16em] text-white/65">
+            {currentLang === 'tr'
+              ? 'Kendine Sorular'
+              : currentLang === 'es'
+              ? 'Preguntas para ti mismo'
+              : currentLang === 'fr'
+              ? 'Questions pour vous-même'
+              : currentLang === 'de'
+              ? 'Fragen an dich selbst'
+              : currentLang === 'pt'
+              ? 'Perguntas para si mesmo'
+              : currentLang === 'ru'
+              ? 'Вопросы себе'
+              : currentLang === 'ja'
+              ? '自分への問い'
+              : 'Questions for reflection'}
+          </h3>
+          <ul className="space-y-2 text-sm text-white/82">
+            {reflectionQuestions.map((q, idx) => (
+              <li key={`reflection-${idx}`}>• {q}</li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
 }
