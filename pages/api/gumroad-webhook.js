@@ -66,7 +66,7 @@ export default async function handler(req, res) {
     )
 
     const { data: existingSale, error: existingSaleError } = await supabase
-  .from('gumroad_sales')
+  .from('gumroad_webhook_events')
   .select('sale_id, credits_added, status')
   .eq('sale_id', saleId)
   .maybeSingle()
@@ -133,7 +133,7 @@ if (existingSaleError) {
     }
 
     const { error: insertSaleError } = await supabase
-      .from('gumroad_sales')
+      .from('gumroad_webhook_events')
       .insert({
         sale_id: saleId,
         email: email || null,
