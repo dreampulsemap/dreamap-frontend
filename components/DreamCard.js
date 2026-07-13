@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '../lib/translations'
-import { auth } from '../lib/supabase'
+import { auth, supabase } from '../lib/supabase'
 import DreamAnalysisView from './DreamAnalysisView'
+
+const GUMROAD_PRODUCT_URL = 'https://lunosfer.gumroad.com/l/lunosfer-deep-analysis'
 
 function getAnalysisButtonLabel(lang) {
   return lang === 'tr'
@@ -40,6 +42,42 @@ function getCloseLabel(lang) {
     : 'Close'
 }
 
+function getPremiumButtonLabel(lang, credits) {
+  if (credits > 0) {
+    return lang === 'tr'
+      ? `Derin Analizi Aç · ${credits} kredi`
+      : lang === 'es'
+      ? `Abrir análisis profundo · ${credits} créditos`
+      : lang === 'fr'
+      ? `Ouvrir l’analyse profonde · ${credits} crédits`
+      : lang === 'de'
+      ? `Tiefenanalyse öffnen · ${credits} Credits`
+      : lang === 'pt'
+      ? `Abrir análise profunda · ${credits} créditos`
+      : lang === 'ru'
+      ? `Открыть глубокий анализ · ${credits} кредитов`
+      : lang === 'ja'
+      ? `詳細分析を開く · ${credits} クレジット`
+      : `Open Deep Analysis · ${credits} credits`
+  }
+
+  return lang === 'tr'
+    ? '10 kredi al ve derin analizi aç'
+    : lang === 'es'
+    ? 'Compra 10 créditos y abre el análisis profundo'
+    : lang === 'fr'
+    ? 'Acheter 10 crédits et ouvrir l’analyse profonde'
+    : lang === 'de'
+    ? '10 Credits kaufen und Tiefenanalyse öffnen'
+    : lang === 'pt'
+    ? 'Compre 10 créditos e abra a análise profunda'
+    : lang === 'ru'
+    ? 'Купить 10 кредитов и открыть глубокий анализ'
+    : lang === 'ja'
+    ? '10クレジットを購入して詳細分析を開く'
+    : 'Buy 10 credits and open deep analysis'
+}
+
 export default function DreamCard({
   dream,
   lang,
@@ -61,6 +99,8 @@ export default function DreamCard({
   const [commentsCount, setCommentsCount] = useState(dream.comments_count || 0)
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [showAnalysisModal, setShowAnalysisModal] = useState(false)
+  const [premiumCredits, setPremiumCredits] = useState(0)
+  const [creditsLoading, setCreditsLoading] = useState(false)
 
   useEffect(() => {
     setLikesCount(dream.likes_count || 0)
@@ -137,11 +177,16 @@ export default function DreamCard({
         setUser(user || null)
 
         if (user?.id) {
-          await checkIfLiked(user.id)
+          await Promise.all([checkIfLiked(user.id), loadPremiumCredits(user.id)])
+        } else {
+          setPremiumCredits(0)
         }
       } catch (err) {
         console.error('User check error:', err)
-        if (mounted) setUser(null)
+        if (mounted) {
+          setUser(null)
+          setPremiumCredits(0)
+        }
       }
     }
 
@@ -151,6 +196,26 @@ export default function DreamCard({
       mounted = false
     }
   }, [dream.id])
+
+  async function loadPremiumCredits(userId) {
+    try {
+      setCreditsLoading(true)
+
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('premium_analysis_credits')
+        .eq('id', userId)
+        .maybeSingle()
+
+      if (error) throw error
+      setPremiumCredits(Number(data?.premium_analysis_credits || 0))
+    } catch (err) {
+      console.error('Load premium credits error:', err)
+      setPremiumCredits(0)
+    } finally {
+      setCreditsLoading(false)
+    }
+  }
 
   async function checkIfLiked(userId) {
     try {
@@ -297,6 +362,24 @@ export default function DreamCard({
     }
   }
 
+  function handlePremiumAnalysisClick() {
+    if (!user?.id) {
+      alert(
+        currentLang === 'tr'
+          ? 'Derin analiz için önce giriş yapmalısın.'
+          : 'Please log in first to access deep analysis.'
+      )
+      return
+    }
+
+    if (premiumCredits > 0) {
+      setShowAnalysisModal(true)
+      return
+    }
+
+    window.open(GUMROAD_PRODUCT_URL, '_blank', 'noopener,noreferrer')
+  }
+
   const displayContent = translated ? translatedContent : dream.content
   const displayAnalysis = translated ? translatedAnalysis : getDreamAnalysis()
 
@@ -432,16 +515,35 @@ export default function DreamCard({
           )}
 
           {hasDetailedAnalysis && (
-            <button
-              type="button"
-              onClick={() => setShowAnalysisModal(true)}
-              className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-300/18 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-100 hover:bg-fuchsia-500/18"
-              aria-haspopup="dialog"
-              aria-expanded={showAnalysisModal}
-            >
-              <span>✦</span>
-              <span>{getAnalysisButtonLabel(currentLang)}</span>
-            </button>
+            <>
+              <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-fuchsia-300/14 bg-fuchsia-500/8 px-4 py-3">
+                <span className="text-xs uppercase tracking-[0.18em] text-fuchsia-100/82">
+                  {currentLang === 'tr'
+                    ? 'Premium Derin Analiz'
+                    : 'Premium Deep Analysis'}
+                </span>
+                <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/80">
+                  {creditsLoading
+                    ? currentLang === 'tr'
+                      ? 'yükleniyor...'
+                      : 'loading...'
+                    : currentLang === 'tr'
+                    ? `${premiumCredits} kredi`
+                    : `${premiumCredits} credits`}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handlePremiumAnalysisClick}
+                className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-300/18 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-100 hover:bg-fuchsia-500/18"
+                aria-haspopup={premiumCredits > 0 ? 'dialog' : undefined}
+                aria-expanded={showAnalysisModal}
+              >
+                <span>✦</span>
+                <span>{getPremiumButtonLabel(currentLang, premiumCredits)}</span>
+              </button>
+            </>
           )}
 
           <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
