@@ -95,7 +95,7 @@ export default async function handler(req, res) {
       })
     }
 
-    if (!isTest && ALLOWED_PRODUCT_ID && productId !== ALLOWED_PRODUCT_ID) {
+    if (ALLOWED_PRODUCT_ID && productId !== ALLOWED_PRODUCT_ID) {
       const { error: ignoredInsertError } = await supabase
         .from('gumroad_webhook_events')
         .insert({
@@ -152,33 +152,31 @@ export default async function handler(req, res) {
       if (profile) {
         userProfileId = profile.id
 
-        if (!isTest) {
-          const nextCredits =
-            Number(profile.premium_analysis_credits || 0) + CREDIT_AMOUNT
+        const nextCredits =
+          Number(profile.premium_analysis_credits || 0) + CREDIT_AMOUNT
 
-          const { error: updateError } = await supabase
-            .from('user_profiles')
-            .update({ premium_analysis_credits: nextCredits })
-            .eq('id', profile.id)
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update({ premium_analysis_credits: nextCredits })
+          .eq('id', profile.id)
 
-          if (updateError) {
-            console.error('gumroad credit update failed', updateError)
-            return res.status(500).json({
-              error: 'credit_update_failed',
-              details: updateError.message,
-              code: updateError.code || null,
-              hint: updateError.hint || null,
-            })
-          }
-
-          creditsAdded = CREDIT_AMOUNT
-          status = 'credited'
-        } else {
-          status = 'test_matched_user'
+        if (updateError) {
+          console.error('gumroad credit update failed', updateError)
+          return res.status(500).json({
+            error: 'credit_update_failed',
+            details: updateError.message,
+            code: updateError.code || null,
+            hint: updateError.hint || null,
+          })
         }
+
+        creditsAdded = CREDIT_AMOUNT
+        status = isTest ? 'test_credited' : 'credited'
       } else {
         status = isTest ? 'test_no_user_match' : 'pending_user_match'
       }
+    } else if (refunded) {
+      status = isTest ? 'test_refunded_ignored' : 'refunded_ignored'
     }
 
     const { error: insertSaleError } = await supabase
