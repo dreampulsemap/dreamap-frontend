@@ -1,9 +1,4 @@
-import Groq from 'groq-sdk'
 import { createClient } from '@supabase/supabase-js'
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-})
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -91,6 +86,51 @@ function normalizeArray(value, limit) {
     .slice(0, max)
 }
 
+async function generateWithGroq(params) {
+  const prompt = buildTeaserPrompt(params)
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.GROQ_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
+      temperature: 0.9,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an expert dream interpretation assistant. Write short, emotionally intelligent, intriguing teaser analyses that make the user curious for a deeper reading. Always return valid JSON only.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`groq_request_failed: ${response.status} ${errorText}`)
+  }
+
+  const data = await response.json()
+  const content =
+    data &&
+    data.choices &&
+    data.choices &&
+    data.choices.message &&
+    data.choices.message.content
+      ? data.choices.message.content
+      : '{}'
+
+  return parseJsonSafely(content)
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'method_not_allowed' })
@@ -126,36 +166,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'missing_dream_input' })
     }
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
-      temperature: 0.9,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are an expert dream interpretation assistant. Write short, emotionally intelligent, intriguing teaser analyses that make the user curious for a deeper reading. Always return valid JSON only.',
-        },
-        {
-          role: 'user',
-          content: buildTeaserPrompt({
-            content: dream.content,
-            lang: lang || dream.original_language || 'en',
-          }),
-        },
-      ],
+    const analysis = await generateWithGroq({
+      content: dream.content,
+      lang: lang || dream.original_language || 'en',
     })
-
-    const raw =
-      completion &&
-      completion.choices &&
-      completion.choices &&
-      completion.choices.message &&
-      completion.choices.message.content
-        ? completion.choices.message.content
-        : '{}'
-
-    const analysis = parseJsonSafely(raw)
 
     const normalized = {
       title: {
