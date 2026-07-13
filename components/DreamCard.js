@@ -42,7 +42,25 @@ function getCloseLabel(lang) {
     : 'Close'
 }
 
-function getPremiumButtonLabel(lang, credits) {
+function getPremiumButtonLabel(lang, credits, loading) {
+  if (loading) {
+    return lang === 'tr'
+      ? 'Derin analiz oluşturuluyor...'
+      : lang === 'es'
+      ? 'Generando análisis profundo...'
+      : lang === 'fr'
+      ? 'Génération de l’analyse profonde...'
+      : lang === 'de'
+      ? 'Tiefenanalyse wird erstellt...'
+      : lang === 'pt'
+      ? 'Gerando análise profunda...'
+      : lang === 'ru'
+      ? 'Создаётся глубокий анализ...'
+      : lang === 'ja'
+      ? '詳細分析を生成中...'
+      : 'Generating deep analysis...'
+  }
+
   if (credits > 0) {
     return lang === 'tr'
       ? `Derin Analizi Aç · ${credits} kredi`
@@ -78,6 +96,132 @@ function getPremiumButtonLabel(lang, credits) {
     : 'Buy 10 credits and open deep analysis'
 }
 
+function getPremiumPanelLabel(lang) {
+  return lang === 'tr'
+    ? 'Premium Derin Analiz'
+    : lang === 'es'
+    ? 'Análisis profundo premium'
+    : lang === 'fr'
+    ? 'Analyse profonde premium'
+    : lang === 'de'
+    ? 'Premium-Tiefenanalyse'
+    : lang === 'pt'
+    ? 'Análise profunda premium'
+    : lang === 'ru'
+    ? 'Премиум глубокий анализ'
+    : lang === 'ja'
+    ? 'プレミアム詳細分析'
+    : 'Premium Deep Analysis'
+}
+
+function getCreditsLoadingLabel(lang) {
+  return lang === 'tr'
+    ? 'yükleniyor...'
+    : lang === 'es'
+    ? 'cargando...'
+    : lang === 'fr'
+    ? 'chargement...'
+    : lang === 'de'
+    ? 'wird geladen...'
+    : lang === 'pt'
+    ? 'carregando...'
+    : lang === 'ru'
+    ? 'загрузка...'
+    : lang === 'ja'
+    ? '読み込み中...'
+    : 'loading...'
+}
+
+function getCreditsLabel(lang, credits) {
+  return lang === 'tr'
+    ? `${credits} kredi`
+    : lang === 'es'
+    ? `${credits} créditos`
+    : lang === 'fr'
+    ? `${credits} crédits`
+    : lang === 'de'
+    ? `${credits} Credits`
+    : lang === 'pt'
+    ? `${credits} créditos`
+    : lang === 'ru'
+    ? `${credits} кредитов`
+    : lang === 'ja'
+    ? `${credits} クレジット`
+    : `${credits} credits`
+}
+
+function getPremiumErrorMessage(lang, errorCode) {
+  if (errorCode === 'login_required') {
+    return lang === 'tr'
+      ? 'Derin analiz için önce giriş yapmalısın.'
+      : lang === 'es'
+      ? 'Primero debes iniciar sesión para el análisis profundo.'
+      : lang === 'fr'
+      ? 'Vous devez d’abord vous connecter pour l’analyse profonde.'
+      : lang === 'de'
+      ? 'Für die Tiefenanalyse musst du dich zuerst anmelden.'
+      : lang === 'pt'
+      ? 'Você precisa entrar primeiro para a análise profunda.'
+      : lang === 'ru'
+      ? 'Сначала войдите в систему для глубокого анализа.'
+      : lang === 'ja'
+      ? '詳細分析には先にログインが必要です。'
+      : 'Please log in first to access deep analysis.'
+  }
+
+  if (errorCode === 'unauthorized') {
+    return lang === 'tr'
+      ? 'Oturum doğrulanamadı. Lütfen tekrar giriş yap.'
+      : lang === 'es'
+      ? 'No se pudo verificar tu sesión. Vuelve a iniciar sesión.'
+      : lang === 'fr'
+      ? 'Votre session n’a pas pu être vérifiée. Reconnectez-vous.'
+      : lang === 'de'
+      ? 'Deine Sitzung konnte nicht verifiziert werden. Bitte melde dich erneut an.'
+      : lang === 'pt'
+      ? 'Sua sessão não pôde ser verificada. Faça login novamente.'
+      : lang === 'ru'
+      ? 'Не удалось подтвердить вашу сессию. Войдите снова.'
+      : lang === 'ja'
+      ? 'セッションを確認できませんでした。もう一度ログインしてください。'
+      : 'Your session could not be verified. Please log in again.'
+  }
+
+  if (errorCode === 'no_credits') {
+    return lang === 'tr'
+      ? 'Derin analiz kredin kalmamış.'
+      : lang === 'es'
+      ? 'No te quedan créditos para el análisis profundo.'
+      : lang === 'fr'
+      ? 'Vous n’avez plus de crédits pour l’analyse profonde.'
+      : lang === 'de'
+      ? 'Du hast keine Credits für die Tiefenanalyse mehr.'
+      : lang === 'pt'
+      ? 'Você não tem mais créditos para a análise profunda.'
+      : lang === 'ru'
+      ? 'У вас закончились кредиты на глубокий анализ.'
+      : lang === 'ja'
+      ? '詳細分析のクレジットが残っていません。'
+      : 'You have no deep analysis credits left.'
+  }
+
+  return lang === 'tr'
+    ? 'Derin analiz oluşturulurken bir hata oluştu.'
+    : lang === 'es'
+    ? 'Se produjo un error al generar el análisis profundo.'
+    : lang === 'fr'
+    ? 'Une erreur s’est produite lors de la génération de l’analyse profonde.'
+    : lang === 'de'
+    ? 'Beim Erstellen der Tiefenanalyse ist ein Fehler aufgetreten.'
+    : lang === 'pt'
+    ? 'Ocorreu um erro ao gerar a análise profunda.'
+    : lang === 'ru'
+    ? 'Произошла ошибка при создании глубокого анализа.'
+    : lang === 'ja'
+    ? '詳細分析の生成中にエラーが発生しました。'
+    : 'An error occurred while generating deep analysis.'
+}
+
 export default function DreamCard({
   dream,
   lang,
@@ -102,6 +246,12 @@ export default function DreamCard({
   const [premiumCredits, setPremiumCredits] = useState(0)
   const [creditsLoading, setCreditsLoading] = useState(false)
 
+  const [premiumGenerating, setPremiumGenerating] = useState(false)
+  const [premiumError, setPremiumError] = useState('')
+  const [premiumAnalysis, setPremiumAnalysis] = useState(
+    dream?.premium_deep_analysis || null
+  )
+
   useEffect(() => {
     setLikesCount(dream.likes_count || 0)
     setCommentsCount(dream.comments_count || 0)
@@ -109,7 +259,10 @@ export default function DreamCard({
     setShowComments(false)
     setLiked(false)
     setShowAnalysisModal(false)
-  }, [dream.id, dream.likes_count, dream.comments_count])
+    setPremiumGenerating(false)
+    setPremiumError('')
+    setPremiumAnalysis(dream?.premium_deep_analysis || null)
+  }, [dream.id, dream.likes_count, dream.comments_count, dream?.premium_deep_analysis])
 
   useEffect(() => {
     if (!showAnalysisModal) return
@@ -160,6 +313,14 @@ export default function DreamCard({
 
   const dreamImage = useMemo(() => dream.ai_image_url || null, [dream])
   const dreamMotiv = useMemo(() => getDreamMotiv(), [getDreamMotiv])
+
+  const dreamForAnalysisView = useMemo(() => {
+    if (!premiumAnalysis) return dream
+    return {
+      ...dream,
+      premium_deep_analysis: premiumAnalysis,
+    }
+  }, [dream, premiumAnalysis])
 
   useEffect(() => {
     let mounted = true
@@ -362,22 +523,83 @@ export default function DreamCard({
     }
   }
 
-  function handlePremiumAnalysisClick() {
+  async function handlePremiumAnalysisClick() {
+    setPremiumError('')
+
     if (!user?.id) {
-      alert(
-        currentLang === 'tr'
-          ? 'Derin analiz için önce giriş yapmalısın.'
-          : 'Please log in first to access deep analysis.'
-      )
+      setPremiumError(getPremiumErrorMessage(currentLang, 'login_required'))
       return
     }
 
-    if (premiumCredits > 0) {
+    if (premiumCredits <= 0) {
+      window.open(GUMROAD_PRODUCT_URL, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    if (premiumAnalysis) {
       setShowAnalysisModal(true)
       return
     }
 
-    window.open(GUMROAD_PRODUCT_URL, '_blank', 'noopener,noreferrer')
+    try {
+      setPremiumGenerating(true)
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        setPremiumError(getPremiumErrorMessage(currentLang, 'unauthorized'))
+        return
+      }
+
+      const res = await fetch('/api/generate-deep-analysis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          dreamId: dream.id,
+          lang: currentLang,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (data?.error === 'no_credits') {
+          setPremiumError(getPremiumErrorMessage(currentLang, 'no_credits'))
+          setPremiumCredits(0)
+          return
+        }
+
+        if (data?.error === 'unauthorized' || data?.error === 'missing_token') {
+          setPremiumError(getPremiumErrorMessage(currentLang, 'unauthorized'))
+          return
+        }
+
+        setPremiumError(getPremiumErrorMessage(currentLang, 'generic'))
+        return
+      }
+
+      if (data?.analysis) {
+        setPremiumAnalysis(data.analysis)
+      }
+
+      if (typeof data?.creditsLeft === 'number') {
+        setPremiumCredits(data.creditsLeft)
+      } else {
+        setPremiumCredits((prev) => Math.max(0, prev - 1))
+      }
+
+      setShowAnalysisModal(true)
+    } catch (err) {
+      console.error('Premium analysis error:', err)
+      setPremiumError(getPremiumErrorMessage(currentLang, 'generic'))
+    } finally {
+      setPremiumGenerating(false)
+    }
   }
 
   const displayContent = translated ? translatedContent : dream.content
@@ -518,31 +740,32 @@ export default function DreamCard({
             <>
               <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-fuchsia-300/14 bg-fuchsia-500/8 px-4 py-3">
                 <span className="text-xs uppercase tracking-[0.18em] text-fuchsia-100/82">
-                  {currentLang === 'tr'
-                    ? 'Premium Derin Analiz'
-                    : 'Premium Deep Analysis'}
+                  {getPremiumPanelLabel(currentLang)}
                 </span>
                 <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/80">
                   {creditsLoading
-                    ? currentLang === 'tr'
-                      ? 'yükleniyor...'
-                      : 'loading...'
-                    : currentLang === 'tr'
-                    ? `${premiumCredits} kredi`
-                    : `${premiumCredits} credits`}
+                    ? getCreditsLoadingLabel(currentLang)
+                    : getCreditsLabel(currentLang, premiumCredits)}
                 </span>
               </div>
 
               <button
                 type="button"
                 onClick={handlePremiumAnalysisClick}
-                className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-300/18 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-100 hover:bg-fuchsia-500/18"
+                disabled={premiumGenerating}
+                className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-300/18 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-100 hover:bg-fuchsia-500/18 disabled:cursor-not-allowed disabled:opacity-60"
                 aria-haspopup={premiumCredits > 0 ? 'dialog' : undefined}
                 aria-expanded={showAnalysisModal}
               >
-                <span>✦</span>
-                <span>{getPremiumButtonLabel(currentLang, premiumCredits)}</span>
+                <span>{premiumGenerating ? '⏳' : '✦'}</span>
+                <span>
+                  {getPremiumButtonLabel(currentLang, premiumCredits, premiumGenerating)}
+                </span>
               </button>
+
+              {premiumError ? (
+                <p className="mb-5 -mt-2 text-sm leading-6 text-rose-200/90">{premiumError}</p>
+              ) : null}
             </>
           )}
 
@@ -706,7 +929,7 @@ export default function DreamCard({
               ✕
             </button>
 
-            <DreamAnalysisView dream={dream} lang={currentLang} />
+            <DreamAnalysisView dream={dreamForAnalysisView} lang={currentLang} />
           </div>
         </div>
       )}
