@@ -10,7 +10,10 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-function buildTeaserPrompt({ content, lang = 'en' }) {
+function buildTeaserPrompt(params) {
+  const content = params && params.content ? params.content : ''
+  const lang = params && params.lang ? params.lang : 'en'
+
   return `
 Analyze the following dream in a concise, emotionally resonant, curiosity-inducing way.
 
@@ -74,14 +77,18 @@ function parseJsonSafely(text) {
   }
 }
 
-function normalizeArray(value, limit = 3) {
+function normalizeArray(value, limit) {
+  const max = typeof limit === 'number' ? limit : 3
+
   if (!Array.isArray(value)) return []
 
   return value
     .filter(Boolean)
-    .map((item) => String(item).trim())
+    .map(function (item) {
+      return String(item).trim()
+    })
     .filter(Boolean)
-    .slice(0, limit)
+    .slice(0, max)
 }
 
 export default async function handler(req, res) {
@@ -90,26 +97,29 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { dreamId, content, lang } = req.body || {}
+    const body = req.body || {}
+    const dreamId = body.dreamId
+    const content = body.content
+    const lang = body.lang
 
     let dream = null
 
     if (dreamId) {
-      const { data, error } = await supabaseAdmin
+      const result = await supabaseAdmin
         .from('dreams')
         .select('id, content, original_language')
         .eq('id', dreamId)
         .single()
 
-      if (error || !data) {
+      if (result.error || !result.data) {
         return res.status(404).json({ error: 'dream_not_found' })
       }
 
-      dream = data
+      dream = result.data
     } else if (content) {
       dream = {
         id: null,
-        content,
+        content: content,
         original_language: lang || 'en',
       }
     } else {
@@ -136,26 +146,65 @@ export default async function handler(req, res) {
       ],
     })
 
-    const raw = completion.choices?.?.message?.content || '{}'
+    const raw =
+      completion &&
+      completion.choices &&
+      completion.choices &&
+      completion.choices.message &&
+      completion.choices.message.content
+        ? completion.choices.message.content
+        : '{}'
+
     const analysis = parseJsonSafely(raw)
 
     const normalized = {
       title: {
-        en: analysis?.title?.en || '',
-        tr: analysis?.title?.tr || analysis?.title?.en || '',
+        en:
+          analysis &&
+          analysis.title &&
+          analysis.title.en
+            ? analysis.title.en
+            : '',
+        tr:
+          analysis &&
+          analysis.title &&
+          (analysis.title.tr || analysis.title.en)
+            ? analysis.title.tr || analysis.title.en
+            : '',
       },
       summary: {
-        en: analysis?.summary?.en || '',
-        tr: analysis?.summary?.tr || analysis?.summary?.en || '',
+        en:
+          analysis &&
+          analysis.summary &&
+          analysis.summary.en
+            ? analysis.summary.en
+            : '',
+        tr:
+          analysis &&
+          analysis.summary &&
+          (analysis.summary.tr || analysis.summary.en)
+            ? analysis.summary.tr || analysis.summary.en
+            : '',
       },
       motiv: {
-        en: analysis?.motiv?.en || '',
-        tr: analysis?.motiv?.tr || analysis?.motiv?.en || '',
+        en:
+          analysis &&
+          analysis.motiv &&
+          analysis.motiv.en
+            ? analysis.motiv.en
+            : '',
+        tr:
+          analysis &&
+          analysis.motiv &&
+          (analysis.motiv.tr || analysis.motiv.en)
+            ? analysis.motiv.tr || analysis.motiv.en
+            : '',
       },
-      sentiment: analysis?.sentiment
-        ? String(analysis.sentiment).toLowerCase()
-        : null,
-      archetypes: normalizeArray(analysis?.archetypes, 3),
+      sentiment:
+        analysis && analysis.sentiment
+          ? String(analysis.sentiment).toLowerCase()
+          : null,
+      archetypes: normalizeArray(analysis && analysis.archetypes, 3),
     }
 
     const payload = {
@@ -185,13 +234,13 @@ export default async function handler(req, res) {
     }
 
     if (dream.id) {
-      const { error: updateError } = await supabaseAdmin
+      const updateResult = await supabaseAdmin
         .from('dreams')
         .update(payload)
         .eq('id', dream.id)
 
-      if (updateError) {
-        console.error('dream update error', updateError)
+      if (updateResult.error) {
+        console.error('dream update error', updateResult.error)
         return res.status(500).json({ error: 'update_failed' })
       }
     }
@@ -206,7 +255,7 @@ export default async function handler(req, res) {
 
     return res.status(500).json({
       error: 'internal_server_error',
-      details: error?.message || 'unknown_error',
+      details: error && error.message ? error.message : 'unknown_error',
     })
   }
 }
