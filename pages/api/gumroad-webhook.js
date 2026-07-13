@@ -14,7 +14,7 @@ const supabase = createClient(
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
     let data = ''
-    req.on('data', chunk => {
+    req.on('data', (chunk) => {
       data += chunk
     })
     req.on('end', () => resolve(data))
@@ -36,44 +36,44 @@ export default async function handler(req, res) {
     const params = new URLSearchParams(rawBody)
     const payload = Object.fromEntries(params.entries())
 
-    console.log('GUMROAD_WEBHOOK_RAW:', rawBody)
-    console.log('GUMROAD_WEBHOOK_PARSED:', payload)
-
-    const saleId = payload.sale_id || null
+    const saleId = payload.sale_id || `test-${Date.now()}`
     const email = normalizeEmail(payload.email)
     const productId = payload.product_id || null
     const productName = payload.product_name || null
     const permalink = payload.product_permalink || null
+    const refunded = payload.refunded === 'true' || payload.refunded === '1'
     const isTest =
       payload.test === 'true' ||
-      payload.test === true ||
-      payload.test === '1'
+      payload.test === '1' ||
+      payload.test === true
 
-    if (isTest) {
-      return res.status(200).json({
-        ok: true,
-        mode: 'test',
-        payload,
-      })
-    }
-
-    if (!saleId || !email) {
-      return res.status(400).json({
-        error: 'Missing required fields',
-        saleId,
-        email,
-      })
-    }
+    console.log(
+      JSON.stringify(
+        {
+          tag: 'gumroad_webhook_received',
+          saleId,
+          email,
+          productId,
+          productName,
+          permalink,
+          refunded,
+          isTest,
+          payload,
+        },
+        null,
+        2
+      )
+    )
 
     const { data: existingSale, error: existingSaleError } = await supabase
       .from('gumroad_sales')
-      .select('id, sale_id')
+      .select('id, sale_id, credits_added, status')
       .eq('sale_id', saleId)
       .maybeSingle()
 
     if (existingSaleError) {
-      console.error('existingSaleError:', existingSaleError)
-      return res.status(500).json({ error: 'Failed checking existing sale' })
+      console.error('gumroad existing sale lookup failed', existingSaleError)
+      return res.status(500).json({ error: 'existing_sale_lookup_failed' })
     }
 
     if (existingSale) {
@@ -81,72 +81,82 @@ export default async function handler(req, res) {
         ok: true,
         duplicate: true,
         saleId,
+        status: existingSale.status,
       })
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('id, email, premium_analysis_credits')
-      .ilike('email', email)
-      .maybeSingle()
-
-    if (profileError) {
-      console.error('profileError:', profileError)
-      return res.status(500).json({ error: 'Failed looking up user profile' })
     }
 
     let userProfileId = null
     let creditsAdded = 0
+    let status = 'received'
 
-    if (profile) {
-      userProfileId = profile.id
-      const nextCredits = Number(profile.premium_analysis_credits || 0) + 1
-
-      const { error: updateError } = await supabase
+    if (email && !refunded) {
+      const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .update({
-          premium_analysis_credits: nextCredits,
-        })
-        .eq('id', profile.id)
+        .select('id, email, premium_analysis_credits')
+        .ilike('email', email)
+        .maybeSingle()
 
-      if (updateError) {
-        console.error('updateError:', updateError)
-        return res.status(500).json({ error: 'Failed updating credits' })
+      if (profileError) {
+        console.error('gumroad profile lookup failed', profileError)
+        return res.status(500).json({ error: 'profile_lookup_failed' })
       }
 
-      creditsAdded = 1
+      if (profile) {
+        userProfileId = profile.id
+
+        if (!isTest) {
+          const nextCredits = Number(profile.premium_analysis_credits || 0) + 1
+
+          const { error: updateError } = await supabase
+            .from('user_profiles')
+            .update({ premium_analysis_credits: nextCredits })
+            .eq('id', profile.id)
+
+          if (updateError) {
+            console.error('gumroad credit update failed', updateError)
+            return res.status(500).json({ error: 'credit_update_failed' })
+          }
+
+          creditsAdded = 1
+          status = 'credited'
+        } else {
+          status = 'test_matched_user'
+        }
+      } else {
+        status = isTest ? 'test_no_user_match' : 'pending_user_match'
+      }
     }
 
     const { error: insertSaleError } = await supabase
       .from('gumroad_sales')
       .insert({
         sale_id: saleId,
-        email,
+        email: email || null,
         product_id: productId,
         product_name: productName,
         product_permalink: permalink,
         raw_payload: payload,
         user_profile_id: userProfileId,
         credits_added: creditsAdded,
-        status: profile ? 'credited' : 'pending_user_match',
+        status,
       })
 
     if (insertSaleError) {
-      console.error('insertSaleError:', insertSaleError)
-      return res.status(500).json({ error: 'Failed saving sale' })
+      console.error('gumroad sale insert failed', insertSaleError)
+      return res.status(500).json({ error: 'sale_insert_failed' })
     }
 
     return res.status(200).json({
       ok: true,
       saleId,
       email,
-      matchedUser: !!profile,
-      creditsAdded,
       productId,
-      permalink,
+      status,
+      creditsAdded,
+      isTest,
     })
   } catch (error) {
-    console.error('gumroad webhook fatal error:', error)
-    return res.status(500).json({ error: 'Internal server error' })
+    console.error('gumroad webhook fatal', error)
+    return res.status(500).json({ error: 'internal_server_error' })
   }
 }
