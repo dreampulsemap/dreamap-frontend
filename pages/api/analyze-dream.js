@@ -1,15 +1,8 @@
 // pages/api/analyze-dream.js
 import { createClient } from '@supabase/supabase-js'
 
-/**
- * CONFIG
- */
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
-
-const ANALYSIS_VERSION = 'jung-v12-history-aware'
-
-// Paylaşım tablosunun gerçek adını burada ayarla:
-const SHARES_TABLE_NAME = 'dreams'
+const ANALYSIS_VERSION = 'jung-v13-groq-only'
 
 const SUPPORTED_LANGS = ['tr', 'en', 'es', 'fr', 'de', 'pt', 'ru', 'ja']
 const ALLOWED_EMOTIONS = [
@@ -22,22 +15,17 @@ const ALLOWED_EMOTIONS = [
   'Confusion',
   'Surprise',
 ]
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-const groqKey = process.env.GROQ_API_KEY
-
+const groqKey = process.env.GROQ_KEY
 
 if (!supabaseUrl) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL')
 if (!supabaseServiceRoleKey) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY')
-if (!groqKey) {
-  throw new Error('Missing AI provider keys (GROQ_API_KEY / OPENROUTER_API_KEY)')
-}
+if (!groqKey) throw new Error('Missing GROQ_API_KEY')
 
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
-/**
- * UTILITIES
- */
 function cleanText(value, maxLen = 4000) {
   if (typeof value !== 'string') return null
   const v = value.replace(/s+/g, ' ').trim()
@@ -139,14 +127,11 @@ function extractJsonString(content) {
   throw new Error('Could not parse JSON output')
 }
 
-/**
- * HISTORY DIGEST
- */
-function buildHistoryDigest(history = [], shares = []) {
+function buildHistoryDigest(history = []) {
   const sentiments = {}
   const archetypes = {}
   const symbols = {}
-  const fragments = []
+  const phrases = []
 
   for (const item of history) {
     if (item?.ai_sentiment) {
@@ -170,13 +155,7 @@ function buildHistoryDigest(history = [], shares = []) {
     }
 
     if (typeof item?.ai_summary === 'string') {
-      fragments.push(item.ai_summary.slice(0, 220))
-    }
-  }
-
-  for (const share of shares) {
-    if (typeof share?.content === 'string') {
-      fragments.push(share.content.slice(0, 180))
+      phrases.push(item.ai_summary.slice(0, 220))
     }
   }
 
@@ -188,17 +167,13 @@ function buildHistoryDigest(history = [], shares = []) {
 
   return {
     dream_count: history.length,
-    share_count: shares.length,
     dominant_sentiments: top(sentiments, 5),
     dominant_archetypes: top(archetypes, 6),
     recurring_symbols: top(symbols, 8),
-    memory_fragments: fragments.slice(0, 12),
+    memory_fragments: phrases.slice(0, 12),
   }
 }
 
-/**
- * DATA FETCHING
- */
 async function fetchDream(dreamId) {
   const { data, error } = await supabase
     .from('dreams')
@@ -227,29 +202,10 @@ async function fetchUserDreamHistory(userId, currentDreamId) {
     console.warn('fetchUserDreamHistory error:', error.message)
     return []
   }
+
   return data || []
 }
 
-async function fetchUserShares(userId) {
-  if (!userId) return []
-
-  const { data, error } = await supabase
-    .from(SHARES_TABLE_NAME)
-    .select('id, content, created_at')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(20)
-
-  if (error) {
-    console.warn('fetchUserShares error:', error.message)
-    return []
-  }
-  return data || []
-}
-
-/**
- * STRUCTURED OUTPUT SCHEMA
- */
 function buildSchemaGuide() {
   const langsText = Object.fromEntries(
     SUPPORTED_LANGS.map((lang) => [lang, 'string'])
@@ -403,17 +359,14 @@ function buildJsonSchema() {
   }
 }
 
-/**
- * PROMPT
- */
-function buildPrompt(dream, historyDigest, history, shares) {
+function buildPrompt(dream, historyDigest, history) {
   const content = cleanText(dream?.content, 12000) || ''
   const language = cleanText(dream?.original_language, 16) || 'en'
   const sentiment = cleanText(dream?.user_selected_sentiment, 80) || 'unknown'
   const location = cleanText(dream?.location_name, 200) || 'unknown'
   const dreamDate = dream?.dream_date || 'unknown'
 
-  const compactHistory = (history || []).map((item) => ({
+  const compactHistory = history.map((item) => ({
     dream_date: item?.dream_date || null,
     user_selected_sentiment: item?.user_selected_sentiment || null,
     ai_sentiment: item?.ai_sentiment || null,
@@ -424,11 +377,6 @@ function buildPrompt(dream, historyDigest, history, shares) {
     ai_summary: typeof item?.ai_summary === 'string' ? item.ai_summary.slice(0, 240) : null,
   }))
 
-  const compactShares = (shares || []).map((item) => ({
-    created_at: item?.created_at || null,
-    content: typeof item?.content === 'string' ? item.content.slice(0, 220) : null,
-  }))
-
   return `
 You are an elite Jungian dream analyst writing for Lunosfer, a premium dream analysis platform.
 
@@ -436,14 +384,14 @@ Return ONLY valid JSON. No markdown. No explanations.
 
 CORE RULE:
 - The Jungian reading must be rooted primarily in the CURRENT dream.
-- Other interpretive layers may incorporate the user's prior dream history and past shares to identify recurring psychic patterns, repeated symbols, affective loops, archetypal tendencies, and continuity across the dream series.
+- You may incorporate prior dream history to identify recurring psychic patterns, repeated symbols, affective loops, archetypal tendencies, and continuity across the dream series.
 - Do not invent biographical facts not supported by the inputs.
 
 CURRENT DREAM:
-- original_language: ${language}
-- user_selected_sentiment: ${sentiment}
-- location_name: ${location}
-- dream_date: ${dreamDate}
+- original language: ${language}
+- user-selected sentiment: ${sentiment}
+- location: ${location}
+- dream date: ${dreamDate}
 
 Dream text:
 ${content}
@@ -454,11 +402,18 @@ ${JSON.stringify(historyDigest, null, 2)}
 RECENT DREAM HISTORY:
 ${JSON.stringify(compactHistory, null, 2)}
 
-RECENT USER SHARES:
-${JSON.stringify(compactShares, null, 2)}
-
 Return exactly this JSON shape:
 ${JSON.stringify(buildSchemaGuide(), null, 2)}
+
+Interpretation requirements:
+1. summary: long, deep, elegant Jungian reading of the CURRENT dream.
+2. motiv: grounded integration guidance; may incorporate historical patterns.
+3. image_prompt: cinematic, symbolic, highly visual, safe for image generation, premium aesthetic.
+4. persona_profile: psychologically resonant, specific, and non-generic.
+5. user_pattern_context: derived from user dream history.
+6. relational_reading: synthesize adaptive style, shadow pattern, and growth edge using continuity across dreams.
+7. symbolic_reading: explain symbolic sequence and image logic of the CURRENT dream.
+8. reflection_questions: penetrating, intimate, useful.
 
 Multilingual requirements:
 - title, summary, motiv, image_prompt, shadow_focus, core_conflict, individuation_path, symbolic_reading
@@ -483,9 +438,6 @@ Output only JSON.
 `.trim()
 }
 
-/**
- * NORMALIZATION
- */
 function normalizeAnalysis(parsed) {
   const visual = parsed?.visual_theme || {}
   const sectionThemes = parsed?.section_themes || {}
@@ -567,10 +519,7 @@ function normalizeAnalysis(parsed) {
         primary_color: cleanHex(sectionThemes?.transformation?.primary_color, '#0F766E'),
         secondary_color: cleanHex(sectionThemes?.transformation?.secondary_color, '#164E63'),
         accent_color: cleanHex(sectionThemes?.transformation?.accent_color, '#99F6E4'),
-        gradient_suggestion: cleanText(
-          sectionThemes?.transformation?.gradient_suggestion,
-          200
-        ),
+        gradient_suggestion: cleanText(sectionThemes?.transformation?.gradient_suggestion, 200),
       },
     },
 
@@ -604,18 +553,10 @@ function normalizeAnalysis(parsed) {
     reflection_questions: ensureMultilangArray(parsed?.reflection_questions, 6),
   }
 
-  if (!pickLocalized(normalized.summary, 'en', 'en')) {
-    throw new Error('Missing summary')
-  }
-  if (!pickLocalized(normalized.title, 'en', 'en')) {
-    throw new Error('Missing title')
-  }
-  if (!normalized.archetypes.length) {
-    throw new Error('Missing archetypes')
-  }
-  if (!normalized.symbols.length) {
-    throw new Error('Missing symbols')
-  }
+  if (!pickLocalized(normalized.summary, 'en', 'en')) throw new Error('Missing summary')
+  if (!pickLocalized(normalized.title, 'en', 'en')) throw new Error('Missing title')
+  if (!normalized.archetypes.length) throw new Error('Missing archetypes')
+  if (!normalized.symbols.length) throw new Error('Missing symbols')
 
   return normalized
 }
@@ -626,9 +567,6 @@ function parseAiResponse(rawContent) {
   return normalizeAnalysis(parsed)
 }
 
-/**
- * FETCH WITH TIMEOUT
- */
 async function fetchWithTimeout(url, options = {}, timeoutMs = 45000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -643,12 +581,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 45000) {
   }
 }
 
-/**
- * PROVIDER CALLS
- */
 async function callGroq(prompt, userId) {
-  if (!groqKey) throw new Error('Groq key not configured')
-
   const response = await fetchWithTimeout(
     'https://api.groq.com/openai/v1/chat/completions',
     {
@@ -693,90 +626,13 @@ async function callGroq(prompt, userId) {
   return parseAiResponse(raw)
 }
 
-async function callOpenRouter(prompt, userId) {
-  if (!openRouterKey) throw new Error('OpenRouter key not configured')
-
-  const response = await fetchWithTimeout(
-    'https://openrouter.ai/api/v1/chat/completions',
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${openRouterKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://lunosfer.com',
-        'X-OpenRouter-Title': 'Lunosfer',
-      },
-      body: JSON.stringify({
-        model: OPENROUTER_MODEL,
-        temperature: 0.7,
-        max_tokens: 5500,
-        user: userId ? String(userId) : undefined,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'Return only valid raw JSON. No markdown. No commentary. Produce a deep, multilingual, history-aware Jungian dream analysis.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        response_format: {
-          type: 'json_schema',
-          json_schema: buildJsonSchema(),
-        },
-        provider: {
-          require_parameters: true,
-        },
-      }),
-    },
-    45000
-  )
-
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    throw new Error(data?.error?.message || `OpenRouter error ${response.status}`)
-  }
-
-  const raw = data?.choices?.[0]?.message?.content
-  if (!raw) throw new Error('OpenRouter returned empty content')
-
-  return parseAiResponse(raw)
-}
-
-/**
- * ANALYSIS DISPATCH
- */
-async function generateAnalysis({ dream, historyDigest, history, shares }) {
-  const prompt = buildPrompt(dream, historyDigest, history, shares)
+async function generateAnalysis({ dream, historyDigest, history }) {
+  const prompt = buildPrompt(dream, historyDigest, history)
   const userId = dream?.user_id || null
-  const errors = []
-
-  if (groqKey) {
-    try {
-      const result = await callGroq(prompt, userId)
-      return { provider: 'groq', model: GROQ_MODEL, result }
-    } catch (err) {
-      errors.push(`Groq: ${err.message}`)
-    }
-  }
-
-  if (openRouterKey) {
-    try {
-      const result = await callOpenRouter(prompt, userId)
-      return { provider: 'openrouter', model: OPENROUTER_MODEL, result }
-    } catch (err) {
-      errors.push(`OpenRouter: ${err.message}`)
-    }
-  }
-
-  throw new Error(errors.join(' | ') || 'All AI providers failed')
+  const result = await callGroq(prompt, userId)
+  return { provider: 'groq', model: GROQ_MODEL, result }
 }
 
-/**
- * DB PATCH
- */
 function buildLocalizedColumns(result, baseLang = 'en') {
   const patch = {
     ai_title: pickLocalized(result.title, baseLang, 'en'),
@@ -794,9 +650,6 @@ function buildLocalizedColumns(result, baseLang = 'en') {
   return patch
 }
 
-/**
- * HANDLER
- */
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST'])
@@ -804,18 +657,12 @@ export default async function handler(req, res) {
   }
 
   const dreamId = req.body?.dreamId
-
   if (!dreamId) {
     return res.status(400).json({ error: 'dreamId is required' })
   }
 
   try {
     const dream = await fetchDream(dreamId)
-
-    // Buraya kendi auth/session kontrolünü entegre etmen gerekir:
-    // Örneğin, NextAuth veya Supabase auth ile session.user.id alıp dream.user_id ile karşılaştırarak
-    // başkasının rüyasına analiz atılmasını engellemelisin.
-    // Bu örnek, sadece service role üzerinden çalıştığı için ownership check eklemiyor.
 
     await supabase
       .from('dreams')
@@ -827,14 +674,12 @@ export default async function handler(req, res) {
       .eq('id', dreamId)
 
     const history = await fetchUserDreamHistory(dream.user_id, dream.id)
-    const shares = await fetchUserShares(dream.user_id)
-    const historyDigest = buildHistoryDigest(history, shares)
+    const historyDigest = buildHistoryDigest(history)
 
     const { provider, model, result } = await generateAnalysis({
       dream,
       historyDigest,
       history,
-      shares,
     })
 
     const baseLang = normalizeLang(dream?.original_language || 'en')
@@ -846,7 +691,6 @@ export default async function handler(req, res) {
         model,
         version: ANALYSIS_VERSION,
         history_dream_count: history.length,
-        share_count: shares.length,
       },
     }
 
@@ -883,7 +727,6 @@ export default async function handler(req, res) {
         model,
         version: ANALYSIS_VERSION,
         historyDreams: history.length,
-        shares: shares.length,
       },
     })
   } catch (error) {
