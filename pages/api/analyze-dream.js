@@ -65,9 +65,9 @@ function parseJsonSafely(text) {
     return JSON.parse(text)
   } catch (error) {
     const cleaned = String(text || '')
-      .replace(/^```json\\s*/i, '')
-      .replace(/^```\\s*/i, '')
-      .replace(/\\s*```$/i, '')
+      .replace(/^```jsons*/i, '')
+      .replace(/^```s*/i, '')
+      .replace(/s*```$/i, '')
       .trim()
 
     return JSON.parse(cleaned)
