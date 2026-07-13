@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useRouter } from 'next/router'
 import { getTranslation } from '../lib/translations'
-import { auth, supabase } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import DreamAnalysisView from './DreamAnalysisView'
 
 const GUMROAD_PRODUCT_URL = 'https://lunosfer.gumroad.com/l/lunosfer-deep-analysis'
@@ -232,6 +233,7 @@ export default function DreamCard({
   translatedAnalysis,
 }) {
   const { i18n } = useTranslation()
+  const router = useRouter()
   const currentLang = lang || i18n.language || 'en'
 
   const [user, setUser] = useState(null)
@@ -245,7 +247,6 @@ export default function DreamCard({
   const [showAnalysisModal, setShowAnalysisModal] = useState(false)
   const [premiumCredits, setPremiumCredits] = useState(0)
   const [creditsLoading, setCreditsLoading] = useState(false)
-
   const [premiumGenerating, setPremiumGenerating] = useState(false)
   const [premiumError, setPremiumError] = useState('')
   const [premiumAnalysis, setPremiumAnalysis] = useState(
@@ -282,45 +283,92 @@ export default function DreamCard({
     }
   }, [showAnalysisModal])
 
+  const teaserAnalysis = useMemo(() => {
+    if (dream?.ai_jungian_analysis && Object.keys(dream.ai_jungian_analysis).length > 0) {
+      return dream.ai_jungian_analysis
+    }
+
+    if (
+      dream?.ai_summary ||
+      dream?.ai_summary_en ||
+      dream?.ai_summary_tr ||
+      dream?.ai_title ||
+      dream?.ai_motiv
+    ) {
+      return {
+        title: {
+          en: dream?.ai_title_en || dream?.ai_title || '',
+          tr: dream?.ai_title_tr || dream?.ai_title || '',
+        },
+        summary: {
+          en: dream?.ai_summary_en || dream?.ai_summary || '',
+          tr: dream?.ai_summary_tr || dream?.ai_summary || '',
+        },
+        motiv: {
+          en: dream?.ai_motiv_en || dream?.ai_motiv || '',
+          tr: dream?.ai_motiv_tr || dream?.ai_motiv || '',
+        },
+        sentiment: dream?.ai_sentiment || null,
+        archetypes: Array.isArray(dream?.ai_archetypes) ? dream.ai_archetypes : [],
+        teaser: true,
+      }
+    }
+
+    return null
+  }, [dream])
+
   const getDreamAnalysis = useCallback(() => {
+    if (translated && translatedAnalysis) {
+      return translatedAnalysis
+    }
+
     return (
       dream[`ai_summary_${currentLang}`] ||
+      teaserAnalysis?.summary?.[currentLang] ||
       dream.ai_summary ||
       dream.ai_summary_en ||
-      dream?.ai_jungian_analysis?.summary?.[currentLang] ||
-      dream?.ai_jungian_analysis?.summary?.en ||
+      teaserAnalysis?.summary?.en ||
       ''
     )
-  }, [dream, currentLang])
+  }, [dream, currentLang, translated, translatedAnalysis, teaserAnalysis])
 
   const getDreamMotiv = useCallback(() => {
     return (
       dream[`ai_motiv_${currentLang}`] ||
+      teaserAnalysis?.motiv?.[currentLang] ||
       dream.ai_motiv ||
       dream.ai_motiv_en ||
-      dream?.ai_jungian_analysis?.motiv?.[currentLang] ||
-      dream?.ai_jungian_analysis?.motiv?.en ||
+      teaserAnalysis?.motiv?.en ||
       ''
     )
-  }, [dream, currentLang])
+  }, [dream, currentLang, teaserAnalysis])
 
-  const hasDetailedAnalysis = useMemo(() => {
-    return Boolean(
-      dream?.ai_jungian_analysis &&
-        Object.keys(dream.ai_jungian_analysis || {}).length > 0
+  const getDreamTitle = useCallback(() => {
+    return (
+      dream[`ai_title_${currentLang}`] ||
+      teaserAnalysis?.title?.[currentLang] ||
+      dream.ai_title ||
+      dream.ai_title_en ||
+      teaserAnalysis?.title?.en ||
+      ''
     )
-  }, [dream])
+  }, [dream, currentLang, teaserAnalysis])
+
+  const hasTeaserAnalysis = useMemo(() => {
+    return Boolean(teaserAnalysis && (getDreamAnalysis() || getDreamMotiv() || getDreamTitle()))
+  }, [teaserAnalysis, getDreamAnalysis, getDreamMotiv, getDreamTitle])
 
   const dreamImage = useMemo(() => dream.ai_image_url || null, [dream])
   const dreamMotiv = useMemo(() => getDreamMotiv(), [getDreamMotiv])
+  const dreamTitle = useMemo(() => getDreamTitle(), [getDreamTitle])
 
   const dreamForAnalysisView = useMemo(() => {
-    if (!premiumAnalysis) return dream
     return {
       ...dream,
-      premium_deep_analysis: premiumAnalysis,
+      ai_jungian_analysis: teaserAnalysis || dream?.ai_jungian_analysis || null,
+      premium_deep_analysis: premiumAnalysis || dream?.premium_deep_analysis || null,
     }
-  }, [dream, premiumAnalysis])
+  }, [dream, teaserAnalysis, premiumAnalysis])
 
   useEffect(() => {
     let mounted = true
@@ -328,17 +376,17 @@ export default function DreamCard({
     async function checkUser() {
       try {
         const {
-          data: { user },
+          data: { user: currentUser },
           error,
-        } = await auth.getUser()
+        } = await supabase.auth.getUser()
 
         if (error) throw error
         if (!mounted) return
 
-        setUser(user || null)
+        setUser(currentUser || null)
 
-        if (user?.id) {
-          await Promise.all([checkIfLiked(user.id), loadPremiumCredits(user.id)])
+        if (currentUser?.id) {
+          await Promise.all([checkIfLiked(currentUser.id), loadPremiumCredits(currentUser.id)])
         } else {
           setPremiumCredits(0)
         }
@@ -526,22 +574,31 @@ export default function DreamCard({
   async function handlePremiumAnalysisClick() {
     setPremiumError('')
 
-    if (!user?.id) {
-      setPremiumError(getPremiumErrorMessage(currentLang, 'login_required'))
-      return
-    }
-
-    if (premiumCredits <= 0) {
-      window.open(GUMROAD_PRODUCT_URL, '_blank', 'noopener,noreferrer')
-      return
-    }
-
-    if (premiumAnalysis) {
-      setShowAnalysisModal(true)
-      return
-    }
-
     try {
+      const {
+        data: { user: verifiedUser },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !verifiedUser?.id) {
+        setUser(null)
+        setPremiumError(getPremiumErrorMessage(currentLang, 'login_required'))
+        router.push('/auth')
+        return
+      }
+
+      setUser(verifiedUser)
+
+      if (premiumCredits <= 0) {
+        window.open(GUMROAD_PRODUCT_URL, '_blank', 'noopener,noreferrer')
+        return
+      }
+
+      if (premiumAnalysis) {
+        setShowAnalysisModal(true)
+        return
+      }
+
       setPremiumGenerating(true)
 
       const {
@@ -565,7 +622,7 @@ export default function DreamCard({
         }),
       })
 
-      const data = await res.json()
+      const data = await res.json().catch(() => null)
 
       if (!res.ok) {
         if (data?.error === 'no_credits') {
@@ -574,7 +631,11 @@ export default function DreamCard({
           return
         }
 
-        if (data?.error === 'unauthorized' || data?.error === 'missing_token') {
+        if (
+          data?.error === 'unauthorized' ||
+          data?.error === 'missing_token' ||
+          data?.error === 'forbidden'
+        ) {
           setPremiumError(getPremiumErrorMessage(currentLang, 'unauthorized'))
           return
         }
@@ -603,7 +664,7 @@ export default function DreamCard({
   }
 
   const displayContent = translated ? translatedContent : dream.content
-  const displayAnalysis = translated ? translatedAnalysis : getDreamAnalysis()
+  const displayAnalysis = getDreamAnalysis()
 
   const sentimentLabel = dream.user_selected_sentiment
     ? getTranslation(
@@ -638,6 +699,15 @@ export default function DreamCard({
               dream.ai_archetypes.map((arch, i) => (
                 <span
                   key={`${dream.id}-arch-${i}`}
+                  className="rounded-full border border-violet-300/18 bg-violet-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-violet-100"
+                >
+                  {arch}
+                </span>
+              ))
+            ) : Array.isArray(teaserAnalysis?.archetypes) && teaserAnalysis.archetypes.length > 0 ? (
+              teaserAnalysis.archetypes.map((arch, i) => (
+                <span
+                  key={`${dream.id}-teaser-arch-${i}`}
                   className="rounded-full border border-violet-300/18 bg-violet-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-violet-100"
                 >
                   {arch}
@@ -717,7 +787,7 @@ export default function DreamCard({
             </button>
           )}
 
-          {displayAnalysis && (
+          {hasTeaserAnalysis && (
             <div className="mb-5 rounded-[1.5rem] border border-violet-300/18 bg-violet-500/8 p-4 sm:p-5">
               <div className="mb-3 flex items-center gap-2">
                 <span className="text-lg text-violet-200">🜂</span>
@@ -725,6 +795,12 @@ export default function DreamCard({
                   {getTranslation('feed.jungianAnalysis', currentLang)}
                 </span>
               </div>
+
+              {dreamTitle ? (
+                <h3 className="mb-3 text-base font-semibold leading-7 text-violet-50 sm:text-lg">
+                  {dreamTitle}
+                </h3>
+              ) : null}
 
               <p className="text-sm leading-7 text-white/82">{displayAnalysis}</p>
 
@@ -736,7 +812,7 @@ export default function DreamCard({
             </div>
           )}
 
-          {hasDetailedAnalysis && (
+          {(hasTeaserAnalysis || premiumAnalysis || dream?.premium_deep_analysis) && (
             <>
               <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-fuchsia-300/14 bg-fuchsia-500/8 px-4 py-3">
                 <span className="text-xs uppercase tracking-[0.18em] text-fuchsia-100/82">
@@ -795,6 +871,40 @@ export default function DreamCard({
               <span>💬</span>
               <span>{commentsCount}</span>
             </button>
+
+            {hasTeaserAnalysis && (
+              <button
+                type="button"
+                onClick={() => setShowAnalysisModal(true)}
+                className="energy-button inline-flex items-center gap-2 rounded-2xl border border-violet-300/18 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-100 hover:bg-violet-500/18"
+              >
+                <span>🜂</span>
+                <span>{getAnalysisButtonLabel(currentLang)}</span>
+              </button>
+            )}
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4 text-sm text-white/58">
+            {dream.dream_date && (
+              <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
+                {dream.dream_date}
+              </span>
+            )}
+            {dream.location_name && (
+              <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
+                {dream.location_name}
+              </span>
+            )}
+            {dream.original_language && (
+              <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
+                {String(dream.original_language).toUpperCase()}
+              </span>
+            )}
+            {sentimentLabel && (
+              <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
+                {sentimentLabel}
+              </span>
+            )}
           </div>
 
           {showComments && (
@@ -882,29 +992,6 @@ export default function DreamCard({
               )}
             </div>
           )}
-
-          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4 text-sm text-white/58">
-            {dream.dream_date && (
-              <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
-                {dream.dream_date}
-              </span>
-            )}
-            {dream.location_name && (
-              <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
-                {dream.location_name}
-              </span>
-            )}
-            {dream.original_language && (
-              <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
-                {String(dream.original_language).toUpperCase()}
-              </span>
-            )}
-            {sentimentLabel && (
-              <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
-                {sentimentLabel}
-              </span>
-            )}
-          </div>
         </div>
       </article>
 
