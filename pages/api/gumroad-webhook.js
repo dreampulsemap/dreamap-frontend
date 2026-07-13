@@ -11,12 +11,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+const CREDIT_AMOUNT = 10
+
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
     let data = ''
+
     req.on('data', (chunk) => {
       data += chunk
     })
+
     req.on('end', () => resolve(data))
     req.on('error', reject)
   })
@@ -66,20 +70,20 @@ export default async function handler(req, res) {
     )
 
     const { data: existingSale, error: existingSaleError } = await supabase
-  .from('gumroad_webhook_events')
-  .select('sale_id, credits_added, status')
-  .eq('sale_id', saleId)
-  .maybeSingle()
+      .from('gumroad_webhook_events')
+      .select('sale_id, credits_added, status')
+      .eq('sale_id', saleId)
+      .maybeSingle()
 
-if (existingSaleError) {
-  console.error('gumroad existing sale lookup failed', existingSaleError)
-  return res.status(500).json({
-    error: 'existing_sale_lookup_failed',
-    details: existingSaleError.message,
-    code: existingSaleError.code || null,
-    hint: existingSaleError.hint || null,
-  })
-}
+    if (existingSaleError) {
+      console.error('gumroad existing sale lookup failed', existingSaleError)
+      return res.status(500).json({
+        error: 'existing_sale_lookup_failed',
+        details: existingSaleError.message,
+        code: existingSaleError.code || null,
+        hint: existingSaleError.hint || null,
+      })
+    }
 
     if (existingSale) {
       return res.status(200).json({
@@ -103,17 +107,20 @@ if (existingSaleError) {
 
       if (profileError) {
         console.error('gumroad profile lookup failed', profileError)
-        return res.status(500).json({ error: 'profile_lookup_failed' })
+        return res.status(500).json({
+          error: 'profile_lookup_failed',
+          details: profileError.message,
+          code: profileError.code || null,
+          hint: profileError.hint || null,
+        })
       }
 
       if (profile) {
         userProfileId = profile.id
 
         if (!isTest) {
-          const CREDIT_AMOUNT = 10
-const nextCredits = Number(profile.premium_analysis_credits || 0) + CREDIT_AMOUNT
-...
-creditsAdded = CREDIT_AMOUNT
+          const nextCredits =
+            Number(profile.premium_analysis_credits || 0) + CREDIT_AMOUNT
 
           const { error: updateError } = await supabase
             .from('user_profiles')
@@ -122,10 +129,15 @@ creditsAdded = CREDIT_AMOUNT
 
           if (updateError) {
             console.error('gumroad credit update failed', updateError)
-            return res.status(500).json({ error: 'credit_update_failed' })
+            return res.status(500).json({
+              error: 'credit_update_failed',
+              details: updateError.message,
+              code: updateError.code || null,
+              hint: updateError.hint || null,
+            })
           }
 
-          creditsAdded = 1
+          creditsAdded = CREDIT_AMOUNT
           status = 'credited'
         } else {
           status = 'test_matched_user'
@@ -150,13 +162,13 @@ creditsAdded = CREDIT_AMOUNT
       })
 
     if (insertSaleError) {
-  console.error('gumroad sale insert failed', insertSaleError)
-  return res.status(500).json({
-    error: 'sale_insert_failed',
-    details: insertSaleError.message,
-    code: insertSaleError.code || null,
-    hint: insertSaleError.hint || null,
-  })
+      console.error('gumroad sale insert failed', insertSaleError)
+      return res.status(500).json({
+        error: 'sale_insert_failed',
+        details: insertSaleError.message,
+        code: insertSaleError.code || null,
+        hint: insertSaleError.hint || null,
+      })
     }
 
     return res.status(200).json({
@@ -170,6 +182,9 @@ creditsAdded = CREDIT_AMOUNT
     })
   } catch (error) {
     console.error('gumroad webhook fatal', error)
-    return res.status(500).json({ error: 'internal_server_error' })
+    return res.status(500).json({
+      error: 'internal_server_error',
+      details: error.message || 'Unknown error',
+    })
   }
 }
