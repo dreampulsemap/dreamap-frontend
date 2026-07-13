@@ -77,6 +77,7 @@ function parseJsonSafely(text) {
 
 function normalizeArray(value, limit = 3) {
   if (!Array.isArray(value)) return []
+
   return value
     .filter(Boolean)
     .map((item) => String(item).trim())
@@ -97,11 +98,7 @@ export default async function handler(req, res) {
     if (dreamId) {
       const { data, error } = await supabaseAdmin
         .from('dreams')
-        .select(`
-          id,
-          content,
-          original_language
-        `)
+        .select('id, content, original_language')
         .eq('id', dreamId)
         .single()
 
@@ -156,7 +153,9 @@ export default async function handler(req, res) {
         en: analysis?.motiv?.en || '',
         tr: analysis?.motiv?.tr || analysis?.motiv?.en || '',
       },
-      sentiment: analysis?.sentiment ? String(analysis.sentiment).toLowerCase() : null,
+      sentiment: analysis?.sentiment
+        ? String(analysis.sentiment).toLowerCase()
+        : null,
       archetypes: normalizeArray(analysis?.archetypes, 3),
     }
 
