@@ -8,16 +8,22 @@ const openai = new OpenAI({
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
 )
 
 function buildPrompt({ content, lang = 'en' }) {
   return `
 Analyze the following dream using a deep Jungian framework.
 
-Return only valid JSON.
-Do not wrap in markdown.
-Do not include explanations outside JSON.
+Return only a valid JSON object.
+Do not use markdown.
+Do not add explanations before or after the JSON.
 
 Language: ${lang}
 
@@ -26,7 +32,7 @@ Dream:
 ${content}
 """
 
-JSON shape:
+Required JSON shape:
 {
   "title": { "en": "", "tr": "" },
   "summary": { "en": "", "tr": "" },
@@ -97,11 +103,11 @@ JSON shape:
 }
 
 function parseJsonSafely(text) {
-  if (!text || typeof text !== 'string') return {}
+  if (!text || typeof text !== 'string') return null
 
   try {
     return JSON.parse(text)
-  } catch (e) {
+  } catch (err) {
     try {
       const cleaned = text
         .replace(/^```jsons*/i, '')
@@ -110,13 +116,25 @@ function parseJsonSafely(text) {
         .trim()
 
       return JSON.parse(cleaned)
-    } catch (err) {
-      return {
-        parse_error: true,
-        raw_text: text,
-      }
+    } catch (err2) {
+      return null
     }
   }
+}
+
+function getMessageContent(completion) {
+  if (
+    completion &&
+    completion.choices &&
+    Array.isArray(completion.choices) &&
+    completion.choices &&
+    completion.choices.message &&
+    typeof completion.choices.message.content === 'string'
+  ) {
+    return completion.choices.message.content
+  }
+
+  return '{}'
 }
 
 export default async function handler(req, res) {
@@ -126,7 +144,9 @@ export default async function handler(req, res) {
 
   try {
     const authHeader = req.headers.authorization || ''
-    const token = authHeader.replace('Bearer ', '').trim()
+    const token = authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : ''
 
     if (!token) {
       return res.status(401).json({ error: 'missing_token' })
@@ -141,7 +161,9 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'unauthorized' })
     }
 
-    const { dreamId, lang } = req.body || {}
+    const body = req.body || {}
+    const dreamId = body.dreamId
+    const lang = body.lang || 'en'
 
     if (!dreamId) {
       return res.status(400).json({ error: 'missing_dream_id' })
@@ -202,12 +224,13 @@ export default async function handler(req, res) {
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      temperature: 0.8,
+      temperature: 0.7,
+      response_format: { type: 'json_object' },
       messages: [
         {
           role: 'system',
           content:
-            'You are an expert Jungian dream analyst. Return psychologically rich, compassionate, symbol-aware interpretations. Always return valid JSON only.',
+            'You are an expert Jungian dream analyst. Return compassionate, psychologically rich, symbol-aware analysis. Respond with JSON only.',
         },
         {
           role: 'user',
@@ -216,10 +239,10 @@ export default async function handler(req, res) {
       ],
     })
 
-    const raw = completion?.choices?.?.message?.content || '{}'
+    const raw = getMessageContent(completion)
     const analysis = parseJsonSafely(raw)
 
-    if (analysis?.parse_error) {
+    if (!analysis) {
       await supabaseAdmin
         .from('dreams')
         .update({
@@ -228,9 +251,7 @@ export default async function handler(req, res) {
         })
         .eq('id', dream.id)
 
-      return res.status(500).json({
-        error: 'invalid_json_from_model',
-      })
+      return res.status(500).json({ error: 'invalid_json_from_model' })
     }
 
     const nextCredits = credits - 1
@@ -286,7 +307,7 @@ export default async function handler(req, res) {
 
     return res.status(500).json({
       error: 'internal_server_error',
-      details: error?.message || 'unknown_error',
+      details: error && error.message ? error.message : 'unknown_error',
     })
   }
 }
