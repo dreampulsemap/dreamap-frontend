@@ -1,7 +1,7 @@
 import Image from 'next/image'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/router'
-import { auth, supabase } from '../lib/supabase'
+import { supabase, auth } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '../lib/translations'
 import LanguageSwitcher from '../components/LanguageSwitcher'
@@ -43,6 +43,9 @@ export default function ProfilePage() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+  const highlightDreamId = router.query?.highlightDream
+  const highlightRef = useRef(null)
+
   const displayUsername =
     profile?.username ||
     profile?.display_name ||
@@ -61,15 +64,12 @@ export default function ProfilePage() {
 
     async function loadData() {
       try {
-        const authResult = await auth.getUser()
+        const {
+          data: { user: currentUser },
+          error: userError,
+        } = await supabase.auth.getUser()
 
-        const currentUser =
-          authResult?.data?.user ||
-          authResult?.user ||
-          authResult ||
-          null
-
-        if (!currentUser?.id) {
+        if (userError || !currentUser?.id) {
           router.push('/auth')
           return
         }
@@ -78,10 +78,10 @@ export default function ProfilePage() {
         setUser(currentUser)
 
         const fetchedProfile = await auth.getProfile(currentUser.id)
+
         if (!mounted) return
 
         setProfile(fetchedProfile || null)
-
         setProfileUsername(
           fetchedProfile?.username ||
             fetchedProfile?.display_name ||
@@ -96,8 +96,7 @@ export default function ProfilePage() {
             ''
         )
 
-        await loadDreams(currentUser.id)
-        await loadFriends(currentUser.id)
+        await Promise.all([loadDreams(currentUser.id), loadFriends(currentUser.id)])
       } catch (err) {
         console.error('Profile load error:', err)
       } finally {
@@ -118,6 +117,21 @@ export default function ProfilePage() {
     }
   }, [avatarPreview])
 
+  useEffect(() => {
+    if (!highlightDreamId || !dreams.length) return
+
+    const timeout = setTimeout(() => {
+      if (highlightRef.current) {
+        highlightRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        })
+      }
+    }, 300)
+
+    return () => clearTimeout(timeout)
+  }, [highlightDreamId, dreams])
+
   async function loadDreams(userId) {
     try {
       const { data, error } = await supabase
@@ -127,7 +141,7 @@ export default function ProfilePage() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setDreams(data || [])
+      setDreams(Array.isArray(data) ? data : [])
     } catch (err) {
       console.error('Load dreams error:', err)
       setDreams([])
@@ -144,8 +158,8 @@ export default function ProfilePage() {
       const friendsData = await friendsRes.json()
       const pendingData = await pendingRes.json()
 
-      setFriends(friendsData.friendships || [])
-      setPendingRequests(pendingData.friendships || [])
+      setFriends(Array.isArray(friendsData.friendships) ? friendsData.friendships : [])
+      setPendingRequests(Array.isArray(pendingData.friendships) ? pendingData.friendships : [])
     } catch (err) {
       console.error('Load friends error:', err)
       setFriends([])
@@ -247,7 +261,11 @@ export default function ProfilePage() {
         }),
       })
 
-      if (!res.ok) throw new Error((await res.json()).error)
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Dream update failed')
+      }
 
       await loadDreams(user.id)
       setEditingDream(null)
@@ -312,7 +330,12 @@ export default function ProfilePage() {
         }),
       })
 
-      if (!res.ok) throw new Error((await res.json()).error)
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Remove from feed failed')
+      }
+
       await loadDreams(user.id)
     } catch (err) {
       alert('Hata: ' + err.message)
@@ -333,7 +356,12 @@ export default function ProfilePage() {
         }),
       })
 
-      if (!res.ok) throw new Error((await res.json()).error)
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Delete dream failed')
+      }
+
       await loadDreams(user.id)
     } catch (err) {
       alert('Hata: ' + err.message)
@@ -343,13 +371,19 @@ export default function ProfilePage() {
   async function handleSearch() {
     if (!searchQuery.trim() || !user) return
 
-    const res = await fetch(
-      `/api/friends/search?query=${encodeURIComponent(searchQuery)}&userId=${user.id}`
-    )
-    const data = await res.json()
+    try {
+      const res = await fetch(
+        `/api/friends/search?query=${encodeURIComponent(searchQuery)}&userId=${user.id}`
+      )
+      const data = await res.json()
 
-    setSearchResults(data.users || [])
-    setShowSearch(true)
+      setSearchResults(Array.isArray(data.users) ? data.users : [])
+      setShowSearch(true)
+    } catch (err) {
+      console.error('Friend search error:', err)
+      setSearchResults([])
+      setShowSearch(true)
+    }
   }
 
   async function handleSendRequest(friendId) {
@@ -405,6 +439,18 @@ export default function ProfilePage() {
     }
   }
 
+  const orderedDreams = useMemo(() => {
+    if (!highlightDreamId || !Array.isArray(dreams) || dreams.length === 0) {
+      return dreams
+    }
+
+    const highlighted = dreams.find((dream) => String(dream.id) === String(highlightDreamId))
+    if (!highlighted) return dreams
+
+    const rest = dreams.filter((dream) => String(dream.id) !== String(highlightDreamId))
+    return [highlighted, ...rest]
+  }, [dreams, highlightDreamId])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black text-white">
@@ -442,10 +488,16 @@ export default function ProfilePage() {
           </a>
 
           <nav className="hidden sm:flex items-center gap-2 sm:gap-3 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-            <a href="/" className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white shrink-0 whitespace-nowrap">
+            <a
+              href="/"
+              className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white shrink-0 whitespace-nowrap"
+            >
               {getTranslation('nav.feed', lang) || 'Akış'}
             </a>
-            <a href="/globe" className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white shrink-0 whitespace-nowrap">
+            <a
+              href="/globe"
+              className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white shrink-0 whitespace-nowrap"
+            >
               {getTranslation('nav.globe', lang)}
             </a>
             <LanguageSwitcher />
@@ -529,7 +581,9 @@ export default function ProfilePage() {
                     {displayUsername}
                   </h1>
                   {profile?.display_name && profile?.display_name !== displayUsername && (
-                    <p className="text-white/55 mt-1.5 sm:mt-2 text-sm sm:text-base">{profile.display_name}</p>
+                    <p className="text-white/55 mt-1.5 sm:mt-2 text-sm sm:text-base">
+                      {profile.display_name}
+                    </p>
                   )}
                   <p className="text-white/40 text-xs sm:text-sm mt-2 sm:mt-3">
                     {dreams.length} {getTranslation('profile.totalDreams', lang)}
@@ -594,8 +648,12 @@ export default function ProfilePage() {
                       className="glass-card p-3 flex items-center justify-between gap-3 sm:gap-4"
                     >
                       <div className="min-w-0">
-                        <div className="font-semibold text-sm sm:text-base truncate">{result.username}</div>
-                        <div className="text-xs sm:text-sm text-white/60 truncate">{result.display_name}</div>
+                        <div className="font-semibold text-sm sm:text-base truncate">
+                          {result.username}
+                        </div>
+                        <div className="text-xs sm:text-sm text-white/60 truncate">
+                          {result.display_name}
+                        </div>
                       </div>
 
                       {result.friendshipStatus === null && (
@@ -636,7 +694,9 @@ export default function ProfilePage() {
                       className="glass-card p-3 flex items-center justify-between gap-3 sm:gap-4"
                     >
                       <div className="min-w-0">
-                        <div className="font-semibold text-sm sm:text-base truncate">{req.user_profiles?.username}</div>
+                        <div className="font-semibold text-sm sm:text-base truncate">
+                          {req.user_profiles?.username}
+                        </div>
                         <div className="text-xs sm:text-sm text-white/60 truncate">
                           {req.user_profiles?.display_name}
                         </div>
@@ -668,7 +728,9 @@ export default function ProfilePage() {
               </h3>
 
               {friends.length === 0 ? (
-                <p className="text-white/60 text-sm sm:text-base">{getTranslation('friends.noFriends', lang)}</p>
+                <p className="text-white/60 text-sm sm:text-base">
+                  {getTranslation('friends.noFriends', lang)}
+                </p>
               ) : (
                 <div className="space-y-2">
                   {friends.map((friend) => (
@@ -700,52 +762,84 @@ export default function ProfilePage() {
         )}
 
         <div className="space-y-4 sm:space-y-6">
-          {dreams.map((dream) => (
-            <div key={dream.id} className="space-y-3">
-              <DreamCard
-                dream={dream}
-                lang={lang}
-                onTranslate={() => {}}
-                translating={false}
-                translated={false}
-                translatedContent=""
-                translatedAnalysis=""
-              />
+          {orderedDreams.map((dream) => {
+            const isHighlighted = String(dream.id) === String(highlightDreamId)
 
-              <div className="flex flex-wrap gap-2 px-1">
-                <button
-                  onClick={() => {
-                    setEditingDream(dream)
-                    setEditContent(dream.content || '')
-                    setEditLocation(dream.location_name || '')
-                    setEditVisibility(dream.visibility || 'public')
-                    setEditInFeed(dream.in_feed !== false)
-                  }}
-                  className="text-xs glass-card px-3 py-1.5 text-blue-400 hover:bg-blue-500/20"
-                >
-                  {getTranslation('profile.editDream', lang)}
-                </button>
-
-                {dream.in_feed !== false && (
-                  <button
-                    onClick={() => handleRemoveFromFeed(dream)}
-                    className="text-xs glass-card px-3 py-1.5 text-yellow-400 hover:bg-yellow-500/20"
-                  >
-                    {getTranslation('profile.removeFromFeed', lang)}
-                  </button>
+            return (
+              <div
+                key={dream.id}
+                ref={isHighlighted ? highlightRef : null}
+                className={`space-y-3 rounded-[1.75rem] transition-all ${
+                  isHighlighted
+                    ? 'ring-2 ring-fuchsia-400/60 shadow-[0_0_0_1px_rgba(232,121,249,0.15),0_0_40px_rgba(217,70,239,0.18)]'
+                    : ''
+                }`}
+              >
+                {isHighlighted && (
+                  <div className="rounded-2xl border border-fuchsia-300/20 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-100">
+                    {lang === 'tr'
+                      ? 'Yeni eklenen rüyan burada.'
+                      : lang === 'es'
+                      ? 'Tu sueño recién añadido está aquí.'
+                      : lang === 'fr'
+                      ? 'Votre rêve nouvellement ajouté est ici.'
+                      : lang === 'de'
+                      ? 'Dein neu hinzugefügter Traum ist hier.'
+                      : lang === 'pt'
+                      ? 'Seu sonho recém-adicionado está aqui.'
+                      : lang === 'ru'
+                      ? 'Ваш недавно добавленный сон здесь.'
+                      : lang === 'ja'
+                      ? '追加したばかりの夢はこちらです。'
+                      : 'Your newly added dream is here.'}
+                  </div>
                 )}
 
-                <button
-                  onClick={() => handleDeleteDream(dream)}
-                  className="text-xs glass-card px-3 py-1.5 text-red-400 hover:bg-red-500/20"
-                >
-                  {getTranslation('social.delete', lang) || 'Sil'}
-                </button>
-              </div>
-            </div>
-          ))}
+                <DreamCard
+                  dream={dream}
+                  lang={lang}
+                  onTranslate={() => {}}
+                  translating={false}
+                  translated={false}
+                  translatedContent=""
+                  translatedAnalysis=""
+                />
 
-          {dreams.length === 0 && (
+                <div className="flex flex-wrap gap-2 px-1">
+                  <button
+                    onClick={() => {
+                      setEditingDream(dream)
+                      setEditContent(dream.content || '')
+                      setEditLocation(dream.location_name || '')
+                      setEditVisibility(dream.visibility || 'public')
+                      setEditInFeed(dream.in_feed !== false)
+                    }}
+                    className="text-xs glass-card px-3 py-1.5 text-blue-400 hover:bg-blue-500/20"
+                  >
+                    {getTranslation('profile.editDream', lang)}
+                  </button>
+
+                  {dream.in_feed !== false && (
+                    <button
+                      onClick={() => handleRemoveFromFeed(dream)}
+                      className="text-xs glass-card px-3 py-1.5 text-yellow-400 hover:bg-yellow-500/20"
+                    >
+                      {getTranslation('profile.removeFromFeed', lang)}
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => handleDeleteDream(dream)}
+                    className="text-xs glass-card px-3 py-1.5 text-red-400 hover:bg-red-500/20"
+                  >
+                    {getTranslation('social.delete', lang) || 'Sil'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+
+          {orderedDreams.length === 0 && (
             <div className="text-center py-10 sm:py-12 text-white/60 text-sm sm:text-base">
               {getTranslation('journal.noDreams', lang)}
             </div>
