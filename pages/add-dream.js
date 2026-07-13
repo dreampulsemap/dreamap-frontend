@@ -119,6 +119,11 @@ export default function AddDreamPage() {
       return
     }
 
+    if (!user?.id) {
+      setError(tAddDream('common.errorGeneric', lang))
+      return
+    }
+
     setLoading(true)
     setError(null)
 
@@ -144,29 +149,35 @@ export default function AddDreamPage() {
           }
         ])
         .select()
+        .single()
 
       if (insertError) throw insertError
-      if (!data || !data[0]) {
+      if (!data?.id) {
         throw new Error(tAddDream('dream.createFailed', lang))
       }
 
-      const analyzeRes = await fetch('/api/analyze-dream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dreamId: data[0].id,
-          content: content.trim(),
-          language: lang
+      try {
+        const analyzeRes = await fetch('/api/analyze-dream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            dreamId: data.id,
+            content: content.trim(),
+            lang
+          })
         })
-      })
 
-      if (!analyzeRes.ok) {
-        const errorData = await analyzeRes.json().catch(() => null)
-        throw new Error(errorData?.error || tAddDream('dream.analysisFailed', lang))
+        if (!analyzeRes.ok) {
+          const errorData = await analyzeRes.json().catch(() => null)
+          console.error('Free analysis failed:', errorData || analyzeRes.status)
+        }
+      } catch (analysisError) {
+        console.error('Free analysis request failed:', analysisError)
       }
 
-      router.push(`/dream/${data[0].id}`)
+      router.push(`/dream/${data.id}`)
     } catch (err) {
+      console.error('Add dream failed:', err)
       setError(err?.message || tAddDream('common.errorGeneric', lang))
     } finally {
       setLoading(false)
