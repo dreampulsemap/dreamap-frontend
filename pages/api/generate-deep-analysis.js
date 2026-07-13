@@ -93,19 +93,29 @@ JSON shape:
     }
   }
 }
-`
+`.trim()
 }
 
 function parseJsonSafely(text) {
+  if (!text || typeof text !== 'string') return {}
+
   try {
     return JSON.parse(text)
   } catch (e) {
-    const cleaned = text
-      .replace(/^```jsons*/i, '')
-      .replace(/^```s*/i, '')
-      .replace(/s*```$/i, '')
-      .trim()
-    return JSON.parse(cleaned)
+    try {
+      const cleaned = text
+        .replace(/^```jsons*/i, '')
+        .replace(/^```s*/i, '')
+        .replace(/s*```$/i, '')
+        .trim()
+
+      return JSON.parse(cleaned)
+    } catch (err) {
+      return {
+        parse_error: true,
+        raw_text: text,
+      }
+    }
   }
 }
 
@@ -139,7 +149,9 @@ export default async function handler(req, res) {
 
     const { data: dream, error: dreamError } = await supabaseAdmin
       .from('dreams')
-      .select('id, user_id, content, original_language, premium_deep_analysis')
+      .select(
+        'id, user_id, content, original_language, premium_deep_analysis, premium_deep_analysis_status'
+      )
       .eq('id', dreamId)
       .single()
 
@@ -195,7 +207,7 @@ export default async function handler(req, res) {
         {
           role: 'system',
           content:
-            'You are an expert Jungian dream analyst. Return psychologically rich but compassionate interpretations. Always return valid JSON only.',
+            'You are an expert Jungian dream analyst. Return psychologically rich, compassionate, symbol-aware interpretations. Always return valid JSON only.',
         },
         {
           role: 'user',
@@ -204,17 +216,41 @@ export default async function handler(req, res) {
       ],
     })
 
-    const raw = completion.choices?.?.message?.content || '{}'
+    const raw = completion?.choices?.?.message?.content || '{}'
     const analysis = parseJsonSafely(raw)
+
+    if (analysis?.parse_error) {
+      await supabaseAdmin
+        .from('dreams')
+        .update({
+          premium_deep_analysis_status: 'failed',
+          premium_deep_analysis_error: 'invalid_json_from_model',
+        })
+        .eq('id', dream.id)
+
+      return res.status(500).json({
+        error: 'invalid_json_from_model',
+      })
+    }
 
     const nextCredits = credits - 1
 
     const { error: creditUpdateError } = await supabaseAdmin
       .from('user_profiles')
-      .update({ premium_analysis_credits: nextCredits })
+      .update({
+        premium_analysis_credits: nextCredits,
+      })
       .eq('id', user.id)
 
     if (creditUpdateError) {
+      await supabaseAdmin
+        .from('dreams')
+        .update({
+          premium_deep_analysis_status: 'failed',
+          premium_deep_analysis_error: 'credit_update_failed',
+        })
+        .eq('id', dream.id)
+
       return res.status(500).json({ error: 'credit_update_failed' })
     }
 
@@ -229,6 +265,14 @@ export default async function handler(req, res) {
       .eq('id', dream.id)
 
     if (saveError) {
+      await supabaseAdmin
+        .from('dreams')
+        .update({
+          premium_deep_analysis_status: 'failed',
+          premium_deep_analysis_error: 'save_failed',
+        })
+        .eq('id', dream.id)
+
       return res.status(500).json({ error: 'save_failed' })
     }
 
