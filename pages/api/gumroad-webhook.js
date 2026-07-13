@@ -66,10 +66,10 @@ export default async function handler(req, res) {
     )
 
     const { data: existingSale, error: existingSaleError } = await supabase
-      .from('gumroad_sales')
-      .select('id, sale_id, credits_added, status')
-      .eq('sale_id', saleId)
-      .maybeSingle()
+  .from('gumroad_sales')
+  .select('sale_id, credits_added, status')
+  .eq('sale_id', saleId)
+  .maybeSingle()
 
 if (existingSaleError) {
   console.error('gumroad existing sale lookup failed', existingSaleError)
