@@ -12,6 +12,7 @@ const supabase = createClient(
 )
 
 const CREDIT_AMOUNT = 10
+const ALLOWED_PRODUCT_ID = process.env.GUMROAD_SINGLE_PRODUCT_ID
 
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -91,6 +92,39 @@ export default async function handler(req, res) {
         duplicate: true,
         saleId,
         status: existingSale.status,
+      })
+    }
+
+    if (!isTest && ALLOWED_PRODUCT_ID && productId !== ALLOWED_PRODUCT_ID) {
+      const { error: ignoredInsertError } = await supabase
+        .from('gumroad_webhook_events')
+        .insert({
+          sale_id: saleId,
+          email: email || null,
+          product_id: productId,
+          product_name: productName,
+          product_permalink: permalink,
+          raw_payload: payload,
+          user_profile_id: null,
+          credits_added: 0,
+          status: 'ignored_product_not_matched',
+        })
+
+      if (ignoredInsertError) {
+        console.error('gumroad ignored sale insert failed', ignoredInsertError)
+        return res.status(500).json({
+          error: 'ignored_sale_insert_failed',
+          details: ignoredInsertError.message,
+          code: ignoredInsertError.code || null,
+          hint: ignoredInsertError.hint || null,
+        })
+      }
+
+      return res.status(200).json({
+        ok: true,
+        ignored: true,
+        reason: 'product_not_matched',
+        productId,
       })
     }
 
