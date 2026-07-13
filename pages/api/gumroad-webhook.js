@@ -147,8 +147,13 @@ if (existingSaleError) {
       })
 
     if (insertSaleError) {
-      console.error('gumroad sale insert failed', insertSaleError)
-      return res.status(500).json({ error: 'sale_insert_failed' })
+  console.error('gumroad sale insert failed', insertSaleError)
+  return res.status(500).json({
+    error: 'sale_insert_failed',
+    details: insertSaleError.message,
+    code: insertSaleError.code || null,
+    hint: insertSaleError.hint || null,
+  })
     }
 
     return res.status(200).json({
