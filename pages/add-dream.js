@@ -175,7 +175,7 @@ export default function AddDreamPage() {
         console.error('Free analysis request failed:', analysisError)
       }
 
-      router.push(`/dream/${data.id}`)
+      router.push(`/profile?highlightDream=${data.id}`)
     } catch (err) {
       console.error('Add dream failed:', err)
       setError(err?.message || tAddDream('common.errorGeneric', lang))
