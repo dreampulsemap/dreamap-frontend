@@ -1,4 +1,3 @@
-// pages/api/analyze-dream.js
 import Groq from 'groq-sdk'
 import { createClient } from '@supabase/supabase-js'
 
@@ -66,9 +65,9 @@ function parseJsonSafely(text) {
     return JSON.parse(text)
   } catch (error) {
     const cleaned = String(text || '')
-      .replace(/^```jsons*/i, '')
-      .replace(/^```s*/i, '')
-      .replace(/s*```$/i, '')
+      .replace(/^```json\\s*/i, '')
+      .replace(/^```\\s*/i, '')
+      .replace(/\\s*```$/i, '')
       .trim()
 
     return JSON.parse(cleaned)
