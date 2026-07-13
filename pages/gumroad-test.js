@@ -11,7 +11,7 @@ export default function GumroadTestPage() {
     try {
       const body = new URLSearchParams({
         sale_id: `tablet-test-${Date.now()}`,
-        email: 'BURAYA_LUNOSFER_HESABINDAKI_MAILINI_YAZ',
+        email: 'elsuilgen33@gmail.com',
         product_id: 'test-product-1',
         product_name: 'Lunosfer Deep Analysis',
         product_permalink: 'swbskc',
