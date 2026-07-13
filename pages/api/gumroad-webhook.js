@@ -110,7 +110,10 @@ if (existingSaleError) {
         userProfileId = profile.id
 
         if (!isTest) {
-          const nextCredits = Number(profile.premium_analysis_credits || 0) + 1
+          const CREDIT_AMOUNT = 10
+const nextCredits = Number(profile.premium_analysis_credits || 0) + CREDIT_AMOUNT
+...
+creditsAdded = CREDIT_AMOUNT
 
           const { error: updateError } = await supabase
             .from('user_profiles')
