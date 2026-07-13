@@ -71,10 +71,15 @@ export default async function handler(req, res) {
       .eq('sale_id', saleId)
       .maybeSingle()
 
-    if (existingSaleError) {
-      console.error('gumroad existing sale lookup failed', existingSaleError)
-      return res.status(500).json({ error: 'existing_sale_lookup_failed' })
-    }
+if (existingSaleError) {
+  console.error('gumroad existing sale lookup failed', existingSaleError)
+  return res.status(500).json({
+    error: 'existing_sale_lookup_failed',
+    details: existingSaleError.message,
+    code: existingSaleError.code || null,
+    hint: existingSaleError.hint || null,
+  })
+}
 
     if (existingSale) {
       return res.status(200).json({
