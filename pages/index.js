@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import Navbar from '../components/Navbar'
 import Hero from '../components/Hero'
 import DreamCard from '../components/DreamCard'
 import { supabase } from '../lib/supabase'
@@ -183,8 +182,6 @@ export default function HomePage() {
       <div className="cosmic-grid" />
       <div className="noise-overlay" />
 
-      <Navbar />
-
       <main className="feed-shell mx-auto w-full max-w-[1200px] px-3 py-4 sm:px-4 sm:py-5 md:px-5 lg:px-6 lg:py-6">
         <Hero />
 
@@ -228,18 +225,6 @@ export default function HomePage() {
                   <p className="mb-1 text-[11px] uppercase tracking-[0.16em] text-fuchsia-200/80">
                     {lang === 'tr'
                       ? 'Pratik Yorum'
-                      : lang === 'es'
-                      ? 'Lectura Práctica'
-                      : lang === 'fr'
-                      ? 'Lecture Pratique'
-                      : lang === 'de'
-                      ? 'Praktische Deutung'
-                      : lang === 'pt'
-                      ? 'Leitura Prática'
-                      : lang === 'ru'
-                      ? 'Практическое Толкование'
-                      : lang === 'ja'
-                      ? '実践的な解釈'
                       : 'Practical Reading'}
                   </p>
                   <p className="text-sm leading-7 text-slate-300 sm:text-base">
@@ -260,36 +245,12 @@ export default function HomePage() {
               <h3 className="text-lg font-semibold leading-tight text-white sm:text-xl lg:text-2xl">
                 {lang === 'tr'
                   ? 'Bilinçaltı Rezonansı Yakalandı'
-                  : lang === 'es'
-                  ? 'Resonancia Subconsciente Detectada'
-                  : lang === 'fr'
-                  ? 'Résonance de l’Inconscient Détectée'
-                  : lang === 'de'
-                  ? 'Unterbewusste Resonanz Erfasst'
-                  : lang === 'pt'
-                  ? 'Ressonância do Subconsciente Detectada'
-                  : lang === 'ru'
-                  ? 'Резонанс Подсознания Обнаружен'
-                  : lang === 'ja'
-                  ? '潜在意識の共鳴を検出'
                   : 'Subconscious Resonance Detected'}
               </h3>
 
               <p className="mt-3 text-sm leading-7 text-slate-300 sm:text-base">
                 {lang === 'tr'
                   ? `Şu an küresel rüya ağında senin zihinsel frekansına sahip insanlarla senkronizasyonun: %${resonanceMatch}`
-                  : lang === 'es'
-                  ? `Tu sincronización con personas de tu misma frecuencia mental en la red global de sueños es: %${resonanceMatch}`
-                  : lang === 'fr'
-                  ? `Ta synchronisation avec les personnes partageant ta fréquence mentale dans le réseau mondial des rêves est de : %${resonanceMatch}`
-                  : lang === 'de'
-                  ? `Deine Synchronisation mit Menschen derselben mentalen Frequenz im globalen Traumnetzwerk beträgt: %${resonanceMatch}`
-                  : lang === 'pt'
-                  ? `Sua sincronização com pessoas da mesma frequência mental na rede global de sonhos é: %${resonanceMatch}`
-                  : lang === 'ru'
-                  ? `Ваш уровень синхронизации с людьми той же ментальной частоты в глобальной сети снов: %${resonanceMatch}`
-                  : lang === 'ja'
-                  ? `グローバルな夢ネットワークで、あなたと同じ精神周波数を持つ人々との同期率は %${resonanceMatch} です`
                   : `Your synchronization with people sharing your mental frequency in the global dream network is: %${resonanceMatch}`}
               </p>
 
@@ -297,18 +258,6 @@ export default function HomePage() {
                 <p className="text-[11px] uppercase tracking-[0.16em] text-emerald-300/80">
                   {lang === 'tr'
                     ? 'Canlı Ağ'
-                    : lang === 'es'
-                    ? 'Red en Vivo'
-                    : lang === 'fr'
-                    ? 'Réseau en Direct'
-                    : lang === 'de'
-                    ? 'Live-Netzwerk'
-                    : lang === 'pt'
-                    ? 'Rede ao Vivo'
-                    : lang === 'ru'
-                    ? 'Живая Сеть'
-                    : lang === 'ja'
-                    ? 'ライブネットワーク'
                     : 'Live Network'}
                 </p>
 
@@ -319,18 +268,6 @@ export default function HomePage() {
                 <p className="mt-1 text-sm leading-6 text-slate-300">
                   {lang === 'tr'
                     ? 'kişi şu anda rüya görüyor'
-                    : lang === 'es'
-                    ? 'personas están soñando ahora mismo'
-                    : lang === 'fr'
-                    ? 'personnes rêvent en ce moment'
-                    : lang === 'de'
-                    ? 'Menschen träumen gerade'
-                    : lang === 'pt'
-                    ? 'pessoas estão sonhando agora'
-                    : lang === 'ru'
-                    ? 'человек сейчас видят сны'
-                    : lang === 'ja'
-                    ? '人が今この瞬間に夢を見ています'
                     : 'people are dreaming right now'}
                 </p>
               </div>
@@ -355,21 +292,7 @@ export default function HomePage() {
                       : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
                   }`}
                 >
-                  {lang === 'tr'
-                    ? 'Tüm Akış'
-                    : lang === 'es'
-                    ? 'Todo el Feed'
-                    : lang === 'fr'
-                    ? 'Tout le Flux'
-                    : lang === 'de'
-                    ? 'Gesamter Feed'
-                    : lang === 'pt'
-                    ? 'Feed Completo'
-                    : lang === 'ru'
-                    ? 'Вся Лента'
-                    : lang === 'ja'
-                    ? 'すべてのフィード'
-                    : 'All Feed'}
+                  {lang === 'tr' ? 'Tüm Akış' : 'All Feed'}
                 </button>
 
                 <button
@@ -380,21 +303,7 @@ export default function HomePage() {
                       : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
                   }`}
                 >
-                  {lang === 'tr'
-                    ? 'Arketipler'
-                    : lang === 'es'
-                    ? 'Arquetipos'
-                    : lang === 'fr'
-                    ? 'Archétypes'
-                    : lang === 'de'
-                    ? 'Archetypen'
-                    : lang === 'pt'
-                    ? 'Arquétipos'
-                    : lang === 'ru'
-                    ? 'Архетипы'
-                    : lang === 'ja'
-                    ? 'アーキタイプ'
-                    : 'Archetypes'}
+                  {lang === 'tr' ? 'Arketipler' : 'Archetypes'}
                 </button>
 
                 <button
@@ -405,21 +314,7 @@ export default function HomePage() {
                       : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
                   }`}
                 >
-                  {lang === 'tr'
-                    ? 'Yoğun Duygular'
-                    : lang === 'es'
-                    ? 'Emociones Intensas'
-                    : lang === 'fr'
-                    ? 'Émotions Intenses'
-                    : lang === 'de'
-                    ? 'Intensive Emotionen'
-                    : lang === 'pt'
-                    ? 'Emoções Intensas'
-                    : lang === 'ru'
-                    ? 'Сильные Эмоции'
-                    : lang === 'ja'
-                    ? '強い感情'
-                    : 'Intense Emotions'}
+                  {lang === 'tr' ? 'Yoğun Duygular' : 'Intense Emotions'}
                 </button>
 
                 <button
@@ -430,21 +325,7 @@ export default function HomePage() {
                       : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
                   }`}
                 >
-                  {lang === 'tr'
-                    ? 'Arkadaş Çemberi'
-                    : lang === 'es'
-                    ? 'Círculo de Amigos'
-                    : lang === 'fr'
-                    ? 'Cercle d’Amis'
-                    : lang === 'de'
-                    ? 'Freundeskreis'
-                    : lang === 'pt'
-                    ? 'Círculo de Amigos'
-                    : lang === 'ru'
-                    ? 'Круг Друзей'
-                    : lang === 'ja'
-                    ? '友人サークル'
-                    : 'Friends Circle'}
+                  {lang === 'tr' ? 'Arkadaş Çemberi' : 'Friends Circle'}
                 </button>
               </div>
             </div>
@@ -472,21 +353,7 @@ export default function HomePage() {
             <span className="signal-dot cyan" />
             <span className="tabular-nums">{filteredDreams.length}</span>
             <span>
-              {lang === 'tr'
-                ? 'kayıt'
-                : lang === 'es'
-                ? 'entradas'
-                : lang === 'fr'
-                ? 'entrées'
-                : lang === 'de'
-                ? 'Einträge'
-                : lang === 'pt'
-                ? 'registros'
-                : lang === 'ru'
-                ? 'записей'
-                : lang === 'ja'
-                ? '件'
-                : 'entries'}
+              {lang === 'tr' ? 'kayıt' : 'entries'}
             </span>
           </div>
         </section>
@@ -496,21 +363,7 @@ export default function HomePage() {
         {loading ? (
           <div className="glass-card rounded-[24px] p-8 text-center text-slate-300 sm:p-10">
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-violet-300/30 border-t-violet-300" />
-            {lang === 'tr'
-              ? 'Bilinçaltı dalgaları ayıklanıyor...'
-              : lang === 'es'
-              ? 'Filtrando ondas subconscientes...'
-              : lang === 'fr'
-              ? 'Filtrage des ondes subconscientes...'
-              : lang === 'de'
-              ? 'Unterbewusste Wellen werden gefiltert...'
-              : lang === 'pt'
-              ? 'Filtrando ondas subconscientes...'
-              : lang === 'ru'
-              ? 'Фильтрация волн подсознания...'
-              : lang === 'ja'
-              ? '潜在意識の波を抽出中...'
-              : 'Filtering subconscious waves...'}
+            {lang === 'tr' ? 'Bilinçaltı dalgaları ayıklanıyor...' : 'Filtering subconscious waves...'}
           </div>
         ) : filteredDreams.length === 0 ? (
           <div className="glass-card rounded-[24px] p-8 text-center sm:p-10">
@@ -519,38 +372,12 @@ export default function HomePage() {
             </div>
 
             <h3 className="text-xl font-semibold text-white sm:text-2xl">
-              {lang === 'tr'
-                ? 'Bu Frekansta Kimse Yok'
-                : lang === 'es'
-                ? 'Nadie en Esta Frecuencia'
-                : lang === 'fr'
-                ? 'Personne sur Cette Fréquence'
-                : lang === 'de'
-                ? 'Niemand auf Dieser Frequenz'
-                : lang === 'pt'
-                ? 'Ninguém Nesta Frequência'
-                : lang === 'ru'
-                ? 'На Этой Частоте Никого Нет'
-                : lang === 'ja'
-                ? 'この周波数には誰もいません'
-                : 'Nobody on This Frequency'}
+              {lang === 'tr' ? 'Bu Frekansta Kimse Yok' : 'Nobody on This Frequency'}
             </h3>
 
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
               {lang === 'tr'
                 ? 'Seçtiğin kriterlere uyan rüya bulunamadı. İlk dalgayı sen başlatmak ister misin?'
-                : lang === 'es'
-                ? 'No se encontraron sueños que coincidan con tus criterios. ¿Quieres iniciar la primera ola?'
-                : lang === 'fr'
-                ? 'Aucun rêve ne correspond à tes critères. Veux-tu lancer la première vague ?'
-                : lang === 'de'
-                ? 'Keine Träume entsprechen deinen Kriterien. Möchtest du die erste Welle starten?'
-                : lang === 'pt'
-                ? 'Nenhum sonho corresponde aos seus critérios. Quer iniciar a primeira onda?'
-                : lang === 'ru'
-                ? 'Не найдено снов по вашим критериям. Хотите запустить первую волну?'
-                : lang === 'ja'
-                ? '条件に合う夢が見つかりませんでした。最初の波をあなたが始めますか？'
                 : 'No dreams matched your criteria. Would you like to start the first wave?'}
             </p>
           </div>
