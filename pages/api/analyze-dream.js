@@ -1,5 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
+// Vercel fonksiyonunun 10 saniyede zaman aşımına uğramasını engeller (Max 60'a kadar izin verir)
+export const config = {
+  maxDuration: 60,
+}
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -107,8 +112,9 @@ function normalizeMultiLangField(value) {
 
 async function generateWithOpenAI(params) {
   const prompt = buildTeaserPrompt(params)
+  // Vercel iç limiti 60, fetch işlemine de 50 saniye verelim ki patlamasın.
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 20000)
+  const timeoutId = setTimeout(() => controller.abort(), 50000)
 
   try {
     const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY
@@ -145,7 +151,6 @@ async function generateWithOpenAI(params) {
 
     const data = await response.json()
 
-    // IMPORTANT: choices is an ARRAY. Must index into [0] before .message.
     const content = data?.choices?.[0]?.message?.content || '{}'
 
     return parseJsonSafely(content)
@@ -313,4 +318,4 @@ export default async function handler(req, res) {
       details: error && error.message ? error.message : 'unknown_error',
     })
   }
-}
+        }
