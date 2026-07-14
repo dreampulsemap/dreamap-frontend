@@ -1,8 +1,6 @@
-// pages/api/generate-deep-analysis.js
 import OpenAI from 'openai'
 import { createClient } from '@supabase/supabase-js'
 
-// Vercel fonksiyonunun 10 saniyede zaman aşımına uğramasını engeller (Max 60'a kadar izin verir)
 export const config = {
   maxDuration: 60,
 }
@@ -22,61 +20,59 @@ const supabaseAdmin = createClient(
   }
 )
 
-// Lunosfer serves 8 languages across web + future app.
-const SUPPORTED_LANGS = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja']
-
-function emptyLangMap() {
-  return SUPPORTED_LANGS.reduce((acc, l) => {
-    acc[l] = ''
-    return acc
-  }, {})
+// Dil kodlarını açık isimlerine eşlemek modelin daha doğal yazmasını sağlar
+const LANG_MAP = {
+  en: 'English',
+  tr: 'Turkish (Türkçe)',
+  es: 'Spanish (Español)',
+  fr: 'French (Français)',
+  de: 'German (Deutsch)',
+  pt: 'Portuguese (Português)',
+  ru: 'Russian (Русский)',
+  ja: 'Japanese (日本語)'
 }
 
-function emptyLangArrayMap() {
-  return SUPPORTED_LANGS.reduce((acc, l) => {
-    acc[l] = []
-    return acc
-  }, {})
-}
+const SYSTEM_PROMPT = `You are an elite, world-class Jungian dream analyst writing for Lunosfer, a premium dream-journaling product.
+Provide a breathtakingly insightful, compassionate, and psychologically profound analysis.
+Ground every claim strictly in details actually present in the dream text. Never invent events, people, or symbols that were not mentioned.
+If the dream is short, keep the analysis proportionally focused rather than padding it with generic filler.
+
+Respond with valid JSON only, no markdown, and no text outside the JSON structure.`
 
 function buildShape() {
   return {
-    title: emptyLangMap(),
-    summary: emptyLangMap(),
-    motiv: emptyLangMap(),
+    title: '',
+    summary: '',
+    motiv: '',
     sentiment: '',
     archetypes: [],
-    shadow_focus: emptyLangMap(),
-    core_conflict: emptyLangMap(),
-    individuation_path: emptyLangMap(),
-    symbolic_reading: emptyLangMap(),
-    reflection_questions: emptyLangArrayMap(),
+    shadow_focus: '',
+    core_conflict: '',
+    individuation_path: '',
+    symbolic_reading: '',
+    reflection_questions: [],
     persona_profile: {
-      name: emptyLangMap(),
-      tagline: emptyLangMap(),
-      archetypal_style: emptyLangMap(),
-      public_self: emptyLangMap(),
-      hidden_self: emptyLangMap(),
-      strengths: emptyLangArrayMap(),
-      shadow_sides: emptyLangArrayMap(),
-      core_fears: emptyLangArrayMap(),
-      emotional_needs: emptyLangArrayMap(),
+      name: '',
+      tagline: '',
+      archetypal_style: '',
+      public_self: '',
+      hidden_self: '',
+      strengths: [],
+      shadow_sides: [],
+      core_fears: [],
+      emotional_needs: [],
     },
     symbols: [
       {
         symbol: '',
-        meaning_en: '',
-        meaning_tr: '',
+        meaning: '',
         emotional_charge: '',
         intensity: 0,
         color: '',
       },
     ],
     emotions: [
-      {
-        emotion: '',
-        score: 0,
-      },
+      { emotion: '', score: 0 },
     ],
     visual_theme: {
       background_color: '',
@@ -93,38 +89,28 @@ function buildShape() {
   }
 }
 
-function buildPrompt({ content, lang = 'en' }) {
+function buildPrompt({ content, targetLangName }) {
   return `
-Perform a profound, comprehensive, and highly resonant Jungian deep analysis of the following dream. 
+Perform a profound, comprehensive, and highly resonant Jungian deep analysis of the following dream.
 
-This is a PREMIUM analysis. It must be exceptionally high-quality, delivering deep psychological substance, emotional intelligence, and striking revelations about the dreamer's unconscious.
-The tone should be empathetic yet deeply analytical, poetic, and intellectually thrilling.
-The goal is to provide the dreamer with such a transformative, 'aha' moment that they feel truly understood, deeply fascinated by their own mind, and incredibly eager to map their future dreams with this tool.
+CRITICAL REQUIREMENT:
+The entire JSON values, strings, array elements, meanings, titles, and explanations MUST be written entirely in: ${targetLangName}.
+Do not mix languages. Use natural, idiomatic and poetic phrasing of this target language.
 
 Rules for the Deep Analysis:
-- "shadow_focus": Unveil the hidden, repressed, or unacknowledged parts of the psyche appearing in the dream. Be direct, compassionate, and illuminating. Do not hold back on depth.
-- "core_conflict": Identify the central psychological tension (e.g., Anima/Animus integration, Persona vs. Authentic Self, fear of transformation). Make it highly specific to the dream.
-- "individuation_path": Provide actionable, profound psychological advice on how the dreamer can integrate this dream's message into their waking life for profound personal growth.
-- "symbolic_reading": Decode the dream's narrative as a metaphorical map of the dreamer's current psychic state. Read between the lines.
-- "reflection_questions": Provide 3 penetrating, deeply personal questions that will make the dreamer introspect profoundly and want to return for more answers.
-- "persona_profile": Create a fascinating, archetypal summary of who the dreamer is currently embodying based on this dream. Make it feel like a high-end psychological profile.
-
-Return only a valid JSON object.
-Do not use markdown.
-Do not add explanations before or after the JSON.
-
-Primary output language: ${lang}
-This product ships in 8 languages. Every multi-language field below is an
-object keyed by language code. You MUST fill in EVERY one of these language
-keys for EVERY multi-language field, with natural idiomatic writing (not a
-literal machine translation) — never leave a key blank: ${SUPPORTED_LANGS.join(', ')}.
+- "shadow_focus": Unveil hidden or unacknowledged parts of the psyche that appear in the dream. Be direct and compassionate.
+- "core_conflict": Identify the central psychological tension, specific to this dream's actual content.
+- "individuation_path": Give actionable, grounded psychological guidance tied to what happened in the dream.
+- "symbolic_reading": Decode the dream's narrative as a metaphorical map of the dreamer's current psychic state.
+- "reflection_questions": 3 penetrating, personal questions rooted in specifics from the dream.
+- "persona_profile": A fascinating archetypal summary of who the dreamer is currently embodying, based only on the dream.
 
 Dream:
 """
 ${content}
 """
 
-Required JSON shape (keep exactly these keys, fill in real content):
+Required JSON shape (keep exactly these keys, fill in real content in the target language):
 ${JSON.stringify(buildShape(), null, 2)}
 `.trim()
 }
@@ -150,13 +136,10 @@ function parseJsonSafely(text) {
 }
 
 function getMessageContent(completion) {
-  // completion.choices is an ARRAY — must index into [0] before .message.
   const content = completion?.choices?.[0]?.message?.content
-
   if (typeof content === 'string' && content.trim()) {
     return content
   }
-
   return '{}'
 }
 
@@ -240,29 +223,30 @@ export default async function handler(req, res) {
       })
       .eq('id', dream.id)
 
+    // Rüya dili neyse o dilde analizi başlatır, yoksa orijinal rüya dilini veya 'en'i baz alır
+    const targetLangCode = lang || dream.original_language || 'en'
+    const targetLangName = LANG_MAP[targetLangCode] || LANG_MAP['en']
+
     const prompt = buildPrompt({
       content: dream.content,
-      lang: lang || dream.original_language || 'en',
+      targetLangName,
     })
 
     let completion
     try {
-      completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        temperature: 0.75, // Daha yaratıcı ve derinlikli bir ton için çok az artırıldı
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are an elite, world-class Jungian dream analyst. Provide a breathtakingly insightful, compassionate, and psychologically profound premium analysis. Your interpretation must leave the user feeling deeply understood, enlightened, and hungry to explore more of their unconscious. Respond with valid JSON only, with every requested language key filled in.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-      })
+      completion = await openai.chat.completions.create(
+        {
+          model: 'gpt-4o-mini',
+          temperature: 0.7,
+          max_tokens: 3000,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: prompt },
+          ],
+        },
+        { timeout: 50_000 }
+      )
     } catch (openaiError) {
       console.error('generate-deep-analysis openai error', openaiError)
 
@@ -293,12 +277,9 @@ export default async function handler(req, res) {
     }
 
     const nextCredits = credits - 1
-
     const { error: creditUpdateError } = await supabaseAdmin
       .from('user_profiles')
-      .update({
-        premium_analysis_credits: nextCredits,
-      })
+      .update({ premium_analysis_credits: nextCredits })
       .eq('id', user.id)
 
     if (creditUpdateError) {
@@ -348,4 +329,4 @@ export default async function handler(req, res) {
       details: error && error.message ? error.message : 'unknown_error',
     })
   }
-                                   }
+}
