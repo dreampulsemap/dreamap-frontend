@@ -1,356 +1,378 @@
-// pages/api/generate-deep-analysis.js
-import OpenAI from 'openai'
-import { createClient } from '@supabase/supabase-js'
+import React, { useState } from 'react';
 
-// Prevents Vercel's default 10s function timeout — deep analysis with 8
-// languages worth of fields genuinely needs more time to generate.
-export const config = {
-  maxDuration: 60,
-}
+export default function DreamAnalysisView({ analysis, lang = 'en' }) {
+  const [activeTab, setActiveTab] = useState('all');
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-)
-
-// Lunosfer serves 8 languages across web + the future mobile app.
-const SUPPORTED_LANGS = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja']
-
-// Static system prompt constant → OpenAI can cache it across requests,
-// which meaningfully cuts cost/latency since this is the priciest call in
-// the app (premium, paid feature).
-const SYSTEM_PROMPT = `You are an elite, world-class Jungian dream analyst writing for Lunosfer, a premium
-dream-journaling product. Provide a breathtakingly insightful, compassionate, and psychologically profound
-analysis that leaves the user feeling deeply understood and eager to explore more of their unconscious.
-
-Ground every claim strictly in details actually present in the dream text the user provides. Never invent
-events, people, or symbols that were not mentioned, and never state a fact about the dreamer's waking life
-that wasn't given to you — read the dream itself, don't hallucinate biography. If the dream is short, keep
-the analysis proportionally focused rather than padding it with generic filler.
-
-Respond with valid JSON only, no markdown, no text outside the JSON, with every requested language key filled in.`
-
-function emptyLangMap() {
-  return SUPPORTED_LANGS.reduce((acc, l) => {
-    acc[l] = ''
-    return acc
-  }, {})
-}
-
-function emptyLangArrayMap() {
-  return SUPPORTED_LANGS.reduce((acc, l) => {
-    acc[l] = []
-    return acc
-  }, {})
-}
-
-function buildShape() {
-  return {
-    title: emptyLangMap(),
-    summary: emptyLangMap(),
-    motiv: emptyLangMap(),
-    sentiment: '',
-    archetypes: [],
-    shadow_focus: emptyLangMap(),
-    core_conflict: emptyLangMap(),
-    individuation_path: emptyLangMap(),
-    symbolic_reading: emptyLangMap(),
-    reflection_questions: emptyLangArrayMap(),
-    persona_profile: {
-      name: emptyLangMap(),
-      tagline: emptyLangMap(),
-      archetypal_style: emptyLangMap(),
-      public_self: emptyLangMap(),
-      hidden_self: emptyLangMap(),
-      strengths: emptyLangArrayMap(),
-      shadow_sides: emptyLangArrayMap(),
-      core_fears: emptyLangArrayMap(),
-      emotional_needs: emptyLangArrayMap(),
-    },
-    symbols: [
-      {
-        symbol: '',
-        meaning_en: '',
-        meaning_tr: '',
-        emotional_charge: '',
-        intensity: 0,
-        color: '',
-      },
-    ],
-    emotions: [
-      { emotion: '', score: 0 },
-    ],
-    visual_theme: {
-      background_color: '',
-      text_color: '',
-      primary_color: '',
-      secondary_color: '',
-      accent_color: '',
-    },
-    section_themes: {
-      persona: { primary_color: '', secondary_color: '', accent_color: '' },
-      shadow: { primary_color: '', secondary_color: '', accent_color: '' },
-      transformation: { primary_color: '', secondary_color: '', accent_color: '' },
-    },
-  }
-}
-
-function buildPrompt({ content, lang = 'en' }) {
-  return `
-Perform a profound, comprehensive, and highly resonant Jungian deep analysis of the following dream.
-
-This is a PREMIUM analysis — the tone should be empathetic yet deeply analytical, poetic, and intellectually
-thrilling, but every insight must trace back to something actually present in the dream text below.
-
-Rules for the Deep Analysis:
-- "shadow_focus": Unveil hidden or unacknowledged parts of the psyche that appear in the dream. Be direct and compassionate.
-- "core_conflict": Identify the central psychological tension, specific to this dream's actual content.
-- "individuation_path": Give actionable, grounded psychological guidance tied to what happened in the dream.
-- "symbolic_reading": Decode the dream's narrative as a metaphorical map of the dreamer's current psychic state.
-- "reflection_questions": 3 penetrating, personal questions rooted in specifics from the dream.
-- "persona_profile": A fascinating archetypal summary of who the dreamer is currently embodying, based only on the dream.
-
-Return only a valid JSON object. Do not use markdown. Do not add explanations before or after the JSON.
-
-Primary output language: ${lang}
-This product ships in 8 languages. Every multi-language field below is an object keyed by language code.
-You MUST fill in EVERY one of these language keys for EVERY multi-language field, with natural idiomatic
-writing (not a literal machine translation) — never leave a key blank: ${SUPPORTED_LANGS.join(', ')}.
-
-Dream:
-"""
-${content}
-"""
-
-Required JSON shape (keep exactly these keys, fill in real content):
-${JSON.stringify(buildShape(), null, 2)}
-`.trim()
-}
-
-function parseJsonSafely(text) {
-  if (!text || typeof text !== 'string') return null
-
-  try {
-    return JSON.parse(text)
-  } catch (err) {
-    try {
-      const cleaned = text
-        .replace(/^```json\s*/i, '')
-        .replace(/^```\s*/i, '')
-        .replace(/\s*```$/i, '')
-        .trim()
-
-      return JSON.parse(cleaned)
-    } catch (err2) {
-      return null
-    }
-  }
-}
-
-// completion.choices is an ARRAY — this was the original bug: reading
-// .message straight off the array (skipping [0]) silently returned
-// undefined, which the old fallback masked as an empty '{}' analysis.
-function getMessageContent(completion) {
-  const content = completion?.choices?.[0]?.message?.content
-
-  if (typeof content === 'string' && content.trim()) {
-    return content
+  if (!analysis) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400">
+        <svg className="w-12 h-12 animate-spin mb-4 text-indigo-500" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+        <p className="text-sm font-medium tracking-wide">Analiz verileri yükleniyor...</p>
+      </div>
+    );
   }
 
-  return '{}'
-}
+  // Çok dilli alanları güvenli bir şekilde okumak için yardımcı fonksiyonlar
+  const getVal = (obj, targetLang = 'en') => {
+    if (!obj) return '';
+    if (typeof obj === 'string') return obj;
+    return obj[targetLang] || obj['en'] || Object.values(obj)[0] || '';
+  };
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'method_not_allowed' })
-  }
+  const getArr = (obj, targetLang = 'en') => {
+    if (!obj) return [];
+    if (Array.isArray(obj)) return obj;
+    return obj[targetLang] || obj['en'] || Object.values(obj)[0] || [];
+  };
 
-  try {
-    const authHeader = req.headers.authorization || ''
-    const token = authHeader.startsWith('Bearer ')
-      ? authHeader.slice(7).trim()
-      : ''
+  const getSymbolMeaning = (sym, targetLang = 'en') => {
+    if (!sym) return '';
+    if (targetLang === 'tr') return sym.meaning_tr || sym.meaning_en || '';
+    return sym.meaning_en || sym.meaning_tr || '';
+  };
 
-    if (!token) {
-      return res.status(401).json({ error: 'missing_token' })
-    }
+  // Tema renklerini alma (Eğer API'den gelmediyse güvenli fallback'ler)
+  const colors = {
+    bg: analysis.visual_theme?.background_color || 'bg-slate-950',
+    text: analysis.visual_theme?.text_color || 'text-slate-100',
+    primary: analysis.visual_theme?.primary_color || '#6366f1', // indigo-500
+    secondary: analysis.visual_theme?.secondary_color || '#a855f7', // purple-500
+    accent: analysis.visual_theme?.accent_color || '#f43f5e', // rose-500
+  };
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseAdmin.auth.getUser(token)
+  // Dinamik Inline CSS Değişkenleri
+  const dynamicStyles = {
+    '--theme-primary': colors.primary,
+    '--theme-secondary': colors.secondary,
+    '--theme-accent': colors.accent,
+    '--section-persona-primary': analysis.section_themes?.persona?.primary_color || colors.primary,
+    '--section-shadow-primary': analysis.section_themes?.shadow?.primary_color || colors.accent,
+    '--section-transform-primary': analysis.section_themes?.transformation?.primary_color || colors.secondary,
+  };
 
-    if (userError || !user) {
-      return res.status(401).json({ error: 'unauthorized' })
-    }
+  return (
+    <div 
+      className={`w-full max-w-6xl mx-auto px-4 py-8 md:py-12 text-slate-100 select-none`} 
+      style={dynamicStyles}
+    >
+      {/* 1. HERO HEADER CARD */}
+      <header className="relative mb-10 overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900/40 p-6 md:p-10 backdrop-blur-md">
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-72 h-72 rounded-full opacity-10 blur-[100px]" style={{ backgroundColor: 'var(--theme-primary)' }} />
+        <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-72 h-72 rounded-full opacity-10 blur-[100px]" style={{ backgroundColor: 'var(--theme-secondary)' }} />
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="max-w-2xl">
+            {/* Üst Başlık & Duygu Durumu */}
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="text-xs uppercase tracking-widest px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700/60 font-medium text-slate-300">
+                Premium Analiz
+              </span>
+              {analysis.sentiment && (
+                <span className="text-xs tracking-wide px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-medium">
+                  {analysis.sentiment.toUpperCase()}
+                </span>
+              )}
+            </div>
 
-    const body = req.body || {}
-    const dreamId = body.dreamId
-    const lang = body.lang || 'en'
+            {/* Rüya Başlığı */}
+            <h1 className="text-2xl md:text-4xl font-semibold tracking-tight text-white mb-4">
+              {getVal(analysis.title, lang)}
+            </h1>
 
-    if (!dreamId) {
-      return res.status(400).json({ error: 'missing_dream_id' })
-    }
+            {/* Rüya Özeti */}
+            <p className="text-slate-300 text-sm md:text-base leading-relaxed font-light mb-6">
+              {getVal(analysis.summary, lang)}
+            </p>
 
-    const { data: dream, error: dreamError } = await supabaseAdmin
-      .from('dreams')
-      .select(
-        'id, user_id, content, original_language, premium_deep_analysis, premium_deep_analysis_status'
-      )
-      .eq('id', dreamId)
-      .single()
+            {/* Motivasyon / Çağrışım cümlesi */}
+            {analysis.motiv && (
+              <p className="text-xs md:text-sm italic text-slate-400 border-l border-slate-700 pl-4 py-0.5">
+                "{getVal(analysis.motiv, lang)}"
+              </p>
+            )}
+          </div>
 
-    if (dreamError || !dream) {
-      return res.status(404).json({ error: 'dream_not_found' })
-    }
+          {/* Arketip Kartı */}
+          <div className="flex-shrink-0 flex flex-wrap md:flex-col gap-2 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/60 min-w-[200px]">
+            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1 w-full">Aktif Arketipler</p>
+            {analysis.archetypes && analysis.archetypes.map((arch, idx) => (
+              <span 
+                key={idx} 
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-slate-900 border border-slate-800 text-slate-200 transition-colors hover:border-indigo-500/30"
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--theme-primary)' }} />
+                {arch}
+              </span>
+            ))}
+          </div>
+        </div>
+      </header>
 
-    if (dream.user_id !== user.id) {
-      return res.status(403).json({ error: 'forbidden' })
-    }
+      {/* 2. ANA SEKSİYONLAR GRID VE BİLGİ KARTLARI */}
+      <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        {/* SOL KOLON: Persona, Gölge ve Bireyleşme Yolu (Genel Raporlama) */}
+        <div className="lg:col-span-8 flex flex-col gap-8">
+          
+          {/* SEKSİYON A: Persona Profili (Benlik Analizi) */}
+          {analysis.persona_profile && (
+            <section className="group relative rounded-3xl border border-slate-800/80 bg-slate-900/20 p-6 md:p-8 backdrop-blur-sm hover:border-slate-700/50 transition-all duration-300">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg md:text-xl font-medium text-white tracking-wide">
+                    {getVal(analysis.persona_profile.name, lang) || 'Bilinç Profili'}
+                  </h2>
+                  <p className="text-xs text-slate-400">{getVal(analysis.persona_profile.tagline, lang)}</p>
+                </div>
+              </div>
 
-    if (dream.premium_deep_analysis) {
-      return res.status(200).json({
-        ok: true,
-        alreadyGenerated: true,
-        analysis: dream.premium_deep_analysis,
-      })
-    }
+              {/* Persona Detayları */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/40">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Görünen Benlik (Persona)</h4>
+                  <p className="text-sm text-slate-300 leading-relaxed font-light">
+                    {getVal(analysis.persona_profile.public_self, lang)}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/40">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-rose-400 mb-2">Gizlenen Benlik (Animus/Anima)</h4>
+                  <p className="text-sm text-slate-300 leading-relaxed font-light">
+                    {getVal(analysis.persona_profile.hidden_self, lang)}
+                  </p>
+                </div>
+              </div>
 
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('user_profiles')
-      .select('id, premium_analysis_credits')
-      .eq('id', user.id)
-      .single()
+              {/* Güçler, Korkular, İhtiyaçlar Gridi */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl border border-emerald-500/10 bg-emerald-500/[0.02]">
+                  <h5 className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    Arketipsel Güçler
+                  </h5>
+                  <ul className="space-y-2">
+                    {getArr(analysis.persona_profile.strengths, lang).map((s, i) => (
+                      <li key={i} className="text-xs text-slate-300 leading-relaxed">{s}</li>
+                    ))}
+                  </ul>
+                </div>
 
-    if (profileError || !profile) {
-      return res.status(404).json({ error: 'profile_not_found' })
-    }
+                <div className="p-4 rounded-xl border border-rose-500/10 bg-rose-500/[0.02]">
+                  <h5 className="text-xs font-semibold uppercase tracking-wider text-rose-400 mb-3 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                    Çekirdek Korkular
+                  </h5>
+                  <ul className="space-y-2">
+                    {getArr(analysis.persona_profile.core_fears, lang).map((f, i) => (
+                      <li key={i} className="text-xs text-slate-300 leading-relaxed">{f}</li>
+                    ))}
+                  </ul>
+                </div>
 
-    const credits = Number(profile.premium_analysis_credits || 0)
+                <div className="p-4 rounded-xl border border-indigo-500/10 bg-indigo-500/[0.02]">
+                  <h5 className="text-xs font-semibold uppercase tracking-wider text-indigo-400 mb-3 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                    Duygusal İhtiyaçlar
+                  </h5>
+                  <ul className="space-y-2">
+                    {getArr(analysis.persona_profile.emotional_needs, lang).map((n, i) => (
+                      <li key={i} className="text-xs text-slate-300 leading-relaxed">{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </section>
+          )}
 
-    if (credits <= 0) {
-      return res.status(402).json({ error: 'no_credits' })
-    }
+          {/* SEKSİYON B: Gölge Odak ve Merkez Çatışma (The Shadow & Core Conflict) */}
+          <section className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900/10 p-6 md:p-8 backdrop-blur-sm">
+            <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-rose-500/5 blur-3xl pointer-events-none" />
+            
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg md:text-xl font-medium text-white tracking-wide">Bilinçaltının Gölgeleri</h3>
+                <p className="text-xs text-slate-400">Rüyanızın bastırılmış ve çatışan dinamikleri</p>
+              </div>
+            </div>
 
-    await supabaseAdmin
-      .from('dreams')
-      .update({
-        premium_deep_analysis_status: 'generating',
-        premium_deep_analysis_error: null,
-      })
-      .eq('id', dream.id)
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Gölge Odak */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-rose-400/80">Bastırılmış Parçalar (Gölge)</h4>
+                <p className="text-sm text-slate-300 leading-relaxed font-light">
+                  {getVal(analysis.shadow_focus, lang)}
+                </p>
+              </div>
 
-    const prompt = buildPrompt({
-      content: dream.content,
-      lang: lang || dream.original_language || 'en',
-    })
+              {/* Merkez Çatışma */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-indigo-400/80">Temel Ruhsal Gerilim</h4>
+                <p className="text-sm text-slate-300 leading-relaxed font-light">
+                  {getVal(analysis.core_conflict, lang)}
+                </p>
+              </div>
+            </div>
+          </section>
 
-    let completion
-    try {
-      completion = await openai.chat.completions.create(
-        {
-          model: 'gpt-4o-mini',
-          temperature: 0.6,
-          max_tokens: 4000,
-          response_format: { type: 'json_object' },
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: prompt },
-          ],
-        },
-        { timeout: 55_000 } // stay under the 60s maxDuration with margin
-      )
-    } catch (openaiError) {
-      console.error('generate-deep-analysis openai error', openaiError)
+          {/* SEKSİYON C: Bireyleşme Yolu & Sembolik Okuma (The Individuation Path & Symbolic Reading) */}
+          <section className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900/20 p-6 md:p-8 backdrop-blur-sm">
+            <div className="absolute top-0 left-0 w-48 h-48 rounded-full bg-violet-500/5 blur-3xl pointer-events-none" />
+            
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 rounded-xl bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707-.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg md:text-xl font-medium text-white tracking-wide">Bireyleşme & Dönüşüm</h3>
+                <p className="text-xs text-slate-400">Ruhun gelişim ve bütünleşme rehberi</p>
+              </div>
+            </div>
 
-      await supabaseAdmin
-        .from('dreams')
-        .update({
-          premium_deep_analysis_status: 'failed',
-          premium_deep_analysis_error: openaiError?.message || 'openai_request_failed',
-        })
-        .eq('id', dream.id)
+            <div className="space-y-6">
+              {/* Sembolik Okuma */}
+              <div className="p-4 rounded-xl bg-slate-950/30 border border-slate-800/30">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Metaforik Yol Haritası</h4>
+                <p className="text-sm text-slate-300 leading-relaxed font-light">
+                  {getVal(analysis.symbolic_reading, lang)}
+                </p>
+              </div>
 
-      return res.status(502).json({ error: 'openai_request_failed' })
-    }
+              {/* Bireyleşme Yolu Tavsiyeleri */}
+              <div className="p-5 rounded-xl border border-indigo-500/10 bg-indigo-500/[0.01]">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-indigo-400 mb-2">Uyanık Hayata Entegrasyon Tavsiyesi</h4>
+                <p className="text-sm text-slate-300 leading-relaxed font-light">
+                  {getVal(analysis.individuation_path, lang)}
+                </p>
+              </div>
+            </div>
+          </section>
 
-    const raw = getMessageContent(completion)
-    const analysis = parseJsonSafely(raw)
+        </div>
 
-    if (!analysis) {
-      await supabaseAdmin
-        .from('dreams')
-        .update({
-          premium_deep_analysis_status: 'failed',
-          premium_deep_analysis_error: 'invalid_json_from_model',
-        })
-        .eq('id', dream.id)
+        {/* SAĞ KOLON: Semboller, Duygular ve Yansımalar */}
+        <div className="lg:col-span-4 flex flex-col gap-8">
+          
+          {/* SEMBOLLER KARTI */}
+          <section className="rounded-3xl border border-slate-800/80 bg-slate-900/20 p-6 backdrop-blur-sm">
+            <h3 className="text-base font-semibold tracking-wide text-white mb-4 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--theme-accent)' }} />
+              Rüya Sembolleri
+            </h3>
 
-      return res.status(500).json({ error: 'invalid_json_from_model' })
-    }
+            <div className="space-y-4">
+              {analysis.symbols && analysis.symbols.map((sym, idx) => (
+                <div 
+                  key={idx} 
+                  className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-800/50 hover:border-slate-700/60 transition-all group"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="text-sm font-semibold text-slate-200 group-hover:text-white transition-colors">
+                      {sym.symbol}
+                    </span>
+                    {sym.emotional_charge && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 border border-slate-700/50">
+                        {sym.emotional_charge.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <p className="text-xs text-slate-400 leading-relaxed mb-3">
+                    {getSymbolMeaning(sym, lang)}
+                  </p>
 
-    const nextCredits = credits - 1
+                  {/* Yoğunluk Çubuğu */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-slate-800 rounded-full h-1">
+                      <div 
+                        className="h-full rounded-full transition-all" 
+                        style={{ 
+                          width: `${sym.intensity ? Math.min(Math.max(sym.intensity * 10, 0), 100) : 50}%`,
+                          backgroundColor: sym.color || 'var(--theme-primary)'
+                        }} 
+                      />
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500">
+                      {(sym.intensity || 5)}/10
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
-    const { error: creditUpdateError } = await supabaseAdmin
-      .from('user_profiles')
-      .update({ premium_analysis_credits: nextCredits })
-      .eq('id', user.id)
+          {/* DUYGUSAL SEYİR KARTI */}
+          {analysis.emotions && (
+            <section className="rounded-3xl border border-slate-800/80 bg-slate-900/20 p-6 backdrop-blur-sm">
+              <h3 className="text-base font-semibold tracking-wide text-white mb-4 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--theme-primary)' }} />
+                Duygusal Profil
+              </h3>
 
-    if (creditUpdateError) {
-      await supabaseAdmin
-        .from('dreams')
-        .update({
-          premium_deep_analysis_status: 'failed',
-          premium_deep_analysis_error: 'credit_update_failed',
-        })
-        .eq('id', dream.id)
+              <div className="space-y-4">
+                {analysis.emotions.map((emo, idx) => (
+                  <div key={idx} className="space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-300 font-medium">{emo.emotion}</span>
+                      <span className="text-slate-400 font-mono">{emo.score}%</span>
+                    </div>
+                    <div className="w-full bg-slate-850 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="h-full rounded-full transition-all duration-500" 
+                        style={{ 
+                          width: `${emo.score || 0}%`,
+                          background: `linear-gradient(90deg, var(--theme-primary) 0%, var(--theme-secondary) 100%)`
+                        }} 
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
-      return res.status(500).json({ error: 'credit_update_failed' })
-    }
+          {/* DERİN YANSIMA SORULARI */}
+          {analysis.reflection_questions && (
+            <section className="rounded-3xl border border-slate-800/80 bg-slate-900/20 p-6 backdrop-blur-sm">
+              <h3 className="text-base font-semibold tracking-wide text-white mb-4 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--theme-accent)' }} />
+                Ruhsal Yansımalar
+              </h3>
+              <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                Kendinizle baş başa kaldığınızda bu sorular üzerine meditasyon yapmayı veya günlük tutmayı deneyin:
+              </p>
 
-    const { error: saveError } = await supabaseAdmin
-      .from('dreams')
-      .update({
-        premium_deep_analysis: analysis,
-        premium_deep_analysis_status: 'generated',
-        premium_deep_analysis_error: null,
-        premium_deep_analysis_generated_at: new Date().toISOString(),
-      })
-      .eq('id', dream.id)
+              <div className="space-y-3">
+                {getArr(analysis.reflection_questions, lang).map((q, idx) => (
+                  <div 
+                    key={idx} 
+                    className="p-3.5 rounded-xl bg-slate-950/30 border border-slate-800/40 text-xs text-slate-300 leading-relaxed relative overflow-hidden group hover:bg-slate-950/50 transition-colors"
+                  >
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span className="font-semibold text-indigo-400 block mb-1">Yansıma {idx + 1}</span>
+                    "{q}"
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
-    if (saveError) {
-      await supabaseAdmin
-        .from('dreams')
-        .update({
-          premium_deep_analysis_status: 'failed',
-          premium_deep_analysis_error: 'save_failed',
-        })
-        .eq('id', dream.id)
+        </div>
 
-      return res.status(500).json({ error: 'save_failed' })
-    }
-
-    return res.status(200).json({
-      ok: true,
-      analysis,
-      creditsLeft: nextCredits,
-    })
-  } catch (error) {
-    console.error('generate-deep-analysis error', error)
-
-    return res.status(500).json({
-      error: 'internal_server_error',
-      details: error && error.message ? error.message : 'unknown_error',
-    })
-  }
+      </main>
+    </div>
+  );
 }
