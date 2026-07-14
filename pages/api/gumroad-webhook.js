@@ -11,7 +11,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-const AURA_AMOUNT = 10
 const ALLOWED_PRODUCT_ID = process.env.GUMROAD_SINGLE_PRODUCT_ID
 
 function readRawBody(req) {
@@ -52,6 +51,19 @@ export default async function handler(req, res) {
       payload.test === '1' ||
       payload.test === true
 
+    // DİNAMİK AURA HESAPLAMA (X Dolar Ödeme = X Aura)
+    // Gumroad ödeme miktarını cent bazında gönderir (Örn: $9 = 900 cent, $15 = 1500 cent)
+    const amountInCents = payload.amount 
+      ? Number(payload.amount) 
+      : (Number(payload.price || 0) * Number(payload.quantity || 1))
+    
+    let calculatedAuras = Math.floor(amountInCents / 100)
+
+    // Eğer test pinglemesi ise ve ücret 0 ise, testlerinizin aksamaması için varsayılan 10 Aura ekleyelim
+    if (isTest && calculatedAuras === 0) {
+      calculatedAuras = 10
+    }
+
     console.log(
       JSON.stringify(
         {
@@ -63,6 +75,8 @@ export default async function handler(req, res) {
           permalink,
           refunded,
           isTest,
+          amountInCents,
+          calculatedAuras,
           payload,
         },
         null,
@@ -147,7 +161,7 @@ export default async function handler(req, res) {
         userProfileId = profile.id
 
         const nextAuras =
-          Number(profile.premium_analysis_auras || 0) + AURA_AMOUNT
+          Number(profile.premium_analysis_auras || 0) + calculatedAuras
 
         const { error: updateError } = await supabase
           .from('user_profiles')
@@ -155,14 +169,14 @@ export default async function handler(req, res) {
           .eq('id', profile.id)
 
         if (updateError) {
-          console.error('gumroad credit update failed', updateError)
+          console.error('gumroad aura bakiye update failed', updateError)
           return res.status(500).json({
             error: 'aura_update_failed',
             details: updateError.message,
           })
         }
 
-        aurasAdded = AURA_AMOUNT
+        aurasAdded = calculatedAuras
         status = isTest ? 'test_aura_added' : 'aura_added'
       } else {
         status = isTest ? 'test_no_user_match' : 'pending_user_match'
