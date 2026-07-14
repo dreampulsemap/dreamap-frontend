@@ -106,20 +106,22 @@ function normalizeMultiLangField(value) {
   return result
 }
 
-async function generateWithGroq(params) {
+async function generateWithOpenAI(params) {
   const prompt = buildTeaserPrompt(params)
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 20000)
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY
+    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini'
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.GROQ_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: model,
         temperature: 0.9,
         response_format: { type: 'json_object' },
         messages: [
@@ -139,7 +141,7 @@ async function generateWithGroq(params) {
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`groq_request_failed: ${response.status} ${errorText}`)
+      throw new Error(`openai_request_failed: ${response.status} ${errorText}`)
     }
 
     const data = await response.json()
@@ -197,26 +199,26 @@ export default async function handler(req, res) {
 
     let analysis
     try {
-      analysis = await generateWithGroq({
+      analysis = await generateWithOpenAI({
         content: dream.content,
         lang: lang || dream.original_language || 'en',
       })
-    } catch (groqError) {
-      console.error('analyze-dream groq error', groqError)
+    } catch (openaiError) {
+      console.error('analyze-dream openai error', openaiError)
 
       if (dream.id) {
         await supabaseAdmin
           .from('dreams')
           .update({
             analysis_status: 'failed',
-            analysis_error: groqError?.message || 'groq_request_failed',
+            analysis_error: openaiError?.message || 'openai_request_failed',
           })
           .eq('id', dream.id)
       }
 
       return res.status(502).json({
-        error: 'groq_request_failed',
-        details: groqError?.message || 'unknown_error',
+        error: 'openai_request_failed',
+        details: openaiError?.message || 'unknown_error',
       })
     }
 
@@ -312,5 +314,4 @@ export default async function handler(req, res) {
       details: error && error.message ? error.message : 'unknown_error',
     })
   }
-        }
-          
+}
