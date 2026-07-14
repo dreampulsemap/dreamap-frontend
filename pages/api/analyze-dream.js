@@ -5,6 +5,17 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+// Lunosfer serves 8 languages across web + future app. Keep this in sync
+// everywhere multi-language AI output is generated.
+const SUPPORTED_LANGS = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja']
+
+function emptyLangMap() {
+  return SUPPORTED_LANGS.reduce((acc, l) => {
+    acc[l] = ''
+    return acc
+  }, {})
+}
+
 function buildTeaserPrompt(params) {
   const content = params && params.content ? params.content : ''
   const lang = params && params.lang ? params.lang : 'en'
@@ -27,34 +38,31 @@ Rules:
 - suggest that there is a deeper unresolved pattern
 - do not give the full answer away
 - motiv must be one short poetic sentence
-- archetypes should contain 1 to 3 items max
+- archetypes should contain 1 to 3 items max, always written in English (e.g. "The Shadow", "The Wanderer")
 - sentiment should be a short lowercase word like: hopeful, anxious, mysterious, tender, restless, heavy, luminous
 
 Primary output language: ${lang}
-Also provide English and Turkish versions for title, summary, and motiv.
+This product ships in 8 languages. You MUST fill in "title", "summary" and "motiv"
+for EVERY one of these language keys, with no blanks and no literal machine
+translation, just natural idiomatic writing in each language: ${SUPPORTED_LANGS.join(', ')}.
 
 Dream:
 """
 ${content}
 """
 
-JSON shape:
-{
-  "title": {
-    "en": "",
-    "tr": ""
+JSON shape (keep exactly these keys):
+${JSON.stringify(
+  {
+    title: emptyLangMap(),
+    summary: emptyLangMap(),
+    motiv: emptyLangMap(),
+    sentiment: '',
+    archetypes: [],
   },
-  "summary": {
-    "en": "",
-    "tr": ""
-  },
-  "motiv": {
-    "en": "",
-    "tr": ""
-  },
-  "sentiment": "",
-  "archetypes": []
-}
+  null,
+  2
+)}
 `
 }
 
@@ -63,9 +71,9 @@ function parseJsonSafely(text) {
     return JSON.parse(text)
   } catch (error) {
     const cleaned = String(text || '')
-      .replace(/^```jsons*/i, '')
-      .replace(/^```s*/i, '')
-      .replace(/s*```$/i, '')
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/i, '')
       .trim()
 
     return JSON.parse(cleaned)
@@ -86,49 +94,63 @@ function normalizeArray(value, limit) {
     .slice(0, max)
 }
 
-async function generateWithGroq(params) {
-  const prompt = buildTeaserPrompt(params)
+function normalizeMultiLangField(value) {
+  const result = {}
+  const en = value && typeof value.en === 'string' ? value.en.trim() : ''
 
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.GROQ_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'llama-3.1-8b-instant',
-      temperature: 0.9,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are an expert dream interpretation assistant. Write short, emotionally intelligent, intriguing teaser analyses that make the user curious for a deeper reading. Always return valid JSON only.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    }),
+  SUPPORTED_LANGS.forEach((lang) => {
+    const raw = value && typeof value[lang] === 'string' ? value[lang].trim() : ''
+    result[lang] = raw || en
   })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`groq_request_failed: ${response.status} ${errorText}`)
+  return result
+}
+
+async function generateWithGroq(params) {
+  const prompt = buildTeaserPrompt(params)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 20000)
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.GROQ_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        temperature: 0.9,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are an expert dream interpretation assistant. Write short, emotionally intelligent, intriguing teaser analyses that make the user curious for a deeper reading. Always return valid JSON only, with every requested language key filled in.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      }),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`groq_request_failed: ${response.status} ${errorText}`)
+    }
+
+    const data = await response.json()
+
+    // IMPORTANT: choices is an ARRAY. Must index into [0] before .message.
+    const content = data?.choices?.[0]?.message?.content || '{}'
+
+    return parseJsonSafely(content)
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  const data = await response.json()
-  const content =
-    data &&
-    data.choices &&
-    data.choices &&
-    data.choices.message &&
-    data.choices.message.content
-      ? data.choices.message.content
-      : '{}'
-
-  return parseJsonSafely(content)
 }
 
 export default async function handler(req, res) {
@@ -159,66 +181,65 @@ export default async function handler(req, res) {
     } else if (content) {
       dream = {
         id: null,
-        content: content,
+        content,
         original_language: lang || 'en',
       }
     } else {
       return res.status(400).json({ error: 'missing_dream_input' })
     }
 
-    const analysis = await generateWithGroq({
-      content: dream.content,
-      lang: lang || dream.original_language || 'en',
-    })
+    if (dream.id) {
+      await supabaseAdmin
+        .from('dreams')
+        .update({ analysis_status: 'processing', analysis_error: null })
+        .eq('id', dream.id)
+    }
+
+    let analysis
+    try {
+      analysis = await generateWithGroq({
+        content: dream.content,
+        lang: lang || dream.original_language || 'en',
+      })
+    } catch (groqError) {
+      console.error('analyze-dream groq error', groqError)
+
+      if (dream.id) {
+        await supabaseAdmin
+          .from('dreams')
+          .update({
+            analysis_status: 'failed',
+            analysis_error: groqError?.message || 'groq_request_failed',
+          })
+          .eq('id', dream.id)
+      }
+
+      return res.status(502).json({
+        error: 'groq_request_failed',
+        details: groqError?.message || 'unknown_error',
+      })
+    }
+
+    if (!analysis || typeof analysis !== 'object') {
+      if (dream.id) {
+        await supabaseAdmin
+          .from('dreams')
+          .update({
+            analysis_status: 'failed',
+            analysis_error: 'invalid_json_from_model',
+          })
+          .eq('id', dream.id)
+      }
+
+      return res.status(500).json({ error: 'invalid_json_from_model' })
+    }
 
     const normalized = {
-      title: {
-        en:
-          analysis &&
-          analysis.title &&
-          analysis.title.en
-            ? analysis.title.en
-            : '',
-        tr:
-          analysis &&
-          analysis.title &&
-          (analysis.title.tr || analysis.title.en)
-            ? analysis.title.tr || analysis.title.en
-            : '',
-      },
-      summary: {
-        en:
-          analysis &&
-          analysis.summary &&
-          analysis.summary.en
-            ? analysis.summary.en
-            : '',
-        tr:
-          analysis &&
-          analysis.summary &&
-          (analysis.summary.tr || analysis.summary.en)
-            ? analysis.summary.tr || analysis.summary.en
-            : '',
-      },
-      motiv: {
-        en:
-          analysis &&
-          analysis.motiv &&
-          analysis.motiv.en
-            ? analysis.motiv.en
-            : '',
-        tr:
-          analysis &&
-          analysis.motiv &&
-          (analysis.motiv.tr || analysis.motiv.en)
-            ? analysis.motiv.tr || analysis.motiv.en
-            : '',
-      },
-      sentiment:
-        analysis && analysis.sentiment
-          ? String(analysis.sentiment).toLowerCase()
-          : null,
-      archetypes: normalizeArray(analysis && analysis.archetypes, 3),
+      title: normalizeMultiLangField(analysis.title),
+      summary: normalizeMultiLangField(analysis.summary),
+      motiv: normalizeMultiLangField(analysis.motiv),
+      sentiment: analysis.sentiment ? String(analysis.sentiment).toLowerCase() : null,
+      archetypes: normalizeArray(analysis.archetypes, 3),
     }
 
     const payload = {
@@ -245,22 +266,41 @@ export default async function handler(req, res) {
         archetypes: normalized.archetypes,
         teaser: true,
       },
+
+      analysis_status: 'completed',
+      analysis_error: null,
     }
 
     if (dream.id) {
-      const updateResult = await supabaseAdmin
+      const { data: updatedDream, error: updateError } = await supabaseAdmin
         .from('dreams')
         .update(payload)
         .eq('id', dream.id)
+        .select('*')
+        .single()
 
-      if (updateResult.error) {
-        console.error('dream update error', updateResult.error)
+      if (updateError) {
+        console.error('dream update error', updateError)
+
+        await supabaseAdmin
+          .from('dreams')
+          .update({ analysis_status: 'failed', analysis_error: 'update_failed' })
+          .eq('id', dream.id)
+
         return res.status(500).json({ error: 'update_failed' })
       }
+
+      return res.status(200).json({
+        ok: true,
+        dream: updatedDream,
+        analysis: payload.ai_jungian_analysis,
+        fields: payload,
+      })
     }
 
     return res.status(200).json({
       ok: true,
+      dream: { ...dream, ...payload },
       analysis: payload.ai_jungian_analysis,
       fields: payload,
     })
@@ -272,4 +312,5 @@ export default async function handler(req, res) {
       details: error && error.message ? error.message : 'unknown_error',
     })
   }
-}
+        }
+          
