@@ -1,26 +1,32 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState, useEffect } from 'react'
-import { auth } from '../lib/supabase'
+import { useState, useEffect, useRef } from 'react'
+import { auth, supabase } from '../lib/supabase'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '../lib/translations'
 
+const GUMROAD_PRODUCT_URL = 'https://lunosfer.gumroad.com/l/lunosfer-deep-analysis'
+
 const NAV_UI = {
-  tr: { globe: 'Küre', profile: 'Profilim', addDream: 'Rüya Ekle', prophecy: 'Kehanet', menu: 'Menü', close: 'Kapat', signIn: 'Giriş Yap' },
-  en: { globe: 'Globe', profile: 'Profile', addDream: 'Add Dream', prophecy: 'Prophecy', menu: 'Menu', close: 'Close', signIn: 'Sign In' },
-  es: { globe: 'Globo', profile: 'Perfil', addDream: 'Añadir Sueño', prophecy: 'Profecía', menu: 'Menú', close: 'Cerrar', signIn: 'Iniciar Sesión' },
-  fr: { globe: 'Globe', profile: 'Profil', addDream: 'Ajouter un Rêve', prophecy: 'Prophétie', menu: 'Menu', close: 'Fermer', signIn: 'Se Connecter' },
-  de: { globe: 'Globus', profile: 'Profil', addDream: 'Traum Hinzufügen', prophecy: 'Prophezeiung', menu: 'Menü', close: 'Schließen', signIn: 'Anmelden' },
-  pt: { globe: 'Globo', profile: 'Perfil', addDream: 'Adicionar Sonho', prophecy: 'Profecia', menu: 'Menu', close: 'Fechar', signIn: 'Entrar' },
-  ru: { globe: 'Глобус', profile: 'Профиль', addDream: 'Добавить Сон', prophecy: 'Пророчество', menu: 'Меню', close: 'Закрыть', signIn: 'Войти' },
-  ja: { globe: 'グローブ', profile: 'プロフィール', addDream: '夢を追加', prophecy: '予言', menu: 'メニュー', close: '閉じる', signIn: 'ログイン' },
+  tr: { globe: 'Rüya Haritası', profile: 'Profilim', addDream: 'Rüya Ekle', prophecy: 'Kehanet', menu: 'Menü', close: 'Kapat', signIn: 'Giriş Yap', currentAura: 'Aura Bakiyeniz:', buyAura: 'Aura Satın Al (Gumroad)' },
+  en: { globe: 'Dream Map', profile: 'Profile', addDream: 'Add Dream', prophecy: 'Prophecy', menu: 'Menu', close: 'Close', signIn: 'Sign In', currentAura: 'Your Aura:', buyAura: 'Buy Aura (Gumroad)' },
+  es: { globe: 'Mapa de Sueños', profile: 'Perfil', addDream: 'Añadir Sueño', prophecy: 'Profecía', menu: 'Menú', close: 'Cerrar', signIn: 'Iniciar Sesión', currentAura: 'Tus Auras:', buyAura: 'Comprar Auras (Gumroad)' },
+  fr: { globe: 'Carte des Rêves', profile: 'Profil', addDream: 'Ajouter un Rêve', prophecy: 'Prophétie', menu: 'Menu', close: 'Fermer', signIn: 'Se Connecter', currentAura: 'Vos Auras :', buyAura: 'Acheter des Auras (Gumroad)' },
+  de: { globe: 'Traumkarte', profile: 'Profil', addDream: 'Traum Hinzufügen', prophecy: 'Prophezeiung', menu: 'Menü', close: 'Schließen', signIn: 'Anmelden', currentAura: 'Deine Aura:', buyAura: 'Aura kaufen (Gumroad)' },
+  pt: { globe: 'Mapa dos Sonhos', profile: 'Perfil', addDream: 'Adicionar Sonho', prophecy: 'Profecia', menu: 'Menu', close: 'Fechar', signIn: 'Entrar', currentAura: 'Suas Auras:', buyAura: 'Comprar Auras (Gumroad)' },
+  ru: { globe: 'Карта Снов', profile: 'Профиль', addDream: 'Добавить Сон', prophecy: 'Пророчество', menu: 'Меню', close: 'Закрыть', signIn: 'Войти', currentAura: 'Ваши Ауры:', buyAura: 'Купить Ауры (Gumroad)' },
+  ja: { globe: '夢マップ', profile: 'プロフィール', addDream: '夢を追加', prophecy: '予言', menu: 'メニュー', close: '閉じる', signIn: 'ログイン', currentAura: '現在のオーラ:', buyAura: 'オーラを購入 (Gumroad)' },
 }
 
 export default function Navbar() {
   const [user, setUser] = useState(null)
+  const [auras, setAuras] = useState(0)
   const [avatarUrl, setAvatarUrl] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [auraDropdownOpen, setAuraDropdownOpen] = useState(false)
+  const auraDropdownRef = useRef(null)
+
   const { i18n } = useTranslation()
   const lang = NAV_UI[i18n.language] ? i18n.language : 'en'
   const ui = NAV_UI[lang]
@@ -40,6 +46,7 @@ export default function Navbar() {
                 currentUser?.user_metadata?.avatar_url ||
                 ''
             )
+            setAuras(Number(profile?.premium_analysis_auras || 0))
           }
         }
       } catch (error) {
@@ -47,6 +54,35 @@ export default function Navbar() {
       }
     }
     checkUser()
+
+    // Supabase RLS veya gerçek zamanlı güncellemeler için profile değişikliklerini dinleyelim
+    const { data: authSubscription } = auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setUser(session.user)
+        const profile = await auth.getProfile(session.user.id)
+        setAuras(Number(profile?.premium_analysis_auras || 0))
+        setAvatarUrl(profile?.avatar_url || '')
+      } else {
+        setUser(null)
+        setAuras(0)
+        setAvatarUrl('')
+      }
+    })
+
+    return () => {
+      authSubscription?.subscription?.unsubscribe()
+    }
+  }, [])
+
+  // Dışarı tıklandığında Aura menüsünü kapatma
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (auraDropdownRef.current && !auraDropdownRef.current.contains(event.target)) {
+        setAuraDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   const globeLabel =
@@ -80,14 +116,16 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/8 bg-slate-950/70 backdrop-blur-2xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3 lg:px-8">
+        
+        {/* LOGO */}
         <Link href="/" className="group flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
           <div className="relative shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5 px-2 py-1.5 shadow-[0_0_30px_rgba(56,189,248,0.06)] transition-all duration-300 group-hover:border-cyan-300/20 group-hover:shadow-[0_0_40px_rgba(34,211,238,0.12)] sm:rounded-2xl sm:px-3 sm:py-2">
-            <Image
+            <img
               src="/logo.png"
               alt="Lunosfer"
               width={132}
               height={40}
-              priority
+              priority="true"
               className="h-6 w-auto object-contain sm:h-8 md:h-10"
             />
           </div>
@@ -107,17 +145,63 @@ export default function Navbar() {
             >
               LUNOSFER
             </span>
-
             <span className="mt-0.5 hidden whitespace-nowrap text-[9px] font-medium uppercase tracking-[0.28em] text-cyan-200/50 md:block">
               Dream Nexus
             </span>
           </div>
         </Link>
 
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <div className="shrink-0">
+        {/* DESKTOP NAV LINKS */}
+        <nav className="hidden md:flex items-center gap-6">
+          <Link href="/globe" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+            {globeLabel}
+          </Link>
+          <Link href="/add-dream" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+            {ui.addDream}
+          </Link>
+          <a href="/#prophecy" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+            {ui.prophecy}
+          </a>
+        </nav>
+
+        {/* SAĞ KONTROLLER */}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+          
+          <div className="hidden sm:block shrink-0">
             <LanguageSwitcher />
           </div>
+
+          {/* PREMIUM AURA CONTAINER */}
+          {user && (
+            <div className="relative" ref={auraDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setAuraDropdownOpen(!auraDropdownOpen)}
+                className="flex items-center gap-1.5 rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-1.5 text-xs font-semibold text-fuchsia-300 transition hover:border-fuchsia-400/50 hover:bg-fuchsia-500/20 [box-shadow:0_0_15px_rgba(240,73,214,0.1)]"
+              >
+                <span>✦</span>
+                <span>{auras} Aura</span>
+                <span className="text-[9px] text-fuchsia-400/60">▼</span>
+              </button>
+
+              {auraDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-white/10 bg-slate-950 p-4 shadow-[0_15px_40px_rgba(0,0,0,0.5)] z-50">
+                  <p className="text-xs text-slate-400 mb-1">{ui.currentAura}</p>
+                  <p className="text-lg font-black text-fuchsia-300 mb-3 flex items-center gap-1.5">
+                    <span>✦</span> {auras} Aura
+                  </p>
+                  <a
+                    href={GUMROAD_PRODUCT_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-center rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 shadow-[0_0_20px_rgba(240,73,214,0.2)]"
+                  >
+                    {ui.buyAura}
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
 
           {user ? (
             <Link
@@ -133,10 +217,11 @@ export default function Navbar() {
               className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 text-xs font-medium text-cyan-100 transition-all duration-200 hover:border-cyan-300/45 hover:bg-cyan-500/20 sm:px-4 sm:text-sm"
             >
               <span aria-hidden="true">🔑</span>
-              <span className="hidden sm:inline">{ui.signIn}</span>
+              <span>{ui.signIn}</span>
             </Link>
           )}
 
+          {/* HAMBURGER BUTTON (MOBILE) */}
           <button
             type="button"
             aria-label={menuOpen ? ui.close : ui.menu}
@@ -149,9 +234,16 @@ export default function Navbar() {
         </div>
       </div>
 
+      {/* MOBILE EXPANDED MENU */}
       {menuOpen ? (
         <div className="border-t border-white/8 bg-slate-950/95 px-3 py-4 backdrop-blur-2xl sm:px-4">
           <div className="mx-auto grid max-w-7xl grid-cols-1 gap-2">
+            
+            {/* MOBİLDE DİL SEÇİM ALANI */}
+            <div className="sm:hidden flex justify-center py-1">
+              <LanguageSwitcher />
+            </div>
+
             <Link
               href="/globe"
               onClick={() => setMenuOpen(false)}
@@ -178,6 +270,21 @@ export default function Navbar() {
               <span aria-hidden="true">🔮</span>
               <span>{ui.prophecy}</span>
             </a>
+
+            {/* MOBİL HIZLI AURA ALMA SEÇENEĞİ */}
+            {user && (
+              <div className="mt-2 rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-4 text-center">
+                <p className="text-xs text-fuchsia-300/80 mb-2">{ui.currentAura} ✦ {auras} Aura</p>
+                <a
+                  href={GUMROAD_PRODUCT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-h-[44px] items-center justify-center rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-600 text-xs font-bold text-white shadow-lg"
+                >
+                  {ui.buyAura}
+                </a>
+              </div>
+            )}
           </div>
         </div>
       ) : null}
