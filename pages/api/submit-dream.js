@@ -15,7 +15,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
 function normalizeText(value, maxLen = 4000) {
   if (typeof value !== 'string') return null
-  const trimmed = value.replace(/s+/g, ' ').trim()
+  const trimmed = value.replace(/\s+/g, ' ').trim()
   if (!trimmed) return null
   return trimmed.slice(0, maxLen)
 }
@@ -55,6 +55,17 @@ async function updateDreamStatus(id, patch) {
   }
 
   return data
+}
+
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 export default async function handler(req, res) {
@@ -122,16 +133,20 @@ export default async function handler(req, res) {
 
     try {
       const baseUrl = getBaseUrl(req)
-      const analyzeResponse = await fetch(`${baseUrl}/api/analyze-dream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+      const analyzeResponse = await fetchWithTimeout(
+        `${baseUrl}/api/analyze-dream`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            dreamId: insertedDream.id,
+          }),
         },
-        body: JSON.stringify({
-          dreamId: insertedDream.id,
-        }),
-      })
+        25000
+      )
 
       const analyzeText = await analyzeResponse.text()
       let analyzeData = null
@@ -152,19 +167,24 @@ export default async function handler(req, res) {
         analyzeData?.result ||
         insertedDream
     } catch (analyzeError) {
+      const isAbort = analyzeError?.name === 'AbortError'
       console.error('submit-dream analyze error:', analyzeError)
 
       try {
         analyzedDream = await updateDreamStatus(insertedDream.id, {
           analysis_status: 'failed',
-          analysis_error: analyzeError?.message || 'Analyze step failed',
+          analysis_error: isAbort
+            ? 'analysis_timed_out'
+            : analyzeError?.message || 'Analyze step failed',
         })
       } catch (updateError) {
         console.error('submit-dream status update error:', updateError)
         analyzedDream = {
           ...insertedDream,
           analysis_status: 'failed',
-          analysis_error: analyzeError?.message || 'Analyze step failed',
+          analysis_error: isAbort
+            ? 'analysis_timed_out'
+            : analyzeError?.message || 'Analyze step failed',
         }
       }
     }
@@ -176,4 +196,4 @@ export default async function handler(req, res) {
       error: error?.message || 'Unexpected server error',
     })
   }
-}
+        }
