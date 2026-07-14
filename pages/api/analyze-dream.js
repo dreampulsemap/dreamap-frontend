@@ -21,7 +21,7 @@ function buildTeaserPrompt(params) {
   const lang = params && params.lang ? params.lang : 'en'
 
   return `
-Analyze the following dream in a concise, emotionally resonant, curiosity-inducing way.
+Analyze the following dream in a concise, emotionally resonant, curiosity-inducing way. Stay grounded and committed only to the exact dream text.
 
 Return only valid JSON.
 Do not wrap the answer in markdown.
@@ -32,7 +32,7 @@ It should feel psychologically meaningful, poetic, and slightly mysterious.
 It should gently make the user want a deeper premium analysis.
 
 Rules:
-- summary must be exactly 4 or 5 sentences
+- summary must be at least 3 sentences
 - keep it concise and beautiful
 - avoid sounding clinical, generic, or repetitive
 - suggest that there is a deeper unresolved pattern
