@@ -20,7 +20,6 @@ const supabaseAdmin = createClient(
   }
 )
 
-// Dil kodlarını açık isimlerine eşlemek modelin daha doğal yazmasını sağlar
 const LANG_MAP = {
   en: 'English',
   tr: 'Turkish (Türkçe)',
@@ -201,7 +200,7 @@ export default async function handler(req, res) {
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
-      .select('id, premium_analysis_credits')
+      .select('id, premium_analysis_auras')
       .eq('id', user.id)
       .single()
 
@@ -209,10 +208,10 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'profile_not_found' })
     }
 
-    const credits = Number(profile.premium_analysis_credits || 0)
+    const auras = Number(profile.premium_analysis_auras || 0)
 
-    if (credits <= 0) {
-      return res.status(402).json({ error: 'no_credits' })
+    if (auras <= 0) {
+      return res.status(402).json({ error: 'no_auras' })
     }
 
     await supabaseAdmin
@@ -223,7 +222,6 @@ export default async function handler(req, res) {
       })
       .eq('id', dream.id)
 
-    // Rüya dili neyse o dilde analizi başlatır, yoksa orijinal rüya dilini veya 'en'i baz alır
     const targetLangCode = lang || dream.original_language || 'en'
     const targetLangName = LANG_MAP[targetLangCode] || LANG_MAP['en']
 
@@ -276,22 +274,22 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'invalid_json_from_model' })
     }
 
-    const nextCredits = credits - 1
-    const { error: creditUpdateError } = await supabaseAdmin
+    const nextAuras = auras - 1
+    const { error: auraUpdateError } = await supabaseAdmin
       .from('user_profiles')
-      .update({ premium_analysis_credits: nextCredits })
+      .update({ premium_analysis_auras: nextAuras })
       .eq('id', user.id)
 
-    if (creditUpdateError) {
+    if (auraUpdateError) {
       await supabaseAdmin
         .from('dreams')
         .update({
           premium_deep_analysis_status: 'failed',
-          premium_deep_analysis_error: 'credit_update_failed',
+          premium_deep_analysis_error: 'aura_update_failed',
         })
         .eq('id', dream.id)
 
-      return res.status(500).json({ error: 'credit_update_failed' })
+      return res.status(500).json({ error: 'aura_update_failed' })
     }
 
     const { error: saveError } = await supabaseAdmin
@@ -319,7 +317,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       analysis,
-      creditsLeft: nextCredits,
+      aurasLeft: nextAuras,
     })
   } catch (error) {
     console.error('generate-deep-analysis error', error)
