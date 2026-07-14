@@ -11,7 +11,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-const CREDIT_AMOUNT = 10
+const AURA_AMOUNT = 10
 const ALLOWED_PRODUCT_ID = process.env.GUMROAD_SINGLE_PRODUCT_ID
 
 function readRawBody(req) {
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
 
     const { data: existingSale, error: existingSaleError } = await supabase
       .from('gumroad_webhook_events')
-      .select('sale_id, credits_added, status')
+      .select('sale_id, auras_added, status')
       .eq('sale_id', saleId)
       .maybeSingle()
 
@@ -81,8 +81,6 @@ export default async function handler(req, res) {
       return res.status(500).json({
         error: 'existing_sale_lookup_failed',
         details: existingSaleError.message,
-        code: existingSaleError.code || null,
-        hint: existingSaleError.hint || null,
       })
     }
 
@@ -106,7 +104,7 @@ export default async function handler(req, res) {
           product_permalink: permalink,
           raw_payload: payload,
           user_profile_id: null,
-          credits_added: 0,
+          auras_added: 0,
           status: 'ignored_product_not_matched',
         })
 
@@ -115,8 +113,6 @@ export default async function handler(req, res) {
         return res.status(500).json({
           error: 'ignored_sale_insert_failed',
           details: ignoredInsertError.message,
-          code: ignoredInsertError.code || null,
-          hint: ignoredInsertError.hint || null,
         })
       }
 
@@ -129,13 +125,13 @@ export default async function handler(req, res) {
     }
 
     let userProfileId = null
-    let creditsAdded = 0
+    let aurasAdded = 0
     let status = 'received'
 
     if (email && !refunded) {
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('id, email, premium_analysis_credits')
+        .select('id, email, premium_analysis_auras')
         .ilike('email', email)
         .maybeSingle()
 
@@ -144,34 +140,30 @@ export default async function handler(req, res) {
         return res.status(500).json({
           error: 'profile_lookup_failed',
           details: profileError.message,
-          code: profileError.code || null,
-          hint: profileError.hint || null,
         })
       }
 
       if (profile) {
         userProfileId = profile.id
 
-        const nextCredits =
-          Number(profile.premium_analysis_credits || 0) + CREDIT_AMOUNT
+        const nextAuras =
+          Number(profile.premium_analysis_auras || 0) + AURA_AMOUNT
 
         const { error: updateError } = await supabase
           .from('user_profiles')
-          .update({ premium_analysis_credits: nextCredits })
+          .update({ premium_analysis_auras: nextAuras })
           .eq('id', profile.id)
 
         if (updateError) {
           console.error('gumroad credit update failed', updateError)
           return res.status(500).json({
-            error: 'credit_update_failed',
+            error: 'aura_update_failed',
             details: updateError.message,
-            code: updateError.code || null,
-            hint: updateError.hint || null,
           })
         }
 
-        creditsAdded = CREDIT_AMOUNT
-        status = isTest ? 'test_credited' : 'credited'
+        aurasAdded = AURA_AMOUNT
+        status = isTest ? 'test_aura_added' : 'aura_added'
       } else {
         status = isTest ? 'test_no_user_match' : 'pending_user_match'
       }
@@ -189,7 +181,7 @@ export default async function handler(req, res) {
         product_permalink: permalink,
         raw_payload: payload,
         user_profile_id: userProfileId,
-        credits_added: creditsAdded,
+        auras_added: aurasAdded,
         status,
       })
 
@@ -198,8 +190,6 @@ export default async function handler(req, res) {
       return res.status(500).json({
         error: 'sale_insert_failed',
         details: insertSaleError.message,
-        code: insertSaleError.code || null,
-        hint: insertSaleError.hint || null,
       })
     }
 
@@ -209,7 +199,7 @@ export default async function handler(req, res) {
       email,
       productId,
       status,
-      creditsAdded,
+      aurasAdded,
       isTest,
     })
   } catch (error) {
