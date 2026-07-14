@@ -196,19 +196,8 @@ export default function AddDreamPage() {
 
   return (
     <div className="min-h-screen bg-black">
-      <header className="sticky top-0 z-50 glass-card border-b border-white/10" style={{ borderRadius: 0 }}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
-          <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-all">
-            <img src="/logo.png" alt="Lunosfer Logo" className="w-10 h-10 object-contain" />
-            <span className="text-xl font-bold gradient-text">{tAddDream('brand.name', lang)}</span>
-          </a>
-
-          <a href="/" className="glass-card px-4 py-2 text-white/80 hover:text-white transition-all flex items-center gap-2">
-            <span>←</span>
-            <span>{tAddDream('nav.backToHome', lang)}</span>
-          </a>
-        </div>
-      </header>
+      
+      {/* Özel header global Navbar entegre edildiği için kaldırılmıştır */}
 
       <div className="max-w-2xl mx-auto p-4">
         <div className="glass-card p-6 sm:p-8">
