@@ -2,6 +2,11 @@
 import OpenAI from 'openai'
 import { createClient } from '@supabase/supabase-js'
 
+// Vercel fonksiyonunun 10 saniyede zaman aşımına uğramasını engeller (Max 60'a kadar izin verir)
+export const config = {
+  maxDuration: 60,
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
@@ -90,7 +95,19 @@ function buildShape() {
 
 function buildPrompt({ content, lang = 'en' }) {
   return `
-Analyze the following dream using a deep Jungian framework.
+Perform a profound, comprehensive, and highly resonant Jungian deep analysis of the following dream. 
+
+This is a PREMIUM analysis. It must be exceptionally high-quality, delivering deep psychological substance, emotional intelligence, and striking revelations about the dreamer's unconscious.
+The tone should be empathetic yet deeply analytical, poetic, and intellectually thrilling.
+The goal is to provide the dreamer with such a transformative, 'aha' moment that they feel truly understood, deeply fascinated by their own mind, and incredibly eager to map their future dreams with this tool.
+
+Rules for the Deep Analysis:
+- "shadow_focus": Unveil the hidden, repressed, or unacknowledged parts of the psyche appearing in the dream. Be direct, compassionate, and illuminating. Do not hold back on depth.
+- "core_conflict": Identify the central psychological tension (e.g., Anima/Animus integration, Persona vs. Authentic Self, fear of transformation). Make it highly specific to the dream.
+- "individuation_path": Provide actionable, profound psychological advice on how the dreamer can integrate this dream's message into their waking life for profound personal growth.
+- "symbolic_reading": Decode the dream's narrative as a metaphorical map of the dreamer's current psychic state. Read between the lines.
+- "reflection_questions": Provide 3 penetrating, deeply personal questions that will make the dreamer introspect profoundly and want to return for more answers.
+- "persona_profile": Create a fascinating, archetypal summary of who the dreamer is currently embodying based on this dream. Make it feel like a high-end psychological profile.
 
 Return only a valid JSON object.
 Do not use markdown.
@@ -232,13 +249,13 @@ export default async function handler(req, res) {
     try {
       completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
-        temperature: 0.7,
+        temperature: 0.75, // Daha yaratıcı ve derinlikli bir ton için çok az artırıldı
         response_format: { type: 'json_object' },
         messages: [
           {
             role: 'system',
             content:
-              'You are an expert Jungian dream analyst. Return compassionate, psychologically rich, symbol-aware analysis. Respond with JSON only, with every requested language key filled in.',
+              'You are an elite, world-class Jungian dream analyst. Provide a breathtakingly insightful, compassionate, and psychologically profound premium analysis. Your interpretation must leave the user feeling deeply understood, enlightened, and hungry to explore more of their unconscious. Respond with valid JSON only, with every requested language key filled in.',
           },
           {
             role: 'user',
@@ -331,5 +348,4 @@ export default async function handler(req, res) {
       details: error && error.message ? error.message : 'unknown_error',
     })
   }
-        }
-                                   
+                                   }
