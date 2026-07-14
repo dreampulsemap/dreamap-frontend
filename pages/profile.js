@@ -4,7 +4,6 @@ import { useRouter } from 'next/router'
 import { supabase, auth } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '../lib/translations'
-import LanguageSwitcher from '../components/LanguageSwitcher'
 import DreamCard from '../components/DreamCard'
 
 export default function ProfilePage() {
@@ -40,8 +39,6 @@ export default function ProfilePage() {
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
-
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const highlightDreamId = router.query?.highlightDream
   const highlightRef = useRef(null)
@@ -190,11 +187,6 @@ export default function ProfilePage() {
     } catch (err) {
       console.error('Reload profile error:', err)
     }
-  }
-
-  async function handleLogout() {
-    await auth.signOut()
-    router.push('/')
   }
 
   async function handleAvatarFileChange(e) {
@@ -463,92 +455,8 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
-      <header className="sticky top-0 z-50 border-b border-white/10 backdrop-blur-xl bg-[#050816]/90">
-        <div className="max-w-5xl mx-auto px-3 sm:px-6 py-2.5 sm:py-4 flex items-center justify-between gap-2 sm:gap-4">
-          <a href="/" className="flex items-center gap-2 sm:gap-3 group min-w-0 shrink-0">
-            <div className="rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 px-2 py-1.5 sm:px-3 sm:py-2 shadow-[0_0_30px_rgba(56,189,248,0.06)] transition-all duration-300 group-hover:border-cyan-300/20 group-hover:shadow-[0_0_40px_rgba(34,211,238,0.12)] shrink-0">
-              <Image
-                src="/logo.png"
-                alt="Lunosfer"
-                width={132}
-                height={40}
-                priority
-                className="h-6 w-auto object-contain sm:h-8 md:h-10"
-              />
-            </div>
-
-            <div className="min-w-0 flex flex-col leading-none">
-              <span className="text-[0.75rem] sm:text-[1.1rem] md:text-[1.4rem] font-black tracking-[0.22em] sm:tracking-[0.32em] uppercase text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-300 via-cyan-200 to-violet-300 [text-shadow:0_0_8px_rgba(168,85,247,0.3),0_0_16px_rgba(34,211,238,0.15)] transition-all duration-300 group-hover:from-fuchsia-200 group-hover:via-cyan-100 group-hover:to-violet-200 whitespace-nowrap">
-                LUNOSFER
-              </span>
-              <span className="mt-0.5 hidden md:block text-[10px] uppercase tracking-[0.42em] text-cyan-200/55 whitespace-nowrap">
-                Dream Nexus
-              </span>
-            </div>
-          </a>
-
-          <nav className="hidden sm:flex items-center gap-2 sm:gap-3 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-            <a
-              href="/"
-              className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white shrink-0 whitespace-nowrap"
-            >
-              {getTranslation('nav.feed', lang) || 'Akış'}
-            </a>
-            <a
-              href="/globe"
-              className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white shrink-0 whitespace-nowrap"
-            >
-              {getTranslation('nav.globe', lang)}
-            </a>
-            <LanguageSwitcher />
-            <button
-              onClick={handleLogout}
-              className="glass-card px-3 sm:px-4 py-2 text-sm text-red-300 hover:text-red-200 shrink-0 whitespace-nowrap"
-            >
-              {getTranslation('auth.logout', lang) || 'Çıkış'}
-            </button>
-          </nav>
-
-          <button
-            onClick={() => setMobileMenuOpen((v) => !v)}
-            aria-label={mobileMenuOpen ? 'Menüyü kapat' : 'Menüyü aç'}
-            aria-expanded={mobileMenuOpen}
-            className="sm:hidden glass-card w-10 h-10 shrink-0 flex items-center justify-center text-white/80"
-          >
-            {mobileMenuOpen ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 6h18M3 12h18M3 18h18" />
-              </svg>
-            )}
-          </button>
-        </div>
-
-        {mobileMenuOpen && (
-          <div className="sm:hidden border-t border-white/10 bg-[#050816]/95 px-3 py-3">
-            <div className="flex flex-col gap-2">
-              <a href="/" className="glass-card px-4 py-3 text-sm text-white/80 hover:text-white text-center">
-                {getTranslation('nav.feed', lang) || 'Akış'}
-              </a>
-              <a href="/globe" className="glass-card px-4 py-3 text-sm text-white/80 hover:text-white text-center">
-                {getTranslation('nav.globe', lang)}
-              </a>
-              <div className="flex justify-center">
-                <LanguageSwitcher />
-              </div>
-              <button
-                onClick={handleLogout}
-                className="glass-card px-4 py-3 text-sm text-red-300 hover:text-red-200 text-center"
-              >
-                {getTranslation('auth.logout', lang) || 'Çıkış'}
-              </button>
-            </div>
-          </div>
-        )}
-      </header>
+      
+      {/* Özel header global Navbar entegre edildiği için kaldırılmıştır */}
 
       <div className="max-w-5xl mx-auto px-3 sm:px-6 py-5 sm:py-8">
         <div className="glass-card p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 overflow-hidden relative">
@@ -778,19 +686,7 @@ export default function ProfilePage() {
                 {isHighlighted && (
                   <div className="rounded-2xl border border-fuchsia-300/20 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-100">
                     {lang === 'tr'
-                      ? 'Yeni eklenen rüyan burada.'
-                      : lang === 'es'
-                      ? 'Tu sueño recién añadido está aquí.'
-                      : lang === 'fr'
-                      ? 'Votre rêve nouvellement ajouté est ici.'
-                      : lang === 'de'
-                      ? 'Dein neu hinzugefügter Traum ist hier.'
-                      : lang === 'pt'
-                      ? 'Seu sonho recém-adicionado está aqui.'
-                      : lang === 'ru'
-                      ? 'Ваш недавно добавленный сон здесь.'
-                      : lang === 'ja'
-                      ? '追加したばかりの夢はこちらです。'
+                      ? 'Yeni eklenen rüyanı burada bulabilirsin.'
                       : 'Your newly added dream is here.'}
                   </div>
                 )}
