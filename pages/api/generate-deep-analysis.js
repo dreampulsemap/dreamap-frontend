@@ -17,6 +17,77 @@ const supabaseAdmin = createClient(
   }
 )
 
+// Lunosfer serves 8 languages across web + future app.
+const SUPPORTED_LANGS = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja']
+
+function emptyLangMap() {
+  return SUPPORTED_LANGS.reduce((acc, l) => {
+    acc[l] = ''
+    return acc
+  }, {})
+}
+
+function emptyLangArrayMap() {
+  return SUPPORTED_LANGS.reduce((acc, l) => {
+    acc[l] = []
+    return acc
+  }, {})
+}
+
+function buildShape() {
+  return {
+    title: emptyLangMap(),
+    summary: emptyLangMap(),
+    motiv: emptyLangMap(),
+    sentiment: '',
+    archetypes: [],
+    shadow_focus: emptyLangMap(),
+    core_conflict: emptyLangMap(),
+    individuation_path: emptyLangMap(),
+    symbolic_reading: emptyLangMap(),
+    reflection_questions: emptyLangArrayMap(),
+    persona_profile: {
+      name: emptyLangMap(),
+      tagline: emptyLangMap(),
+      archetypal_style: emptyLangMap(),
+      public_self: emptyLangMap(),
+      hidden_self: emptyLangMap(),
+      strengths: emptyLangArrayMap(),
+      shadow_sides: emptyLangArrayMap(),
+      core_fears: emptyLangArrayMap(),
+      emotional_needs: emptyLangArrayMap(),
+    },
+    symbols: [
+      {
+        symbol: '',
+        meaning_en: '',
+        meaning_tr: '',
+        emotional_charge: '',
+        intensity: 0,
+        color: '',
+      },
+    ],
+    emotions: [
+      {
+        emotion: '',
+        score: 0,
+      },
+    ],
+    visual_theme: {
+      background_color: '',
+      text_color: '',
+      primary_color: '',
+      secondary_color: '',
+      accent_color: '',
+    },
+    section_themes: {
+      persona: { primary_color: '', secondary_color: '', accent_color: '' },
+      shadow: { primary_color: '', secondary_color: '', accent_color: '' },
+      transformation: { primary_color: '', secondary_color: '', accent_color: '' },
+    },
+  }
+}
+
 function buildPrompt({ content, lang = 'en' }) {
   return `
 Analyze the following dream using a deep Jungian framework.
@@ -25,80 +96,19 @@ Return only a valid JSON object.
 Do not use markdown.
 Do not add explanations before or after the JSON.
 
-Language: ${lang}
+Primary output language: ${lang}
+This product ships in 8 languages. Every multi-language field below is an
+object keyed by language code. You MUST fill in EVERY one of these language
+keys for EVERY multi-language field, with natural idiomatic writing (not a
+literal machine translation) — never leave a key blank: ${SUPPORTED_LANGS.join(', ')}.
 
 Dream:
 """
 ${content}
 """
 
-Required JSON shape:
-{
-  "title": { "en": "", "tr": "" },
-  "summary": { "en": "", "tr": "" },
-  "motiv": { "en": "", "tr": "" },
-  "sentiment": "",
-  "archetypes": [],
-  "shadow_focus": { "en": "", "tr": "" },
-  "core_conflict": { "en": "", "tr": "" },
-  "individuation_path": { "en": "", "tr": "" },
-  "symbolic_reading": { "en": "", "tr": "" },
-  "reflection_questions": {
-    "en": [],
-    "tr": []
-  },
-  "persona_profile": {
-    "name": { "en": "", "tr": "" },
-    "tagline": { "en": "", "tr": "" },
-    "archetypal_style": { "en": "", "tr": "" },
-    "public_self": { "en": "", "tr": "" },
-    "hidden_self": { "en": "", "tr": "" },
-    "strengths": { "en": [], "tr": [] },
-    "shadow_sides": { "en": [], "tr": [] },
-    "core_fears": { "en": [], "tr": [] },
-    "emotional_needs": { "en": [], "tr": [] }
-  },
-  "symbols": [
-    {
-      "symbol": "",
-      "meaning_en": "",
-      "meaning_tr": "",
-      "emotional_charge": "",
-      "intensity": 0,
-      "color": ""
-    }
-  ],
-  "emotions": [
-    {
-      "emotion": "",
-      "score": 0
-    }
-  ],
-  "visual_theme": {
-    "background_color": "",
-    "text_color": "",
-    "primary_color": "",
-    "secondary_color": "",
-    "accent_color": ""
-  },
-  "section_themes": {
-    "persona": {
-      "primary_color": "",
-      "secondary_color": "",
-      "accent_color": ""
-    },
-    "shadow": {
-      "primary_color": "",
-      "secondary_color": "",
-      "accent_color": ""
-    },
-    "transformation": {
-      "primary_color": "",
-      "secondary_color": "",
-      "accent_color": ""
-    }
-  }
-}
+Required JSON shape (keep exactly these keys, fill in real content):
+${JSON.stringify(buildShape(), null, 2)}
 `.trim()
 }
 
@@ -110,9 +120,9 @@ function parseJsonSafely(text) {
   } catch (err) {
     try {
       const cleaned = text
-        .replace(/^```jsons*/i, '')
-        .replace(/^```s*/i, '')
-        .replace(/s*```$/i, '')
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/\s*```$/i, '')
         .trim()
 
       return JSON.parse(cleaned)
@@ -123,15 +133,11 @@ function parseJsonSafely(text) {
 }
 
 function getMessageContent(completion) {
-  if (
-    completion &&
-    completion.choices &&
-    Array.isArray(completion.choices) &&
-    completion.choices &&
-    completion.choices.message &&
-    typeof completion.choices.message.content === 'string'
-  ) {
-    return completion.choices.message.content
+  // completion.choices is an ARRAY — must index into [0] before .message.
+  const content = completion?.choices?.[0]?.message?.content
+
+  if (typeof content === 'string' && content.trim()) {
+    return content
   }
 
   return '{}'
@@ -222,22 +228,37 @@ export default async function handler(req, res) {
       lang: lang || dream.original_language || 'en',
     })
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.7,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are an expert Jungian dream analyst. Return compassionate, psychologically rich, symbol-aware analysis. Respond with JSON only.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    })
+    let completion
+    try {
+      completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        temperature: 0.7,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are an expert Jungian dream analyst. Return compassionate, psychologically rich, symbol-aware analysis. Respond with JSON only, with every requested language key filled in.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      })
+    } catch (openaiError) {
+      console.error('generate-deep-analysis openai error', openaiError)
+
+      await supabaseAdmin
+        .from('dreams')
+        .update({
+          premium_deep_analysis_status: 'failed',
+          premium_deep_analysis_error: openaiError?.message || 'openai_request_failed',
+        })
+        .eq('id', dream.id)
+
+      return res.status(502).json({ error: 'openai_request_failed' })
+    }
 
     const raw = getMessageContent(completion)
     const analysis = parseJsonSafely(raw)
@@ -310,4 +331,5 @@ export default async function handler(req, res) {
       details: error && error.message ? error.message : 'unknown_error',
     })
   }
-}
+        }
+                                   
