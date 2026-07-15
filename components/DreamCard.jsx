@@ -13,39 +13,12 @@ import StoryModeModal from '@/components/StoryModeModal'
 
 const GUMROAD_PRODUCT_URL = 'https://shop.lunosfer.com'
 
-// SIKIŞTIRILMIŞ ÇOK DİLLİ YARDIMCI FONKSİYONLAR (Hydration & Reference Safe)
 function getAnalysisButtonLabel(lang) {
-  const map = { tr: 'Rüya Analizini Aç', es: 'Abrir análisis', fr: 'Ouvrir l’analyse', de: 'Traumanalyse öffnen', pt: 'Abrir análise', ru: 'Открыть анализ', ja: '夢の分析を開く' }
-  return map[lang] || 'Open Dream Analysis'
+  return lang === 'tr' ? 'Rüya Analizini Aç' : 'Open Dream Analysis'
 }
 
 function getCloseLabel(lang) {
   return lang === 'tr' ? 'Kapat' : 'Close'
-}
-
-function getPremiumButtonLabel(lang, auras, loading) {
-  if (loading) return lang === 'tr' ? 'Derin analiz oluşturuluyor...' : 'Generating deep analysis...'
-  if (auras > 0) return lang === 'tr' ? `Derin Rüya Analizi · ${auras} Aura` : `Deep Dream Analysis · ${auras} Auras`
-  return lang === 'tr' ? '10 Aura al ve derin analizi aç' : 'Buy 10 Auras and open deep analysis'
-}
-
-function getPremiumErrorMessage(lang, errorCode) {
-  if (errorCode === 'login_required') return lang === 'tr' ? 'Derin analiz için önce giriş yapmalısın.' : 'Please log in first.'
-  if (errorCode === 'unauthorized') return lang === 'tr' ? 'Oturum doğrulanamadı. Lütfen tekrar giriş yap.' : 'Your session expired.'
-  if (errorCode === 'no_auras') return lang === 'tr' ? 'Derin analiz için yeterli Aura bakiyeniz kalmamış.' : 'You have no Auras left.'
-  return lang === 'tr' ? 'Derin analiz oluşturulurken bir hata oluştu.' : 'An error occurred.'
-}
-
-function getAnalysisProcessingLabel(lang) {
-  return lang === 'tr' ? 'Rüyan analiz ediliyor...' : 'Analyzing your dream...'
-}
-
-function getAnalysisFailedLabel(lang) {
-  return lang === 'tr' ? 'Rüya analizi şu anda tamamlanamadı.' : 'Dream analysis could not be completed.'
-}
-
-function getRetryAnalysisLabel(lang, loading) {
-  return loading ? (lang === 'tr' ? 'Tekrar deneniyor...' : 'Retrying...') : (lang === 'tr' ? 'Tekrar dene' : 'Retry')
 }
 
 export default function DreamCard({
@@ -267,7 +240,6 @@ export default function DreamCard({
     return Boolean(teaserAnalysis && (getDreamAnalysis() || getDreamMotiv() || getDreamTitle()))
   }, [teaserAnalysis, getDreamAnalysis, getDreamMotiv, getDreamTitle])
 
-  // ONARILAN DEĞİŞKEN TANIMI
   const analysisStatus = effectiveDream?.analysis_status || null
   const isAnalysisProcessing = !hasTeaserAnalysis && (analysisStatus === 'processing')
   const isAnalysisFailed = !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
@@ -314,7 +286,7 @@ export default function DreamCard({
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
-        setPremiumError(getPremiumErrorMessage(currentLang, 'unauthorized'))
+        setPremiumError(t.errUnauthorized)
         return
       }
 
@@ -334,11 +306,11 @@ export default function DreamCard({
 
       if (!res.ok) {
         if (data?.error === 'no_credits' || data?.error === 'no_auras') {
-          setPremiumError(getPremiumErrorMessage(currentLang, 'no_auras'))
+          setPremiumError(t.errNoAuras)
           setPremiumAuras(0)
           return
         }
-        setPremiumError(getPremiumErrorMessage(currentLang, 'generic'))
+        setPremiumError(data?.details || t.errGeneric)
         return
       }
 
@@ -358,13 +330,13 @@ export default function DreamCard({
       }
     } catch (err) {
       console.error('Premium analysis error:', err)
-      setPremiumError(getPremiumErrorMessage(currentLang, 'generic'))
+      setPremiumError(t.errGeneric)
     } finally {
       setPremiumGenerating(false)
     }
   }
 
-  // Sadece Rüya Görseli Üretme/Hediye Etme (Bağımsız 2 Aura Tetikleyicisi - DOĞRUDAN ONAYSIZ ÜRETİR)
+  // Sadece Rüya Görseli Üretme/Hediye Etme (Bağımsız 2 Aura Tetikleyicisi - DOĞRUDAN ONAYSIZ TETİKLENİR)
   const handleGenerateImageOnly = async () => {
     setPremiumError('')
 
@@ -372,7 +344,7 @@ export default function DreamCard({
       const { data: { user: verifiedUser } } = await supabase.auth.getUser()
       if (!verifiedUser?.id) {
         setUser(null)
-        setPremiumError(getPremiumErrorMessage(currentLang, 'login_required'))
+        setPremiumError(t.errLoginRequired)
         router.push('/auth')
         return
       }
@@ -380,16 +352,17 @@ export default function DreamCard({
       setUser(verifiedUser)
 
       if (premiumAuras < 2) {
-        setPremiumError(getPremiumErrorMessage(currentLang, 'no_auras'))
+        setPremiumError(t.errNoAuras)
         return
       }
 
+      // ONAY KUTUSU KALDIRILDI! DOĞRUDAN ÜRETİME GEÇER.
       setGeneratingImage(true)
 
       const { data: { session } } = await supabase.auth.getSession()
 
       if (!session?.access_token) {
-        setPremiumError(getPremiumErrorMessage(currentLang, 'unauthorized'))
+        setPremiumError(t.errUnauthorized)
         setGeneratingImage(false)
         return
       }
@@ -408,7 +381,7 @@ export default function DreamCard({
       const data = await res.json().catch(() => null)
 
       if (!res.ok) {
-        // DETAYLI REPLICATE HATA RAPORUNU ÖNYÜZE BASMA (Self-Debugging)
+        // HATA MESAJI DOĞRUDAN FRONTEND'E AKTARILIR (Debug Kolaylığı)
         setPremiumError(data?.details || t.imageFail)
         setGeneratingImage(false)
         return
@@ -416,6 +389,8 @@ export default function DreamCard({
 
       if (data?.imageUrl) {
         triggerToast(isOwner ? t.imageSuccess : t.imageGiftSuccess)
+        
+        // Sayfa yenilemesi yapmadan, state üzerinden rüya kartına yeni görseli anında giydirir
         setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
       }
 
@@ -426,7 +401,7 @@ export default function DreamCard({
       }
     } catch (err) {
       console.error('Image only generation error:', err)
-      setPremiumError(getPremiumErrorMessage(currentLang, 'generic'))
+      setPremiumError(t.errGeneric)
     } finally {
       setGeneratingImage(false)
     }
@@ -441,7 +416,7 @@ export default function DreamCard({
 
       if (!verifiedUser?.id) {
         setUser(null)
-        setPremiumError(getPremiumErrorMessage(currentLang, 'login_required'))
+        setPremiumError(t.errLoginRequired)
         router.push('/auth')
         return
       }
@@ -458,7 +433,7 @@ export default function DreamCard({
       setShowConfirmModal(true)
     } catch (err) {
       console.error('User verification check failed:', err)
-      setPremiumError(getPremiumErrorMessage(currentLang, 'generic'))
+      setPremiumError(t.errGeneric)
     }
   }
 
@@ -625,7 +600,6 @@ export default function DreamCard({
             </button>
           )}
 
-          {/* Sadece derin rüya analizi bulunmuyorsa Teaser yorum butonu gösterilir */}
           {hasTeaserAnalysis && !premiumAnalysis && (
             <div className="mb-5 rounded-[1.5rem] border border-violet-300/18 bg-violet-500/8 p-4 sm:p-5">
               <div className="mb-3 flex items-center gap-2">
@@ -644,7 +618,9 @@ export default function DreamCard({
               <p className="text-sm leading-7 text-white/82">{displayAnalysis}</p>
 
               {dreamMotiv && (
-                <div className="mt-4 border-t border-violet-300/14 pt-3"><p className="text-xs italic text-violet-100/78">💫 {dreamMotiv}</p></div>
+                <div className="mt-4 border-t border-violet-300/14 pt-3">
+                  <p className="text-xs italic text-violet-100/78">💫 {dreamMotiv}</p>
+                </div>
               )}
             </div>
           )}
@@ -652,13 +628,13 @@ export default function DreamCard({
           {isAnalysisProcessing && (
             <div className="mb-5 flex items-center gap-3 rounded-[1.5rem] border border-cyan-300/18 bg-cyan-500/8 p-4 sm:p-5">
               <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-cyan-200 border-t-transparent" />
-              <p className="text-sm leading-6 text-cyan-100/90 font-sans">{getAnalysisProcessingLabel(currentLang)}</p>
+              <p className="text-sm leading-6 text-cyan-100/90 font-sans">{t.processingLabel}</p>
             </div>
           )}
 
           {isAnalysisFailed && (
             <div className="mb-5 rounded-[1.5rem] border border-white/12 bg-white/4 p-4 sm:p-5">
-              <p className="mb-3 text-sm leading-6 text-white/70">{getAnalysisFailedLabel(currentLang)}</p>
+              <p className="mb-3 text-sm leading-6 text-white/70">{t.failedLabel}</p>
               <button
                 type="button"
                 onClick={handleRetryAnalysis}
@@ -668,11 +644,11 @@ export default function DreamCard({
                 {retryingAnalysis && (
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-200 border-t-transparent" />
                 )}
-                <span>{getRetryAnalysisLabel(currentLang, retryingAnalysis)}</span>
+                <span>{retryingAnalysis ? t.retryLoading : t.retryBtn}</span>
               </button>
-              {retryError ? (
+              {retryError && (
                 <p className="mt-2 text-xs leading-5 text-rose-200/90">{retryError}</p>
-              ) : null}
+              )}
             </div>
           )}
 
@@ -692,11 +668,11 @@ export default function DreamCard({
             </span>
           </button>
 
-          {/* Sadece Rüya Görseli Üretme/Hediye Etme Butonu (2 Aura) */}
+          {/* Sadece Rüya Görseli Üretme/Hediye Etme Butonu */}
           {!premiumAnalysis && !dreamImage && (
             <button
               type="button"
-              onClick={handleGenerateImageOnly} // window.confirm sonrası beklemeden doğrudan fırlatır!
+              onClick={handleGenerateImageOnly} // Artık doğrudan aradaki onay penceresini atlayarak API'ye gider!
               disabled={generatingImage}
               className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-60 shadow-[0_0_20px_rgba(6,182,212,0.15)] animate-pulse"
             >
@@ -710,7 +686,11 @@ export default function DreamCard({
             </button>
           )}
 
-          {premiumError && <p className="mb-5 -mt-2 text-sm leading-6 text-rose-200/90" role="alert">{premiumError}</p>}
+          {premiumError && (
+            <p className="mb-5 -mt-2 text-sm leading-6 text-rose-200/90" role="alert">
+              {premiumError}
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
             <button
@@ -735,7 +715,6 @@ export default function DreamCard({
               <span>{commentsCount}</span>
             </button>
 
-            {/* Mükerrerliği önlemek adına; rüya analiz kartları varsa sadece premium carousel açılır, yoksa teaser açılır */}
             {hasTeaserAnalysis && !premiumAnalysis && (
               <button
                 type="button"
@@ -867,7 +846,7 @@ export default function DreamCard({
         isGift={!isOwner}
       />
 
-      {/* HİBRİT ANALİZ İNCELEME MODALÜ (Premium ise 7 Slaytlı Carousel, Teaser ise Klasik Görünüm) */}
+      {/* HİBRİT ANALİZ İNCELEME MODALÜ (Premium ise Carousel, Teaser ise Klasik Görünüm) */}
       {showAnalysisModal && (
         <div
           className="fixed inset-0 z-[100] flex items-end justify-center bg-black/85 backdrop-blur-md sm:items-center sm:p-4"
@@ -879,7 +858,7 @@ export default function DreamCard({
           aria-modal="true"
         >
           {premiumAnalysis ? (
-            /* Premium ise Gelişmiş 7 Slaytlı ve Sosyal Paylaşım Merkezli Instagram Carousel Modal */
+            /* PREMIUM CAROUSEL MODAL */
             <DeepAnalysisCarouselModal
               isOpen={showAnalysisModal}
               onClose={() => setShowAnalysisModal(false)}
@@ -892,15 +871,16 @@ export default function DreamCard({
               teaserSummary={teaserAnalysis?.summary?.[currentLang] || teaserAnalysis?.summary?.en || dream.ai_summary}
               onShare={handleShareOnSocial}
               onLunosferShare={handleLunosferShare}
-              onInstagramShare={handleInstagramShare} // Instagram Paylaşım Hub Entegrasyonu
-              onGenerateImageOnly={handleGenerateImageOnly} // Slayt İçi Bağımsız Görsel Tetikleyicisi
+              onInstagramShare={handleInstagramShare}
+              onGenerateImageOnly={handleGenerateImageOnly} // Hata durumları Carousel içine prop ile akıyor
               generatingImage={generatingImage}
+              premiumError={premiumError} // Slayt üstü Replicate hatasını göstermesi için EKLENDİ!
               translateArchetype={translateArchetype}
               onOpenStoryMode={() => setShowStoryMode(true)}
               dreamId={dream.id}
             />
           ) : (
-            /* Ücretsiz Teaser ise Klasik DreamAnalysisView */
+            /* TEASER VIEW */
             <div
               className="relative max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#070b14] shadow-[0_30px_100px_rgba(0,0,0,0.55)] sm:rounded-[2rem]"
               onClick={(e) => e.stopPropagation()}
@@ -922,7 +902,7 @@ export default function DreamCard({
         </div>
       )}
 
-      {/* HİKAYE MODU MODALİ (Screenshot uyumlu dikey görünüm) */}
+      {/* HİKAYE MODU MODALİ (9:16) */}
       <StoryModeModal
         isOpen={showStoryMode && showAnalysisModal}
         onClose={() => setShowStoryMode(false)}
