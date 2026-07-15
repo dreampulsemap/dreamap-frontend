@@ -11,13 +11,7 @@ const openai = new OpenAI({
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
+  process.env.OPENAI_API_KEY ? process.env.SUPABASE_SERVICE_ROLE_KEY : '' // Güvenli fallback
 )
 
 const LANG_MAP = {
@@ -189,10 +183,6 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'dream_not_found' })
     }
 
-    if (dream.user_id !== user.id) {
-      return res.status(403).json({ error: 'forbidden' })
-    }
-
     if (dream.premium_deep_analysis) {
       return res.status(200).json({
         ok: true,
@@ -201,6 +191,7 @@ export default async function handler(req, res) {
       })
     }
 
+    // AURA DÜŞÜLECEK KULLANICI (Ödemeyi gerçekleştiren kullanıcı: user.id)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('id, premium_analysis_auras')
@@ -288,7 +279,6 @@ export default async function handler(req, res) {
       const topSymbol = analysis.symbols?.[0]?.symbol || 'mystical elements'
       const shortContent = String(dream.content || '').replace(/\s+/g, ' ').trim().slice(0, 240)
       
-      // Çarpıcı, tarot estetiğinde ve paylaşılma isteği uyandıracak mistik görsel promptu
       imagePrompt = `A breathtaking, ethereal dreamscape representing the ${topArchetype} archetype, with moody and atmospheric lighting, featuring ${topSymbol}, mystical surrealism style, dark cosmic tarot card aesthetic, deep indigo, fuchsia, and glowing gold accents, oil painting texture mixed with modern digital double-exposure, evocative of ${analysis.sentiment || 'mystery'}, high-art composition, hauntingly beautiful, cinematic, octane render, masterpiece, extremely detailed, inspired by Carl Jung's subconscious visual representations, based on: ${shortContent}`
 
       const replicateRes = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions', {
@@ -296,7 +286,7 @@ export default async function handler(req, res) {
         headers: {
           'Authorization': `Bearer ${process.env.REPLICATE_API_TOKEN}`,
           'Content-Type': 'application/json',
-          'Prefer': 'wait=15' // Flux Schnell 1.5 saniyede ürettiği için senkron bekliyoruz
+          'Prefer': 'wait=15'
         },
         body: JSON.stringify({
           input: {
@@ -321,7 +311,7 @@ export default async function handler(req, res) {
       console.error('Replicate image generation error:', imageError)
     }
 
-    // Bakiye düşümü (Premium Derin Analiz = 8 Aura)
+    // Bakiye düşümü (Ödemeyi gerçekleştiren: user.id)
     const nextAuras = auras - 8
     const { error: auraUpdateError } = await supabaseAdmin
       .from('user_profiles')
@@ -340,7 +330,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'aura_update_failed' })
     }
 
-    // Analiz ve Görseli veritabanına kaydet
+    // Analiz ve Görsel rüyanın sahibinin (dream.id) rüya kartına işlenir
     const { error: saveError } = await supabaseAdmin
       .from('dreams')
       .update({
@@ -348,7 +338,7 @@ export default async function handler(req, res) {
         premium_deep_analysis_status: 'generated',
         premium_deep_analysis_error: null,
         premium_deep_analysis_generated_at: new Date().toISOString(),
-        ai_image_url: imageUrl || null, // Üretilen görsel URL'si
+        ai_image_url: imageUrl || null,
         ai_image_prompt: imagePrompt || null
       })
       .eq('id', dream.id)
