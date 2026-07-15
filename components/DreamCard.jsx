@@ -60,7 +60,6 @@ export default function DreamCard({
 
   const [premiumAuras, setPremiumAuras] = useState(0)
   const [premiumGenerating, setPremiumGenerating] = useState(false)
-  const [generatingImage, setGeneratingImage] = useState(false)
   const [premiumError, setPremiumError] = useState('')
   const [premiumAnalysis, setPremiumAnalysis] = useState(
     dream?.premium_deep_analysis || null
@@ -114,7 +113,6 @@ export default function DreamCard({
     setShowConfirmModal(false)
     setShowStoryMode(false)
     setPremiumGenerating(false)
-    setGeneratingImage(false)
     setPremiumError('')
     setPremiumAnalysis(dream?.premium_deep_analysis || null)
     setAnalysisOverride(null)
@@ -190,6 +188,7 @@ export default function DreamCard({
         teaser: true,
       }
     }
+
     return null
   }, [effectiveDream])
 
@@ -325,73 +324,6 @@ export default function DreamCard({
     }
   }
 
-  // 1. ONAY KUTUSU KALDIRILDI! ARTIK TEK TIKLA ÜRETİM BAŞLAR.
-  const handleGenerateImageOnly = async () => {
-    setPremiumError('')
-
-    try {
-      const { data: { user: verifiedUser } } = await supabase.auth.getUser()
-      if (!verifiedUser?.id) {
-        setUser(null)
-        setPremiumError(t.errLoginRequired)
-        router.push('/auth')
-        return
-      }
-
-      setUser(verifiedUser)
-
-      if (premiumAuras < 2) {
-        setPremiumError(t.errNoAuras)
-        return
-      }
-
-      // Anında üretim durumuna geçer
-      setGeneratingImage(true)
-
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) {
-        setPremiumError(t.errUnauthorized)
-        setGeneratingImage(false)
-        return
-      }
-
-      const res = await fetch('/api/generate-dream-image', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          dreamId: dream.id,
-        }),
-      })
-
-      const data = await res.json().catch(() => null)
-
-      if (!res.ok) {
-        setPremiumError(data?.details || t.imageFail)
-        setGeneratingImage(false)
-        return
-      }
-
-      if (data?.imageUrl) {
-        triggerToast(isOwner ? t.imageSuccess : t.imageGiftSuccess)
-        setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
-      }
-
-      if (typeof data?.aurasLeft === 'number') {
-        setPremiumAuras(data.aurasLeft)
-      } else {
-        setPremiumAuras((prev) => Math.max(0, prev - 2))
-      }
-    } catch (err) {
-      console.error('Image only generation error:', err)
-      setPremiumError(t.errGeneric)
-    } finally {
-      setGeneratingImage(false)
-    }
-  }
-
   async function handlePremiumButtonClick() {
     setPremiumError('')
 
@@ -458,11 +390,7 @@ export default function DreamCard({
 
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: 'Lunosfer Rüya Analizim 🔮',
-          text: shareText,
-          url: dreamUrl
-        })
+        await navigator.share({ title: 'Lunosfer Rüya Analizim 🔮', text: shareText, url: dreamUrl })
       } catch (err) {
         console.error('Native sharing failed:', err)
       }
@@ -483,11 +411,7 @@ export default function DreamCard({
 
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: 'Lunosfer Rüya Analizim 📸',
-          text: shareText,
-          url: dreamUrl
-        })
+        await navigator.share({ title: 'Lunosfer Rüya Analizim 📸', text: shareText, url: dreamUrl })
         return
       } catch (err) {
         console.error('Native IG share failed:', err)
@@ -511,17 +435,9 @@ export default function DreamCard({
       <article className="glass-card hover-lift overflow-hidden">
         {dreamImage && (
           <div className="dream-image relative h-64 w-full overflow-hidden bg-black">
-            <img
-              src={dreamImage}
-              alt="Dream"
-              className="h-full w-full object-cover animate-fade-in"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
-            />
+            <img src={dreamImage} alt="Dream" className="h-full w-full object-cover animate-fade-in" onError={(e) => e.currentTarget.style.display = 'none'} />
             <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-orange-500/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-orange-100">
-              <span className="signal-dot heat" />
-              Rare Signal
+              <span className="signal-dot heat" /> Rare Signal
             </div>
           </div>
         )}
@@ -547,16 +463,10 @@ export default function DreamCard({
             )}
           </div>
 
-          <p className="mb-6 whitespace-pre-wrap text-base leading-8 text-white/90 sm:text-lg">
-            {displayContent || ''}
-          </p>
+          <p className="mb-6 whitespace-pre-wrap text-base leading-8 text-white/90 sm:text-lg">{displayContent || ''}</p>
 
           {dream.original_language !== currentLang && dream.content && (
-            <button
-              onClick={() => onTranslate?.(dream)}
-              disabled={translating}
-              className="energy-button mb-5 inline-flex w-full items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <button onClick={() => onTranslate?.(dream)} disabled={translating} className="energy-button mb-5 inline-flex w-full items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-50">
               {translating ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-300 border-t-transparent" />
@@ -574,40 +484,14 @@ export default function DreamCard({
             <div className="mb-5 rounded-[1.5rem] border border-violet-300/18 bg-violet-500/8 p-4 sm:p-5">
               <div className="mb-3 flex items-center gap-2">
                 <span className="text-lg text-violet-200">🜂</span>
-                <span className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-100">
-                  {getTranslation('feed.jungianAnalysis', currentLang)}
-                </span>
+                <span className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-100">{getTranslation('feed.jungianAnalysis', currentLang)}</span>
               </div>
-              {dreamTitle ? <h3 className="mb-3 text-base font-semibold leading-7 text-violet-50 sm:text-lg">{dreamTitle}</h3> : null}
+              {dreamTitle && <h3 className="mb-3 text-base font-semibold leading-7 text-violet-50 sm:text-lg">{dreamTitle}</h3>}
               <p className="text-sm leading-7 text-white/82">{displayAnalysis}</p>
               {dreamMotiv && <div className="mt-4 border-t border-violet-300/14 pt-3"><p className="text-xs italic text-violet-100/78">💫 {dreamMotiv}</p></div>}
             </div>
           )}
 
-          {isAnalysisProcessing && (
-            <div className="mb-5 flex items-center gap-3 rounded-[1.5rem] border border-cyan-300/18 bg-cyan-500/8 p-4 sm:p-5">
-              <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-cyan-200 border-t-transparent" />
-              <p className="text-sm leading-6 text-cyan-100/90 font-sans">{t.processingLabel}</p>
-            </div>
-          )}
-
-          {isAnalysisFailed && (
-            <div className="mb-5 rounded-[1.5rem] border border-white/12 bg-white/4 p-4 sm:p-5">
-              <p className="mb-3 text-sm leading-6 text-white/70">{t.failedLabel}</p>
-              <button
-                type="button"
-                onClick={handleRetryAnalysis}
-                disabled={retryingAnalysis}
-                className="energy-button inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-              >
-                {retryingAnalysis && <span className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-200 border-t-transparent" />}
-                <span>{retryingAnalysis ? t.retryLoading : t.retryBtn}</span>
-              </button>
-              {retryError ? <p className="mt-2 text-xs leading-5 text-rose-200/90">{retryError}</p> : null}
-            </div>
-          )}
-
-          {/* Derin Rüya Analizi Butonu */}
           <button
             type="button"
             onClick={handlePremiumButtonClick}
@@ -618,57 +502,69 @@ export default function DreamCard({
             <span>{premiumAnalysis ? t.exploreCards : (isOwner ? t.getDeepAnalysis : t.giftDeepAnalysis)}</span>
           </button>
 
-          {/* Bağımsız Görsel Üretim Butonu (Sadece görsel yoksa ve analiz yoksa gösterilir) */}
-          {!premiumAnalysis && !dreamImage && (
-            <button
-              type="button"
-              onClick={handleGenerateImageOnly}
-              disabled={generatingImage}
-              className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-60 shadow-[0_0_20px_rgba(6,182,212,0.15)] animate-pulse"
-            >
-              <span>{generatingImage ? '⏳' : '🌌'}</span>
-              <span>{generatingImage ? (isOwner ? t.generatingImage : t.giftingImage) : (isOwner ? t.generateImage : t.giftDreamImage)}</span>
-            </button>
-          )}
-
           {premiumError && <p className="mb-5 -mt-2 text-sm leading-6 text-rose-200/90" role="alert">{premiumError}</p>}
 
           <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
-            <button
-              onClick={handleLike}
-              className={`energy-button inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm transition-all ${liked ? 'border border-red-400/20 bg-red-500/16 text-red-200' : 'border border-white/10 bg-white/5 text-white/80 hover:bg-red-500/10'}`}
-            >
+            <button onClick={handleLike} className={`energy-button inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm transition-all ${liked ? 'border border-red-400/20 bg-red-500/16 text-red-200' : 'border border-white/10 bg-white/5 text-white/80 hover:bg-red-500/10'}`}>
               <span>{liked ? '❤️' : '🤍'}</span>
               <span>{likesCount}</span>
             </button>
-
-            <button
-              onClick={() => {
-                const nextValue = !showComments
-                setShowComments(nextValue)
-                if (nextValue && comments.length === 0) loadComments()
-              }}
-              className="energy-button inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/80 hover:bg-cyan-500/10"
-            >
+            <button onClick={() => { const nextValue = !showComments; setShowComments(nextValue); if (nextValue && comments.length === 0) loadComments(); }} className="energy-button inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/80 hover:bg-cyan-500/10">
               <span>💬</span>
               <span>{commentsCount}</span>
             </button>
-
             {hasTeaserAnalysis && !premiumAnalysis && (
-              <button
-                type="button"
-                onClick={() => setShowAnalysisModal(true)}
-                className="energy-button inline-flex items-center gap-2 rounded-2xl border border-violet-300/18 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-100 hover:bg-violet-500/18"
-              >
+              <button type="button" onClick={() => setShowAnalysisModal(true)} className="energy-button inline-flex items-center gap-2 rounded-2xl border border-violet-300/18 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-100 hover:bg-violet-500/18">
                 <span>🜂</span>
                 <span>{getAnalysisButtonLabel(currentLang)}</span>
               </button>
             )}
           </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4 text-sm text-white/58">
+            {dream.dream_date && <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">{dream.dream_date}</span>}
+            {dream.location_name && <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">{dream.location_name}</span>}
+            {dream.original_language && <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">{String(dream.original_language).toUpperCase()}</span>}
+            {sentimentLabel && <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">{sentimentLabel}</span>}
+          </div>
+
+          {showComments && (
+            <div className="mt-5 border-t border-white/10 pt-5">
+              {user && (
+                <div className="mb-4 flex gap-2">
+                  <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddComment(); } }} placeholder={getTranslation('social.addComment', currentLang)} className="flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/35 focus:border-violet-400/30 focus:outline-none" />
+                  <button onClick={handleAddComment} disabled={!newComment.trim()} className="energy-button rounded-2xl border border-violet-300/20 bg-violet-500/10 px-4 py-3 text-sm text-violet-100 hover:bg-violet-500/18 disabled:cursor-not-allowed disabled:opacity-50">{getTranslation('social.send', currentLang)}</button>
+                </div>
+              )}
+              {commentsLoading ? (
+                <p className="py-4 text-center text-sm text-white/40">{currentLang === 'tr' ? 'Yorumlar yükleniyor...' : 'Loading comments...'}</p>
+              ) : comments.length === 0 ? (
+                <p className="py-4 text-center text-sm text-white/40">{getTranslation('social.noComments', currentLang)}</p>
+              ) : (
+                <div className="space-y-3">
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="rounded-[1.35rem] border border-white/10 bg-white/5 p-3.5">
+                      <div className="mb-2 flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-slate-200">
+                            {comment.user_profiles?.display_name || comment.user_profiles?.username || 'Anonim'}
+                          </span>
+                          <span className="text-xs text-white/40">{new Date(comment.created_at).toLocaleDateString()}</span>
+                        </div>
+                        {user?.id === comment.user_id && (
+                          <button onClick={() => handleDeleteComment(comment.id)} className="text-xs text-red-400 transition-colors hover:text-red-300">{getTranslation('social.delete', currentLang)}</button>
+                        )}
+                      </div>
+                      <p className="text-sm leading-7 text-white/82">{comment.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </article>
 
-      {/* TOAST */}
       {showToast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] pointer-events-none transition-all duration-300 animate-pulse">
           <div className="rounded-full border border-fuchsia-300/30 bg-fuchsia-950/90 px-6 py-3 text-sm font-medium text-fuchsia-100 shadow-[0_0_30px_rgba(240,73,214,0.3)] backdrop-blur-md">
@@ -677,7 +573,6 @@ export default function DreamCard({
         </div>
       )}
 
-      {/* ONAY MODALI */}
       <DeepAnalysisConfirmationModal
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
@@ -688,12 +583,8 @@ export default function DreamCard({
         isGift={!isOwner}
       />
 
-      {/* CAROUSEL MODAL (PremiumError prop'u iletilerek Slayt 1'de hatalar gösterilir) */}
       {showAnalysisModal && (
-        <div
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/85 backdrop-blur-md sm:items-center sm:p-4"
-          onClick={() => { setShowAnalysisModal(false); setShowStoryMode(false); }}
-        >
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/85 backdrop-blur-md sm:items-center sm:p-4" onClick={() => { setShowAnalysisModal(false); setShowStoryMode(false); }} role="dialog" aria-modal="true">
           {premiumAnalysis ? (
             <DeepAnalysisCarouselModal
               isOpen={showAnalysisModal}
@@ -708,23 +599,17 @@ export default function DreamCard({
               onShare={handleShareOnSocial}
               onLunosferShare={handleLunosferShare}
               onInstagramShare={handleInstagramShare}
-              onGenerateImageOnly={handleGenerateImageOnly} 
-              generatingImage={generatingImage}
-              premiumError={premiumError} // 2. HATA MESAJI CAROUSEL'E AKTARILDI
-              translateArchetype={translateArchetype}
-              onOpenStoryMode={() => setShowStoryMode(true)}
               dreamId={dream.id}
             />
           ) : (
             <div className="relative max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#070b14] shadow-[0_30px_100px_rgba(0,0,0,0.55)] sm:rounded-[2rem]" onClick={(e) => e.stopPropagation()}>
-              <button onClick={() => setShowAnalysisModal(false)} className="sticky right-4 top-4 z-20 ml-auto mr-4 mt-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white hover:bg-white/10">✕</button>
+              <button type="button" onClick={() => setShowAnalysisModal(false)} className="sticky right-4 top-4 z-20 ml-auto mr-4 mt-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white hover:bg-white/10" aria-label={getCloseLabel(currentLang)}>✕</button>
               <DreamAnalysisView analysis={effectiveDream?.premium_deep_analysis || teaserAnalysis} lang={currentLang} />
             </div>
           )}
         </div>
       )}
 
-      {/* HİKAYE MODU */}
       <StoryModeModal
         isOpen={showStoryMode && showAnalysisModal}
         onClose={() => setShowStoryMode(false)}
