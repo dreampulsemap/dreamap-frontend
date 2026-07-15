@@ -233,9 +233,10 @@ export default function DeepAnalysisCarouselModal({
           )}
         </div>
 
-        {/* ALT NOKTALAR VE NAVİGASYON */}
+        {/* ALT NOKTALAR VE NAVİGASYON - SOSYAL PAYLAŞIM MERKEZİ */}
         <div className="absolute bottom-4 left-0 right-0 px-6 flex flex-col items-center gap-3">
           
+          {/* İndikatör Noktaları */}
           <div className="flex justify-center gap-1.5">
             {[0, 1, 2, 3, 4, 5, 6].map((idx) => (
               <button
@@ -249,6 +250,8 @@ export default function DeepAnalysisCarouselModal({
           </div>
 
           <div className="w-full flex items-center justify-between gap-4 max-w-lg">
+            
+            {/* SOL OK */}
             <button
               type="button"
               disabled={currentSlide === 0}
@@ -258,7 +261,10 @@ export default function DeepAnalysisCarouselModal({
               ←
             </button>
 
+            {/* BRANDED SOSYAL MEDYA PAYLAŞIM ALANI */}
             <div className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white/[0.03] border border-white/10 px-3 py-1.5">
+              
+              {/* LUNOSFER SOHBET ÇEMBERİ */}
               <button
                 type="button"
                 onClick={onLunosferShare}
@@ -268,6 +274,7 @@ export default function DeepAnalysisCarouselModal({
                 🔮
               </button>
 
+              {/* TWITTER / X */}
               <a
                 href={`https://twitter.com/intent/tweet?text=${encodedText}&hashtags=Lunosfer,JungianDream`}
                 target="_blank"
@@ -278,6 +285,7 @@ export default function DeepAnalysisCarouselModal({
                 X
               </a>
 
+              {/* PINTEREST */}
               <a
                 href={`https://pinterest.com/pin/create/button/?url=${encodedUrl}&media=${encodedImage}&description=${encodedText}`}
                 target="_blank"
@@ -288,6 +296,7 @@ export default function DeepAnalysisCarouselModal({
                 📌
               </a>
 
+              {/* FACEBOOK */}
               <a
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
                 target="_blank"
@@ -298,6 +307,7 @@ export default function DeepAnalysisCarouselModal({
                 F
               </a>
 
+              {/* WHATSAPP */}
               <a
                 href={`https://api.whatsapp.com/send?text=${encodedText}`}
                 target="_blank"
@@ -308,6 +318,7 @@ export default function DeepAnalysisCarouselModal({
                 💬
               </a>
 
+              {/* GENEL BAĞLANTI KOPYALAYICI */}
               <button
                 type="button"
                 onClick={onShare}
@@ -318,6 +329,7 @@ export default function DeepAnalysisCarouselModal({
               </button>
             </div>
 
+            {/* SAĞ OK */}
             <button
               type="button"
               disabled={currentSlide === 6}
