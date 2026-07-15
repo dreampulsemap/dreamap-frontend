@@ -23,7 +23,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, username, display_name, avatar_url } = req.body || {}
+    const { userId, username, display_name, avatar_url, is_private } = req.body || {}
 
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' })
@@ -77,6 +77,7 @@ export default async function handler(req, res) {
     if (cleanUsername !== null) updates.username = cleanUsername
     if (cleanDisplayName !== null) updates.display_name = cleanDisplayName
     if (cleanAvatarUrl !== null) updates.avatar_url = cleanAvatarUrl
+    if (typeof is_private === 'boolean') updates.is_private = is_private
 
     const { data, error } = await supabase
       .from('user_profiles')
@@ -102,4 +103,4 @@ export default async function handler(req, res) {
       error: error.message || 'Unexpected server error',
     })
   }
-      }
+}
