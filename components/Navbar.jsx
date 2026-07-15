@@ -34,7 +34,8 @@ export default function Navbar() {
     setMounted(true)
   }, [])
 
-  const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
+  // i18n?. optional chaining ile çökme tamamen engellenmiştir
+  const currentLang = mounted ? (i18n?.language || 'en').split('-')[0] : 'en'
   const lang = NAV_UI[currentLang] ? currentLang : 'en'
   const ui = NAV_UI[lang]
 
