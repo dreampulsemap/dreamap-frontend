@@ -14,6 +14,9 @@ export default function DeepAnalysisCarouselModal({
   teaserSummary,
   onShare,
   onLunosferShare,
+  onInstagramShare, // Yeni Instagram Eylem Tetikleyicisi
+  onGenerateImageOnly, // Slayt Üstü Bağımsız Görsel Üretim Tetikleyicisi
+  generatingImage,
   translateArchetype,
   onOpenStoryMode,
   dreamId
@@ -121,16 +124,37 @@ export default function DeepAnalysisCarouselModal({
             <div className="relative w-full h-full flex flex-col items-center justify-center">
               <div className="relative w-full max-w-md h-[45vh] rounded-3xl overflow-hidden border border-white/10 bg-black shadow-2xl">
                 {dreamImage ? (
-                  <img src={dreamImage} alt="Dream Visual" className="w-full h-full object-cover" />
+                  <img src={dreamImage} alt="Dream Visual" className="w-full h-full object-cover animate-fade-in" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-purple-900 to-black">🌌</div>
+                  // ONARILAN BUTONLU BOŞ GÖRSEL ALANI (Kullanıcı doğrudan slayt üzerinden görsel üretebilir!)
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-950/40 to-black p-6 text-center gap-4 select-none">
+                    <span className="text-4xl">🌌</span>
+                    <p className="text-xs text-slate-300 max-w-[240px]">
+                      {lang === 'tr' 
+                        ? 'Bu rüyanın henüz mistik bir görseli oluşturulmamış.' 
+                        : 'No mystical illustration has been generated for this dream yet.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onGenerateImageOnly(); }}
+                      disabled={generatingImage}
+                      className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-2.5 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.15)] animate-pulse"
+                    >
+                      <span>{generatingImage ? '⏳' : '✦'}</span>
+                      <span>
+                        {generatingImage 
+                          ? (lang === 'tr' ? 'Üretiliyor...' : 'Generating...') 
+                          : (lang === 'tr' ? 'Görseli Canlandır · 2 Aura' : 'Illuminate Artwork · 2 Auras')}
+                      </span>
+                    </button>
+                  </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-[#040711] via-transparent to-transparent" />
                 <div className="absolute bottom-6 left-6 right-6">
                   <h4 className="text-xl font-bold text-white mb-2 leading-tight font-serif">{dreamTitle}</h4>
                   <div className="flex flex-wrap gap-1.5">
-                    {Array.isArray(premiumAnalysis?.archetypes) &&
-                      premiumAnalysis?.archetypes.map((arch, i) => (
+                    {Array.isArray(premiumAnalysis.archetypes) &&
+                      premiumAnalysis.archetypes.map((arch, i) => (
                         <span key={i} className="text-[9px] font-semibold bg-violet-500/20 border border-violet-400/30 px-2 py-0.5 rounded-full text-violet-100">
                           ✦ {translateArchetype(arch)}
                         </span>
@@ -236,7 +260,6 @@ export default function DeepAnalysisCarouselModal({
         {/* ALT NOKTALAR VE NAVİGASYON - SOSYAL PAYLAŞIM MERKEZİ */}
         <div className="absolute bottom-4 left-0 right-0 px-6 flex flex-col items-center gap-3">
           
-          {/* İndikatör Noktaları */}
           <div className="flex justify-center gap-1.5">
             {[0, 1, 2, 3, 4, 5, 6].map((idx) => (
               <button
@@ -250,8 +273,6 @@ export default function DeepAnalysisCarouselModal({
           </div>
 
           <div className="w-full flex items-center justify-between gap-4 max-w-lg">
-            
-            {/* SOL OK */}
             <button
               type="button"
               disabled={currentSlide === 0}
@@ -261,20 +282,27 @@ export default function DeepAnalysisCarouselModal({
               ←
             </button>
 
-            {/* BRANDED SOSYAL MEDYA PAYLAŞIM ALANI */}
             <div className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white/[0.03] border border-white/10 px-3 py-1.5">
               
-              {/* LUNOSFER SOHBET ÇEMBERİ */}
               <button
                 type="button"
                 onClick={onLunosferShare}
                 title={t.lunosferTitle}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-fuchsia-600 to-indigo-600 hover:brightness-110 transition-all text-base animate-pulse"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-fuchsia-600 to-indigo-600 hover:brightness-110 transition-all text-base"
               >
                 🔮
               </button>
 
-              {/* TWITTER / X */}
+              {/* BRANDED INSTAGRAM PAYLAŞIM BUTONU (Özel İstek) */}
+              <button
+                type="button"
+                onClick={onInstagramShare}
+                title={t.instagramTitle}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-600 via-pink-500 to-yellow-500 hover:brightness-110 transition-all text-base"
+              >
+                📸
+              </button>
+
               <a
                 href={`https://twitter.com/intent/tweet?text=${encodedText}&hashtags=Lunosfer,JungianDream`}
                 target="_blank"
@@ -285,7 +313,6 @@ export default function DeepAnalysisCarouselModal({
                 X
               </a>
 
-              {/* PINTEREST */}
               <a
                 href={`https://pinterest.com/pin/create/button/?url=${encodedUrl}&media=${encodedImage}&description=${encodedText}`}
                 target="_blank"
@@ -296,7 +323,6 @@ export default function DeepAnalysisCarouselModal({
                 📌
               </a>
 
-              {/* FACEBOOK */}
               <a
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
                 target="_blank"
@@ -307,7 +333,6 @@ export default function DeepAnalysisCarouselModal({
                 F
               </a>
 
-              {/* WHATSAPP */}
               <a
                 href={`https://api.whatsapp.com/send?text=${encodedText}`}
                 target="_blank"
@@ -318,7 +343,6 @@ export default function DeepAnalysisCarouselModal({
                 💬
               </a>
 
-              {/* GENEL BAĞLANTI KOPYALAYICI */}
               <button
                 type="button"
                 onClick={onShare}
@@ -329,7 +353,6 @@ export default function DeepAnalysisCarouselModal({
               </button>
             </div>
 
-            {/* SAĞ OK */}
             <button
               type="button"
               disabled={currentSlide === 6}
