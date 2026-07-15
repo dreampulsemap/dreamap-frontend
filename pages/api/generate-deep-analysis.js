@@ -11,7 +11,13 @@ const openai = new OpenAI({
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.OPENAI_API_KEY ? process.env.SUPABASE_SERVICE_ROLE_KEY : '' // Güvenli fallback
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
 )
 
 const LANG_MAP = {
@@ -34,6 +40,17 @@ Every single text value you generate under "shadow_focus", "core_conflict", "ind
 Do not output short or brief summaries. Each of these sections MUST consist of at least 2 to 3 long, psychologically rich paragraphs (minimum 150-250 words per section) that feel highly bespoke, elite, and intellectually stimulating.
 
 Respond with valid JSON only, no markdown, and no text outside the JSON structure.`
+
+// Klinik Güvenlik Filtresi (Tetikleyici kelimeleri denetler)
+function containsCrisisTokens(text) {
+  if (!text) return false;
+  const lowercase = text.toLowerCase();
+  const crisisTokens = [
+    'intihar', 'suicide', 'kendimi öldürmek', 'canıma kıymak', 'kill myself', 
+    'ölmek istiyorum', 'want to die', 'kendime zarar vermek', 'self harm'
+  ];
+  return crisisTokens.some(token => lowercase.includes(token));
+}
 
 function buildShape() {
   return {
@@ -85,7 +102,7 @@ function buildShape() {
   }
 }
 
-function buildPrompt({ content, targetLangName }) {
+function buildPrompt({ content, targetLangName, pastContext }) {
   return `
 Perform a profound, comprehensive, and highly resonant Jungian deep analysis of the following dream.
 
@@ -93,13 +110,22 @@ CRITICAL REQUIREMENT:
 The entire JSON values, strings, array elements, meanings, titles, and explanations MUST be written entirely in: ${targetLangName}.
 Do not mix languages. Use natural, idiomatic and poetic phrasing of this target language.
 
+CONTEXT-AWARE ANALYSIS (JUNGİAN DREAM MEMORY):
+Below is a summary of the dreamer's past dreams and psychological patterns:
+"""
+${pastContext || 'No past dream history available.'}
+"""
+Carefully compare the new dream with this history. 
+Identify recurring symbols, developing archetypes, and evolving psychic dynamics. 
+Focus heavily on the "unresolved aspects" of their psyche from past dreams. Analyze how this new dream compensates for, expands on, or challenges those unresolved patterns.
+
 Rules for the Deep Analysis:
-- "shadow_focus": Unveil hidden or unacknowledged parts of the psyche that appear in the dream in extreme, multi-paragraph depth (minimum 2-3 long, comprehensive paragraphs).
-- "core_conflict": Identify the central psychological tension, specific to this dream's actual content (minimum 2-3 long, comprehensive paragraphs).
-- "individuation_path": Give actionable, grounded psychological guidance tied to what happened in the dream (minimum 2-3 long, comprehensive paragraphs).
-- "symbolic_reading": Decode the dream's metaphors, animals, colors, and narrative flow in extreme detail (minimum 3 paragraphs).
-- "reflection_questions": 3 penetrating, personal questions rooted in specifics from the dream.
-- "persona_profile": A fascinating archetypal summary of who the dreamer is currently embodying, based only on the dream.
+- "shadow_focus": Unveil hidden or unacknowledged parts of the psyche in extreme depth, specifically highlighting recurring or unresolved shadow elements from past history (minimum 2-3 long paragraphs).
+- "core_conflict": Identify the central psychological tension between conscious persona and unconscious drive, comparing it with their psychological history (minimum 2-3 long paragraphs).
+- "individuation_path": Provide actionable, personal guidance based on this dream's imagery and unresolved past conflicts (minimum 2-3 long paragraphs).
+- "symbolic_reading": Decode metaphors, animals, colors, and narratives in extreme detail (minimum 3 paragraphs).
+- "reflection_questions": 3 penetrating questions based on specifics of this dream and recurring unresolved patterns.
+- "persona_profile": Archetypal profile currently embodied by the dreamer.
 
 Dream:
 """
@@ -183,6 +209,22 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'dream_not_found' })
     }
 
+    // 1. KLİNİK GÜVENLİK FİLTRESİ TETİKLENME KONTROLÜ
+    if (containsCrisisTokens(dream.content)) {
+      await supabaseAdmin
+        .from('dreams')
+        .update({
+          premium_deep_analysis_status: 'failed',
+          premium_deep_analysis_error: 'safety_filter_triggered'
+        })
+        .eq('id', dream.id)
+
+      return res.status(422).json({ 
+        error: 'safety_filter_triggered',
+        message: 'Klinik güvenlik uyarısı tetiklendi.'
+      })
+    }
+
     if (dream.premium_deep_analysis) {
       return res.status(200).json({
         ok: true,
@@ -191,7 +233,6 @@ export default async function handler(req, res) {
       })
     }
 
-    // AURA DÜŞÜLECEK KULLANICI (Ödemeyi gerçekleştiren kullanıcı: user.id)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('id, premium_analysis_auras')
@@ -216,12 +257,35 @@ export default async function handler(req, res) {
       })
       .eq('id', dream.id)
 
+    // =========================================================================
+    // JUNGİAN DREAM MEMORY (Geçmiş Rüya Geçmişi Sorgulama)
+    // =========================================================================
+    const { data: pastDreams } = await supabaseAdmin
+      .from('dreams')
+      .select('content, premium_deep_analysis, ai_sentiment')
+      .eq('user_id', user.id)
+      .eq('premium_deep_analysis_status', 'generated')
+      .neq('id', dreamId) // Mevcut rüyayı hariç tut
+      .order('premium_deep_analysis_generated_at', { ascending: false })
+      .limit(5)
+
+    let pastContext = ""
+    if (pastDreams && pastDreams.length > 0) {
+      pastContext = pastDreams.map((d, i) => {
+        const title = d.premium_deep_analysis?.title || ""
+        const summary = d.premium_deep_analysis?.summary || ""
+        const shadow = d.premium_deep_analysis?.shadow_focus || ""
+        return `[Past Dream ${i+1}] Title: ${title}\nContent: "${d.content}"\nPast Shadow/Unresolved Conflict: "${shadow}"`
+      }).join("\n\n")
+    }
+
     const targetLangCode = lang || dream.original_language || 'en'
     const targetLangName = LANG_MAP[targetLangCode] || LANG_MAP['en']
 
     const prompt = buildPrompt({
       content: dream.content,
       targetLangName,
+      pastContext
     })
 
     let completion
@@ -311,7 +375,7 @@ export default async function handler(req, res) {
       console.error('Replicate image generation error:', imageError)
     }
 
-    // Bakiye düşümü (Ödemeyi gerçekleştiren: user.id)
+    // Bakiye düşümü (Premium Derin Analiz = 8 Aura)
     const nextAuras = auras - 8
     const { error: auraUpdateError } = await supabaseAdmin
       .from('user_profiles')
@@ -330,7 +394,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'aura_update_failed' })
     }
 
-    // Analiz ve Görsel rüyanın sahibinin (dream.id) rüya kartına işlenir
+    // Analiz ve Görseli veritabanına kaydet
     const { error: saveError } = await supabaseAdmin
       .from('dreams')
       .update({
