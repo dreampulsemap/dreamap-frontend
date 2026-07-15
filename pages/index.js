@@ -33,7 +33,8 @@ export default function HomePage() {
     setMounted(true)
   }, [])
 
-  const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
+  // i18n?. optional chaining ile çökme tamamen engellenmiştir
+  const currentLang = mounted ? (i18n?.language || 'en').split('-')[0] : 'en'
   const lang = currentLang
 
   // Arkadaşların ve kendisinin rüyalarını getiren asenkron akış
