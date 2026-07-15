@@ -87,7 +87,7 @@ export default async function handler(req, res) {
     const replicateRes = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+        'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`, // Bearer yerine Token standardına geçildi (Replicate Özel İsteği)
         'Content-Type': 'application/json',
         'Prefer': 'wait=15'
       },
@@ -105,7 +105,6 @@ export default async function handler(req, res) {
 
     const replicateData = await replicateRes.json().catch(() => null)
 
-    // REPLICATE HATALARINI DETAYLI ŞEKİLDE YAKALAMA (Self-Debugging)
     if (!replicateRes.ok || !replicateData?.output?.[0]) {
       console.error('Replicate error details:', replicateData)
       const errorDetail = replicateData?.error || replicateData?.detail || 'Replicate API rejected the request.'
