@@ -20,9 +20,9 @@ export default function LanguageSwitcher() {
     setMounted(true)
   }, [])
 
+  // i18n?. optional chaining ile çökme tamamen engellenmiştir
   const currentCode = mounted ? (i18n?.resolvedLanguage || i18n?.language || 'en') : 'en'
-  const currentLang =
-    languages.find((l) => l.code === currentCode) || languages[0]
+  const currentLang = languages.find((l) => l.code === currentCode) || languages[0]
 
   return (
     <div className="relative group">
