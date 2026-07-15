@@ -53,8 +53,8 @@ export default function StoryModeModal({
                 <h4 className="text-lg font-bold text-white mb-1.5 leading-tight font-serif">{dreamTitle}</h4>
                 <p className="text-[9px] text-slate-300 italic mb-2">"{dreamMotiv}"</p>
                 <div className="flex flex-wrap gap-1">
-                  {Array.isArray(premiumAnalysis.archetypes) &&
-                    premiumAnalysis.archetypes.slice(0, 2).map((arch, i) => (
+                  {Array.isArray(premiumAnalysis?.archetypes) &&
+                    premiumAnalysis?.archetypes.slice(0, 2).map((arch, i) => (
                       <span key={i} className="text-[8px] font-semibold bg-violet-500/30 border border-violet-400/40 px-2 py-0.5 rounded-full text-violet-100">
                         ✦ {translateArchetype(arch)}
                       </span>
