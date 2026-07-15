@@ -20,7 +20,7 @@ function getAnalysisButtonLabel(lang) {
 }
 
 function getCloseLabel(lang) {
-  return lang === 'tr' ? 'Kapat' : 'Close'
+  return lang === 'tr' ? 'Kapat' : lang === 'es' ? 'Cerrar' : 'Close'
 }
 
 export default function DreamCard({
@@ -62,7 +62,7 @@ export default function DreamCard({
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showStoryMode, setShowStoryMode] = useState(false)
 
-  // Bakiye, Görsel ve Analiz Durumları
+  // Bakiye ve Analiz Durumları
   const [premiumAuras, setPremiumAuras] = useState(0)
   const [premiumGenerating, setPremiumGenerating] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
@@ -84,7 +84,7 @@ export default function DreamCard({
     [dream, analysisOverride]
   )
 
-  // Rüyanın mülkiyet kontrolü (Kullanıcı rüyanın sahibi mi yoksa bir misafir/arkadaş mı?)
+  // Rüyanın mülkiyet kontrolü
   const isOwner = useMemo(() => {
     return user?.id && dream?.user_id && user.id === dream.user_id
   }, [user, dream])
@@ -242,9 +242,10 @@ export default function DreamCard({
     return Boolean(teaserAnalysis && (getDreamAnalysis() || getDreamMotiv() || getDreamTitle()))
   }, [teaserAnalysis, getDreamAnalysis, getDreamMotiv, getDreamTitle])
 
+  // ONARILAN DEĞİŞKEN TANIMI (ReferenceError Giderildi!)
+  const analysisStatus = effectiveDream?.analysis_status || null
   const isAnalysisProcessing = !hasTeaserAnalysis && (analysisStatus === 'processing')
-  const isAnalysisFailed =
-    !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
+  const isAnalysisFailed = !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
 
   const dreamImage = useMemo(() => effectiveDream.ai_image_url || null, [effectiveDream])
   const dreamMotiv = useMemo(() => getDreamMotiv(), [getDreamMotiv])
@@ -279,7 +280,7 @@ export default function DreamCard({
     }
   }
 
-  // Derin Rüya Analizini Başlatma/Hediye Etme (Gerçek Üretim Tetikleyicisi)
+  // Derin Rüya Analizini Başlatma (Gerçek Üretim Tetikleyicisi)
   async function handlePremiumAnalysisExecute() {
     setShowConfirmModal(false)
     setPremiumGenerating(true)
@@ -319,7 +320,6 @@ export default function DreamCard({
       if (data?.analysis) {
         setPremiumAnalysis(data.analysis)
         if (!isOwner) {
-          // Eğer hediye gönderilmişse modalı doğrudan açma, teşekkür toast bildirimi göster
           triggerToast(t.analysisGiftSuccess)
         } else {
           setShowAnalysisModal(true)
@@ -446,7 +446,7 @@ export default function DreamCard({
     }
   }
 
-  // Lunosfer Sohbet Çemberi Paylaşımı
+  // Lunosfer Sohbet Çemberi Paylaşımı (Gerçek Veritabanı ve Akış Entegrasyonu)
   const handleLunosferShare = async () => {
     if (!user?.id) {
       alert(getTranslation('social.loginToComment', currentLang))
@@ -835,7 +835,7 @@ export default function DreamCard({
         isGift={!isOwner}
       />
 
-      {/* HİBRİT ANALİZ İNCELEME MODALÜ */}
+      {/* HİBRİT ANALİZ İNCELEME MODALÜ (Premium ise 7 Slaytlı Carousel, Teaser ise Klasik Görünüm) */}
       {showAnalysisModal && (
         <div
           className="fixed inset-0 z-[100] flex items-end justify-center bg-black/85 backdrop-blur-md sm:items-center sm:p-4"
@@ -847,7 +847,7 @@ export default function DreamCard({
           aria-modal="true"
         >
           {premiumAnalysis ? (
-            /* Premium ise 7 Slaytlı Instagram Carousel Modal */
+            /* Premium ise Gelişmiş 7 Slaytlı ve Sosyal Paylaşım Merkezli Instagram Carousel Modal */
             <DeepAnalysisCarouselModal
               isOpen={showAnalysisModal}
               onClose={() => setShowAnalysisModal(false)}
@@ -887,7 +887,7 @@ export default function DreamCard({
         </div>
       )}
 
-      {/* HİKAYE MODU MODALİ */}
+      {/* HİKAYE MODU MODALİ (Screenshot uyumlu dikey görünüm) */}
       <StoryModeModal
         isOpen={showStoryMode && showAnalysisModal}
         onClose={() => setShowStoryMode(false)}
