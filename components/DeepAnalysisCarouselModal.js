@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState } from 'react'
 import { getVal } from '../lib/archetypeTranslations'
 
 export default function DeepAnalysisCarouselModal({
@@ -9,15 +9,30 @@ export default function DeepAnalysisCarouselModal({
   dreamTitle,
   dreamImage,
   dreamMotiv,
+  dreamContent,
+  teaserSummary,
   onShare,
+  onLunosferShare,
   translateArchetype,
   onOpenStoryMode,
+  dreamId
 }) {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [touchStart, setTouchStart] = useState(null)
   const [touchEnd, setTouchEnd] = useState(null)
 
   if (!isOpen || !premiumAnalysis) return null
+
+  // Dinamik paylaşım bağlantısı
+  const dreamUrl = typeof window !== 'undefined' ? `${window.location.origin}/dreams/${dreamId}` : ''
+  const encodedUrl = encodeURIComponent(dreamUrl)
+  const encodedImage = encodeURIComponent(dreamImage || '')
+  
+  const rawShareText = lang === 'tr'
+    ? `✦ Lunosfer rüya ağına katıldım! 🌌\nRüyamın mistik Jungyen derin analizini ve yapay zeka illüstrasyonunu buradan gör:\n🔗 ${dreamUrl}`
+    : `✦ I joined the Lunosfer dream network! 🌌\nSee my mystical Jungian deep analysis and AI dream illustration here:\n🔗 ${dreamUrl}`
+  
+  const encodedText = encodeURIComponent(rawShareText)
 
   // Slayt swipe jestleri
   const handleTouchStart = (e) => {
@@ -38,7 +53,7 @@ export default function DeepAnalysisCarouselModal({
     const isLeftSwipe = distance > 55
     const isRightSwipe = distance < -55
 
-    if (isLeftSwipe && currentSlide < 4) {
+    if (isLeftSwipe && currentSlide < 6) {
       setCurrentSlide((prev) => prev + 1)
     }
     if (isRightSwipe && currentSlide > 0) {
@@ -50,7 +65,9 @@ export default function DeepAnalysisCarouselModal({
 
   const slides = [
     { title: lang === 'tr' ? 'Rüya Kartı' : 'Dream Card' },
-    { title: lang === 'tr' ? 'Genel & Sembolik Okuma' : 'Symbolic Reading' },
+    { title: lang === 'tr' ? 'Rüya Defteriniz' : 'Your Dream Text' },
+    { title: lang === 'tr' ? 'Bilinçaltı Sinyali (Teaser)' : 'Subconscious Signal' },
+    { title: lang === 'tr' ? 'Kozmik Çözümleme' : 'Symbolic Reading' },
     { title: lang === 'tr' ? 'Gölge & Çatışma' : 'Shadow & Core Conflict' },
     { title: lang === 'tr' ? 'Dönüşüm Yolu' : 'Path of Transformation' },
     { title: lang === 'tr' ? 'Ruhsal Yansımalar' : 'Reflection Questions' },
@@ -83,7 +100,7 @@ export default function DeepAnalysisCarouselModal({
           <span className="text-xs font-bold text-fuchsia-300 uppercase tracking-widest">
             {slides[currentSlide]?.title}
           </span>
-          <span className="text-[10px] text-white/40 font-mono">({currentSlide + 1}/5)</span>
+          <span className="text-[10px] text-white/40 font-mono">({currentSlide + 1}/7)</span>
         </div>
 
         {/* HİKAYE MODU KARTI */}
@@ -98,7 +115,8 @@ export default function DeepAnalysisCarouselModal({
         )}
 
         {/* SLAYT İÇERİKLERİ */}
-        <div className="relative w-full h-[calc(100%-80px)] mt-16 px-6 py-4 overflow-y-auto sm:px-12 select-none">
+        <div className="relative w-full h-[calc(100%-140px)] mt-16 px-6 py-4 overflow-y-auto sm:px-12 select-none">
+          
           {/* SLAYT 1: KOZMİK GÖRSEL */}
           {currentSlide === 0 && (
             <div className="relative w-full h-full flex flex-col items-center justify-center">
@@ -124,54 +142,80 @@ export default function DeepAnalysisCarouselModal({
             </div>
           )}
 
-          {/* SLAYT 2: SEMBOLİK OKUMA */}
+          {/* SLAYT 2: KULLANICININ ORİJİNAL RÜYASI */}
           {currentSlide === 1 && (
+            <div className="h-full flex flex-col justify-center max-w-xl mx-auto">
+              <span className="text-2xl mb-3 text-cyan-400">📖</span>
+              <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
+                {lang === 'tr' ? 'Rüya Defteriniz' : 'Your Dream Journal'}
+              </h4>
+              <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap overflow-y-auto max-h-[30vh] pr-2">
+                {dreamContent}
+              </p>
+            </div>
+          )}
+
+          {/* SLAYT 3: TEASER / BAZ ANALİZ */}
+          {currentSlide === 2 && (
+            <div className="h-full flex flex-col justify-center max-w-xl mx-auto">
+              <span className="text-2xl mb-3 text-fuchsia-400">✨</span>
+              <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
+                {lang === 'tr' ? 'Bilinçaltı Sinyali (Genel Yorum)' : 'Subconscious Signal'}
+              </h4>
+              <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap">
+                {teaserSummary}
+              </p>
+            </div>
+          )}
+
+          {/* SLAYT 4: SEMBOLİK OKUMA */}
+          {currentSlide === 3 && (
             <div className="h-full flex flex-col justify-center max-w-xl mx-auto">
               <span className="text-2xl mb-3 text-indigo-400">🜂</span>
               <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
                 {lang === 'tr' ? 'Rüyanın Sembolik Yol Haritası' : 'Symbolic Roadmap'}
               </h4>
-              <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap">
+              <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap overflow-y-auto max-h-[30vh] pr-2">
                 {getVal(premiumAnalysis.symbolic_reading, lang) || getVal(premiumAnalysis.summary, lang)}
               </p>
             </div>
           )}
 
-          {/* SLAYT 3: GÖLGE VE ÇATIŞMA */}
-          {currentSlide === 2 && (
+          {/* SLAYT 5: GÖLGE VE ÇATIŞMA */}
+          {currentSlide === 4 && (
             <div className="h-full flex flex-col justify-center gap-6 max-w-2xl mx-auto">
               <div className="p-5 rounded-2xl border border-rose-500/20 bg-rose-500/[0.02]">
                 <h5 className="text-xs font-bold uppercase tracking-wider text-rose-400 mb-2 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
                   {lang === 'tr' ? 'Bastırılmış Benlik (Gölge)' : 'Shadow Focus'}
                 </h5>
-                <p className="text-xs leading-6 text-slate-300 font-light">{getVal(premiumAnalysis.shadow_focus, lang)}</p>
+                <p className="text-xs leading-6 text-slate-300 font-light overflow-y-auto max-h-[15vh] pr-2">{getVal(premiumAnalysis.shadow_focus, lang)}</p>
               </div>
               <div className="p-5 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.02]">
                 <h5 className="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-2 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                   {lang === 'tr' ? 'Temel Gerilim (Çatışma)' : 'Core Conflict'}
                 </h5>
-                <p className="text-xs leading-6 text-slate-300 font-light">{getVal(premiumAnalysis.core_conflict, lang)}</p>
+                <p className="text-xs leading-6 text-slate-300 font-light overflow-y-auto max-h-[15vh] pr-2">{getVal(premiumAnalysis.core_conflict, lang)}</p>
               </div>
             </div>
           )}
 
-          {/* SLAYT 4: BİREYLEŞME */}
-          {currentSlide === 3 && (
+          {/* SLAYT 6: BİREYLEŞME */}
+          {currentSlide === 5 && (
             <div className="h-full flex flex-col justify-center max-w-xl mx-auto">
               <span className="text-2xl mb-3 text-violet-400">💫</span>
               <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
                 {lang === 'tr' ? 'Uyanık Hayata Entegrasyon' : 'Path of Transformation'}
               </h4>
-              <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap">
+              <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap overflow-y-auto max-h-[30vh] pr-2">
                 {getVal(premiumAnalysis.individuation_path, lang)}
               </p>
             </div>
           )}
 
-          {/* SLAYT 5: SORULAR */}
-          {currentSlide === 4 && (
+          {/* SLAYT 7: SORULAR */}
+          {currentSlide === 6 && (
             <div className="h-full flex flex-col justify-center gap-4 max-w-xl mx-auto">
               <h4 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-2">
                 {lang === 'tr' ? 'Kendinize Sormanız Gereken Sorular' : 'Reflection Questions'}
@@ -190,10 +234,12 @@ export default function DeepAnalysisCarouselModal({
           )}
         </div>
 
-        {/* ALT NOKTALAR VE NAVİGASYON */}
-        <div className="absolute bottom-6 left-0 right-0 px-6 flex flex-col items-center gap-4">
-          <div className="flex justify-center gap-2">
-            {[0, 1, 2, 3, 4].map((idx) => (
+        {/* ALT NOKTALAR VE NAVİGASYON - SOSYAL PAYLAŞIM MERKEZİ */}
+        <div className="absolute bottom-4 left-0 right-0 px-6 flex flex-col items-center gap-3">
+          
+          {/* İndikatör Noktaları */}
+          <div className="flex justify-center gap-1.5">
+            {[0, 1, 2, 3, 4, 5, 6].map((idx) => (
               <button
                 key={idx}
                 type="button"
@@ -204,33 +250,97 @@ export default function DeepAnalysisCarouselModal({
             ))}
           </div>
 
-          <div className="w-full flex items-center justify-between gap-4 max-w-md">
+          <div className="w-full flex items-center justify-between gap-4 max-w-lg">
+            
+            {/* SOL OK */}
             <button
               type="button"
               disabled={currentSlide === 0}
               onClick={() => setCurrentSlide((prev) => prev - 1)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition-all"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition-all"
             >
               ←
             </button>
 
-            <button
-              type="button"
-              onClick={onShare}
-              className="flex-1 inline-flex min-h-[46px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-4 py-2.5 text-xs font-bold text-white transition hover:scale-[1.01] hover:brightness-110 shadow-[0_0_15px_rgba(240,73,214,0.2)]"
-            >
-              <span>✦</span>
-              <span>{lang === 'tr' ? 'Instagram & Sosyal Medyada Paylaş' : 'Share on Instagram'}</span>
-            </button>
+            {/* BRANDED SOSYAL MEDYA PAYLAŞIM ALANI */}
+            <div className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white/[0.03] border border-white/10 px-3 py-1.5">
+              
+              {/* LUNOSFER SOHBET ÇEMBERİ (Özel İstek) */}
+              <button
+                type="button"
+                onClick={onLunosferShare}
+                title={lang === 'tr' ? 'Lunosfer Sohbet Çemberinde Paylaş' : 'Share in Lunosfer Chat'}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-fuchsia-600 to-indigo-600 hover:brightness-110 transition-all text-base"
+              >
+                🔮
+              </button>
 
+              {/* TWITTER / X */}
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodedText}&hashtags=Lunosfer,JungianDream`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="X / Twitter'da Paylaş"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-black hover:bg-white/10 border border-white/10 transition-all text-xs font-bold text-white"
+              >
+                X
+              </a>
+
+              {/* PINTEREST (Görsel Pinleme) */}
+              <a
+                href={`https://pinterest.com/pin/create/button/?url=${encodedUrl}&media=${encodedImage}&description=${encodedText}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Pinterest'e Pinle"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e60023] hover:brightness-110 transition-all text-sm text-white"
+              >
+                📌
+              </a>
+
+              {/* FACEBOOK */}
+              <a
+                href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Facebook'ta Paylaş"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1877f2] hover:brightness-110 transition-all text-sm text-white font-bold"
+              >
+                F
+              </a>
+
+              {/* WHATSAPP */}
+              <a
+                href={`https://api.whatsapp.com/send?text=${encodedText}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="WhatsApp ile Gönder"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#25d366] hover:brightness-110 transition-all text-base"
+              >
+                💬
+              </a>
+
+              {/* GENEL BAĞLANTI KOPYALAYICI */}
+              <button
+                type="button"
+                onClick={onShare}
+                title={lang === 'tr' ? 'Bağlantıyı Kopyala' : 'Copy Link'}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 transition-all text-sm text-white"
+              >
+                🔗
+              </button>
+
+            </div>
+
+            {/* SAĞ OK */}
             <button
               type="button"
-              disabled={currentSlide === 4}
+              disabled={currentSlide === 6}
               onClick={() => setCurrentSlide((prev) => prev + 1)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition-all"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition-all"
             >
               →
             </button>
+
           </div>
         </div>
       </div>
