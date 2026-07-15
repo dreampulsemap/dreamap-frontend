@@ -11,16 +11,14 @@ import DeepAnalysisConfirmationModal from '@/components/DeepAnalysisConfirmation
 import DeepAnalysisCarouselModal from '@/components/DeepAnalysisCarouselModal'
 import StoryModeModal from '@/components/StoryModeModal'
 
-const GUMROAD_PRODUCT_URL = 'https://lunosfer.gumroad.com/l/lunosfer-deep-analysis'
+const GUMROAD_PRODUCT_URL = 'https://shop.lunosfer.com'
 
-// SIKIŞTIRILMIŞ ÇOK DİLLİ YARDIMCI FONKSİYONLAR (Hydration & Reference Safe)
 function getAnalysisButtonLabel(lang) {
-  const map = { tr: 'Rüya Analizini Aç', es: 'Abrir análisis', fr: 'Ouvrir l’analyse', de: 'Traumanalyse öffnen', pt: 'Abrir análise', ru: 'Открыть анализ', ja: '夢の分析を開く' }
-  return map[lang] || 'Open Dream Analysis'
+  return lang === 'tr' ? 'Rüya Analizini Aç' : 'Open Dream Analysis'
 }
 
 function getCloseLabel(lang) {
-  return lang === 'tr' ? 'Kapat' : lang === 'es' ? 'Cerrar' : 'Close'
+  return lang === 'tr' ? 'Kapat' : 'Close'
 }
 
 export default function DreamCard({
@@ -242,7 +240,6 @@ export default function DreamCard({
     return Boolean(teaserAnalysis && (getDreamAnalysis() || getDreamMotiv() || getDreamTitle()))
   }, [teaserAnalysis, getDreamAnalysis, getDreamMotiv, getDreamTitle])
 
-  // ONARILAN DEĞİŞKEN TANIMI (ReferenceError Giderildi!)
   const analysisStatus = effectiveDream?.analysis_status || null
   const isAnalysisProcessing = !hasTeaserAnalysis && (analysisStatus === 'processing')
   const isAnalysisFailed = !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
@@ -398,8 +395,6 @@ export default function DreamCard({
 
       if (data?.imageUrl) {
         triggerToast(isOwner ? t.imageSuccess : t.imageGiftSuccess)
-        
-        // Sayfa yenilemesi yapmadan, state üzerinden rüya kartına yeni görseli anında giydirir
         setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
       }
 
@@ -446,7 +441,7 @@ export default function DreamCard({
     }
   }
 
-  // Lunosfer Sohbet Çemberi Paylaşımı (Gerçek Veritabanı ve Akış Entegrasyonu)
+  // Lunosfer Sohbet Çemberi Paylaşımı
   const handleLunosferShare = async () => {
     if (!user?.id) {
       alert(getTranslation('social.loginToComment', currentLang))
@@ -503,6 +498,32 @@ export default function DreamCard({
         console.error('Clipboard copy failed:', err)
         alert('Bağlantı: ' + dreamUrl)
       }
+    }
+  }
+
+  // Instagram Özel İleri Paylaşım/Kopyalama İşleyicisi
+  const handleInstagramShare = async () => {
+    const dreamUrl = typeof window !== 'undefined' ? `${window.location.origin}/dreams/${dream.id}` : ''
+    const shareText = t.shareText.replace('{url}', dreamUrl)
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Lunosfer Rüya Analizim 📸',
+          text: shareText,
+          url: dreamUrl
+        })
+        return
+      } catch (err) {
+        console.error('Native IG share failed:', err)
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareText)
+      triggerToast(t.toastInstagram)
+    } catch (err) {
+      console.error('IG copy failed:', err)
     }
   }
 
@@ -679,11 +700,7 @@ export default function DreamCard({
           <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
             <button
               onClick={handleLike}
-              className={`energy-button inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm transition-all ${
-                liked
-                  ? 'border border-red-400/20 bg-red-500/16 text-red-200'
-                  : 'border border-white/10 bg-white/5 text-white/80 hover:bg-red-500/10'
-              }`}
+              className={`energy-button inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm transition-all ${liked ? 'border border-red-400/20 bg-red-500/16 text-red-200' : 'border border-white/10 bg-white/5 text-white/80 hover:bg-red-500/10'}`}
             >
               <span>{liked ? '❤️' : '🤍'}</span>
               <span>{likesCount}</span>
@@ -860,6 +877,9 @@ export default function DreamCard({
               teaserSummary={teaserAnalysis?.summary?.[currentLang] || teaserAnalysis?.summary?.en || dream.ai_summary}
               onShare={handleShareOnSocial}
               onLunosferShare={handleLunosferShare}
+              onInstagramShare={handleInstagramShare} // Instagram Paylaşım Hub Entegrasyonu
+              onGenerateImageOnly={handleGenerateImageOnly} // Slayt İçi Bağımsız Görsel Tetikleyicisi
+              generatingImage={generatingImage}
               translateArchetype={translateArchetype}
               onOpenStoryMode={() => setShowStoryMode(true)}
               dreamId={dream.id}
