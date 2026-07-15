@@ -13,39 +13,14 @@ import StoryModeModal from '@/components/StoryModeModal'
 
 const GUMROAD_PRODUCT_URL = 'https://lunosfer.gumroad.com/l/lunosfer-deep-analysis'
 
-// 1. SIKIŞTIRILMIŞ ÇOK DİLLİ YARDIMCI FONKSİYONLAR (Hydration & Reference Safe)
+// SIKIŞTIRILMIŞ ÇOK DİLLİ YARDIMCI FONKSİYONLAR (Hydration & Reference Safe)
 function getAnalysisButtonLabel(lang) {
   const map = { tr: 'Rüya Analizini Aç', es: 'Abrir análisis', fr: 'Ouvrir l’analyse', de: 'Traumanalyse öffnen', pt: 'Abrir análise', ru: 'Открыть анализ', ja: '夢の分析を開く' }
   return map[lang] || 'Open Dream Analysis'
 }
 
 function getCloseLabel(lang) {
-  return lang === 'tr' ? 'Kapat' : lang === 'es' ? 'Cerrar' : 'Close'
-}
-
-function getPremiumButtonLabel(lang, auras, loading) {
-  if (loading) return lang === 'tr' ? 'Derin analiz oluşturuluyor...' : 'Generating deep analysis...'
-  if (auras > 0) return lang === 'tr' ? `Derin Rüya Analizi · ${auras} Aura` : `Deep Dream Analysis · ${auras} Auras`
-  return lang === 'tr' ? '10 Aura al ve derin analizi aç' : 'Buy 10 Auras and open deep analysis'
-}
-
-function getPremiumErrorMessage(lang, errorCode) {
-  if (errorCode === 'login_required') return lang === 'tr' ? 'Derin analiz için önce giriş yapmalısın.' : 'Please log in first.'
-  if (errorCode === 'unauthorized') return lang === 'tr' ? 'Oturum doğrulanamadı. Lütfen tekrar giriş yap.' : 'Your session expired.'
-  if (errorCode === 'no_auras') return lang === 'tr' ? 'Derin analiz için yeterli Aura bakiyeniz kalmamış.' : 'You have no Auras left.'
-  return lang === 'tr' ? 'Derin analiz oluşturulurken bir hata oluştu.' : 'An error occurred.'
-}
-
-function getAnalysisProcessingLabel(lang) {
-  return lang === 'tr' ? 'Rüyan analiz ediliyor...' : 'Analyzing your dream...'
-}
-
-function getAnalysisFailedLabel(lang) {
-  return lang === 'tr' ? 'Rüya analizi şu anda tamamlanamadı.' : 'Dream analysis could not be completed.'
-}
-
-function getRetryAnalysisLabel(lang, loading) {
-  return loading ? (lang === 'tr' ? 'Tekrar deneniyor...' : 'Retrying...') : (lang === 'tr' ? 'Tekrar dene' : 'Retry')
+  return lang === 'tr' ? 'Kapat' : 'Close'
 }
 
 export default function DreamCard({
@@ -87,7 +62,7 @@ export default function DreamCard({
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showStoryMode, setShowStoryMode] = useState(false)
 
-  // Bakiye ve Analiz Durumları
+  // Bakiye, Görsel ve Analiz Durumları
   const [premiumAuras, setPremiumAuras] = useState(0)
   const [premiumGenerating, setPremiumGenerating] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
@@ -108,6 +83,11 @@ export default function DreamCard({
     () => (analysisOverride ? { ...dream, ...analysisOverride } : dream),
     [dream, analysisOverride]
   )
+
+  // Rüyanın mülkiyet kontrolü (Kullanıcı rüyanın sahibi mi yoksa bir misafir/arkadaş mı?)
+  const isOwner = useMemo(() => {
+    return user?.id && dream?.user_id && user.id === dream.user_id
+  }, [user, dream])
 
   const triggerToast = (msg) => {
     setToastMessage(msg)
@@ -263,7 +243,8 @@ export default function DreamCard({
   }, [teaserAnalysis, getDreamAnalysis, getDreamMotiv, getDreamTitle])
 
   const isAnalysisProcessing = !hasTeaserAnalysis && (analysisStatus === 'processing')
-  const isAnalysisFailed = !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
+  const isAnalysisFailed =
+    !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
 
   const dreamImage = useMemo(() => effectiveDream.ai_image_url || null, [effectiveDream])
   const dreamMotiv = useMemo(() => getDreamMotiv(), [getDreamMotiv])
@@ -298,7 +279,7 @@ export default function DreamCard({
     }
   }
 
-  // Derin Rüya Analizini Başlatma (Gerçek Üretim Tetikleyicisi)
+  // Derin Rüya Analizini Başlatma/Hediye Etme (Gerçek Üretim Tetikleyicisi)
   async function handlePremiumAnalysisExecute() {
     setShowConfirmModal(false)
     setPremiumGenerating(true)
@@ -337,7 +318,12 @@ export default function DreamCard({
 
       if (data?.analysis) {
         setPremiumAnalysis(data.analysis)
-        setShowAnalysisModal(true)
+        if (!isOwner) {
+          // Eğer hediye gönderilmişse modalı doğrudan açma, teşekkür toast bildirimi göster
+          triggerToast(t.analysisGiftSuccess)
+        } else {
+          setShowAnalysisModal(true)
+        }
       }
 
       if (typeof data?.aurasLeft === 'number') {
@@ -353,7 +339,7 @@ export default function DreamCard({
     }
   }
 
-  // Sadece Rüya Görseli Üretme (Bağımsız 2 Aura Tetikleyicisi)
+  // Sadece Rüya Görseli Üretme/Hediye Etme (Bağımsız 2 Aura Tetikleyicisi)
   const handleGenerateImageOnly = async () => {
     setPremiumError('')
 
@@ -373,9 +359,13 @@ export default function DreamCard({
         return
       }
 
-      const confirmMsg = currentLang === 'tr'
-        ? 'Rüyanızın kozmik illüstrasyonunu 2 Aura karşılığında üretmek istiyor musunuz? 🌌'
-        : 'Do you want to generate the dream illustration for 2 Auras? 🌌'
+      const confirmMsg = isOwner
+        ? (currentLang === 'tr'
+          ? 'Rüyanızın kozmik illüstrasyonunu 2 Aura karşılığında üretmek istiyor musunuz? 🌌'
+          : 'Do you want to generate the dream illustration for 2 Auras? 🌌')
+        : (currentLang === 'tr'
+          ? 'Arkadaşınızın rüya illüstrasyonunu 2 Aura karşılığında canlandırmak ve ona hediye etmek istiyor musunuz? 🔮✨'
+          : 'Do you want to illuminate and gift this dream illustration to your friend for 2 Auras? 🔮✨')
 
       if (!window.confirm(confirmMsg)) return
 
@@ -407,7 +397,9 @@ export default function DreamCard({
       }
 
       if (data?.imageUrl) {
-        triggerToast(t.imageSuccess)
+        triggerToast(isOwner ? t.imageSuccess : t.imageGiftSuccess)
+        
+        // Sayfa yenilemesi yapmadan, state üzerinden rüya kartına yeni görseli anında giydirir
         setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
       }
 
@@ -454,7 +446,7 @@ export default function DreamCard({
     }
   }
 
-  // Lunosfer Sohbet Çemberi Paylaşımı (Gerçek Veritabanı ve Akış Entegrasyonu)
+  // Lunosfer Sohbet Çemberi Paylaşımı
   const handleLunosferShare = async () => {
     if (!user?.id) {
       alert(getTranslation('social.loginToComment', currentLang))
@@ -620,7 +612,7 @@ export default function DreamCard({
           {isAnalysisProcessing && (
             <div className="mb-5 flex items-center gap-3 rounded-[1.5rem] border border-cyan-300/18 bg-cyan-500/8 p-4 sm:p-5">
               <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-cyan-200 border-t-transparent" />
-              <p className="text-sm leading-6 text-cyan-100/90">{getAnalysisProcessingLabel(currentLang)}</p>
+              <p className="text-sm leading-6 text-cyan-100/90 font-sans">{getAnalysisProcessingLabel(currentLang)}</p>
             </div>
           )}
 
@@ -644,7 +636,7 @@ export default function DreamCard({
             </div>
           )}
 
-          {/* Derin Rüya Analizini Başlat/Aç Butonu */}
+          {/* Derin Rüya Analizini Başlat/Aç/Hediye Et Butonu */}
           <button
             type="button"
             onClick={handlePremiumButtonClick}
@@ -655,12 +647,12 @@ export default function DreamCard({
             <span>
               {premiumAnalysis 
                 ? t.exploreCards
-                : t.getDeepAnalysis
+                : (isOwner ? t.getDeepAnalysis : t.giftDeepAnalysis)
               }
             </span>
           </button>
 
-          {/* Sadece Rüya Görseli Üretme Butonu (2 Aura - Sadece rüya resmi yoksa ve analiz alınmamışsa gösterilir) */}
+          {/* Sadece Rüya Görseli Üretme/Hediye Etme Butonu (2 Aura) */}
           {!premiumAnalysis && !dreamImage && (
             <button
               type="button"
@@ -671,8 +663,8 @@ export default function DreamCard({
               <span>{generatingImage ? '⏳' : '🌌'}</span>
               <span>
                 {generatingImage 
-                  ? t.generatingImage
-                  : t.generateImage
+                  ? (isOwner ? t.generatingImage : t.giftingImage)
+                  : (isOwner ? t.generateImage : t.giftDreamImage)
                 }
               </span>
             </button>
@@ -793,7 +785,7 @@ export default function DreamCard({
                     >
                       <div className="mb-2 flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-slate-200 animate-fade-in">
+                          <span className="text-sm font-semibold text-slate-200">
                             {comment.user_profiles?.display_name ||
                               comment.user_profiles?.username ||
                               'Anonim'}
@@ -832,7 +824,7 @@ export default function DreamCard({
         </div>
       )}
 
-      {/* ONAY MODALİ (8 AURA SATIN ALMA/BAŞLATMA EKRANI) */}
+      {/* ONAY MODALİ (8 AURA SATIN ALMA/BAŞLATMA EKRANI - HEDİYELEŞME DESTEKLİ) */}
       <DeepAnalysisConfirmationModal
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
@@ -840,9 +832,10 @@ export default function DreamCard({
         onConfirm={handlePremiumAnalysisExecute}
         lang={currentLang}
         gumroadUrl={GUMROAD_PRODUCT_URL}
+        isGift={!isOwner}
       />
 
-      {/* HİBRİT ANALİZ İNCELEME MODALÜ (Premium ise 7 Slaytlı Carousel, Teaser ise Klasik Görünüm) */}
+      {/* HİBRİT ANALİZ İNCELEME MODALÜ */}
       {showAnalysisModal && (
         <div
           className="fixed inset-0 z-[100] flex items-end justify-center bg-black/85 backdrop-blur-md sm:items-center sm:p-4"
@@ -854,7 +847,7 @@ export default function DreamCard({
           aria-modal="true"
         >
           {premiumAnalysis ? (
-            /* Premium ise Gelişmiş 7 Slaytlı ve Sosyal Paylaşım Merkezli Instagram Carousel Modal */
+            /* Premium ise 7 Slaytlı Instagram Carousel Modal */
             <DeepAnalysisCarouselModal
               isOpen={showAnalysisModal}
               onClose={() => setShowAnalysisModal(false)}
@@ -894,7 +887,7 @@ export default function DreamCard({
         </div>
       )}
 
-      {/* HİKAYE MODU MODALİ (Screenshot uyumlu dikey görünüm) */}
+      {/* HİKAYE MODU MODALİ */}
       <StoryModeModal
         isOpen={showStoryMode && showAnalysisModal}
         onClose={() => setShowStoryMode(false)}
