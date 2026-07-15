@@ -13,6 +13,41 @@ import StoryModeModal from '@/components/StoryModeModal'
 
 const GUMROAD_PRODUCT_URL = 'https://lunosfer.gumroad.com/l/lunosfer-deep-analysis'
 
+// 1. SIKIŞTIRILMIŞ ÇOK DİLLİ YARDIMCI FONKSİYONLAR (Hydration & Reference Safe)
+function getAnalysisButtonLabel(lang) {
+  const map = { tr: 'Rüya Analizini Aç', es: 'Abrir análisis', fr: 'Ouvrir l’analyse', de: 'Traumanalyse öffnen', pt: 'Abrir análise', ru: 'Открыть анализ', ja: '夢の分析を開く' }
+  return map[lang] || 'Open Dream Analysis'
+}
+
+function getCloseLabel(lang) {
+  return lang === 'tr' ? 'Kapat' : lang === 'es' ? 'Cerrar' : 'Close'
+}
+
+function getPremiumButtonLabel(lang, auras, loading) {
+  if (loading) return lang === 'tr' ? 'Derin analiz oluşturuluyor...' : 'Generating deep analysis...'
+  if (auras > 0) return lang === 'tr' ? `Derin Rüya Analizi · ${auras} Aura` : `Deep Dream Analysis · ${auras} Auras`
+  return lang === 'tr' ? '10 Aura al ve derin analizi aç' : 'Buy 10 Auras and open deep analysis'
+}
+
+function getPremiumErrorMessage(lang, errorCode) {
+  if (errorCode === 'login_required') return lang === 'tr' ? 'Derin analiz için önce giriş yapmalısın.' : 'Please log in first.'
+  if (errorCode === 'unauthorized') return lang === 'tr' ? 'Oturum doğrulanamadı. Lütfen tekrar giriş yap.' : 'Your session expired.'
+  if (errorCode === 'no_auras') return lang === 'tr' ? 'Derin analiz için yeterli Aura bakiyeniz kalmamış.' : 'You have no Auras left.'
+  return lang === 'tr' ? 'Derin analiz oluşturulurken bir hata oluştu.' : 'An error occurred.'
+}
+
+function getAnalysisProcessingLabel(lang) {
+  return lang === 'tr' ? 'Rüyan analiz ediliyor...' : 'Analyzing your dream...'
+}
+
+function getAnalysisFailedLabel(lang) {
+  return lang === 'tr' ? 'Rüya analizi şu anda tamamlanamadı.' : 'Dream analysis could not be completed.'
+}
+
+function getRetryAnalysisLabel(lang, loading) {
+  return loading ? (lang === 'tr' ? 'Tekrar deneniyor...' : 'Retrying...') : (lang === 'tr' ? 'Tekrar dene' : 'Retry')
+}
+
 export default function DreamCard({
   dream,
   lang,
@@ -227,15 +262,14 @@ export default function DreamCard({
     return Boolean(teaserAnalysis && (getDreamAnalysis() || getDreamMotiv() || getDreamTitle()))
   }, [teaserAnalysis, getDreamAnalysis, getDreamMotiv, getDreamTitle])
 
-  const isAnalysisProcessing = !hasTeaserAnalysis && analysisStatus === 'processing'
-  const isAnalysisFailed =
-    !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
+  const isAnalysisProcessing = !hasTeaserAnalysis && (analysisStatus === 'processing')
+  const isAnalysisFailed = !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
 
   const dreamImage = useMemo(() => effectiveDream.ai_image_url || null, [effectiveDream])
   const dreamMotiv = useMemo(() => getDreamMotiv(), [getDreamMotiv])
   const dreamTitle = useMemo(() => getDreamTitle(), [getDreamTitle])
 
-  // ONARILAN BEĞENİ YÖNETİM FONKSİYONU (Geri Yüklendi)
+  // Beğeni Yönetim Fonksiyonu
   const handleLike = async () => {
     if (!user?.id) {
       alert(getTranslation('social.loginToLike', currentLang))
@@ -420,7 +454,7 @@ export default function DreamCard({
     }
   }
 
-  // Lunosfer Sohbet Çemberi Paylaşımı
+  // Lunosfer Sohbet Çemberi Paylaşımı (Gerçek Veritabanı ve Akış Entegrasyonu)
   const handleLunosferShare = async () => {
     if (!user?.id) {
       alert(getTranslation('social.loginToComment', currentLang))
@@ -586,7 +620,7 @@ export default function DreamCard({
           {isAnalysisProcessing && (
             <div className="mb-5 flex items-center gap-3 rounded-[1.5rem] border border-cyan-300/18 bg-cyan-500/8 p-4 sm:p-5">
               <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-cyan-200 border-t-transparent" />
-              <p className="text-sm leading-6 text-cyan-100/90 font-sans">{getAnalysisProcessingLabel(currentLang)}</p>
+              <p className="text-sm leading-6 text-cyan-100/90">{getAnalysisProcessingLabel(currentLang)}</p>
             </div>
           )}
 
@@ -759,7 +793,7 @@ export default function DreamCard({
                     >
                       <div className="mb-2 flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-slate-200">
+                          <span className="text-sm font-semibold text-slate-200 animate-fade-in">
                             {comment.user_profiles?.display_name ||
                               comment.user_profiles?.username ||
                               'Anonim'}
