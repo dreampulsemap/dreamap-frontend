@@ -1,4 +1,5 @@
 import React from 'react'
+import { getDreamCardText } from '@/lib/dreamCardTranslations'
 
 export default function StoryModeModal({
   isOpen,
@@ -11,6 +12,7 @@ export default function StoryModeModal({
   translateArchetype,
 }) {
   if (!isOpen || !premiumAnalysis) return null
+  const t = getDreamCardText(lang)
 
   return (
     <div
@@ -37,8 +39,8 @@ export default function StoryModeModal({
 
         <div className="relative z-10 flex flex-col h-full justify-between pointer-events-none select-none">
           <div className="text-center pt-4">
-            <span className="text-[10px] tracking-[0.24em] font-black text-cyan-300 uppercase block mb-1">LUNOSFER ORACLE</span>
-            <span className="text-[9px] tracking-widest text-white/50 uppercase block">Collective Subconscious</span>
+            <span className="text-[10px] tracking-[0.24em] font-black text-cyan-300 uppercase block mb-1">{t.storyTitle}</span>
+            <span className="text-[9px] tracking-widest text-white/50 uppercase block">{t.storySubtitle}</span>
           </div>
 
           <div className="my-auto flex flex-col items-center">
@@ -66,7 +68,7 @@ export default function StoryModeModal({
 
           <div className="text-center pb-2">
             <p className="text-[9px] text-white/40 tracking-wider mb-2">
-              {lang === 'tr' ? 'Ekran görüntüsü al ve hikayende paylaş' : 'Screenshot and share on your story'}
+              {t.storyInstructions}
             </p>
             <span className="inline-block px-3 py-1 rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 text-[9px] font-bold text-fuchsia-300">
               🔗 lunosfer.com
