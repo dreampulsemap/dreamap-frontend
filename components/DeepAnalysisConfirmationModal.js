@@ -8,6 +8,7 @@ export default function DeepAnalysisConfirmationModal({
   onConfirm,
   lang,
   gumroadUrl,
+  isGift = false, // Hediye modu belirteci
 }) {
   if (!isOpen) return null
   const t = getDreamCardText(lang)
@@ -35,7 +36,7 @@ export default function DeepAnalysisConfirmationModal({
             ✦ {t.confirmBadge}
           </span>
           <h3 className="text-2xl font-bold gradient-text font-serif">
-            {t.confirmTitle}
+            {isGift ? t.confirmGiftTitle : t.confirmTitle}
           </h3>
         </div>
 
@@ -84,7 +85,7 @@ export default function DeepAnalysisConfirmationModal({
               onClick={onConfirm}
               className="w-full inline-flex min-h-[50px] items-center justify-center rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-3.5 text-sm font-bold text-white transition hover:scale-[1.01] hover:brightness-110 shadow-[0_0_20px_rgba(240,73,214,0.3)]"
             >
-              {t.startAnalysisLabel}
+              {isGift ? t.startGiftAnalysisLabel : t.startAnalysisLabel}
             </button>
           ) : (
             <div className="space-y-3">
