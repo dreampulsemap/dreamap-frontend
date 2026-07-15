@@ -1,8 +1,13 @@
+import OpenAI from 'openai'
 import { createClient } from '@supabase/supabase-js'
 
 export const config = {
   maxDuration: 60,
 }
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -22,28 +27,15 @@ export default async function handler(req, res) {
 
   try {
     const authHeader = req.headers.authorization || ''
-    const token = authHeader.startsWith('Bearer ')
-      ? authHeader.slice(7).trim()
-      : ''
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
 
-    if (!token) {
-      return res.status(401).json({ error: 'missing_token' })
-    }
+    if (!token) return res.status(401).json({ error: 'missing_token' })
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseAdmin.auth.getUser(token)
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'unauthorized' })
-    }
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
+    if (userError || !user) return res.status(401).json({ error: 'unauthorized' })
 
     const { dreamId } = req.body || {}
-
-    if (!dreamId) {
-      return res.status(400).json({ error: 'missing_dream_id' })
-    }
+    if (!dreamId) return res.status(400).json({ error: 'missing_dream_id' })
 
     const { data: dream, error: dreamError } = await supabaseAdmin
       .from('dreams')
@@ -51,40 +43,45 @@ export default async function handler(req, res) {
       .eq('id', dreamId)
       .single()
 
-    if (dreamError || !dream) {
-      return res.status(404).json({ error: 'dream_not_found' })
-    }
+    if (dreamError || !dream) return res.status(404).json({ error: 'dream_not_found' })
 
     if (dream.ai_image_url) {
-      return res.status(200).json({
-        ok: true,
-        alreadyGenerated: true,
-        imageUrl: dream.ai_image_url,
-      })
+      return res.status(200).json({ ok: true, alreadyGenerated: true, imageUrl: dream.ai_image_url })
     }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
+    const { data: profile } = await supabaseAdmin
       .from('user_profiles')
       .select('id, premium_analysis_auras')
       .eq('id', user.id)
       .single()
 
-    if (profileError || !profile) {
-      return res.status(404).json({ error: 'profile_not_found' })
-    }
+    const auras = Number(profile?.premium_analysis_auras || 0)
+    if (auras < 2) return res.status(402).json({ error: 'no_auras' })
 
-    const auras = Number(profile.premium_analysis_auras || 0)
+    // =========================================================================
+    // ADIM 1: OPENAI İLE KUSURSUZ GÖRSEL PROMPTU ÜRETİMİ (Sahne Odaklı)
+    // =========================================================================
+    const promptEnhancement = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are an expert AI image prompt engineer. Read the user\'s dream (in any language), extract the single most visually striking, surreal, and specific scene (characters, objects, environments, actions). Translate and rewrite it into a highly detailed, cinematic English prompt for a diffusion model. DO NOT use the word "dream". Just output the descriptive prompt.' 
+        },
+        { role: 'user', content: dream.content }
+      ],
+      temperature: 0.7,
+      max_tokens: 150
+    });
 
-    if (auras < 2) {
-      return res.status(402).json({ error: 'no_auras' })
-    }
-
-    // SAHNE ODAKLI YENİ PROMPT DİZAYNI
-    // Rüyadaki eylemi ve nesneleri merkeze alır, üzerine Lunosfer'in karanlık mistik sanat filtresini uygular.
-    const shortContent = String(dream.content || '').replace(/\s+/g, ' ').trim().slice(0, 300)
+    const optimizedScene = promptEnhancement.choices[0].message.content.trim();
     
-    const imagePrompt = `A breathtaking, highly detailed mystical illustration of the most striking and vivid scene from this dream: "${shortContent}". Focus heavily on visualizing the exact environment, characters, and actions described in the dream text. Style: cinematic lighting, ethereal atmosphere, dark cosmic tarot card aesthetic, mystical surrealism, oil painting texture mixed with modern digital double-exposure, deep indigo, fuchsia, and glowing gold accents. Evocative of ${dream.ai_sentiment || 'mystery'}, high-art composition, hauntingly beautiful, masterpiece, octane render.`
+    // Lunosfer Sanat Stilini Promptun Sonuna Enjekte Et
+    const imagePrompt = `${optimizedScene}, mystical surrealism style, dark cosmic tarot card aesthetic, deep indigo, fuchsia, and glowing gold accents, ethereal lighting, oil painting texture mixed with modern digital double-exposure, masterpiece, octane render, extremely detailed, hauntingly beautiful.`;
 
+    // =========================================================================
+    // ADIM 2: REPLICATE ÜZERİNDEN GÖRSEL ÜRETİMİ
+    // =========================================================================
     const replicateRes = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions', {
       method: 'POST',
       headers: {
@@ -106,48 +103,54 @@ export default async function handler(req, res) {
     const replicateData = await replicateRes.json().catch(() => null)
 
     if (!replicateRes.ok || !replicateData?.output?.[0]) {
-      console.error('Replicate error details:', replicateData)
-      const errorDetail = replicateData?.error || replicateData?.detail || 'Replicate API rejected the request.'
-      return res.status(replicateRes.status || 502).json({ 
-        error: 'image_generation_failed',
-        details: `Replicate HTTP ${replicateRes.status}: ${errorDetail}`
-      })
+      console.error('Replicate Error:', replicateData)
+      return res.status(502).json({ error: 'image_generation_failed', details: replicateData?.error || 'Unknown Replicate Error' })
     }
 
-    const imageUrl = replicateData.output[0]
+    const tempImageUrl = replicateData.output[0]
 
+    // =========================================================================
+    // ADIM 3: GÖRSELİ KALICI HALE GETİRME (SUPABASE STORAGE UPLOAD)
+    // =========================================================================
+    let finalImageUrl = tempImageUrl;
+    
+    try {
+      const imageFetchRes = await fetch(tempImageUrl);
+      if (imageFetchRes.ok) {
+        const arrayBuffer = await imageFetchRes.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const fileName = `${dreamId}-${Date.now()}.webp`;
+
+        const { error: uploadError } = await supabaseAdmin.storage
+          .from('dream_images') // Açtığınız bucket'ın adı!
+          .upload(fileName, buffer, {
+            contentType: 'image/webp',
+            upsert: true,
+          });
+
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabaseAdmin.storage.from('dream_images').getPublicUrl(fileName);
+          finalImageUrl = publicUrl;
+        }
+      }
+    } catch (storageError) {
+      console.error("Storage upload failed, falling back to temp url", storageError);
+    }
+
+    // =========================================================================
+    // ADIM 4: VERİTABANINA KAYIT VE BAKİYE DÜŞÜMÜ
+    // =========================================================================
     const nextAuras = auras - 2
-    const { error: auraUpdateError } = await supabaseAdmin
-      .from('user_profiles')
-      .update({ premium_analysis_auras: nextAuras })
-      .eq('id', user.id)
-
-    if (auraUpdateError) {
-      return res.status(500).json({ error: 'aura_update_failed' })
-    }
-
-    const { error: saveError } = await supabaseAdmin
-      .from('dreams')
-      .update({
-        ai_image_url: imageUrl,
-        ai_image_prompt: imagePrompt,
-      })
-      .eq('id', dream.id)
-
-    if (saveError) {
-      return res.status(500).json({ error: 'save_failed' })
-    }
+    await supabaseAdmin.from('user_profiles').update({ premium_analysis_auras: nextAuras }).eq('id', user.id)
+    await supabaseAdmin.from('dreams').update({ ai_image_url: finalImageUrl, ai_image_prompt: imagePrompt }).eq('id', dream.id)
 
     return res.status(200).json({
       ok: true,
-      imageUrl,
+      imageUrl: finalImageUrl,
       aurasLeft: nextAuras,
     })
   } catch (error) {
-    console.error('generate-dream-image fatal error:', error)
-    return res.status(500).json({
-      error: 'internal_server_error',
-      details: error.message || 'unknown_error',
-    })
+    console.error('generate-dream-image error:', error)
+    return res.status(500).json({ error: 'internal_server_error' })
   }
 }
