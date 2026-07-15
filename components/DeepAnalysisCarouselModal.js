@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { getVal, getDreamCardText } from '@/lib/archetypeTranslations'
+import { getVal } from '@/lib/archetypeTranslations'
+import { getDreamCardText } from '@/lib/dreamCardTranslations'
 
 export default function DeepAnalysisCarouselModal({
   isOpen,
