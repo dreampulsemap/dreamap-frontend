@@ -14,9 +14,10 @@ export default function DeepAnalysisCarouselModal({
   teaserSummary,
   onShare,
   onLunosferShare,
-  onInstagramShare, 
-  onGenerateImageOnly, // Slayt üstü görsel üretim tetikleyicisi
+  onInstagramShare,
+  onGenerateImageOnly,
   generatingImage,
+  premiumError,
   translateArchetype,
   onOpenStoryMode,
   dreamId
@@ -138,7 +139,7 @@ export default function DeepAnalysisCarouselModal({
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onGenerateImageOnly(); }}
                       disabled={generatingImage}
-                      className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-2.5 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.15)] animate-pulse"
+                      className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-2.5 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.15)]"
                     >
                       <span>{generatingImage ? '⏳' : '✦'}</span>
                       <span>
@@ -147,14 +148,20 @@ export default function DeepAnalysisCarouselModal({
                           : (lang === 'tr' ? 'Görseli Canlandır · 2 Aura' : 'Illuminate Artwork · 2 Auras')}
                       </span>
                     </button>
+                    {/* SLAYT ÜZERİNDE REPLICATE HATA GÖRÜNTÜLEME ALANI (Self-Debugging) */}
+                    {premiumError && (
+                      <p className="text-xs text-rose-400 max-w-[240px] font-sans mt-2" role="alert">
+                        ⚠️ {premiumError}
+                      </p>
+                    )}
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-[#040711] via-transparent to-transparent" />
                 <div className="absolute bottom-6 left-6 right-6">
                   <h4 className="text-xl font-bold text-white mb-2 leading-tight font-serif">{dreamTitle}</h4>
                   <div className="flex flex-wrap gap-1.5">
-                    {Array.isArray(premiumAnalysis?.archetypes) &&
-                      premiumAnalysis?.archetypes.map((arch, i) => (
+                    {Array.isArray(premiumAnalysis.archetypes) &&
+                      premiumAnalysis.archetypes.map((arch, i) => (
                         <span key={i} className="text-[9px] font-semibold bg-violet-500/20 border border-violet-400/30 px-2 py-0.5 rounded-full text-violet-100">
                           ✦ {translateArchetype(arch)}
                         </span>
@@ -257,7 +264,7 @@ export default function DeepAnalysisCarouselModal({
           )}
         </div>
 
-        {/* ALT NOKTALAR VE NAVİGASYON - VEKTÖREL MARKA LOGOLU SOSYAL PAYLAŞIM MERKEZİ */}
+        {/* ALT NOKTALAR VE NAVİGASYON - SOSYAL PAYLAŞIM MERKEZİ */}
         <div className="absolute bottom-4 left-0 right-0 px-6 flex flex-col items-center gap-3">
           
           {/* İndikatör Noktaları */}
@@ -283,10 +290,10 @@ export default function DeepAnalysisCarouselModal({
               ←
             </button>
 
-            {/* VEKTÖREL SVG TABANLI ORİJİNAL SOSYAL PAYLAŞIM HUBI (İletilen İstek Doğrultusunda Birebir Logolar Eklenmiştir) */}
+            {/* VEKTÖREL SVG TABANLI ORİJİNAL SOSYAL PAYLAŞIM HUBI */}
             <div className="flex-1 flex items-center justify-center gap-2.5 rounded-2xl bg-white/[0.03] border border-white/10 px-3.5 py-2">
               
-              {/* LUNOSFER SOHBET ÇEMBERİ (Yıldızlı Büyülü Mesaj Balonu) */}
+              {/* LUNOSFER SOHBET ÇEMBERİ */}
               <button
                 type="button"
                 onClick={onLunosferShare}
@@ -310,7 +317,7 @@ export default function DeepAnalysisCarouselModal({
                 </svg>
               </button>
 
-              {/* TWITTER / X (Orijinal Minimal X Amblemi) */}
+              {/* TWITTER / X */}
               <a
                 href={`https://twitter.com/intent/tweet?text=${encodedText}&hashtags=Lunosfer,JungianDream`}
                 target="_blank"
@@ -323,7 +330,7 @@ export default function DeepAnalysisCarouselModal({
                 </svg>
               </a>
 
-              {/* PINTEREST (Orijinal Kırmızı P Amblemi) */}
+              {/* PINTEREST */}
               <a
                 href={`https://pinterest.com/pin/create/button/?url=${encodedUrl}&media=${encodedImage}&description=${encodedText}`}
                 target="_blank"
@@ -336,7 +343,7 @@ export default function DeepAnalysisCarouselModal({
                 </svg>
               </a>
 
-              {/* FACEBOOK (Orijinal Mavi F Amblemi) */}
+              {/* FACEBOOK */}
               <a
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
                 target="_blank"
@@ -349,7 +356,7 @@ export default function DeepAnalysisCarouselModal({
                 </svg>
               </a>
 
-              {/* WHATSAPP (Orijinal Telefon Balonu) */}
+              {/* WHATSAPP */}
               <a
                 href={`https://api.whatsapp.com/send?text=${encodedText}`}
                 target="_blank"
@@ -362,7 +369,7 @@ export default function DeepAnalysisCarouselModal({
                 </svg>
               </a>
 
-              {/* GENEL BAĞLANTI KOPYALAYICI (Kırpılmış Çift Halka) */}
+              {/* GENEL BAĞLANTI KOPYALAYICI */}
               <button
                 type="button"
                 onClick={onShare}
@@ -374,10 +381,8 @@ export default function DeepAnalysisCarouselModal({
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
-
             </div>
 
-            {/* SAĞ OK */}
             <button
               type="button"
               disabled={currentSlide === 6}
