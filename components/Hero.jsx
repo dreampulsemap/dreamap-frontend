@@ -78,7 +78,7 @@ const HERO_UI = {
     metric1Sub: 'siempre despierto',
     metric2Label: 'Arquetipos',
     metric2Value: '∞',
-    metric2Sub: 'identidades en evolución',
+    metric2Sub: 'identidades en evolução',
     metric3Label: 'Resonancia',
     metric3Value: 'En vivo',
     metric3Sub: 'pulso colectivo',
@@ -213,7 +213,7 @@ const HERO_UI = {
     titleFallback: '世界の潜在意識へようこそ。',
     subtitleFallback: '集合的な夢 of 知性',
     descriptionFallback:
-      'Lunosfer は夢のシグナル、アーキタイプ、感情パターンを、リアルタイムで探索できる生きた潜在意識ネットワークへ変換します。',
+      'Lunosfer は夢 of シグナル、アーキタイプ、感情パターンを、リアルタイムで探索できる生きた潜在意識ネットワークへ変換します。',
     microLine: 'アーキタイプを探索し、集合的な洞察につながろう。',
     ctaMap: '世界の潜在意識に接続する',
     ctaAddDream: '自分の夢をマップに追加する',
@@ -247,8 +247,8 @@ export default function Hero() {
     setMounted(true)
   }, [])
 
-  // Dil kodunu ilk montaj bitene kadar sabit 'en' tutarak hidrasyon çökmelerini engeller
-  const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
+  // i18n?. optional chaining ile çökme tamamen engellenmiştir
+  const currentLang = mounted ? (i18n?.language || 'en').split('-')[0] : 'en'
   const lang = HERO_UI[currentLang] ? currentLang : 'en'
   const ui = HERO_UI[lang]
 
