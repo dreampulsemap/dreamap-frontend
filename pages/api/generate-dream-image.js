@@ -84,17 +84,17 @@ export default async function handler(req, res) {
     
     const imagePrompt = `A breathtaking, ethereal dreamscape representing the ${topArchetype} archetype, with moody and atmospheric lighting, featuring mystical elements, mystical surrealism style, dark cosmic tarot card aesthetic, deep indigo, fuchsia, and glowing gold accents, oil painting texture mixed with modern digital double-exposure, evocative of ${dream.ai_sentiment || 'mystery'}, high-art composition, hauntingly beautiful, cinematic, octane render, masterpiece, extremely detailed, inspired by Carl Jung's subconscious visual representations, based on: ${shortContent}`
 
+    // 1. REPLICATE ÇAĞRISI (Bearer standardına geri dönüldü)
     const replicateRes = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions', {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`, // Bearer yerine Token standardına geçildi (Replicate Özel İsteği)
+        'Authorization': `Bearer ${process.env.REPLICATE_API_TOKEN}`,
         'Content-Type': 'application/json',
         'Prefer': 'wait=15'
       },
       body: JSON.stringify({
         input: {
           prompt: imagePrompt,
-          num_outputs: 1,
           aspect_ratio: "1:1",
           output_format: "webp",
           output_quality: 90,
@@ -105,17 +105,19 @@ export default async function handler(req, res) {
 
     const replicateData = await replicateRes.json().catch(() => null)
 
-    if (!replicateRes.ok || !replicateData?.output?.[0]) {
+    // 2. DETAYLI HATA GERİ BİLDİRİMİ (Frontend'e patlayan hata açıkça gönderilir)
+    if (!replicateRes.ok || !replicateData || !replicateData.output || !replicateData.output[0]) {
       console.error('Replicate error details:', replicateData)
       const errorDetail = replicateData?.error || replicateData?.detail || 'Replicate API rejected the request.'
       return res.status(replicateRes.status || 502).json({ 
         error: 'image_generation_failed',
-        details: `Replicate HTTP ${replicateRes.status}: ${errorDetail}`
+        details: `Replicate Error: ${errorDetail}`
       })
     }
 
     const imageUrl = replicateData.output[0]
 
+    // 3. GÜVENLİ AURA DÜŞÜMÜ
     const nextAuras = auras - 2
     const { error: auraUpdateError } = await supabaseAdmin
       .from('user_profiles')
