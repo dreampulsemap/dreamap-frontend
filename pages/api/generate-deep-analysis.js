@@ -41,7 +41,6 @@ Do not output short or brief summaries. Each of these sections MUST consist of a
 
 Respond with valid JSON only, no markdown, and no text outside the JSON structure.`
 
-// Klinik Güvenlik Filtresi (Tetikleyici kelimeleri denetler)
 function containsCrisisTokens(text) {
   if (!text) return false;
   const lowercase = text.toLowerCase();
@@ -209,7 +208,6 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'dream_not_found' })
     }
 
-    // 1. KLİNİK GÜVENLİK FİLTRESİ TETİKLENME KONTROLÜ
     if (containsCrisisTokens(dream.content)) {
       await supabaseAdmin
         .from('dreams')
@@ -233,7 +231,6 @@ export default async function handler(req, res) {
       })
     }
 
-    // AURA DÜŞÜLECEK KULLANICI (Ödemeyi gerçekleştiren kullanıcı: user.id)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('id, premium_analysis_auras')
@@ -246,7 +243,6 @@ export default async function handler(req, res) {
 
     const auras = Number(profile.premium_analysis_auras || 0)
 
-    // ONARILAN GÜVENLİK SINIRI: 8 AURA KONTROLÜ (Bakiye eksiye düşmez!)
     if (auras < 8) {
       return res.status(402).json({ error: 'no_auras' })
     }
@@ -259,15 +255,12 @@ export default async function handler(req, res) {
       })
       .eq('id', dream.id)
 
-    // =========================================================================
-    // JUNGİAN DREAM MEMORY (Geçmiş Rüya Geçmişi Sorgulama)
-    // =========================================================================
     const { data: pastDreams } = await supabaseAdmin
       .from('dreams')
       .select('content, premium_deep_analysis, ai_sentiment')
       .eq('user_id', user.id)
       .eq('premium_deep_analysis_status', 'generated')
-      .neq('id', dreamId) // Mevcut rüyayı hariç tut
+      .neq('id', dreamId)
       .order('premium_deep_analysis_generated_at', { ascending: false })
       .limit(5)
 
@@ -334,9 +327,6 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'invalid_json_from_model' })
     }
 
-    // =========================================================================
-    // HEDİYE KOZMİK RÜYA GÖRSELİ ÜRETİMİ (Flux Schnell Entegrasyonu)
-    // =========================================================================
     let imageUrl = null
     let imagePrompt = null
 
@@ -350,7 +340,7 @@ export default async function handler(req, res) {
       const replicateRes = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+          'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`, // Bearer yerine Token standardına geçildi
           'Content-Type': 'application/json',
           'Prefer': 'wait=15'
         },
@@ -377,7 +367,6 @@ export default async function handler(req, res) {
       console.error('Replicate image generation error:', imageError)
     }
 
-    // Bakiye düşümü (Premium Derin Analiz = 8 Aura)
     const nextAuras = auras - 8
     const { error: auraUpdateError } = await supabaseAdmin
       .from('user_profiles')
@@ -396,7 +385,6 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'aura_update_failed' })
     }
 
-    // Analiz ve Görsel rüyanın sahibinin (dream.id) rüya kartına işlenir
     const { error: saveError } = await supabaseAdmin
       .from('dreams')
       .update({
