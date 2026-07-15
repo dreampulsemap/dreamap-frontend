@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 const locationCoords = {
   Turkey: { lat: 39, lng: 35 },
