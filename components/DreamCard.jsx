@@ -409,21 +409,31 @@ export default function DreamCard({
     const dreamUrl = typeof window !== 'undefined' ? `${window.location.origin}/dreams/${dream.id}` : ''
     const shareText = t.shareText.replace('{url}', dreamUrl)
 
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'Lunosfer Rüya Analizim 📸', text: shareText, url: dreamUrl })
-        return
-      } catch (err) {
-        console.error('Native IG share failed:', err)
-      }
-    }
-
+    // Metni panoya kopyala ki kullanıcı Instagram'da yapıştırabilsin
     try {
       await navigator.clipboard.writeText(shareText)
-      triggerToast(t.toastInstagram)
     } catch (err) {
       console.error('IG copy failed:', err)
     }
+
+    const isMobile = typeof navigator !== 'undefined' && /iphone|ipad|ipod|android/i.test(navigator.userAgent)
+
+    if (isMobile) {
+      // Instagram uygulamasını doğrudan aç (genel paylaşım menüsü DEĞİL)
+      const now = Date.now()
+      window.location.href = 'instagram://app'
+
+      // Uygulama yüklü değilse veya deep link çalışmazsa web'e düş
+      setTimeout(() => {
+        if (Date.now() - now < 2000) {
+          window.location.href = 'https://www.instagram.com/'
+        }
+      }, 1200)
+    } else {
+      window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer')
+    }
+
+    triggerToast(t.toastInstagram)
   }
 
   const displayContent = translated ? translatedContent : dream.content
@@ -599,6 +609,7 @@ export default function DreamCard({
               onShare={handleShareOnSocial}
               onLunosferShare={handleLunosferShare}
               onInstagramShare={handleInstagramShare}
+              onOpenStoryMode={() => setShowStoryMode(true)}
               dreamId={dream.id}
             />
           ) : (
