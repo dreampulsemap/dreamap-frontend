@@ -104,7 +104,7 @@ function buildShape() {
 
 function buildPrompt({ content, targetLangName, pastContext }) {
   return `
-Perform a profound, comprehensive, and highly resonant Jungian deep analysis of the following dream.
+Perform a profound, comprehensive, and highly resonant Jungian dream analysis of the following dream.
 
 CRITICAL REQUIREMENT:
 The entire JSON values, strings, array elements, meanings, titles, and explanations MUST be written entirely in: ${targetLangName}.
@@ -233,6 +233,7 @@ export default async function handler(req, res) {
       })
     }
 
+    // AURA DÜŞÜLECEK KULLANICI (Ödemeyi gerçekleştiren kullanıcı: user.id)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('id, premium_analysis_auras')
@@ -245,7 +246,8 @@ export default async function handler(req, res) {
 
     const auras = Number(profile.premium_analysis_auras || 0)
 
-    if (auras <= 0) {
+    // ONARILAN GÜVENLİK SINIRI: 8 AURA KONTROLÜ (Bakiye eksiye düşmez!)
+    if (auras < 8) {
       return res.status(402).json({ error: 'no_auras' })
     }
 
@@ -394,7 +396,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'aura_update_failed' })
     }
 
-    // Analiz ve Görseli veritabanına kaydet
+    // Analiz ve Görsel rüyanın sahibinin (dream.id) rüya kartına işlenir
     const { error: saveError } = await supabaseAdmin
       .from('dreams')
       .update({
