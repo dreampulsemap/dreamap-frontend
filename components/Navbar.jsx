@@ -5,18 +5,13 @@ import { auth, supabase } from '@/lib/supabase'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
+import { getDreamCardText } from '@/lib/dreamCardTranslations'
 
-const GUMROAD_PRODUCT_URL = 'https://lunosfer.gumroad.com/l/lunosfer-deep-analysis'
+const SHOP_URL = 'https://shop.lunosfer.com'
 
 const NAV_UI = {
-  tr: { globe: 'Rüya Haritası', profile: 'Profilim', addDream: 'Rüya Ekle', prophecy: 'Kehanet', menu: 'Menü', close: 'Kapat', signIn: 'Giriş Yap', currentAura: 'Aura Bakiyeniz:', buyAura: 'Aura Satın Al (Gumroad)' },
-  en: { globe: 'Dream Map', profile: 'Profile', addDream: 'Add Dream', prophecy: 'Prophecy', menu: 'Menu', close: 'Close', signIn: 'Sign In', currentAura: 'Your Aura:', buyAura: 'Buy Aura (Gumroad)' },
-  es: { globe: 'Mapa de Sueños', profile: 'Perfil', addDream: 'Añadir Sueño', prophecy: 'Profecía', menu: 'Menú', close: 'Cerrar', signIn: 'Iniciar Sesión', currentAura: 'Tus Auras:', buyAura: 'Comprar Auras (Gumroad)' },
-  fr: { globe: 'Carte des Rêves', profile: 'Profil', addDream: 'Ajouter un Rêve', prophecy: 'Prophétie', menu: 'Menu', close: 'Fermer', signIn: 'Se Connecter', currentAura: 'Vos Auras :', buyAura: 'Acheter des Auras (Gumroad)' },
-  de: { globe: 'Traumkarte', profile: 'Profil', addDream: 'Traum Hinzufügen', prophecy: 'Prophezeiung', menu: 'Menü', close: 'Schließen', signIn: 'Anmelden', currentAura: 'Deine Aura:', buyAura: 'Aura kaufen (Gumroad)' },
-  pt: { globe: 'Mapa dos Sonhos', profile: 'Perfil', addDream: 'Adicionar Sonho', prophecy: 'Profecia', menu: 'Menu', close: 'Fechar', signIn: 'Entrar', currentAura: 'Suas Auras:', buyAura: 'Comprar Auras (Gumroad)' },
-  ru: { globe: 'Карта Снов', profile: 'Профиль', addDream: 'Добавить Сон', prophecy: 'Пророчество', menu: 'Меню', close: 'Закрыть', signIn: 'Войти', currentAura: 'Ваши Ауры:', buyAura: 'Купить Ауры (Gumroad)' },
-  ja: { globe: '夢マップ', profile: 'プロフィール', addDream: '夢を追加', prophecy: '予言', menu: 'メニュー', close: '閉じる', signIn: 'ログイン', currentAura: '現在のオーラ:', buyAura: 'オーラを購入 (Gumroad)' },
+  tr: { globe: 'Rüya Haritası', profile: 'Profilim', addDream: 'Rüya Ekle', prophecy: 'Kehanet', menu: 'Menü', close: 'Kapat', signIn: 'Giriş Yap', currentAura: 'Aura Bakiyeniz:' },
+  en: { globe: 'Dream Map', profile: 'Profile', addDream: 'Add Dream', prophecy: 'Prophecy', menu: 'Menu', close: 'Close', signIn: 'Sign In', currentAura: 'Your Aura:' },
 }
 
 export default function Navbar() {
@@ -34,10 +29,10 @@ export default function Navbar() {
     setMounted(true)
   }, [])
 
-  // i18n?. optional chaining ile çökme tamamen engellenmiştir
-  const currentLang = mounted ? (i18n?.language || 'en').split('-')[0] : 'en'
+  const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
   const lang = NAV_UI[currentLang] ? currentLang : 'en'
   const ui = NAV_UI[lang]
+  const t = getDreamCardText(currentLang)
 
   useEffect(() => {
     if (!mounted) return
@@ -200,12 +195,12 @@ export default function Navbar() {
                     <span>✦</span> {auras} Aura
                   </p>
                   <a
-                    href={GUMROAD_PRODUCT_URL}
+                    href={SHOP_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block text-center rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 shadow-[0_0_20px_rgba(240,73,214,0.2)]"
+                    className="block text-center rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 shadow-[0_0_20px_rgba(240,73,214,0.2)] animate-pulse"
                   >
-                    {ui.buyAura}
+                    {t.buyAuraLabel}
                   </a>
                 </div>
               )}
@@ -283,12 +278,12 @@ export default function Navbar() {
               <div className="mt-2 rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-4 text-center">
                 <p className="text-xs text-fuchsia-300/80 mb-2">{ui.currentAura} ✦ {auras} Aura</p>
                 <a
-                  href={GUMROAD_PRODUCT_URL}
+                  href={SHOP_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex min-h-[44px] items-center justify-center rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-600 text-xs font-bold text-white shadow-lg"
                 >
-                  {ui.buyAura}
+                  {t.buyAuraLabel}
                 </a>
               </div>
             )}
