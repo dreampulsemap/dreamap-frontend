@@ -55,11 +55,6 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'dream_not_found' })
     }
 
-    if (dream.user_id !== user.id) {
-      return res.status(403).json({ error: 'forbidden' })
-    }
-
-    // Zaten üretilmiş rüya görseli varsa mükerrer bakiye düşümünü engelle
     if (dream.ai_image_url) {
       return res.status(200).json({
         ok: true,
@@ -68,6 +63,7 @@ export default async function handler(req, res) {
       })
     }
 
+    // Ödemeyi tetikleyen kullanıcının (user.id) Aura bakiyesini çek
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('id, premium_analysis_auras')
@@ -84,7 +80,6 @@ export default async function handler(req, res) {
       return res.status(402).json({ error: 'no_auras' })
     }
 
-    // Göz alıcı, paylaşma isteği uyandıracak mistik sanat eseri prompt oluşturucu
     const topArchetype = Array.isArray(dream.ai_archetypes) && dream.ai_archetypes[0] ? dream.ai_archetypes[0] : 'Dreamer'
     const shortContent = String(dream.content || '').replace(/\s+/g, ' ').trim().slice(0, 240)
     
@@ -118,7 +113,7 @@ export default async function handler(req, res) {
 
     const imageUrl = replicateData.output[0]
 
-    // Bağımsız Görsel Üretimi Bakiye Düşümü (2 Aura)
+    // Ödemeyi tetikleyenden 2 Aura düşer (hediyeleşmeyi destekler)
     const nextAuras = auras - 2
     const { error: auraUpdateError } = await supabaseAdmin
       .from('user_profiles')
@@ -129,7 +124,6 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'aura_update_failed' })
     }
 
-    // Rüya kaydını güncelle
     const { error: saveError } = await supabaseAdmin
       .from('dreams')
       .update({
