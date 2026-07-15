@@ -38,7 +38,7 @@ export default function DreamCard({
     setMounted(true)
   }, [])
 
-  // Dil kodunu ilk montaj (hydration) tamamlanana kadar sabit 'en' tutarak uyuşmazlığı engeller
+  // Dil kodunu ilk montaj tamamlanana kadar sabit 'en' tutarak uyuşmazlığı engeller
   const currentLang = useMemo(() => {
     const rawLang = lang || (mounted ? (i18n.language || 'en') : 'en')
     return String(rawLang).toLowerCase().split('-')[0]
@@ -62,7 +62,6 @@ export default function DreamCard({
 
   // Bakiye, Görsel ve Analiz Durumları
   const [premiumAuras, setPremiumAuras] = useState(0)
-  const [aurasLoading, setAurasLoading] = useState(false)
   const [premiumGenerating, setPremiumGenerating] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
   const [premiumError, setPremiumError] = useState('')
@@ -124,40 +123,55 @@ export default function DreamCard({
 
   useEffect(() => {
     if (!mounted) return
-    if (!showAnalysisModal && !showConfirmModal) return
+    let active = true
 
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setShowAnalysisModal(false)
-        setShowConfirmModal(false)
-        setShowStoryMode(false)
+    async function checkUser() {
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        if (!active) return
+        setUser(currentUser || null)
+
+        if (currentUser?.id) {
+          const [likesRes, creditsRes] = await Promise.all([
+            fetch(`/api/like?dreamId=${encodeURIComponent(dream.id)}&userId=${encodeURIComponent(currentUser.id)}`),
+            supabase.from('user_profiles').select('premium_analysis_auras').eq('id', currentUser.id).maybeSingle()
+          ])
+          
+          if (!active) return
+          const likeData = await likesRes.json().catch(() => ({}))
+          setLiked(Boolean(likeData?.liked))
+          setPremiumAuras(Number(creditsRes?.data?.premium_analysis_auras || 0))
+        }
+      } catch (err) {
+        console.error('User check failed:', err)
       }
     }
+    checkUser()
 
-    document.addEventListener('keydown', onKeyDown)
-    document.body.style.overflow = 'hidden'
+    const { data: authSubscription } = auth.onAuthStateChange(async (event, session) => {
+      if (!active) return
+      if (session?.user) {
+        setUser(session.user)
+        const profile = await auth.getProfile(session.user.id)
+        setPremiumAuras(Number(profile?.premium_analysis_auras || 0))
+      } else {
+        setUser(null)
+        setPremiumAuras(0)
+      }
+    })
 
     return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      document.body.style.overflow = ''
+      active = false
+      authSubscription?.subscription?.unsubscribe()
     }
-  }, [showAnalysisModal, showConfirmModal, mounted])
+  }, [dream.id, mounted])
 
   const teaserAnalysis = useMemo(() => {
-    if (
-      effectiveDream?.ai_jungian_analysis &&
-      Object.keys(effectiveDream.ai_jungian_analysis).length > 0
-    ) {
+    if (effectiveDream?.ai_jungian_analysis && Object.keys(effectiveDream.ai_jungian_analysis).length > 0) {
       return effectiveDream.ai_jungian_analysis
     }
 
-    if (
-      effectiveDream?.ai_summary ||
-      effectiveDream?.ai_summary_en ||
-      effectiveDream?.ai_summary_tr ||
-      effectiveDream?.ai_title ||
-      effectiveDream?.ai_motiv
-    ) {
+    if (effectiveDream?.ai_summary || effectiveDream?.ai_summary_en || effectiveDream?.ai_summary_tr) {
       return {
         title: {
           en: effectiveDream?.ai_title_en || effectiveDream?.ai_title || '',
@@ -172,9 +186,7 @@ export default function DreamCard({
           tr: effectiveDream?.ai_motiv_tr || effectiveDream?.ai_motiv || '',
         },
         sentiment: effectiveDream?.ai_sentiment || null,
-        archetypes: Array.isArray(effectiveDream?.ai_archetypes)
-          ? effectiveDream.ai_archetypes
-          : [],
+        archetypes: Array.isArray(effectiveDream?.ai_archetypes) ? effectiveDream.ai_archetypes : [],
         teaser: true,
       }
     }
@@ -223,250 +235,21 @@ export default function DreamCard({
     return Boolean(teaserAnalysis && (getDreamAnalysis() || getDreamMotiv() || getDreamTitle()))
   }, [teaserAnalysis, getDreamAnalysis, getDreamMotiv, getDreamTitle])
 
-  const isAnalysisProcessing = !hasTeaserAnalysis && analysisStatus === 'processing'
-  const isAnalysisFailed =
-    !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
+  const isAnalysisProcessing = !hasTeaserAnalysis && (analysisStatus === 'processing')
+  const isAnalysisFailed = !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
 
   const dreamImage = useMemo(() => effectiveDream.ai_image_url || null, [effectiveDream])
   const dreamMotiv = useMemo(() => getDreamMotiv(), [getDreamMotiv])
   const dreamTitle = useMemo(() => getDreamTitle(), [getDreamTitle])
 
-  useEffect(() => {
-    if (!mounted) return
-    let mountedCheck = true
-
-    async function checkUser() {
-      try {
-        const {
-          data: { user: currentUser },
-          error,
-        } = await supabase.auth.getUser()
-
-        if (error) throw error
-        if (!mountedCheck) return
-
-        setUser(currentUser || null)
-
-        if (currentUser?.id) {
-          await Promise.all([checkIfLiked(currentUser.id), loadPremiumAuras(currentUser.id)])
-        } else {
-          setPremiumAuras(0)
-        }
-      } catch (err) {
-        console.error('User check error:', err)
-        if (mountedCheck) {
-          setUser(null)
-          setPremiumAuras(0)
-        }
-      }
-    }
-
-    checkUser()
-
-    return () => {
-      mountedCheck = false
-    }
-  }, [dream.id, mounted])
-
-  async function loadPremiumAuras(userId) {
-    try {
-      setAurasLoading(true)
-
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('premium_analysis_auras')
-        .eq('id', userId)
-        .maybeSingle()
-
-      if (error) throw error
-      setPremiumAuras(Number(data?.premium_analysis_auras || 0))
-    } catch (err) {
-      console.error('Load premium auras error:', err)
-      setPremiumAuras(0)
-    } finally {
-      setAurasLoading(false)
-    }
-  }
-
-  async function checkIfLiked(userId) {
-    try {
-      const res = await fetch(
-        `/api/like?dreamId=${encodeURIComponent(dream.id)}&userId=${encodeURIComponent(userId)}`
-      )
-
-      if (!res.ok) return
-
-      const data = await res.json()
-      setLiked(Boolean(data.liked))
-    } catch (err) {
-      console.error('Check like error:', err)
-    }
-  }
-
-  async function handleLike() {
-    if (!user?.id) {
-      alert(getTranslation('social.loginToLike', currentLang))
-      return
-    }
-
-    const method = liked ? 'DELETE' : 'POST'
-
-    try {
-      const res = await fetch('/api/like', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dreamId: dream.id,
-          userId: user.id,
-        }),
-      })
-
-      if (!res.ok) throw new Error('Like request failed')
-
-      const data = await res.json()
-
-      setLiked((prevLiked) => {
-        const nextLiked = !prevLiked
-
-        setLikesCount((prevCount) =>
-          data.count !== undefined
-            ? data.count
-            : nextLiked
-            ? prevCount + 1
-            : Math.max(0, prevCount - 1)
-        )
-
-        return nextLiked
-      })
-    } catch (err) {
-      console.error('Like error:', err)
-    }
-  }
-
-  async function loadComments() {
-    setCommentsLoading(true)
-
-    try {
-      const res = await fetch(`/api/comment?dreamId=${encodeURIComponent(dream.id)}`)
-      if (!res.ok) throw new Error('Comments request failed')
-
-      const data = await res.json()
-      setComments(Array.isArray(data.comments) ? data.comments : [])
-    } catch (err) {
-      console.error('Load comments error:', err)
-      setComments([])
-    } finally {
-      setCommentsLoading(false)
-    }
-  }
-
-  async function handleAddComment() {
-    if (!user?.id) {
-      alert(getTranslation('social.loginToComment', currentLang))
-      return
-    }
-
-    const content = newComment.trim()
-    if (!content) return
-
-    try {
-      const res = await fetch('/api/comment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dreamId: dream.id,
-          userId: user.id,
-          content,
-        }),
-      })
-
-      if (!res.ok) throw new Error('Add comment request failed')
-
-      const data = await res.json()
-
-      setComments((prev) => [data.comment, ...prev])
-      setNewComment('')
-      setCommentsCount((prev) => prev + 1)
-    } catch (err) {
-      console.error('Add comment error:', err)
-    }
-  }
-
-  async function handleDeleteComment(commentId) {
-    if (!user?.id) return
-
-    const confirmText =
-      currentLang === 'tr'
-        ? 'Yorumu silmek istediğine emin misin?'
-        : 'Are you sure you want to delete this comment?'
-
-    if (!window.confirm(confirmText)) return
-
-    try {
-      const res = await fetch('/api/comment', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          commentId,
-          userId: user.id,
-        }),
-      })
-
-      if (!res.ok) throw new Error('Delete comment request failed')
-
-      setComments((prev) => prev.filter((c) => c.id !== commentId))
-      setCommentsCount((prev) => Math.max(0, prev - 1))
-    } catch (err) {
-      console.error('Delete comment error:', err)
-    }
-  }
-
-  async function handleRetryAnalysis() {
-    if (retryingAnalysis) return
-
-    setRetryingAnalysis(true)
-    setRetryError('')
-
-    try {
-      const res = await fetch('/api/analyze-dream', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          dreamId: dream.id,
-          lang: currentLang,
-        }),
-      })
-
-      const data = await res.json().catch(() => null)
-
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || 'retry_failed')
-      }
-
-      if (data.dream) {
-        setAnalysisOverride(data.dream)
-      }
-    } catch (err) {
-      console.error('Retry analysis error:', err)
-      setRetryError(getAnalysisFailedLabel(currentLang))
-    } finally {
-      setRetryingAnalysis(false)
-    }
-  }
-
   // Derin Rüya Analizini Başlatma (Gerçek Üretim Tetikleyicisi)
-  async function handlePremiumAnalysisExecute() {
+  const handlePremiumAnalysisExecute = async () => {
     setShowConfirmModal(false)
     setPremiumGenerating(true)
     setPremiumError('')
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
+      const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
         setPremiumError(getPremiumErrorMessage(currentLang, 'unauthorized'))
         return
@@ -519,19 +302,12 @@ export default function DreamCard({
     setPremiumError('')
 
     try {
-      const {
-        data: { user: verifiedUser },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError || !verifiedUser?.id) {
-        setUser(null)
+      const { data: { user: verifiedUser } } = await supabase.auth.getUser()
+      if (!verifiedUser?.id) {
         setPremiumError(getPremiumErrorMessage(currentLang, 'login_required'))
         router.push('/auth')
         return
       }
-
-      setUser(verifiedUser)
 
       if (premiumAuras < 2) {
         setPremiumError(getPremiumErrorMessage(currentLang, 'no_auras'))
@@ -546,9 +322,7 @@ export default function DreamCard({
 
       setGeneratingImage(true)
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+      const { data: { session } } = await supabase.auth.getSession()
 
       if (!session?.access_token) {
         setPremiumError(getPremiumErrorMessage(currentLang, 'unauthorized'))
@@ -596,12 +370,9 @@ export default function DreamCard({
     setPremiumError('')
 
     try {
-      const {
-        data: { user: verifiedUser },
-        error: userError,
-      } = await supabase.auth.getUser()
+      const { data: { user: verifiedUser } } = await supabase.auth.getUser()
 
-      if (userError || !verifiedUser?.id) {
+      if (!verifiedUser?.id) {
         setUser(null)
         setPremiumError(getPremiumErrorMessage(currentLang, 'login_required'))
         router.push('/auth')
@@ -610,13 +381,11 @@ export default function DreamCard({
 
       setUser(verifiedUser)
 
-      // Eğer zaten analiz üretilmişse onay ekranı göstermeden doğrudan Instagram carousel'i aç
       if (premiumAnalysis) {
         setShowAnalysisModal(true)
         return
       }
 
-      // Analiz henüz üretilmemişse onay penceresini tetikle
       setShowConfirmModal(true)
     } catch (err) {
       console.error('User verification check failed:', err)
@@ -624,7 +393,7 @@ export default function DreamCard({
     }
   }
 
-  // Lunosfer Sohbet Çemberi Paylaşımı
+  // Lunosfer Sohbet Çemberi Paylaşımı (Gerçek Veritabanı ve Akış Entegrasyonu)
   const handleLunosferShare = async () => {
     if (!user?.id) {
       alert(getTranslation('social.loginToComment', currentLang))
@@ -812,9 +581,9 @@ export default function DreamCard({
                 )}
                 <span>{getRetryAnalysisLabel(currentLang, retryingAnalysis)}</span>
               </button>
-              {retryError ? (
+              {retryError && (
                 <p className="mt-2 text-xs leading-5 text-rose-200/90">{retryError}</p>
-              ) : null}
+              )}
             </div>
           )}
 
