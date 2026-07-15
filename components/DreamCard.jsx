@@ -23,6 +23,31 @@ function getCloseLabel(lang) {
   return lang === 'tr' ? 'Kapat' : 'Close'
 }
 
+function getPremiumButtonLabel(lang, auras, loading) {
+  if (loading) return lang === 'tr' ? 'Derin analiz oluşturuluyor...' : 'Generating deep analysis...'
+  if (auras > 0) return lang === 'tr' ? `Derin Rüya Analizi · ${auras} Aura` : `Deep Dream Analysis · ${auras} Auras`
+  return lang === 'tr' ? '10 Aura al ve derin analizi aç' : 'Buy 10 Auras and open deep analysis'
+}
+
+function getPremiumErrorMessage(lang, errorCode) {
+  if (errorCode === 'login_required') return lang === 'tr' ? 'Derin analiz için önce giriş yapmalısın.' : 'Please log in first.'
+  if (errorCode === 'unauthorized') return lang === 'tr' ? 'Oturum doğrulanamadı. Lütfen tekrar giriş yap.' : 'Your session expired.'
+  if (errorCode === 'no_auras') return lang === 'tr' ? 'Derin analiz için yeterli Aura bakiyeniz kalmamış.' : 'You have no Auras left.'
+  return lang === 'tr' ? 'Derin analiz oluşturulurken bir hata oluştu.' : 'An error occurred.'
+}
+
+function getAnalysisProcessingLabel(lang) {
+  return lang === 'tr' ? 'Rüyan analiz ediliyor...' : 'Analyzing your dream...'
+}
+
+function getAnalysisFailedLabel(lang) {
+  return lang === 'tr' ? 'Rüya analizi şu anda tamamlanamadı.' : 'Dream analysis could not be completed.'
+}
+
+function getRetryAnalysisLabel(lang, loading) {
+  return loading ? (lang === 'tr' ? 'Tekrar deneniyor...' : 'Retrying...') : (lang === 'tr' ? 'Tekrar dene' : 'Retry')
+}
+
 export default function DreamCard({
   dream,
   lang,
@@ -62,7 +87,7 @@ export default function DreamCard({
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showStoryMode, setShowStoryMode] = useState(false)
 
-  // Bakiye, Görsel ve Analiz Durumları
+  // Bakiye ve Analiz Durumları
   const [premiumAuras, setPremiumAuras] = useState(0)
   const [premiumGenerating, setPremiumGenerating] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
@@ -339,7 +364,7 @@ export default function DreamCard({
     }
   }
 
-  // Sadece Rüya Görseli Üretme/Hediye Etme (Bağımsız 2 Aura Tetikleyicisi - DOĞRUDAN ONAYSIZ TETİKLENİR)
+  // Sadece Rüya Görseli Üretme/Hediye Etme (Bağımsız 2 Aura Tetikleyicisi - DOĞRUDAN ONAYSIZ ÜRETİR)
   const handleGenerateImageOnly = async () => {
     setPremiumError('')
 
@@ -359,7 +384,6 @@ export default function DreamCard({
         return
       }
 
-      // Butona tıklandığı an beklemeden doğrudan yükleniyor durumuna geçer (Ultra Hızlı UX)
       setGeneratingImage(true)
 
       const { data: { session } } = await supabase.auth.getSession()
@@ -384,15 +408,14 @@ export default function DreamCard({
       const data = await res.json().catch(() => null)
 
       if (!res.ok) {
-        setPremiumError(t.imageFail)
+        // DETAYLI REPLICATE HATA RAPORUNU ÖNYÜZE BASMA (Self-Debugging)
+        setPremiumError(data?.details || t.imageFail)
         setGeneratingImage(false)
         return
       }
 
       if (data?.imageUrl) {
         triggerToast(isOwner ? t.imageSuccess : t.imageGiftSuccess)
-        
-        // Sayfa yenilemesi yapmadan görseli rüya kartına veya slaytına anında giydirir
         setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
       }
 
@@ -669,11 +692,11 @@ export default function DreamCard({
             </span>
           </button>
 
-          {/* Sadece Rüya Görseli Üretme/Hediye Etme Butonu (2 Aura - DOĞRUDAN ONAYSIZ ÜRETİR) */}
+          {/* Sadece Rüya Görseli Üretme/Hediye Etme Butonu (2 Aura) */}
           {!premiumAnalysis && !dreamImage && (
             <button
               type="button"
-              onClick={handleGenerateImageOnly} // Artık doğrudan aradaki onay penceresini atlayarak API'ye gider!
+              onClick={handleGenerateImageOnly} // window.confirm sonrası beklemeden doğrudan fırlatır!
               disabled={generatingImage}
               className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-60 shadow-[0_0_20px_rgba(6,182,212,0.15)] animate-pulse"
             >
@@ -687,11 +710,7 @@ export default function DreamCard({
             </button>
           )}
 
-          {premiumError ? (
-            <p className="mb-5 -mt-2 text-sm leading-6 text-rose-200/90" role="alert">
-              {premiumError}
-            </p>
-          ) : null}
+          {premiumError && <p className="mb-5 -mt-2 text-sm leading-6 text-rose-200/90" role="alert">{premiumError}</p>}
 
           <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
             <button
