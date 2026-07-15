@@ -1,28 +1,30 @@
 import Image from 'next/image'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
-import { supabase, auth } from '../lib/supabase'
+import { supabase, auth } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
-import { getTranslation } from '../lib/translations'
-import DreamCard from '../components/DreamCard'
+import { getTranslation } from '@/lib/translations'
+import DreamCard from '@/components/DreamCard'
+
+const BATCH_SIZE = 12; // 3'lü ızgara ile mükemmel uyuşması için 12'şerli yüklenir
 
 export default function ProfilePage() {
   const { i18n } = useTranslation()
   const router = useRouter()
-  const lang = i18n.language || 'en'
+  const [mounted, setMounted] = useState(false)
 
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [dreams, setDreams] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const [editingDream, setEditingDream] = useState(null)
-  const [editContent, setEditContent] = useState('')
-  const [editLocation, setEditLocation] = useState('')
-  const [editVisibility, setEditVisibility] = useState('public')
-  const [editInFeed, setEditInFeed] = useState(true)
-  const [saving, setSaving] = useState(false)
+  // Sayfalama
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
 
+  // Seçili Rüya ve Profil Düzenleyici
+  const [activeDream, setActiveDream] = useState(null)
   const [showFriends, setShowFriends] = useState(false)
   const [friends, setFriends] = useState([])
   const [pendingRequests, setPendingRequests] = useState([])
@@ -41,7 +43,13 @@ export default function ProfilePage() {
   const [avatarUploading, setAvatarUploading] = useState(false)
 
   const highlightDreamId = router.query?.highlightDream
-  const highlightRef = useRef(null)
+  const observerRef = useRef(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const lang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
 
   const displayUsername =
     profile?.username ||
@@ -56,8 +64,63 @@ export default function ProfilePage() {
     user?.user_metadata?.avatar_url ||
     ''
 
+  const loadDreams = useCallback(async (userId, pageNum = 0, append = false) => {
+    try {
+      const from = pageNum * BATCH_SIZE
+      const to = from + BATCH_SIZE - 1
+
+      const { data, error } = await supabase
+        .from('dreams')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .range(from, to)
+
+      if (error) throw error
+
+      const fetched = Array.isArray(data) ? data : []
+      if (append) {
+        setDreams((prev) => [...prev, ...fetched])
+      } else {
+        setDreams(fetched)
+      }
+
+      setPage(pageNum)
+      if (fetched.length < BATCH_SIZE) {
+        setHasMore(false)
+      } else {
+        setHasMore(true)
+      }
+    } catch (err) {
+      console.error('Dreams load error:', err)
+    }
+  }, [])
+
+  const loadMoreDreams = useCallback(async () => {
+    if (loadingMore || !hasMore || !user?.id) return
+    setLoadingMore(true)
+    await loadDreams(user.id, page + 1, true)
+    setLoadingMore(false)
+  }, [page, hasMore, loadingMore, user, loadDreams])
+
+  const lastElementRef = useCallback(
+    (node) => {
+      if (loading || loadingMore) return
+      if (observerRef.current) observerRef.current.disconnect()
+
+      observerRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore && user?.id) {
+          loadMoreDreams()
+        }
+      })
+
+      if (node) observerRef.current.observe(node)
+    },
+    [loading, loadingMore, hasMore, user, loadMoreDreams]
+  )
+
   useEffect(() => {
-    let mounted = true
+    let active = true
 
     async function loadData() {
       try {
@@ -71,79 +134,34 @@ export default function ProfilePage() {
           return
         }
 
-        if (!mounted) return
+        if (!active) return
         setUser(currentUser)
 
         const fetchedProfile = await auth.getProfile(currentUser.id)
 
-        if (!mounted) return
-
+        if (!active) return
         setProfile(fetchedProfile || null)
-        setProfileUsername(
-          fetchedProfile?.username ||
-            fetchedProfile?.display_name ||
-            currentUser?.user_metadata?.username ||
-            ''
-        )
+        setProfileUsername(fetchedProfile?.username || '')
         setProfileDisplayName(fetchedProfile?.display_name || '')
-        setProfileAvatarUrl(
-          fetchedProfile?.avatar_url ||
-            fetchedProfile?.avatar ||
-            currentUser?.user_metadata?.avatar_url ||
-            ''
-        )
+        setProfileAvatarUrl(fetchedProfile?.avatar_url || '')
 
-        await Promise.all([loadDreams(currentUser.id), loadFriends(currentUser.id)])
+        await Promise.all([
+          loadDreams(currentUser.id, 0, false),
+          loadFriends(currentUser.id)
+        ])
       } catch (err) {
         console.error('Profile load error:', err)
       } finally {
-        if (mounted) setLoading(false)
+        if (active) setLoading(false)
       }
     }
 
     loadData()
 
     return () => {
-      mounted = false
+      active = false
     }
-  }, [router])
-
-  useEffect(() => {
-    return () => {
-      if (avatarPreview) URL.revokeObjectURL(avatarPreview)
-    }
-  }, [avatarPreview])
-
-  useEffect(() => {
-    if (!highlightDreamId || !dreams.length) return
-
-    const timeout = setTimeout(() => {
-      if (highlightRef.current) {
-        highlightRef.current.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        })
-      }
-    }, 300)
-
-    return () => clearTimeout(timeout)
-  }, [highlightDreamId, dreams])
-
-  async function loadDreams(userId) {
-    try {
-      const { data, error } = await supabase
-        .from('dreams')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setDreams(Array.isArray(data) ? data : [])
-    } catch (err) {
-      console.error('Load dreams error:', err)
-      setDreams([])
-    }
-  }
+  }, [router, loadDreams])
 
   async function loadFriends(userId) {
     try {
@@ -159,33 +177,6 @@ export default function ProfilePage() {
       setPendingRequests(Array.isArray(pendingData.friendships) ? pendingData.friendships : [])
     } catch (err) {
       console.error('Load friends error:', err)
-      setFriends([])
-      setPendingRequests([])
-    }
-  }
-
-  async function reloadProfile() {
-    if (!user) return
-
-    try {
-      const fetchedProfile = await auth.getProfile(user.id)
-      setProfile(fetchedProfile || null)
-
-      setProfileUsername(
-        fetchedProfile?.username ||
-          fetchedProfile?.display_name ||
-          user?.user_metadata?.username ||
-          ''
-      )
-      setProfileDisplayName(fetchedProfile?.display_name || '')
-      setProfileAvatarUrl(
-        fetchedProfile?.avatar_url ||
-          fetchedProfile?.avatar ||
-          user?.user_metadata?.avatar_url ||
-          ''
-      )
-    } catch (err) {
-      console.error('Reload profile error:', err)
     }
   }
 
@@ -198,79 +189,14 @@ export default function ProfilePage() {
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Görsel boyutu 5MB’dan küçük olmalı')
-      return
-    }
-
     if (avatarPreview) URL.revokeObjectURL(avatarPreview)
 
     setAvatarFile(file)
     setAvatarPreview(URL.createObjectURL(file))
   }
 
-  async function uploadAvatarIfNeeded() {
-    if (!avatarFile || !user) return profileAvatarUrl
-
-    setAvatarUploading(true)
-
-    try {
-      const fileExt = avatarFile.name.split('.').pop() || 'png'
-      const filePath = `${user.id}/${Date.now()}.${fileExt}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, avatarFile, {
-          cacheControl: '3600',
-          upsert: true,
-        })
-
-      if (uploadError) throw uploadError
-
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
-      return data?.publicUrl || ''
-    } finally {
-      setAvatarUploading(false)
-    }
-  }
-
-  async function handleSaveEdit() {
-    if (!editingDream || !user) return
-
-    setSaving(true)
-
-    try {
-      const res = await fetch('/api/update-dream', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dreamId: editingDream.id,
-          userId: user.id,
-          content: editContent,
-          location_name: editLocation,
-          visibility: editVisibility,
-          in_feed: editInFeed,
-        }),
-      })
-
-      const data = await res.json().catch(() => null)
-
-      if (!res.ok) {
-        throw new Error(data?.error || 'Dream update failed')
-      }
-
-      await loadDreams(user.id)
-      setEditingDream(null)
-    } catch (err) {
-      alert('Hata: ' + err.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
   async function handleSaveProfile() {
     if (!user) return
-
     setProfileSaving(true)
 
     try {
@@ -287,20 +213,10 @@ export default function ProfilePage() {
         }),
       })
 
-      const data = await res.json()
+      if (!res.ok) throw new Error('Profil güncellenemedi')
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Profil güncellenemedi')
-      }
-
-      setProfileAvatarUrl(uploadedAvatarUrl || profileAvatarUrl)
-      setAvatarFile(null)
-
-      if (avatarPreview) URL.revokeObjectURL(avatarPreview)
-      setAvatarPreview('')
-
-      await reloadProfile()
       setShowProfileEditor(false)
+      router.reload()
     } catch (err) {
       alert(err.message)
     } finally {
@@ -308,73 +224,35 @@ export default function ProfilePage() {
     }
   }
 
-  async function handleRemoveFromFeed(dream) {
-    if (!confirm("Feed'den kaldırılsın mı?")) return
-
+  async function uploadAvatarIfNeeded() {
+    if (!avatarFile || !user) return profileAvatarUrl
     try {
-      const res = await fetch('/api/delete-dream', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dreamId: dream.id,
-          userId: user.id,
-          softDelete: true,
-        }),
-      })
+      const fileExt = avatarFile.name.split('.').pop() || 'png'
+      const filePath = `${user.id}/${Date.now()}.${fileExt}`
 
-      const data = await res.json().catch(() => null)
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, avatarFile, { cacheControl: '3600', upsert: true })
 
-      if (!res.ok) {
-        throw new Error(data?.error || 'Remove from feed failed')
-      }
+      if (uploadError) throw uploadError
 
-      await loadDreams(user.id)
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+      return data?.publicUrl || ''
     } catch (err) {
-      alert('Hata: ' + err.message)
-    }
-  }
-
-  async function handleDeleteDream(dream) {
-    if (!confirm(getTranslation('profile.deleteDreamConfirm', lang))) return
-
-    try {
-      const res = await fetch('/api/delete-dream', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dreamId: dream.id,
-          userId: user.id,
-          softDelete: false,
-        }),
-      })
-
-      const data = await res.json().catch(() => null)
-
-      if (!res.ok) {
-        throw new Error(data?.error || 'Delete dream failed')
-      }
-
-      await loadDreams(user.id)
-    } catch (err) {
-      alert('Hata: ' + err.message)
+      console.error(err)
+      return profileAvatarUrl
     }
   }
 
   async function handleSearch() {
     if (!searchQuery.trim() || !user) return
-
     try {
-      const res = await fetch(
-        `/api/friends/search?query=${encodeURIComponent(searchQuery)}&userId=${user.id}`
-      )
+      const res = await fetch(`/api/friends/search?query=${encodeURIComponent(searchQuery)}&userId=${user.id}`)
       const data = await res.json()
-
       setSearchResults(Array.isArray(data.users) ? data.users : [])
       setShowSearch(true)
     } catch (err) {
-      console.error('Friend search error:', err)
-      setSearchResults([])
-      setShowSearch(true)
+      console.error(err)
     }
   }
 
@@ -384,14 +262,9 @@ export default function ProfilePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: user.id, friendId }),
     })
-
-    const data = await res.json()
-
     if (res.ok) {
       alert(getTranslation('friends.requestSent', lang))
       await handleSearch()
-    } else {
-      alert(data.error)
     }
   }
 
@@ -401,132 +274,57 @@ export default function ProfilePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ friendshipId, userId: user.id, action }),
     })
-
     if (res.ok) {
-      alert(
-        action === 'accepted'
-          ? getTranslation('friends.requestAccepted', lang)
-          : getTranslation('friends.requestRejected', lang)
-      )
+      alert(action === 'accepted' ? 'İstek kabul edildi.' : 'İstek reddedildi.')
       await loadFriends(user.id)
     }
   }
-
-  async function handleRemoveFriend(friendshipId) {
-    if (!confirm(getTranslation('friends.removeFriend', lang) + '?')) return
-
-    const res = await fetch('/api/friends/respond', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        friendshipId,
-        userId: user.id,
-        action: 'rejected',
-      }),
-    })
-
-    if (res.ok) {
-      alert(getTranslation('friends.friendRemoved', lang))
-      await loadFriends(user.id)
-    }
-  }
-
-  const orderedDreams = useMemo(() => {
-    if (!highlightDreamId || !Array.isArray(dreams) || dreams.length === 0) {
-      return dreams
-    }
-
-    const highlighted = dreams.find((dream) => String(dream.id) === String(highlightDreamId))
-    if (!highlighted) return dreams
-
-    const rest = dreams.filter((dream) => String(dream.id) !== String(highlightDreamId))
-    return [highlighted, ...rest]
-  }, [dreams, highlightDreamId])
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white">
-        {getTranslation('auth.loading', lang) || 'Yükleniyor...'}
-      </div>
-    )
-  }
-
-  if (!user) return null
 
   return (
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
-      
-      {/* Özel header global Navbar entegre edildiği için kaldırılmıştır */}
-
-      <div className="max-w-5xl mx-auto px-3 sm:px-6 py-5 sm:py-8">
-        <div className="glass-card p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 overflow-hidden relative">
-          <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-purple-500/10 via-transparent to-pink-500/10" />
-
-          <div className="relative flex flex-col items-center text-center md:flex-row md:items-center md:text-left gap-4 sm:gap-6">
-            <div className="shrink-0">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-full overflow-hidden border border-purple-400/30 bg-white/5 shadow-[0_0_40px_rgba(139,92,246,0.15)] mx-auto">
-                {displayAvatar ? (
-                  <img
-                    src={displayAvatar}
-                    alt={displayUsername}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none'
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-3xl sm:text-4xl bg-gradient-to-br from-purple-500/20 to-pink-500/10">
-                    🌌
-                  </div>
-                )}
-              </div>
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        
+        {/* INSTAGRAM TARZI PROFİL BAŞLIĞI */}
+        <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-10 border-b border-white/10 pb-8 mb-6 relative">
+          <div className="shrink-0 relative group">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-2 border-fuchsia-500 bg-white/5 shadow-[0_0_20px_rgba(240,73,214,0.15)] flex items-center justify-center">
+              {displayAvatar ? (
+                <img src={displayAvatar} alt={displayUsername} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-4xl">🌌</span>
+              )}
             </div>
+          </div>
 
-            <div className="flex-1 min-w-0 w-full">
-              <div className="flex flex-col items-center md:items-start md:flex-row md:justify-between gap-3 sm:gap-4">
-                <div className="min-w-0">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold gradient-text break-words">
-                    {displayUsername}
-                  </h1>
-                  {profile?.display_name && profile?.display_name !== displayUsername && (
-                    <p className="text-white/55 mt-1.5 sm:mt-2 text-sm sm:text-base">
-                      {profile.display_name}
-                    </p>
-                  )}
-                  <p className="text-white/40 text-xs sm:text-sm mt-2 sm:mt-3">
-                    {dreams.length} {getTranslation('profile.totalDreams', lang)}
-                  </p>
-                </div>
-
+          <div className="flex-1 min-w-0 text-center sm:text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4">
+              <h2 className="text-xl sm:text-2xl font-black font-sans truncate">{displayUsername}</h2>
+              <div className="flex gap-2 justify-center">
                 <button
                   onClick={() => setShowProfileEditor(true)}
-                  className="glass-card w-full md:w-auto px-4 py-2.5 text-sm text-white/85 hover:bg-purple-500/20 shrink-0"
+                  className="rounded-lg bg-slate-900 border border-white/10 px-4 py-1.5 text-xs font-semibold hover:bg-slate-800 transition-all"
                 >
                   {getTranslation('profile.editProfile', lang)}
                 </button>
-              </div>
-
-              <div className="mt-4 sm:mt-5 grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3 w-full">
                 <button
                   onClick={() => setShowFriends(!showFriends)}
-                  className="glass-card px-3 sm:px-4 py-2.5 text-sm hover:bg-purple-500/20"
+                  className="rounded-lg bg-slate-900 border border-white/10 px-4 py-1.5 text-xs font-semibold hover:bg-slate-800 transition-all"
                 >
-                  {getTranslation('friends.title', lang)} ({friends.length})
-                </button>
-
-                <button
-                  onClick={() => router.push('/add-dream')}
-                  className="glass-card px-3 sm:px-4 py-2.5 text-sm hover:bg-purple-500/20"
-                >
-                  {getTranslation('dream.addTitle', lang)}
+                  👥 {friends.length} {getTranslation('friends.title', lang)}
                 </button>
               </div>
+            </div>
+
+            <div className="text-sm font-medium text-slate-200 mt-2">
+              <p className="font-bold text-white">{profile?.display_name || displayUsername}</p>
+              <p className="text-xs text-slate-400 mt-1">{dreams.length} {getTranslation('profile.totalDreams', lang)}</p>
             </div>
           </div>
         </div>
 
+        {/* SOSYAL ARKADAŞLIK ALANI */}
         {showFriends && (
-          <div className="glass-card p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="glass-card p-4 sm:p-6 mb-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4">
               <input
                 type="text"
@@ -534,394 +332,161 @@ export default function ProfilePage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder={getTranslation('friends.searchPlaceholder', lang)}
-                className="flex-1 bg-black/40 border border-white/20 rounded px-4 py-2.5 text-white text-sm sm:text-base"
+                className="flex-1 bg-black/40 border border-white/20 rounded px-4 py-2.5 text-white text-sm"
               />
-              <button
-                onClick={handleSearch}
-                className="glass-card px-4 py-2.5 hover:bg-purple-500/20 text-sm sm:text-base"
-              >
+              <button onClick={handleSearch} className="glass-card px-4 py-2 hover:bg-purple-500/20 text-sm">
                 {getTranslation('friends.search', lang) || 'Ara'}
               </button>
             </div>
 
+            {/* Arama Sonuçları */}
             {showSearch && searchResults.length > 0 && (
               <div className="mb-6">
-                <h3 className="text-base sm:text-lg font-semibold mb-3">
-                  {getTranslation('friends.searchResults', lang)}
-                </h3>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3">{getTranslation('friends.searchResults', lang)}</h3>
                 <div className="space-y-2">
-                  {searchResults.map((result) => (
-                    <div
-                      key={result.id}
-                      className="glass-card p-3 flex items-center justify-between gap-3 sm:gap-4"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-semibold text-sm sm:text-base truncate">
-                          {result.username}
-                        </div>
-                        <div className="text-xs sm:text-sm text-white/60 truncate">
-                          {result.display_name}
-                        </div>
-                      </div>
-
-                      {result.friendshipStatus === null && (
-                        <button
-                          onClick={() => handleSendRequest(result.id)}
-                          className="glass-card px-3 py-1.5 text-xs sm:text-sm hover:bg-purple-500/20 shrink-0"
-                        >
-                          {getTranslation('friends.sendRequest', lang)}
-                        </button>
+                  {searchResults.map((res) => (
+                    <div key={res.id} className="glass-card p-3 flex items-center justify-between gap-3">
+                      <div className="truncate text-xs font-semibold">{res.username}</div>
+                      {res.friendshipStatus === null && (
+                        <button onClick={() => handleSendRequest(res.id)} className="glass-card px-3 py-1 text-xs hover:bg-purple-500/20">{getTranslation('friends.sendRequest', lang)}</button>
                       )}
-
-                      {result.friendshipStatus === 'pending' && (
-                        <span className="text-yellow-400 text-xs sm:text-sm shrink-0">
-                          {getTranslation('friends.pending', lang)}
-                        </span>
-                      )}
-
-                      {result.friendshipStatus === 'accepted' && (
-                        <span className="text-green-400 text-xs sm:text-sm shrink-0">
-                          {getTranslation('friends.accepted', lang)}
-                        </span>
-                      )}
+                      {res.friendshipStatus === 'pending' && <span className="text-yellow-400 text-xs">{getTranslation('friends.pending', lang)}</span>}
+                      {res.friendshipStatus === 'accepted' && <span className="text-green-400 text-xs">{getTranslation('friends.accepted', lang)}</span>}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
+            {/* Gelen İstekler */}
             {pendingRequests.length > 0 && (
               <div className="mb-6">
-                <h3 className="text-base sm:text-lg font-semibold mb-3">
-                  {getTranslation('friends.incomingRequests', lang)} ({pendingRequests.length})
-                </h3>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3">{getTranslation('friends.incomingRequests', lang)} ({pendingRequests.length})</h3>
                 <div className="space-y-2">
                   {pendingRequests.map((req) => (
-                    <div
-                      key={req.id}
-                      className="glass-card p-3 flex items-center justify-between gap-3 sm:gap-4"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-semibold text-sm sm:text-base truncate">
-                          {req.user_profiles?.username}
-                        </div>
-                        <div className="text-xs sm:text-sm text-white/60 truncate">
-                          {req.user_profiles?.display_name}
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2 shrink-0">
-                        <button
-                          onClick={() => handleRespondRequest(req.id, 'accepted')}
-                          className="glass-card px-3 py-1.5 text-xs sm:text-sm bg-green-500/20 hover:bg-green-500/30"
-                        >
-                          {getTranslation('friends.accept', lang)}
-                        </button>
-                        <button
-                          onClick={() => handleRespondRequest(req.id, 'rejected')}
-                          className="glass-card px-3 py-1.5 text-xs sm:text-sm bg-red-500/20 hover:bg-red-500/30"
-                        >
-                          {getTranslation('friends.reject', lang)}
-                        </button>
+                    <div key={req.id} className="glass-card p-3 flex items-center justify-between gap-3">
+                      <div className="truncate text-xs font-semibold">{req.user_profiles?.username}</div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleRespondRequest(req.id, 'accepted')} className="glass-card px-3 py-1 text-xs bg-green-500/20 hover:bg-green-500/30">Kabul</button>
+                        <button onClick={() => handleRespondRequest(req.id, 'rejected')} className="glass-card px-3 py-1 text-xs bg-red-500/20 hover:bg-red-500/30">Red</button>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-
-            <div>
-              <h3 className="text-base sm:text-lg font-semibold mb-3">
-                {getTranslation('friends.title', lang)}
-              </h3>
-
-              {friends.length === 0 ? (
-                <p className="text-white/60 text-sm sm:text-base">
-                  {getTranslation('friends.noFriends', lang)}
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {friends.map((friend) => (
-                    <div
-                      key={friend.id}
-                      className="glass-card p-3 flex items-center justify-between gap-3 sm:gap-4"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-semibold text-sm sm:text-base truncate">
-                          {friend.user_profiles?.username || friend.friend_profiles?.username}
-                        </div>
-                        <div className="text-xs sm:text-sm text-white/60 truncate">
-                          {friend.user_profiles?.display_name || friend.friend_profiles?.display_name}
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleRemoveFriend(friend.id)}
-                        className="glass-card px-3 py-1.5 text-xs sm:text-sm text-red-400 hover:bg-red-500/20 shrink-0"
-                      >
-                        {getTranslation('friends.removeFriend', lang)}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         )}
 
-        <div className="space-y-4 sm:space-y-6">
-          {orderedDreams.map((dream) => {
-            const isHighlighted = String(dream.id) === String(highlightDreamId)
+        {/* 3 KOLONLU PROFİL IZGARASI (INSTAGRAM GRID) */}
+        {dreams.length === 0 ? (
+          <div className="text-center py-20 text-white/40 text-sm">
+            {getTranslation('journal.noDreams', lang)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
+            {dreams.map((dream, index) => {
+              const isLast = index === dreams.length - 1
+              const hasImg = !!dream.ai_image_url
 
-            return (
-              <div
-                key={dream.id}
-                ref={isHighlighted ? highlightRef : null}
-                className={`space-y-3 rounded-[1.75rem] transition-all ${
-                  isHighlighted
-                    ? 'ring-2 ring-fuchsia-400/60 shadow-[0_0_0_1px_rgba(232,121,249,0.15),0_0_40px_rgba(217,70,239,0.18)]'
-                    : ''
-                }`}
-              >
-                {isHighlighted && (
-                  <div className="rounded-2xl border border-fuchsia-300/20 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-100">
-                    {lang === 'tr'
-                      ? 'Yeni eklenen rüyanı burada bulabilirsin.'
-                      : 'Your newly added dream is here.'}
-                  </div>
-                )}
-
-                <DreamCard
-                  dream={dream}
-                  lang={lang}
-                  onTranslate={() => {}}
-                  translating={false}
-                  translated={false}
-                  translatedContent=""
-                  translatedAnalysis=""
-                />
-
-                <div className="flex flex-wrap gap-2 px-1">
-                  <button
-                    onClick={() => {
-                      setEditingDream(dream)
-                      setEditContent(dream.content || '')
-                      setEditLocation(dream.location_name || '')
-                      setEditVisibility(dream.visibility || 'public')
-                      setEditInFeed(dream.in_feed !== false)
-                    }}
-                    className="text-xs glass-card px-3 py-1.5 text-blue-400 hover:bg-blue-500/20"
-                  >
-                    {getTranslation('profile.editDream', lang)}
-                  </button>
-
-                  {dream.in_feed !== false && (
-                    <button
-                      onClick={() => handleRemoveFromFeed(dream)}
-                      className="text-xs glass-card px-3 py-1.5 text-yellow-400 hover:bg-yellow-500/20"
-                    >
-                      {getTranslation('profile.removeFromFeed', lang)}
-                    </button>
+              return (
+                <div
+                  key={dream.id}
+                  ref={isLast ? lastElementRef : null}
+                  onClick={() => setActiveDream(dream)}
+                  className="group aspect-square relative overflow-hidden rounded-xl border border-white/5 bg-slate-900/40 hover:border-fuchsia-500/45 cursor-pointer shadow-lg transition-all duration-300"
+                >
+                  {hasImg ? (
+                    <img
+                      src={dream.ai_image_url}
+                      alt="Dream Visual"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    // Görseli olmayan rüyalar için estetik bakiye kartı (Aura harcama dürtüsünü tetikler!)
+                    <div className="w-full h-full flex flex-col justify-between p-3 sm:p-5 bg-gradient-to-br from-purple-950/20 to-black select-none">
+                      <span className="text-base sm:text-xl">🌌</span>
+                      <p className="text-[9px] sm:text-[11px] text-white/70 leading-relaxed font-light line-clamp-3">"{dream.content}"</p>
+                      <button className="self-start rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2 py-0.5 text-[8px] sm:text-[9px] font-bold text-cyan-300 hover:bg-cyan-500/25">
+                        ✦ {lang === 'tr' ? 'Görsel Üret' : 'Create Visual'}
+                      </button>
+                    </div>
                   )}
 
-                  <button
-                    onClick={() => handleDeleteDream(dream)}
-                    className="text-xs glass-card px-3 py-1.5 text-red-400 hover:bg-red-500/20"
-                  >
-                    {getTranslation('social.delete', lang) || 'Sil'}
-                  </button>
+                  {/* HOVER EFEKTİ */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-all duration-300">
+                    <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white">❤️ {dream.likes_count || 0}</span>
+                    <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white">💬 {dream.comments_count || 0}</span>
+                  </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
+        )}
 
-          {orderedDreams.length === 0 && (
-            <div className="text-center py-10 sm:py-12 text-white/60 text-sm sm:text-base">
-              {getTranslation('journal.noDreams', lang)}
-            </div>
-          )}
-        </div>
+        {loadingMore && (
+          <div className="py-8 text-center text-slate-400 flex items-center justify-center gap-3">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+            <span className="text-xs uppercase tracking-widest">{lang === 'tr' ? 'Rüyalarınız Alınıyor...' : 'Loading More...'}</span>
+          </div>
+        )}
       </div>
 
+      {/* PROFİL RESMİ & KULLANICI ADI EDİTÖRÜ */}
       {showProfileEditor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80">
-          <div className="glass-card p-4 sm:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg sm:text-xl font-bold mb-4 gradient-text">
-              {getTranslation('profile.editProfile', lang)}
-            </h2>
-
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
+          <div className="glass-card p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4 gradient-text">{getTranslation('profile.editProfile', lang)}</h2>
+            
             <div className="mb-4">
-              <label className="text-sm text-white/60 block mb-2">
-                {getTranslation('profile.username', lang)}
-              </label>
-              <input
-                value={profileUsername}
-                onChange={(e) => setProfileUsername(e.target.value)}
-                className="w-full bg-black/40 border border-white/20 rounded p-3 text-white text-sm sm:text-base"
-                placeholder="dreamer"
-              />
+              <label className="text-xs text-white/50 block mb-2 uppercase tracking-widest">{getTranslation('profile.username', lang)}</label>
+              <input value={profileUsername} onChange={e => setProfileUsername(e.target.value)} className="w-full bg-black/40 border border-white/20 rounded p-3 text-white text-sm" placeholder="dreamer" />
             </div>
 
             <div className="mb-4">
-              <label className="text-sm text-white/60 block mb-2">
-                {getTranslation('profile.displayName', lang)}
-              </label>
-              <input
-                value={profileDisplayName}
-                onChange={(e) => setProfileDisplayName(e.target.value)}
-                className="w-full bg-black/40 border border-white/20 rounded p-3 text-white text-sm sm:text-base"
-                placeholder={getTranslation('profile.displayName', lang)}
-              />
+              <label className="text-xs text-white/50 block mb-2 uppercase tracking-widest">{getTranslation('profile.displayName', lang)}</label>
+              <input value={profileDisplayName} onChange={e => setProfileDisplayName(e.target.value)} className="w-full bg-black/40 border border-white/20 rounded p-3 text-white text-sm" placeholder="Display Name" />
             </div>
 
             <div className="mb-6">
-              <label className="text-sm text-white/60 block mb-2">
-                {getTranslation('profile.avatarUrl', lang) || 'Profil resmi'}
-              </label>
-
+              <label className="text-xs text-white/50 block mb-2 uppercase tracking-widest">{getTranslation('profile.avatarUrl', lang) || 'Profil resmi'}</label>
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border border-white/20 bg-white/5 shrink-0">
-                  {displayAvatar ? (
-                    <img
-                      src={displayAvatar}
-                      alt={displayUsername}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/10">
-                      🌌
-                    </div>
-                  )}
+                <div className="w-16 h-16 rounded-full overflow-hidden border border-white/20 bg-white/5 shrink-0">
+                  {displayAvatar ? <img src={displayAvatar} alt="preview" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-900 flex items-center justify-center">👤</div>}
                 </div>
-
-                <div className="flex-1 min-w-0">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarFileChange}
-                    className="block w-full text-xs sm:text-sm text-white file:mr-3 sm:file:mr-4 file:rounded-full file:border-0 file:bg-purple-500/20 file:px-3 sm:file:px-4 file:py-2 file:text-xs sm:file:text-sm file:font-medium file:text-white hover:file:bg-purple-500/30"
-                  />
-                  <p className="text-xs text-white/40 mt-2">
-                    {getTranslation('profile.changePhoto', lang) || 'Cihazından görsel yükle'}
-                  </p>
-                  {avatarUploading ? (
-                    <p className="text-xs text-purple-300 mt-2">
-                      {getTranslation('profile.uploading', lang) || 'Görsel yükleniyor...'}
-                    </p>
-                  ) : null}
+                <div className="flex-1">
+                  <input type="file" accept="image/*" onChange={handleAvatarFileChange} className="block w-full text-xs text-white file:mr-4 file:rounded-full file:border-0 file:bg-purple-500/20 file:px-4 file:py-2 file:text-xs file:font-medium file:text-white" />
                 </div>
               </div>
             </div>
 
             <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  if (avatarPreview) URL.revokeObjectURL(avatarPreview)
-                  setAvatarPreview('')
-                  setAvatarFile(null)
-                  setShowProfileEditor(false)
-                }}
-                className="flex-1 glass-card py-2.5 text-sm sm:text-base"
-              >
-                {getTranslation('profile.cancel', lang)}
-              </button>
-
-              <button
-                onClick={handleSaveProfile}
-                disabled={profileSaving || avatarUploading}
-                className="flex-1 glass-card py-2.5 bg-purple-500/20 disabled:opacity-60 text-sm sm:text-base"
-              >
-                {profileSaving
-                  ? getTranslation('profile.saving', lang)
-                  : getTranslation('profile.saveProfile', lang)}
-              </button>
+              <button onClick={() => setShowProfileEditor(false)} className="flex-1 glass-card py-2.5 text-sm">{getTranslation('profile.cancel', lang)}</button>
+              <button onClick={handleSaveProfile} disabled={profileSaving} className="flex-1 glass-card py-2.5 bg-purple-500/20 text-sm">{profileSaving ? 'Saving...' : 'Save'}</button>
             </div>
           </div>
         </div>
       )}
 
-      {editingDream && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80">
-          <div className="glass-card p-4 sm:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg sm:text-xl font-bold mb-4 gradient-text">
-              {getTranslation('profile.editDream', lang)}
-            </h2>
-
-            <textarea
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              className="w-full bg-black/40 border border-white/20 rounded p-3 mb-4 h-32 text-white text-sm sm:text-base"
+      {/* SEÇİLEN KARTIN DETAYLARINI 7 SLAYTLI CAROUSEL İLE AÇMA SİHİRBAZI */}
+      {activeDream && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          onClick={() => setActiveDream(null)}
+        >
+          <div 
+            className="w-full max-w-2xl max-h-[90vh]" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DreamCard 
+              dream={activeDream} 
+              lang={lang} 
+              onTranslate={() => {}}
+              translating={false}
+              translated={false}
+              translatedContent=""
+              translatedAnalysis=""
             />
-
-            <input
-              value={editLocation}
-              onChange={(e) => setEditLocation(e.target.value)}
-              className="w-full bg-black/40 border border-white/20 rounded p-3 mb-4 text-white text-sm sm:text-base"
-              placeholder={getTranslation('dream.location', lang)}
-            />
-
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4">
-              <label className="flex items-center gap-2 text-sm sm:text-base">
-                <input
-                  type="radio"
-                  name="vis"
-                  value="public"
-                  checked={editVisibility === 'public'}
-                  onChange={(e) => setEditVisibility(e.target.value)}
-                />
-                {getTranslation('dream.public', lang)}
-              </label>
-
-              <label className="flex items-center gap-2 text-sm sm:text-base">
-                <input
-                  type="radio"
-                  name="vis"
-                  value="friends"
-                  checked={editVisibility === 'friends'}
-                  onChange={(e) => setEditVisibility(e.target.value)}
-                />
-                {getTranslation('dream.friends', lang)}
-              </label>
-
-              <label className="flex items-center gap-2 text-sm sm:text-base">
-                <input
-                  type="radio"
-                  name="vis"
-                  value="private"
-                  checked={editVisibility === 'private'}
-                  onChange={(e) => setEditVisibility(e.target.value)}
-                />
-                {getTranslation('dream.private', lang)}
-              </label>
-            </div>
-
-            <label className="flex items-center gap-2 mb-6 text-sm sm:text-base">
-              <input
-                type="checkbox"
-                checked={editInFeed}
-                onChange={(e) => setEditInFeed(e.target.checked)}
-              />
-              {getTranslation('profile.showInFeed', lang)}
-            </label>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setEditingDream(null)}
-                className="flex-1 glass-card py-2.5 text-sm sm:text-base"
-              >
-                {getTranslation('profile.cancel', lang)}
-              </button>
-
-              <button
-                onClick={handleSaveEdit}
-                disabled={saving}
-                className="flex-1 glass-card py-2.5 bg-purple-500/20 text-sm sm:text-base"
-              >
-                {saving
-                  ? getTranslation('profile.saving', lang)
-                  : getTranslation('profile.saveDream', lang)}
-              </button>
-            </div>
           </div>
         </div>
       )}
