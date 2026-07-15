@@ -13,14 +13,6 @@ import StoryModeModal from '@/components/StoryModeModal'
 
 const GUMROAD_PRODUCT_URL = 'https://lunosfer.gumroad.com/l/lunosfer-deep-analysis'
 
-function getAnalysisButtonLabel(lang) {
-  return lang === 'tr' ? 'Rüya Analizini Aç' : 'Open Dream Analysis'
-}
-
-function getCloseLabel(lang) {
-  return lang === 'tr' ? 'Kapat' : 'Close'
-}
-
 export default function DreamCard({
   dream,
   lang,
@@ -38,11 +30,11 @@ export default function DreamCard({
     setMounted(true)
   }, [])
 
-  // Dil kodunu ilk montaj tamamlanana kadar sabit 'en' tutarak uyuşmazlığı engeller
+  // Dil kodunu hydration tamamlanana kadar sabit 'en' tutar
   const currentLang = useMemo(() => {
     const rawLang = lang || (mounted ? (i18n?.language || 'en') : 'en')
     return String(rawLang).toLowerCase().split('-')[0]
-  }, [lang, i18n, mounted]) // Bağımlılık olarak i18n nesnesi izlenerek çökme önlenmiştir
+  }, [lang, i18n, mounted])
 
   const t = getDreamCardText(currentLang)
 
@@ -60,7 +52,7 @@ export default function DreamCard({
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showStoryMode, setShowStoryMode] = useState(false)
 
-  // Bakiye, Görsel ve Analiz Durumları
+  // Bakiye ve Analiz Durumları
   const [premiumAuras, setPremiumAuras] = useState(0)
   const [premiumGenerating, setPremiumGenerating] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
@@ -143,16 +135,16 @@ export default function DreamCard({
           setPremiumAuras(Number(creditsRes?.data?.premium_analysis_auras || 0))
         }
       } catch (err) {
-        console.error('Navbar user check failed:', err)
+        console.error('User check error:', err)
       }
     }
     checkUser()
 
-    const { data: authSubscription } = auth.onAuthStateChange(async (event, session) => {
+    const { data: authSubscription } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!active) return
       if (session?.user) {
         setUser(session.user)
-        const profile = await auth.getProfile(session.user.id)
+        const { data: profile } = await supabase.from('user_profiles').select('premium_analysis_auras').eq('id', session.user.id).maybeSingle()
         setPremiumAuras(Number(profile?.premium_analysis_auras || 0))
       } else {
         setUser(null)
@@ -235,12 +227,42 @@ export default function DreamCard({
     return Boolean(teaserAnalysis && (getDreamAnalysis() || getDreamMotiv() || getDreamTitle()))
   }, [teaserAnalysis, getDreamAnalysis, getDreamMotiv, getDreamTitle])
 
-  const isAnalysisProcessing = !hasTeaserAnalysis && (analysisStatus === 'processing')
-  const isAnalysisFailed = !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
+  const isAnalysisProcessing = !hasTeaserAnalysis && analysisStatus === 'processing'
+  const isAnalysisFailed =
+    !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
 
   const dreamImage = useMemo(() => effectiveDream.ai_image_url || null, [effectiveDream])
   const dreamMotiv = useMemo(() => getDreamMotiv(), [getDreamMotiv])
   const dreamTitle = useMemo(() => getDreamTitle(), [getDreamTitle])
+
+  // ONARILAN BEĞENİ YÖNETİM FONKSİYONU (Geri Yüklendi)
+  const handleLike = async () => {
+    if (!user?.id) {
+      alert(getTranslation('social.loginToLike', currentLang))
+      return
+    }
+    const method = liked ? 'DELETE' : 'POST'
+    try {
+      const res = await fetch('/api/like', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dreamId: dream.id, userId: user.id }),
+      })
+
+      if (!res.ok) throw new Error('Like request failed')
+      const data = await res.json()
+
+      setLiked((prevLiked) => {
+        const nextLiked = !prevLiked
+        setLikesCount((prevCount) =>
+          data.count !== undefined ? data.count : nextLiked ? prevCount + 1 : Math.max(0, prevCount - 1)
+        )
+        return nextLiked
+      })
+    } catch (err) {
+      console.error('Like error:', err)
+    }
+  }
 
   // Derin Rüya Analizini Başlatma (Gerçek Üretim Tetikleyicisi)
   async function handlePremiumAnalysisExecute() {
@@ -564,17 +586,13 @@ export default function DreamCard({
           {isAnalysisProcessing && (
             <div className="mb-5 flex items-center gap-3 rounded-[1.5rem] border border-cyan-300/18 bg-cyan-500/8 p-4 sm:p-5">
               <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-cyan-200 border-t-transparent" />
-              <p className="text-sm leading-6 text-cyan-100/90">
-                {getAnalysisProcessingLabel(currentLang)}
-              </p>
+              <p className="text-sm leading-6 text-cyan-100/90 font-sans">{getAnalysisProcessingLabel(currentLang)}</p>
             </div>
           )}
 
           {isAnalysisFailed && (
             <div className="mb-5 rounded-[1.5rem] border border-white/12 bg-white/4 p-4 sm:p-5">
-              <p className="mb-3 text-sm leading-6 text-white/70">
-                {getAnalysisFailedLabel(currentLang)}
-              </p>
+              <p className="mb-3 text-sm leading-6 text-white/70">{getAnalysisFailedLabel(currentLang)}</p>
               <button
                 type="button"
                 onClick={handleRetryAnalysis}
