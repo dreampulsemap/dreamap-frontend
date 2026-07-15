@@ -33,7 +33,6 @@ export default function HomePage() {
     setMounted(true)
   }, [])
 
-  // i18n?. optional chaining ile çökme tamamen engellenmiştir
   const currentLang = mounted ? (i18n?.language || 'en').split('-')[0] : 'en'
   const lang = currentLang
 
@@ -101,12 +100,14 @@ export default function HomePage() {
           .eq('prophecy_date', today)
           .maybeSingle()
 
-        const [_, { data: prophecyData }] = await Promise.all([
+        // ÇÖKMEYEN DEfANSİF PROMISE BİRLEŞTİRİCİ (Güvenli Array Destructuring)
+        const results = await Promise.all([
           loadFeedData(0, false),
           prophecyQuery
         ])
 
-        setDailyProphecy(prophecyData || null)
+        const prophecyData = results[1]?.data || null
+        setDailyProphecy(prophecyData)
       } catch (err) {
         console.error('Init hatası:', err)
       }
@@ -189,14 +190,18 @@ export default function HomePage() {
   }
 
   const filteredDreams = useMemo(() => {
-    if (activeFilter === 'all') return dreams
+    const baseDreams = Array.isArray(dreams) ? dreams : []
+    // Bozuk veya ID'si olmayan rüya satırlarının sayfayı çökertmesini önleyen koruyucu filtre
+    const validDreams = baseDreams.filter(d => d && d.id)
+
+    if (activeFilter === 'all') return validDreams
     if (activeFilter === 'archetypes') {
-      return dreams.filter(d => Array.isArray(d.ai_archetypes) && d.ai_archetypes.length > 0)
+      return validDreams.filter(d => Array.isArray(d.ai_archetypes) && d.ai_archetypes.length > 0)
     }
     if (activeFilter === 'intense') {
-      return dreams.filter(d => d.user_selected_sentiment && ['Fear', 'Anxiety', 'Awe'].includes(d.user_selected_sentiment))
+      return validDreams.filter(d => d.user_selected_sentiment && ['Fear', 'Anxiety', 'Awe'].includes(d.user_selected_sentiment))
     }
-    return dreams
+    return validDreams
   }, [dreams, activeFilter])
 
   // ONARILAN KEHANET METİN TANIMLAMALARI (Hydration Safe & useMemo)
