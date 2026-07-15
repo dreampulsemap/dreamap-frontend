@@ -38,7 +38,6 @@ export default function DreamCard({
     setMounted(true)
   }, [])
 
-  // Dil kodunu hydration tamamlanana kadar sabit 'en' tutar
   const currentLang = useMemo(() => {
     const rawLang = lang || (mounted ? (i18n?.language || 'en') : 'en')
     return String(rawLang).toLowerCase().split('-')[0]
@@ -55,12 +54,10 @@ export default function DreamCard({
   const [commentsCount, setCommentsCount] = useState(dream.comments_count || 0)
   const [commentsLoading, setCommentsLoading] = useState(false)
   
-  // Modaller
   const [showAnalysisModal, setShowAnalysisModal] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showStoryMode, setShowStoryMode] = useState(false)
 
-  // Bakiye ve Analiz Durumları
   const [premiumAuras, setPremiumAuras] = useState(0)
   const [premiumGenerating, setPremiumGenerating] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
@@ -73,7 +70,6 @@ export default function DreamCard({
   const [retryingAnalysis, setRetryingAnalysis] = useState(false)
   const [retryError, setRetryError] = useState('')
 
-  // Toast
   const [toastMessage, setToastMessage] = useState('')
   const [showToast, setShowToast] = useState(false)
 
@@ -82,7 +78,6 @@ export default function DreamCard({
     [dream, analysisOverride]
   )
 
-  // Rüyanın mülkiyet kontrolü
   const isOwner = useMemo(() => {
     return user?.id && dream?.user_id && user.id === dream.user_id
   }, [user, dream])
@@ -195,15 +190,11 @@ export default function DreamCard({
         teaser: true,
       }
     }
-
     return null
   }, [effectiveDream])
 
   const getDreamAnalysis = useCallback(() => {
-    if (translated && translatedAnalysis) {
-      return translatedAnalysis
-    }
-
+    if (translated && translatedAnalysis) return translatedAnalysis
     return (
       effectiveDream[`ai_summary_${currentLang}`] ||
       teaserAnalysis?.summary?.[currentLang] ||
@@ -248,7 +239,6 @@ export default function DreamCard({
   const dreamMotiv = useMemo(() => getDreamMotiv(), [getDreamMotiv])
   const dreamTitle = useMemo(() => getDreamTitle(), [getDreamTitle])
 
-  // Beğeni Yönetim Fonksiyonu
   const handleLike = async () => {
     if (!user?.id) {
       alert(getTranslation('social.loginToLike', currentLang))
@@ -277,7 +267,6 @@ export default function DreamCard({
     }
   }
 
-  // Derin Rüya Analizini Başlatma (Gerçek Üretim Tetikleyicisi)
   async function handlePremiumAnalysisExecute() {
     setShowConfirmModal(false)
     setPremiumGenerating(true)
@@ -336,7 +325,7 @@ export default function DreamCard({
     }
   }
 
-  // Sadece Rüya Görseli Üretme/Hediye Etme (Bağımsız 2 Aura Tetikleyicisi - DOĞRUDAN ONAYSIZ TETİKLENİR)
+  // 1. ONAY KUTUSU KALDIRILDI! ARTIK TEK TIKLA ÜRETİM BAŞLAR.
   const handleGenerateImageOnly = async () => {
     setPremiumError('')
 
@@ -356,11 +345,10 @@ export default function DreamCard({
         return
       }
 
-      // ONAY KUTUSU KALDIRILDI! DOĞRUDAN ÜRETİME GEÇER.
+      // Anında üretim durumuna geçer
       setGeneratingImage(true)
 
       const { data: { session } } = await supabase.auth.getSession()
-
       if (!session?.access_token) {
         setPremiumError(t.errUnauthorized)
         setGeneratingImage(false)
@@ -381,7 +369,6 @@ export default function DreamCard({
       const data = await res.json().catch(() => null)
 
       if (!res.ok) {
-        // HATA MESAJI DOĞRUDAN FRONTEND'E AKTARILIR (Debug Kolaylığı)
         setPremiumError(data?.details || t.imageFail)
         setGeneratingImage(false)
         return
@@ -389,8 +376,6 @@ export default function DreamCard({
 
       if (data?.imageUrl) {
         triggerToast(isOwner ? t.imageSuccess : t.imageGiftSuccess)
-        
-        // Sayfa yenilemesi yapmadan, state üzerinden rüya kartına yeni görseli anında giydirir
         setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
       }
 
@@ -407,7 +392,6 @@ export default function DreamCard({
     }
   }
 
-  // Butona tıklandığında bakiye durumuna göre Onay Modalı veya Gumroad açar
   async function handlePremiumButtonClick() {
     setPremiumError('')
 
@@ -423,13 +407,11 @@ export default function DreamCard({
 
       setUser(verifiedUser)
 
-      // Eğer zaten analiz üretilmişse onay ekranı göstermeden doğrudan Instagram carousel'i aç
       if (premiumAnalysis) {
         setShowAnalysisModal(true)
         return
       }
 
-      // Analiz onay modunda modalı aç
       setShowConfirmModal(true)
     } catch (err) {
       console.error('User verification check failed:', err)
@@ -437,7 +419,6 @@ export default function DreamCard({
     }
   }
 
-  // Lunosfer Sohbet Çemberi Paylaşımı
   const handleLunosferShare = async () => {
     if (!user?.id) {
       alert(getTranslation('social.loginToComment', currentLang))
@@ -471,7 +452,6 @@ export default function DreamCard({
     }
   }
 
-  // Sosyal Medya & Instagram Paylaşım Fonksiyonu (Web Share API & Clipboard Fallback)
   const handleShareOnSocial = async () => {
     const dreamUrl = typeof window !== 'undefined' ? `${window.location.origin}/dreams/${dream.id}` : ''
     const shareText = t.shareText.replace('{url}', dreamUrl)
@@ -497,7 +477,6 @@ export default function DreamCard({
     }
   }
 
-  // Instagram Özel Paylaşım
   const handleInstagramShare = async () => {
     const dreamUrl = typeof window !== 'undefined' ? `${window.location.origin}/dreams/${dream.id}` : ''
     const shareText = t.shareText.replace('{url}', dreamUrl)
@@ -525,10 +504,7 @@ export default function DreamCard({
 
   const displayContent = translated ? translatedContent : dream.content
   const displayAnalysis = getDreamAnalysis()
-
-  const sentimentLabel = dream.user_selected_sentiment
-    ? translateEmotion(dream.user_selected_sentiment)
-    : null
+  const sentimentLabel = dream.user_selected_sentiment ? translateEmotion(dream.user_selected_sentiment) : null
 
   return (
     <>
@@ -554,19 +530,13 @@ export default function DreamCard({
           <div className="mb-5 flex flex-wrap items-center gap-2">
             {Array.isArray(effectiveDream.ai_archetypes) && effectiveDream.ai_archetypes.length > 0 ? (
               effectiveDream.ai_archetypes.map((arch, i) => (
-                <span
-                  key={`${dream.id}-arch-${i}`}
-                  className="rounded-full border border-violet-300/18 bg-violet-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-violet-100"
-                >
+                <span key={`${dream.id}-arch-${i}`} className="rounded-full border border-violet-300/18 bg-violet-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-violet-100">
                   {translateArchetype(arch)}
                 </span>
               ))
             ) : Array.isArray(teaserAnalysis?.archetypes) && teaserAnalysis.archetypes.length > 0 ? (
               teaserAnalysis.archetypes.map((arch, i) => (
-                <span
-                  key={`${dream.id}-teaser-arch-${i}`}
-                  className="rounded-full border border-violet-300/18 bg-violet-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-violet-100"
-                >
+                <span key={`${dream.id}-teaser-arch-${i}`} className="rounded-full border border-violet-300/18 bg-violet-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-violet-100">
                   {translateArchetype(arch)}
                 </span>
               ))
@@ -608,20 +578,9 @@ export default function DreamCard({
                   {getTranslation('feed.jungianAnalysis', currentLang)}
                 </span>
               </div>
-
-              {dreamTitle ? (
-                <h3 className="mb-3 text-base font-semibold leading-7 text-violet-50 sm:text-lg">
-                  {dreamTitle}
-                </h3>
-              ) : null}
-
+              {dreamTitle ? <h3 className="mb-3 text-base font-semibold leading-7 text-violet-50 sm:text-lg">{dreamTitle}</h3> : null}
               <p className="text-sm leading-7 text-white/82">{displayAnalysis}</p>
-
-              {dreamMotiv && (
-                <div className="mt-4 border-t border-violet-300/14 pt-3">
-                  <p className="text-xs italic text-violet-100/78">💫 {dreamMotiv}</p>
-                </div>
-              )}
+              {dreamMotiv && <div className="mt-4 border-t border-violet-300/14 pt-3"><p className="text-xs italic text-violet-100/78">💫 {dreamMotiv}</p></div>}
             </div>
           )}
 
@@ -641,18 +600,14 @@ export default function DreamCard({
                 disabled={retryingAnalysis}
                 className="energy-button inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
-                {retryingAnalysis && (
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-200 border-t-transparent" />
-                )}
+                {retryingAnalysis && <span className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-200 border-t-transparent" />}
                 <span>{retryingAnalysis ? t.retryLoading : t.retryBtn}</span>
               </button>
-              {retryError && (
-                <p className="mt-2 text-xs leading-5 text-rose-200/90">{retryError}</p>
-              )}
+              {retryError ? <p className="mt-2 text-xs leading-5 text-rose-200/90">{retryError}</p> : null}
             </div>
           )}
 
-          {/* Derin Rüya Analizini Başlat/Aç/Hediye Et Butonu */}
+          {/* Derin Rüya Analizi Butonu */}
           <button
             type="button"
             onClick={handlePremiumButtonClick}
@@ -660,37 +615,23 @@ export default function DreamCard({
             className="energy-button mb-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-300/18 bg-fuchsia-500/10 px-4 py-3.5 text-sm font-semibold text-fuchsia-100 hover:bg-fuchsia-500/18 disabled:cursor-not-allowed disabled:opacity-60 shadow-[0_0_20px_rgba(240,73,214,0.15)]"
           >
             <span>{premiumGenerating ? '⏳' : '✦'}</span>
-            <span>
-              {premiumAnalysis 
-                ? t.exploreCards
-                : (isOwner ? t.getDeepAnalysis : t.giftDeepAnalysis)
-              }
-            </span>
+            <span>{premiumAnalysis ? t.exploreCards : (isOwner ? t.getDeepAnalysis : t.giftDeepAnalysis)}</span>
           </button>
 
-          {/* Sadece Rüya Görseli Üretme/Hediye Etme Butonu */}
+          {/* Bağımsız Görsel Üretim Butonu (Sadece görsel yoksa ve analiz yoksa gösterilir) */}
           {!premiumAnalysis && !dreamImage && (
             <button
               type="button"
-              onClick={handleGenerateImageOnly} // Artık doğrudan aradaki onay penceresini atlayarak API'ye gider!
+              onClick={handleGenerateImageOnly}
               disabled={generatingImage}
               className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-60 shadow-[0_0_20px_rgba(6,182,212,0.15)] animate-pulse"
             >
               <span>{generatingImage ? '⏳' : '🌌'}</span>
-              <span>
-                {generatingImage 
-                  ? (isOwner ? t.generatingImage : t.giftingImage)
-                  : (isOwner ? t.generateImage : t.giftDreamImage)
-                }
-              </span>
+              <span>{generatingImage ? (isOwner ? t.generatingImage : t.giftingImage) : (isOwner ? t.generateImage : t.giftDreamImage)}</span>
             </button>
           )}
 
-          {premiumError && (
-            <p className="mb-5 -mt-2 text-sm leading-6 text-rose-200/90" role="alert">
-              {premiumError}
-            </p>
-          )}
+          {premiumError && <p className="mb-5 -mt-2 text-sm leading-6 text-rose-200/90" role="alert">{premiumError}</p>}
 
           <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
             <button
@@ -705,9 +646,7 @@ export default function DreamCard({
               onClick={() => {
                 const nextValue = !showComments
                 setShowComments(nextValue)
-                if (nextValue && comments.length === 0) {
-                  loadComments()
-                }
+                if (nextValue && comments.length === 0) loadComments()
               }}
               className="energy-button inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/80 hover:bg-cyan-500/10"
             >
@@ -718,9 +657,7 @@ export default function DreamCard({
             {hasTeaserAnalysis && !premiumAnalysis && (
               <button
                 type="button"
-                onClick={() => {
-                  setShowAnalysisModal(true)
-                }}
+                onClick={() => setShowAnalysisModal(true)}
                 className="energy-button inline-flex items-center gap-2 rounded-2xl border border-violet-300/18 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-100 hover:bg-violet-500/18"
               >
                 <span>🜂</span>
@@ -728,105 +665,10 @@ export default function DreamCard({
               </button>
             )}
           </div>
-
-          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4 text-sm text-white/58">
-            {dream.dream_date && (
-              <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
-                {dream.dream_date}
-              </span>
-            )}
-            {dream.location_name && (
-              <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
-                {dream.location_name}
-              </span>
-            )}
-            {dream.original_language && (
-              <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
-                {String(dream.original_language).toUpperCase()}
-              </span>
-            )}
-            {sentimentLabel && (
-              <span className="rounded-full border border-white/8 bg-white/4 px-3 py-1">
-                {sentimentLabel}
-              </span>
-            )}
-          </div>
-
-          {showComments && (
-            <div className="mt-5 border-t border-white/10 pt-5">
-              {user && (
-                <div className="mb-4 flex gap-2">
-                  <input
-                    type="text"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        handleAddComment()
-                      }
-                    }}
-                    placeholder={getTranslation('social.addComment', currentLang)}
-                    className="flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/35 focus:border-violet-400/30 focus:outline-none"
-                  />
-                  <button
-                    onClick={handleAddComment}
-                    disabled={!newComment.trim()}
-                    className="energy-button rounded-2xl border border-violet-300/20 bg-violet-500/10 px-4 py-3 text-sm text-violet-100 hover:bg-violet-500/18 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {getTranslation('social.send', currentLang)}
-                  </button>
-                </div>
-              )}
-
-              {commentsLoading ? (
-                <p className="py-4 text-center text-sm text-white/40">
-                  {currentLang === 'tr' ? 'Yorumlar yükleniyor...' : 'Loading comments...'}
-                </p>
-              ) : comments.length === 0 ? (
-                <p className="py-4 text-center text-sm text-white/40">
-                  {getTranslation('social.noComments', currentLang)}
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {comments.map((comment) => (
-                    <div
-                      key={comment.id}
-                      className="rounded-[1.35rem] border border-white/10 bg-white/5 p-3.5"
-                    >
-                      <div className="mb-2 flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-slate-200">
-                            {comment.user_profiles?.display_name ||
-                              comment.user_profiles?.username ||
-                              'Anonim'}
-                          </span>
-                          <span className="text-xs text-white/40">
-                            {new Date(comment.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-
-                        {user?.id === comment.user_id && (
-                          <button
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="text-xs text-red-400 transition-colors hover:text-red-300"
-                          >
-                            {getTranslation('social.delete', currentLang)}
-                          </button>
-                        )}
-                      </div>
-
-                      <p className="text-sm leading-7 text-white/82">{comment.content}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </article>
 
-      {/* TOAST BİLDİRİMİ */}
+      {/* TOAST */}
       {showToast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] pointer-events-none transition-all duration-300 animate-pulse">
           <div className="rounded-full border border-fuchsia-300/30 bg-fuchsia-950/90 px-6 py-3 text-sm font-medium text-fuchsia-100 shadow-[0_0_30px_rgba(240,73,214,0.3)] backdrop-blur-md">
@@ -835,7 +677,7 @@ export default function DreamCard({
         </div>
       )}
 
-      {/* ONAY MODALİ (8 AURA SATIN ALMA/BAŞLATMA EKRANI - HEDİYELEŞME DESTEKLİ) */}
+      {/* ONAY MODALI */}
       <DeepAnalysisConfirmationModal
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
@@ -846,19 +688,13 @@ export default function DreamCard({
         isGift={!isOwner}
       />
 
-      {/* HİBRİT ANALİZ İNCELEME MODALÜ (Premium ise Carousel, Teaser ise Klasik Görünüm) */}
+      {/* CAROUSEL MODAL (PremiumError prop'u iletilerek Slayt 1'de hatalar gösterilir) */}
       {showAnalysisModal && (
         <div
           className="fixed inset-0 z-[100] flex items-end justify-center bg-black/85 backdrop-blur-md sm:items-center sm:p-4"
-          onClick={() => {
-            setShowAnalysisModal(false)
-            setShowStoryMode(false)
-          }}
-          role="dialog"
-          aria-modal="true"
+          onClick={() => { setShowAnalysisModal(false); setShowStoryMode(false); }}
         >
           {premiumAnalysis ? (
-            /* PREMIUM CAROUSEL MODAL */
             <DeepAnalysisCarouselModal
               isOpen={showAnalysisModal}
               onClose={() => setShowAnalysisModal(false)}
@@ -872,37 +708,23 @@ export default function DreamCard({
               onShare={handleShareOnSocial}
               onLunosferShare={handleLunosferShare}
               onInstagramShare={handleInstagramShare}
-              onGenerateImageOnly={handleGenerateImageOnly} // Hata durumları Carousel içine prop ile akıyor
+              onGenerateImageOnly={handleGenerateImageOnly} 
               generatingImage={generatingImage}
-              premiumError={premiumError} // Slayt üstü Replicate hatasını göstermesi için EKLENDİ!
+              premiumError={premiumError} // 2. HATA MESAJI CAROUSEL'E AKTARILDI
               translateArchetype={translateArchetype}
               onOpenStoryMode={() => setShowStoryMode(true)}
               dreamId={dream.id}
             />
           ) : (
-            /* TEASER VIEW */
-            <div
-              className="relative max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#070b14] shadow-[0_30px_100px_rgba(0,0,0,0.55)] sm:rounded-[2rem]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={() => setShowAnalysisModal(false)}
-                className="sticky right-4 top-4 z-20 ml-auto mr-4 mt-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white hover:bg-white/10"
-                aria-label={getCloseLabel(currentLang)}
-              >
-                ✕
-              </button>
-              <DreamAnalysisView 
-                analysis={effectiveDream?.premium_deep_analysis || teaserAnalysis} 
-                lang={currentLang} 
-              />
+            <div className="relative max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#070b14] shadow-[0_30px_100px_rgba(0,0,0,0.55)] sm:rounded-[2rem]" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setShowAnalysisModal(false)} className="sticky right-4 top-4 z-20 ml-auto mr-4 mt-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white hover:bg-white/10">✕</button>
+              <DreamAnalysisView analysis={effectiveDream?.premium_deep_analysis || teaserAnalysis} lang={currentLang} />
             </div>
           )}
         </div>
       )}
 
-      {/* HİKAYE MODU MODALİ (9:16) */}
+      {/* HİKAYE MODU */}
       <StoryModeModal
         isOpen={showStoryMode && showAnalysisModal}
         onClose={() => setShowStoryMode(false)}
