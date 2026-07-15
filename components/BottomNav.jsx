@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
-import { auth } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export default function BottomNav() {
   const router = useRouter()
@@ -9,18 +9,33 @@ export default function BottomNav() {
 
   useEffect(() => {
     let active = true
+
     async function loadAvatar() {
-      const { data: { user } } = await auth.getUser()
-      if (user && active) {
-        const profile = await auth.getProfile(user.id)
-        setAvatarUrl(profile?.avatar_url || user.user_metadata?.avatar_url || '')
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user && active) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('avatar_url')
+            .eq('id', user.id)
+            .maybeSingle()
+            
+          setAvatarUrl(profile?.avatar_url || user.user_metadata?.avatar_url || '')
+        }
+      } catch (err) {
+        console.error('BottomNav avatar load failed:', err)
       }
     }
     loadAvatar()
 
-    const { data: authSubscription } = auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user && active) {
-        const profile = await auth.getProfile(session.user.id)
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('avatar_url')
+          .eq('id', session.user.id)
+          .maybeSingle()
+          
         setAvatarUrl(profile?.avatar_url || '')
       } else {
         setAvatarUrl('')
@@ -29,7 +44,7 @@ export default function BottomNav() {
 
     return () => {
       active = false
-      authSubscription?.subscription?.unsubscribe()
+      subscription?.unsubscribe()
     }
   }, [])
 
@@ -40,7 +55,7 @@ export default function BottomNav() {
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-slate-950/85 backdrop-blur-2xl px-6 py-3 pb-safe">
       <div className="flex items-center justify-between max-w-md mx-auto">
         
-        {/* 1. ANA SAYFA (Home/Feed) */}
+        {/* 1. ANA SAYFA */}
         <Link href="/" className={`p-2 transition-all ${isActive('/') ? 'text-fuchsia-400 drop-shadow-[0_0_8px_rgba(232,121,249,0.6)]' : 'text-slate-400 hover:text-white'}`}>
           <svg viewBox="0 0 24 24" fill={isActive('/') ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" className="w-6 h-6">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -48,7 +63,7 @@ export default function BottomNav() {
           </svg>
         </Link>
 
-        {/* 2. KEŞFET (Explore) */}
+        {/* 2. KEŞFET */}
         <Link href="/explore" className={`p-2 transition-all ${isActive('/explore') ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]' : 'text-slate-400 hover:text-white'}`}>
           <svg viewBox="0 0 24 24" fill={isActive('/explore') ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" className="w-6 h-6">
             <circle cx="11" cy="11" r="8" />
@@ -56,7 +71,7 @@ export default function BottomNav() {
           </svg>
         </Link>
 
-        {/* 3. RÜYA EKLE (Ortada Parlayan Ana Aksiyon Butonu) */}
+        {/* 3. RÜYA EKLE */}
         <Link href="/add-dream" className="group relative -mt-6 p-2">
           <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-500 to-cyan-500 rounded-full blur opacity-60 group-hover:opacity-100 transition-opacity animate-pulse" />
           <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-slate-900 border-2 border-white/20 text-white shadow-xl">
@@ -67,7 +82,7 @@ export default function BottomNav() {
           </div>
         </Link>
 
-        {/* 4. KÜRE / PROPHECY */}
+        {/* 4. KÜRE */}
         <Link href="/globe" className={`p-2 transition-all ${isActive('/globe') ? 'text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.6)]' : 'text-slate-400 hover:text-white'}`}>
           <svg viewBox="0 0 24 24" fill={isActive('/globe') ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" className="w-6 h-6">
             <circle cx="12" cy="12" r="10" />
