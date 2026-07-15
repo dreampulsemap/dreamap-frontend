@@ -1,15 +1,15 @@
 import Link from 'next/link'
-import MiniGlobe from './MiniGlobe'
+import MiniGlobe from '@/components/MiniGlobe'
 import { useTranslation } from 'react-i18next'
-import { getTranslation } from '../lib/translations'
+import { getTranslation } from '@/lib/translations'
+import { useState, useEffect } from 'react'
 
 const HERO_UI = {
   tr: {
     badge: 'Rüya Nabız Ağı',
     titleFallback: 'Dünyanın bilinçaltına hoş geldin.',
     subtitleFallback: 'Kolektif rüya zekâsı',
-    descriptionFallback:
-      'Lunosfer; rüya sinyallerini, arketipleri ve duygusal örüntüleri gerçek zamanlı keşfedebileceğin canlı bir bilinçaltı ağına dönüştürür.',
+    descriptionFallback: 'Lunosfer; rüya sinyallerini, arketipleri ve duygusal örüntüleri gerçek zamanlı keşfedebileceğin canlı bir bilinçaltı ağına dönüştürür.',
     microLine: 'Arketiplerini keşfet, kolektif öngörülere katıl.',
     ctaMap: 'Dünyanın Bilinçaltına Bağlan',
     ctaAddDream: 'Rüyamı Haritaya İşle',
@@ -37,8 +37,7 @@ const HERO_UI = {
     badge: 'Dream Pulse Network',
     titleFallback: 'Welcome to the world’s subconscious.',
     subtitleFallback: 'Collective dream intelligence',
-    descriptionFallback:
-      'Lunosfer turns dream signals, archetypes and emotional patterns into a living subconscious network you can explore in real time.',
+    descriptionFallback: 'Lunosfer turns dream signals, archetypes and emotional patterns into a living subconscious network you can explore in real time.',
     microLine: 'Explore archetypes and join collective insight.',
     ctaMap: 'Connect to the World’s Subconscious',
     ctaAddDream: 'Add My Dream to the Map',
@@ -61,186 +60,19 @@ const HERO_UI = {
     nodesValue: 'Live',
     heatLabel: 'Heat',
     heatValue: 'Rising',
-  },
-  es: {
-    badge: 'Red del Pulso Onírico',
-    titleFallback: 'Bienvenido al subconsciente del mundo.',
-    subtitleFallback: 'Inteligencia onírica colectiva',
-    descriptionFallback:
-      'Lunosfer convierte señales oníricas, arquetipos y patrones emocionales en una red viva del subconsciente que puedes explorar en tiempo real.',
-    microLine: 'Explora arquetipos y únete a la intuición colectiva.',
-    ctaMap: 'Conéctate al Subconsciente del Mundo',
-    ctaAddDream: 'Añadir mi Sueño al Mapa',
-    ctaProphecy: 'Profecía Colectiva',
-    metric1Label: 'Campo Vivo',
-    metric1Value: '24/7',
-    metric1Sub: 'siempre despierto',
-    metric2Label: 'Arquetipos',
-    metric2Value: '∞',
-    metric2Sub: 'identidades en evolución',
-    metric3Label: 'Resonancia',
-    metric3Value: 'En vivo',
-    metric3Sub: 'pulso colectivo',
-    signalLabel: 'Señal de Lunosfer',
-    signalSub: 'Vista previa en tiempo real del campo subconsciente',
-    online: 'En línea',
-    glowLabel: 'Destellos',
-    glowValue: 'Raro',
-    nodesLabel: 'Nodos',
-    nodesValue: 'Activos',
-    heatLabel: 'Calor',
-    heatValue: 'En aumento',
-  },
-  fr: {
-    badge: 'Réseau du Pouls Onirique',
-    titleFallback: 'Bienvenue dans le subconscient du monde.',
-    subtitleFallback: 'Intelligence onirique collective',
-    descriptionFallback:
-      'Lunosfer transforme les signaux de rêve, les archétypes et les motifs émotionnels en un réseau vivant du subconscient à explorer en temps réel.',
-    microLine: 'Explore les archétypes et rejoins l’intuition collective.',
-    ctaMap: 'Se Connecter au Subconscient du Monde',
-    ctaAddDream: 'Ajouter Mon Rêve à la Carte',
-    ctaProphecy: 'Prophétie Collective',
-    metric1Label: 'Champ Vivant',
-    metric1Value: '24/7',
-    metric1Sub: 'toujours éveillé',
-    metric2Label: 'Archétypes',
-    metric2Value: '∞',
-    metric2Sub: 'identités en évolution',
-    metric3Label: 'Résonance',
-    metric3Value: 'Active',
-    metric3Sub: 'pulsation collective',
-    signalLabel: 'Signal Lunosfer',
-    signalSub: 'Aperçu en temps réel du champ subconscient',
-    online: 'En ligne',
-    glowLabel: 'Lueurs',
-    glowValue: 'Rare',
-    nodesLabel: 'Nœuds',
-    nodesValue: 'Actifs',
-    heatLabel: 'Chaleur',
-    heatValue: 'Montante',
-  },
-  de: {
-    badge: 'Traumpuls-Netzwerk',
-    titleFallback: 'Willkommen im Unterbewusstsein der Welt.',
-    subtitleFallback: 'Kollektive Traumintelligenz',
-    descriptionFallback:
-      'Lunosfer verwandelt Traumsignale, Archetypen und emotionale Muster in ein lebendiges Unterbewusstseins-Netzwerk, das du in Echtzeit erkunden kannst.',
-    microLine: 'Entdecke Archetypen und verbinde dich mit kollektiver Einsicht.',
-    ctaMap: 'Mit dem Unterbewusstsein der Welt Verbinden',
-    ctaAddDream: 'Meinen Traum zur Karte Hinzufügen',
-    ctaProphecy: 'Kollektive Prophezeiung',
-    metric1Label: 'Live-Feld',
-    metric1Value: '24/7',
-    metric1Sub: 'immer wach',
-    metric2Label: 'Archetypen',
-    metric2Value: '∞',
-    metric2Sub: 'sich entwickelnde Identitäten',
-    metric3Label: 'Resonanz',
-    metric3Value: 'Aktiv',
-    metric3Sub: 'kollektiver Puls',
-    signalLabel: 'Lunosfer-Signal',
-    signalSub: 'Echtzeit-Vorschau des Unterbewusstseinsfeldes',
-    online: 'Online',
-    glowLabel: 'Leuchten',
-    glowValue: 'Selten',
-    nodesLabel: 'Knoten',
-    nodesValue: 'Aktiv',
-    heatLabel: 'Hitze',
-    heatValue: 'Steigend',
-  },
-  pt: {
-    badge: 'Rede do Pulso dos Sonhos',
-    titleFallback: 'Bem-vindo ao subconsciente do mundo.',
-    subtitleFallback: 'Inteligência onírica coletiva',
-    descriptionFallback:
-      'Lunosfer transforma sinais de sonhos, arquétipos e padrões emocionais em uma rede viva do subconsciente que você pode explorar em tempo real.',
-    microLine: 'Explore arquétipos e participe da percepção coletiva.',
-    ctaMap: 'Conectar ao Subconsciente do Mundo',
-    ctaAddDream: 'Adicionar Meu Sonho ao Mapa',
-    ctaProphecy: 'Profecia Coletiva',
-    metric1Label: 'Campo Vivo',
-    metric1Value: '24/7',
-    metric1Sub: 'sempre desperto',
-    metric2Label: 'Arquétipos',
-    metric2Value: '∞',
-    metric2Sub: 'identidades em evolução',
-    metric3Label: 'Ressonância',
-    metric3Value: 'Ao vivo',
-    metric3Sub: 'pulso coletivo',
-    signalLabel: 'Sinal Lunosfer',
-    signalSub: 'Prévia em tempo real do campo subconsciente',
-    online: 'Online',
-    glowLabel: 'Brilhos',
-    glowValue: 'Raro',
-    nodesLabel: 'Nós',
-    nodesValue: 'Ativos',
-    heatLabel: 'Calor',
-    heatValue: 'Em ascensão',
-  },
-  ru: {
-    badge: 'Сеть Пульса Сновидений',
-    titleFallback: 'Добро пожаловать в подсознание мира.',
-    subtitleFallback: 'Коллективный интеллект сновидений',
-    descriptionFallback:
-      'Lunosfer превращает сигналы снов, архетипы и эмоциональные паттерны в живую сеть подсознания, которую можно исследовать в реальном времени.',
-    microLine: 'Исследуйте архетипы и подключайтесь к коллективному прозрению.',
-    ctaMap: 'Подключиться к Подсознанию Мира',
-    ctaAddDream: 'Добавить Мой Сон на Карту',
-    ctaProphecy: 'Коллективное Пророчество',
-    metric1Label: 'Живое Поле',
-    metric1Value: '24/7',
-    metric1Sub: 'всегда на страже',
-    metric2Label: 'Архетипы',
-    metric2Value: '∞',
-    metric2Sub: 'меняющиеся идентичности',
-    metric3Label: 'Резонанс',
-    metric3Value: 'Активен',
-    metric3Sub: 'коллективный пульс',
-    signalLabel: 'Сигнал Lunosfer',
-    signalSub: 'Предпросмотр поля подсознания в реальном времени',
-    online: 'Онлайн',
-    glowLabel: 'Сияния',
-    glowValue: 'Редкие',
-    nodesLabel: 'Узлы',
-    nodesValue: 'Активны',
-    heatLabel: 'Жар',
-    heatValue: 'Растёт',
-  },
-  ja: {
-    badge: '夢のパルスネットワーク',
-    titleFallback: '世界の潜在意識へようこそ。',
-    subtitleFallback: '集合的な夢の知性',
-    descriptionFallback:
-      'Lunosfer は夢のシグナル、アーキタイプ、感情パターンを、リアルタイムで探索できる生きた潜在意識ネットワークへ変換します。',
-    microLine: 'アーキタイプを探索し、集合的な洞察につながろう。',
-    ctaMap: '世界の潜在意識に接続する',
-    ctaAddDream: '自分の夢をマップに追加する',
-    ctaProphecy: '集合的予言',
-    metric1Label: 'ライブフィールド',
-    metric1Value: '24/7',
-    metric1Sub: '常に覚醒している',
-    metric2Label: 'アーキタイプ',
-    metric2Value: '∞',
-    metric2Sub: '進化し続けるアイデンティティ',
-    metric3Label: 'レゾナンス',
-    metric3Value: 'ライブ',
-    metric3Sub: '集合的な鼓動',
-    signalLabel: 'Lunosfer シグナル',
-    signalSub: '潜在意識フィールドのリアルタイムプレビュー',
-    online: 'オンライン',
-    glowLabel: 'グロウ',
-    glowValue: 'レア',
-    nodesLabel: 'ノード',
-    nodesValue: 'ライブ',
-    heatLabel: 'ヒート',
-    heatValue: '上昇中',
-  },
+  }
 }
 
 export default function Hero() {
   const { i18n } = useTranslation()
-  const lang = HERO_UI[i18n.language] ? i18n.language : 'en'
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
+  const lang = HERO_UI[currentLang] ? currentLang : 'en'
   const ui = HERO_UI[lang]
 
   const rawTitle = getTranslation('hero.title', lang)
@@ -250,31 +82,12 @@ export default function Hero() {
   const rawCtaAddDream = getTranslation('hero.ctaAddDream', lang)
   const rawCtaProphecy = getTranslation('hero.ctaProphecy', lang)
 
-  const title =
-    rawTitle && rawTitle !== 'hero.title' ? rawTitle : ui.titleFallback
-
-  const subtitle =
-    rawSubtitle && rawSubtitle !== 'hero.subtitle'
-      ? rawSubtitle
-      : ui.subtitleFallback
-
-  const description =
-    rawDescription && rawDescription !== 'hero.description'
-      ? rawDescription
-      : ui.descriptionFallback
-
-  const ctaMap =
-    rawCtaMap && rawCtaMap !== 'hero.ctaMap' ? rawCtaMap : ui.ctaMap
-
-  const ctaAddDream =
-    rawCtaAddDream && rawCtaAddDream !== 'hero.ctaAddDream'
-      ? rawCtaAddDream
-      : ui.ctaAddDream
-
-  const ctaProphecy =
-    rawCtaProphecy && rawCtaProphecy !== 'hero.ctaProphecy'
-      ? rawCtaProphecy
-      : ui.ctaProphecy
+  const title = rawTitle && rawTitle !== 'hero.title' ? rawTitle : ui.titleFallback
+  const subtitle = rawSubtitle && rawSubtitle !== 'hero.subtitle' ? rawSubtitle : ui.subtitleFallback
+  const description = rawDescription && rawDescription !== 'hero.description' ? rawDescription : ui.descriptionFallback
+  const ctaMap = rawCtaMap && rawCtaMap !== 'hero.ctaMap' ? rawCtaMap : ui.ctaMap
+  const ctaAddDream = rawCtaAddDream && rawCtaAddDream !== 'hero.ctaAddDream' ? rawCtaAddDream : ui.ctaAddDream
+  const ctaProphecy = rawCtaProphecy && rawCtaProphecy !== 'hero.ctaProphecy' ? rawCtaProphecy : ui.ctaProphecy
 
   return (
     <section className="relative mb-6 overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(2,6,23,0.82),rgba(3,7,18,0.96))] px-4 py-5 shadow-[0_0_100px_rgba(15,23,42,0.52)] backdrop-blur-2xl sm:mb-8 sm:rounded-[32px] sm:px-5 sm:py-6 lg:mb-10 lg:px-8 lg:py-8">
