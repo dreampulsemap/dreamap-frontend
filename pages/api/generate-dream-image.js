@@ -79,12 +79,12 @@ export default async function handler(req, res) {
       return res.status(402).json({ error: 'no_auras' })
     }
 
-    const topArchetype = Array.isArray(dream.ai_archetypes) && dream.ai_archetypes[0] ? dream.ai_archetypes[0] : 'Dreamer'
-    const shortContent = String(dream.content || '').replace(/\s+/g, ' ').trim().slice(0, 240)
+    // SAHNE ODAKLI YENİ PROMPT DİZAYNI
+    // Rüyadaki eylemi ve nesneleri merkeze alır, üzerine Lunosfer'in karanlık mistik sanat filtresini uygular.
+    const shortContent = String(dream.content || '').replace(/\s+/g, ' ').trim().slice(0, 300)
     
-    const imagePrompt = `A breathtaking, ethereal dreamscape representing the ${topArchetype} archetype, with moody and atmospheric lighting, featuring mystical elements, mystical surrealism style, dark cosmic tarot card aesthetic, deep indigo, fuchsia, and glowing gold accents, oil painting texture mixed with modern digital double-exposure, evocative of ${dream.ai_sentiment || 'mystery'}, high-art composition, hauntingly beautiful, cinematic, octane render, masterpiece, extremely detailed, inspired by Carl Jung's subconscious visual representations, based on: ${shortContent}`
+    const imagePrompt = `A breathtaking, highly detailed mystical illustration of the most striking and vivid scene from this dream: "${shortContent}". Focus heavily on visualizing the exact environment, characters, and actions described in the dream text. Style: cinematic lighting, ethereal atmosphere, dark cosmic tarot card aesthetic, mystical surrealism, oil painting texture mixed with modern digital double-exposure, deep indigo, fuchsia, and glowing gold accents. Evocative of ${dream.ai_sentiment || 'mystery'}, high-art composition, hauntingly beautiful, masterpiece, octane render.`
 
-    // 1. REPLICATE ÇAĞRISI (Bearer standardına geri dönüldü)
     const replicateRes = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions', {
       method: 'POST',
       headers: {
@@ -105,19 +105,17 @@ export default async function handler(req, res) {
 
     const replicateData = await replicateRes.json().catch(() => null)
 
-    // 2. DETAYLI HATA GERİ BİLDİRİMİ (Frontend'e patlayan hata açıkça gönderilir)
-    if (!replicateRes.ok || !replicateData || !replicateData.output || !replicateData.output[0]) {
+    if (!replicateRes.ok || !replicateData?.output?.[0]) {
       console.error('Replicate error details:', replicateData)
       const errorDetail = replicateData?.error || replicateData?.detail || 'Replicate API rejected the request.'
       return res.status(replicateRes.status || 502).json({ 
         error: 'image_generation_failed',
-        details: `Replicate Error: ${errorDetail}`
+        details: `Replicate HTTP ${replicateRes.status}: ${errorDetail}`
       })
     }
 
     const imageUrl = replicateData.output[0]
 
-    // 3. GÜVENLİ AURA DÜŞÜMÜ
     const nextAuras = auras - 2
     const { error: auraUpdateError } = await supabaseAdmin
       .from('user_profiles')
