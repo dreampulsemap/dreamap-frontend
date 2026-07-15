@@ -5,6 +5,7 @@ import { useRouter } from 'next/router'
 import { supabase, auth } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
+import { getDreamCardText } from '@/lib/dreamCardTranslations'
 import DreamCard from '@/components/DreamCard'
 
 const BATCH_SIZE = 12;
@@ -37,6 +38,7 @@ export default function ProfilePage() {
   const [profileUsername, setProfileUsername] = useState('')
   const [profileDisplayName, setProfileDisplayName] = useState('')
   const [profileAvatarUrl, setProfileAvatarUrl] = useState('')
+  const [profileIsPrivate, setProfileIsPrivate] = useState(false)
   const [profileSaving, setProfileSaving] = useState(false)
 
   const [avatarFile, setAvatarFile] = useState(null)
@@ -51,6 +53,7 @@ export default function ProfilePage() {
   }, [])
 
   const lang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
+  const tCard = getDreamCardText(lang)
 
   const displayUsername =
     profile?.username ||
@@ -145,6 +148,7 @@ export default function ProfilePage() {
         setProfileUsername(fetchedProfile?.username || '')
         setProfileDisplayName(fetchedProfile?.display_name || '')
         setProfileAvatarUrl(fetchedProfile?.avatar_url || '')
+        setProfileIsPrivate(fetchedProfile?.is_private === true)
 
         await Promise.all([
           loadDreams(currentUser.id, 0, false),
@@ -232,6 +236,7 @@ export default function ProfilePage() {
           username: profileUsername,
           display_name: profileDisplayName,
           avatar_url: uploadedAvatarUrl || profileAvatarUrl,
+          is_private: profileIsPrivate
         }),
       })
 
@@ -284,8 +289,13 @@ export default function ProfilePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: user.id, friendId }),
     })
+    const data = await res.json()
     if (res.ok) {
-      alert(getTranslation('friends.requestSent', lang))
+      if (data.status === 'accepted') {
+        alert(lang === 'tr' ? 'Rezonans kuruldu! 🔮' : 'Resonance aligned! 🔮')
+      } else {
+        alert(lang === 'tr' ? 'Rezonans talebi gönderildi, onay bekleniyor. ⏳' : 'Resonance request sent, pending approval. ⏳')
+      }
       await handleSearch()
     }
   }
@@ -332,14 +342,19 @@ export default function ProfilePage() {
                   onClick={() => setShowFriends(!showFriends)}
                   className="rounded-lg bg-slate-900 border border-white/10 px-4 py-1.5 text-xs font-semibold hover:bg-slate-800 transition-all"
                 >
-                  👥 {friends.length} {getTranslation('friends.title', lang)}
+                  👥 {friends.length} {tCard.followingLabel}
                 </button>
               </div>
             </div>
 
             <div className="text-sm font-medium text-slate-200 mt-2">
               <p className="font-bold text-white">{profile?.display_name || displayUsername}</p>
-              <p className="text-xs text-slate-400 mt-1">{dreams.length} {getTranslation('profile.totalDreams', lang)}</p>
+              {profile?.is_private && (
+                <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-fuchsia-300 border border-fuchsia-500/20 mt-1 uppercase tracking-widest">
+                  🔒 {lang === 'tr' ? 'Gizli Profil' : 'Private Profile'}
+                </span>
+              )}
+              <p className="text-xs text-slate-400 mt-1.5">{dreams.length} {getTranslation('profile.totalDreams', lang)}</p>
             </div>
           </div>
         </div>
@@ -370,10 +385,10 @@ export default function ProfilePage() {
                     <div key={res.id} className="glass-card p-3 flex items-center justify-between gap-3">
                       <div className="truncate text-xs font-semibold">{res.username}</div>
                       {res.friendshipStatus === null && (
-                        <button onClick={() => handleSendRequest(res.id)} className="glass-card px-3 py-1 text-xs hover:bg-purple-500/20">{getTranslation('friends.sendRequest', lang)}</button>
+                        <button onClick={() => handleSendRequest(res.id)} className="glass-card px-3 py-1 text-xs hover:bg-purple-500/20">{tCard.followLabel}</button>
                       )}
-                      {res.friendshipStatus === 'pending' && <span className="text-yellow-400 text-xs">{getTranslation('friends.pending', lang)}</span>}
-                      {res.friendshipStatus === 'accepted' && <span className="text-green-400 text-xs">{getTranslation('friends.accepted', lang)}</span>}
+                      {res.friendshipStatus === 'pending' && <span className="text-yellow-400 text-xs">{tCard.pendingLabel}</span>}
+                      {res.friendshipStatus === 'accepted' && <span className="text-green-400 text-xs">{tCard.followingLabel}</span>}
                     </div>
                   ))}
                 </div>
@@ -454,7 +469,7 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* PROFİL RESMİ & KULLANICI ADI EDİTÖRÜ */}
+      {/* PROFİL EDİTÖRÜ MODALI (Gizlilik Toggleri Dahil) */}
       {showProfileEditor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
           <div className="glass-card p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
@@ -468,6 +483,22 @@ export default function ProfilePage() {
             <div className="mb-4">
               <label className="text-xs text-white/50 block mb-2 uppercase tracking-widest">{getTranslation('profile.displayName', lang)}</label>
               <input value={profileDisplayName} onChange={e => setProfileDisplayName(e.target.value)} className="w-full bg-black/40 border border-white/20 rounded p-3 text-white text-sm" placeholder="Display Name" />
+            </div>
+
+            {/* PROFİL GİZLİLİK SEÇENEĞİ (Yeni Mistik İstek) */}
+            <div className="mb-4">
+              <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={profileIsPrivate}
+                  onChange={(e) => setProfileIsPrivate(e.target.checked)}
+                  className="w-4 h-4 rounded text-fuchsia-500 focus:ring-0 focus:outline-none"
+                />
+                <div>
+                  <span className="text-sm font-semibold text-white block">🔒 {lang === 'tr' ? 'Rüya Defterimi Gizli Yap' : 'Make Dream Journal Private'}</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">{lang === 'tr' ? 'Aktif olduğunda sadece onay verdiğiniz dostlar rüyalarınızı okuyabilir.' : 'When active, only approved friends can see your dream gallery.'}</span>
+                </div>
+              </label>
             </div>
 
             <div className="mb-6">
@@ -490,7 +521,6 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* SEÇİLEN KARTIN DETAYLARINI 7 SLAYTLI CAROUSEL İLE AÇMA SİHİRBAZI */}
       {activeDream && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
