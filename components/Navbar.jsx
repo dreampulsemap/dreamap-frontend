@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
-import { auth } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
@@ -21,19 +21,28 @@ export default function Navbar() {
     setMounted(true)
   }, [])
 
-  const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
+  const currentLang = mounted ? (i18n?.language || 'en').split('-')[0] : 'en'
   const t = getDreamCardText(currentLang)
 
   useEffect(() => {
     if (!mounted) return
+    let active = true
 
     async function checkUser() {
       try {
-        const { data: { user: currentUser } } = await auth.getUser()
+        // DOĞRUDAN SUPABASE CORE KULLANIMI (Hatasız)
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        if (!active) return
+        
         setUser(currentUser || null)
 
         if (currentUser) {
-          const profile = await auth.getProfile(currentUser.id)
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('avatar_url, premium_analysis_auras')
+            .eq('id', currentUser.id)
+            .maybeSingle()
+            
           setAvatarUrl(profile?.avatar_url || currentUser?.user_metadata?.avatar_url || '')
           setAuras(Number(profile?.premium_analysis_auras || 0))
         }
@@ -41,12 +50,20 @@ export default function Navbar() {
         console.error('Navbar user check failed:', error)
       }
     }
+    
     checkUser()
 
-    const { data: authSubscription } = auth.onAuthStateChange(async (event, session) => {
+    // Oturum değişikliklerini dinleme (Hatasız Abonelik İptali)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!active) return
       if (session?.user) {
         setUser(session.user)
-        const profile = await auth.getProfile(session.user.id)
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('avatar_url, premium_analysis_auras')
+          .eq('id', session.user.id)
+          .maybeSingle()
+          
         setAuras(Number(profile?.premium_analysis_auras || 0))
         setAvatarUrl(profile?.avatar_url || '')
       } else {
@@ -57,7 +74,8 @@ export default function Navbar() {
     })
 
     return () => {
-      authSubscription?.subscription?.unsubscribe()
+      active = false
+      subscription?.unsubscribe()
     }
   }, [mounted])
 
@@ -93,9 +111,9 @@ export default function Navbar() {
 
         {/* MASAÜSTÜ NAVİGASYONU (Sadece PC'de görünür) */}
         <nav className="hidden md:flex items-center gap-8">
-          <Link href="/" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Ana Sayfa</Link>
-          <Link href="/explore" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Keşfet</Link>
-          <Link href="/globe" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Küre</Link>
+          <Link href="/" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{currentLang === 'tr' ? 'Ana Sayfa' : 'Home'}</Link>
+          <Link href="/explore" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{currentLang === 'tr' ? 'Keşfet' : 'Explore'}</Link>
+          <Link href="/globe" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{currentLang === 'tr' ? 'Küre' : 'Globe'}</Link>
         </nav>
 
         {/* SAĞ KONTROLLER (Aura & Dil) */}
@@ -104,7 +122,8 @@ export default function Navbar() {
             <LanguageSwitcher />
           </div>
 
-          {user ? (
+          {/* PREMIUM AURA CONTAINER */}
+          {user && (
             <div className="relative" ref={auraDropdownRef}>
               <button
                 type="button"
@@ -132,6 +151,12 @@ export default function Navbar() {
                 </div>
               )}
             </div>
+          )}
+
+          {user ? (
+            <Link href="/profile" className="hidden md:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 overflow-hidden hover:border-fuchsia-400/50 transition-all">
+              {avatarUrl ? <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" /> : <span className="text-sm">👤</span>}
+            </Link>
           ) : (
             <Link
               href="/auth"
@@ -141,14 +166,7 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* Masaüstü Profil Avatarı */}
-          {user && (
-            <Link href="/profile" className="hidden md:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 overflow-hidden hover:border-fuchsia-400/50 transition-all">
-              {avatarUrl ? <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" /> : <span className="text-sm">👤</span>}
-            </Link>
-          )}
         </div>
-
       </div>
     </header>
   )
