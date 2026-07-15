@@ -40,9 +40,9 @@ export default function DreamCard({
 
   // Dil kodunu ilk montaj tamamlanana kadar sabit 'en' tutarak uyuşmazlığı engeller
   const currentLang = useMemo(() => {
-    const rawLang = lang || (mounted ? (i18n.language || 'en') : 'en')
+    const rawLang = lang || (mounted ? (i18n?.language || 'en') : 'en')
     return String(rawLang).toLowerCase().split('-')[0]
-  }, [lang, i18n.language, mounted])
+  }, [lang, i18n, mounted]) // Bağımlılık olarak i18n nesnesi izlenerek çökme önlenmiştir
 
   const t = getDreamCardText(currentLang)
 
@@ -143,7 +143,7 @@ export default function DreamCard({
           setPremiumAuras(Number(creditsRes?.data?.premium_analysis_auras || 0))
         }
       } catch (err) {
-        console.error('User check failed:', err)
+        console.error('Navbar user check failed:', err)
       }
     }
     checkUser()
@@ -243,7 +243,7 @@ export default function DreamCard({
   const dreamTitle = useMemo(() => getDreamTitle(), [getDreamTitle])
 
   // Derin Rüya Analizini Başlatma (Gerçek Üretim Tetikleyicisi)
-  const handlePremiumAnalysisExecute = async () => {
+  async function handlePremiumAnalysisExecute() {
     setShowConfirmModal(false)
     setPremiumGenerating(true)
     setPremiumError('')
@@ -304,10 +304,13 @@ export default function DreamCard({
     try {
       const { data: { user: verifiedUser } } = await supabase.auth.getUser()
       if (!verifiedUser?.id) {
+        setUser(null)
         setPremiumError(getPremiumErrorMessage(currentLang, 'login_required'))
         router.push('/auth')
         return
       }
+
+      setUser(verifiedUser)
 
       if (premiumAuras < 2) {
         setPremiumError(getPremiumErrorMessage(currentLang, 'no_auras'))
@@ -381,11 +384,13 @@ export default function DreamCard({
 
       setUser(verifiedUser)
 
+      // Eğer zaten analiz üretilmişse onay ekranı göstermeden doğrudan Instagram carousel'i aç
       if (premiumAnalysis) {
         setShowAnalysisModal(true)
         return
       }
 
+      // Analiz henüz üretilmemişse onay penceresini tetikle
       setShowConfirmModal(true)
     } catch (err) {
       console.error('User verification check failed:', err)
@@ -393,7 +398,7 @@ export default function DreamCard({
     }
   }
 
-  // Lunosfer Sohbet Çemberi Paylaşımı (Gerçek Veritabanı ve Akış Entegrasyonu)
+  // Lunosfer Sohbet Çemberi Paylaşımı
   const handleLunosferShare = async () => {
     if (!user?.id) {
       alert(getTranslation('social.loginToComment', currentLang))
@@ -581,9 +586,9 @@ export default function DreamCard({
                 )}
                 <span>{getRetryAnalysisLabel(currentLang, retryingAnalysis)}</span>
               </button>
-              {retryError && (
+              {retryError ? (
                 <p className="mt-2 text-xs leading-5 text-rose-200/90">{retryError}</p>
-              )}
+              ) : null}
             </div>
           )}
 
