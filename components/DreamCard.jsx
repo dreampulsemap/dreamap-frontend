@@ -416,7 +416,11 @@ export default function DreamCard({
       console.error('IG copy failed:', err)
     }
 
-    const isMobile = typeof navigator !== 'undefined' && /iphone|ipad|ipod|android/i.test(navigator.userAgent)
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
+    const isIOS = /iphone|ipad|ipod/i.test(ua) || (typeof navigator !== 'undefined' && navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    const isAndroid = /android/i.test(ua)
+    const isTouchDevice = typeof window !== 'undefined' && (('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0)
+    const isMobile = isIOS || isAndroid || isTouchDevice
 
     if (isMobile) {
       // Instagram uygulamasını doğrudan aç (genel paylaşım menüsü DEĞİL)
