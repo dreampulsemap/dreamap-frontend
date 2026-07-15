@@ -16,8 +16,8 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
 
-  // Seçili rüyanın modalı
-  const [activeDream, setActiveDream] = useState(null)
+  // Seçili rüyanın dizi içerisindeki indeksini tutar (Explore Slider için)
+  const [activeDreamIndex, setActiveDreamIndex] = useState(null)
   const observerRef = useRef(null)
 
   useEffect(() => {
@@ -105,7 +105,7 @@ export default function ExplorePage() {
             🌐 {lang === 'tr' ? 'Küresel Rüya Ağı' : 'Global Dream Nexus'}
           </span>
           <h1 className="text-3xl font-bold font-serif gradient-text">
-            {lang === 'tr' ? 'Kolektif Keşfet' : 'Collective Explore'}
+            {lang === 'tr' ? 'Kolektif Keşfet' : 'Explore'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-md">
             {lang === 'tr' 
@@ -135,7 +135,7 @@ export default function ExplorePage() {
                 <div
                   key={dream.id}
                   ref={isLast ? lastElementRef : null}
-                  onClick={() => setActiveDream(dream)}
+                  onClick={() => setActiveDreamIndex(index)}
                   className="group aspect-square relative overflow-hidden rounded-xl border border-white/5 bg-slate-900/40 hover:border-fuchsia-500/40 shadow-lg cursor-pointer transition-all duration-300"
                 >
                   {hasImg ? (
@@ -145,7 +145,6 @@ export default function ExplorePage() {
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
-                    // Görseli olmayan rüyalar için estetik duygu kartları (Kullanıcıya 2 Aura harcatma teşviki)
                     <div className="w-full h-full flex flex-col justify-between p-3 sm:p-5 bg-gradient-to-br from-purple-950/20 to-black select-none">
                       <span className="text-lg sm:text-2xl">{getSentimentEmoji(dream.ai_sentiment)}</span>
                       <p className="text-[10px] sm:text-xs text-white/70 leading-relaxed font-light line-clamp-3">"{dream.content}"</p>
@@ -153,7 +152,6 @@ export default function ExplorePage() {
                     </div>
                   )}
 
-                  {/* HOVER HOVER KAPLAMA EFEKTİ (Giriş Etkileşim Sayıları) */}
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-all duration-300">
                     <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white">
                       ❤️ {dream.likes_count || 0}
@@ -176,18 +174,30 @@ export default function ExplorePage() {
         )}
       </main>
 
-      {/* SESSİZ MODAL TETİKLEYİCİSİ (Seçilen Keşfet rüyasını doğrudan 7 Slaytlı Carousel ile açar!) */}
-      {activeDream && (
+      {/* INSTAGRAM EXPLORE TARZI ARALIKSIZ GEÇİŞLİ MODAL ALTYAPISI */}
+      {activeDreamIndex !== null && dreams[activeDreamIndex] && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
-          onClick={() => setActiveDream(null)}
+          className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
+          onClick={() => setActiveDreamIndex(null)}
         >
+          {/* SOL GEÇİŞ OKU (Instagram Explore Style) */}
+          {activeDreamIndex > 0 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setActiveDreamIndex(activeDreamIndex - 1); }}
+              className="fixed left-4 z-[200] inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white backdrop-blur hover:bg-white/15 transition-all text-xl"
+              title={lang === 'tr' ? 'Önceki Rüya' : 'Previous Dream'}
+            >
+              ←
+            </button>
+          )}
+
           <div 
             className="w-full max-w-2xl max-h-[90vh]" 
             onClick={(e) => e.stopPropagation()}
           >
             <DreamCard 
-              dream={activeDream} 
+              dream={dreams[activeDreamIndex]} 
               lang={lang} 
               onTranslate={() => {}}
               translating={false}
@@ -196,6 +206,18 @@ export default function ExplorePage() {
               translatedAnalysis=""
             />
           </div>
+
+          {/* SAĞ GEÇİŞ OKU (Instagram Explore Style) */}
+          {activeDreamIndex < dreams.length - 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setActiveDreamIndex(activeDreamIndex + 1); }}
+              className="fixed right-4 z-[200] inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white backdrop-blur hover:bg-white/15 transition-all text-xl"
+              title={lang === 'tr' ? 'Sonraki Rüya' : 'Next Dream'}
+            >
+              →
+            </button>
+          )}
         </div>
       )}
     </div>
