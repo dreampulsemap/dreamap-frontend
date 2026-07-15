@@ -6,12 +6,13 @@ import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
 
-const BATCH_SIZE = 10;
+const BATCH_SIZE = 10; // Her seferinde yüklenecek maksimum rüya sayısı
 
 export default function HomePage() {
   const { i18n } = useTranslation()
   const [mounted, setMounted] = useState(false)
 
+  // Akış ve Sayfalama Durumları
   const [dreams, setDreams] = useState([])
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
@@ -25,6 +26,7 @@ export default function HomePage() {
   const [onlineCount, setOnlineCount] = useState(12487)
   const [resonanceMatch, setResonanceMatch] = useState(78)
 
+  // Sonsuz Kaydırma için Sensör Ref'i
   const observerRef = useRef(null)
 
   useEffect(() => {
@@ -34,6 +36,7 @@ export default function HomePage() {
   const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
   const lang = currentLang
 
+  // Arkadaşların ve kendisinin rüyalarını getiren asenkron akış
   const loadFeedData = useCallback(async (pageNum = 0, append = false) => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -43,6 +46,7 @@ export default function HomePage() {
       let query = supabase.from('dreams').select('*').eq('in_feed', true)
 
       if (user?.id) {
+        // 1. Kabul edilmiş arkadaşlık ilişkilerini sorgula
         const { data: friendships } = await supabase
           .from('friendships')
           .select('user_id, friend_id')
@@ -53,6 +57,7 @@ export default function HomePage() {
           ? friendships.map(f => f.user_id === user.id ? f.friend_id : f.user_id) 
           : []
 
+        // Sadece kullanıcının kendisinin ve arkadaşlarının rüyalarını akışa dahil et (Instagram Feed)
         const allowedUserIds = [user.id, ...friendIds]
         query = query.in('user_id', allowedUserIds)
       }
@@ -115,6 +120,7 @@ export default function HomePage() {
     setLoadingMore(false)
   }, [page, hasMore, loadingMore, loadFeedData])
 
+  // Görünmez Sensörü İzleyen Intersection Observer (Sonsuz Kaydırma Tetikleyicisi)
   const lastElementRef = useCallback(
     (node) => {
       if (loading || loadingMore) return
@@ -191,6 +197,42 @@ export default function HomePage() {
     }
     return dreams
   }, [dreams, activeFilter])
+
+  // ONARILAN KEHANET METİN TANIMLAMALARI (Hydration Safe & useMemo)
+  const prophecyText = useMemo(() => {
+    return (
+      dailyProphecy?.[`content_${lang}`] ||
+      dailyProphecy?.content_tr ||
+      dailyProphecy?.content_en ||
+      'The collective field is still gathering symbols for today.'
+    )
+  }, [dailyProphecy, lang])
+
+  const prophecyAdvice = useMemo(() => {
+    return (
+      dailyProphecy?.[`advice_${lang}`] ||
+      dailyProphecy?.advice_tr ||
+      dailyProphecy?.advice_en ||
+      ''
+    )
+  }, [dailyProphecy, lang])
+
+  const sectionTitle =
+    lang === 'tr'
+      ? 'Canlı Rüya Akışı'
+      : lang === 'es'
+      ? 'Feed de Sueños en Vivo'
+      : lang === 'fr'
+      ? 'Flux de Rêves en Direct'
+      : lang === 'de'
+      ? 'Live-Traumfeed'
+      : lang === 'pt'
+      ? 'Feed de Sonhos ao Vivo'
+      : lang === 'ru'
+      ? 'Лента Снов в Реальном Времени'
+      : lang === 'ja'
+      ? 'ライブ夢フィード'
+      : 'Live Dream Feed'
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-black text-white">
