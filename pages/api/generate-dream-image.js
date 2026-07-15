@@ -63,7 +63,6 @@ export default async function handler(req, res) {
       })
     }
 
-    // Ödemeyi tetikleyen kullanıcının (user.id) Aura bakiyesini çek
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('id, premium_analysis_auras')
@@ -106,14 +105,18 @@ export default async function handler(req, res) {
 
     const replicateData = await replicateRes.json().catch(() => null)
 
+    // REPLICATE HATALARINI DETAYLI ŞEKİLDE YAKALAMA (Self-Debugging)
     if (!replicateRes.ok || !replicateData?.output?.[0]) {
       console.error('Replicate error details:', replicateData)
-      return res.status(502).json({ error: 'image_generation_failed' })
+      const errorDetail = replicateData?.error || replicateData?.detail || 'Replicate API rejected the request.'
+      return res.status(replicateRes.status || 502).json({ 
+        error: 'image_generation_failed',
+        details: `Replicate HTTP ${replicateRes.status}: ${errorDetail}`
+      })
     }
 
     const imageUrl = replicateData.output[0]
 
-    // Ödemeyi tetikleyenden 2 Aura düşer (hediyeleşmeyi destekler)
     const nextAuras = auras - 2
     const { error: auraUpdateError } = await supabaseAdmin
       .from('user_profiles')
