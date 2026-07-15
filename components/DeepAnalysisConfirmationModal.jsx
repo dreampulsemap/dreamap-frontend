@@ -8,7 +8,7 @@ export default function DeepAnalysisConfirmationModal({
   onConfirm,
   lang,
   gumroadUrl,
-  isGift = false, // Hediye modu belirteci
+  isGift = false,
 }) {
   if (!isOpen) return null
   const t = getDreamCardText(lang)
