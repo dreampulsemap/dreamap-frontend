@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from 'next/router'
-import { getTranslation } from '../lib/translations'
-import { supabase } from '../lib/supabase'
-import { tAddDream } from '../lib/addDreamTranslations'
-import { ARCHETYPE_LOCALIZATIONS } from '../lib/archetypeTranslations'
-import DreamAnalysisView from './DreamAnalysisView'
-import DeepAnalysisConfirmationModal from './DeepAnalysisConfirmationModal'
-import DeepAnalysisCarouselModal from './DeepAnalysisCarouselModal'
-import StoryModeModal from './StoryModeModal'
+import { getTranslation } from '@/lib/translations'
+import { supabase } from '@/lib/supabase'
+import { tAddDream } from '@/lib/addDreamTranslations'
+import { ARCHETYPE_LOCALIZATIONS } from '@/lib/archetypeTranslations'
+import DreamAnalysisView from '@/components/DreamAnalysisView'
+import DeepAnalysisConfirmationModal from '@/components/DeepAnalysisConfirmationModal'
+import DeepAnalysisCarouselModal from '@/components/DeepAnalysisCarouselModal'
+import StoryModeModal from '@/components/StoryModeModal'
 
 const GUMROAD_PRODUCT_URL = 'https://lunosfer.gumroad.com/l/lunosfer-deep-analysis'
+
+function getAnalysisButtonLabel(lang) {
+  return lang === 'tr' ? 'Rüya Analizini Aç' : 'Open Dream Analysis'
+}
 
 function getCloseLabel(lang) {
   return lang === 'tr' ? 'Kapat' : 'Close'
@@ -66,7 +70,7 @@ export default function DreamCard({
   const { i18n } = useTranslation()
   const router = useRouter()
 
-  // Dil kodunu (tr-TR gibi durumları engellemek için) güvenle temizler
+  // Dil kodunu temizler
   const currentLang = useMemo(() => {
     const rawLang = lang || i18n.language || 'en'
     return String(rawLang).toLowerCase().split('-')[0]
@@ -245,6 +249,7 @@ export default function DreamCard({
     return Boolean(teaserAnalysis && (getDreamAnalysis() || getDreamMotiv() || getDreamTitle()))
   }, [teaserAnalysis, getDreamAnalysis, getDreamMotiv, getDreamTitle])
 
+  const analysisStatus = effectiveDream?.analysis_status || null
   const isAnalysisProcessing = !hasTeaserAnalysis && analysisStatus === 'processing'
   const isAnalysisFailed =
     !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
