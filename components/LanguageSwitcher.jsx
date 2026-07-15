@@ -20,7 +20,7 @@ export default function LanguageSwitcher() {
     setMounted(true)
   }, [])
 
-  const currentCode = mounted ? (i18n.resolvedLanguage || i18n.language || 'en') : 'en'
+  const currentCode = mounted ? (i18n?.resolvedLanguage || i18n?.language || 'en') : 'en'
   const currentLang =
     languages.find((l) => l.code === currentCode) || languages[0]
 
@@ -43,7 +43,7 @@ export default function LanguageSwitcher() {
             <button
               key={lang.code}
               type="button"
-              onClick={() => i18n.changeLanguage(lang.code)}
+              onClick={() => i18n?.changeLanguage(lang.code)}
               className={`w-full px-4 py-3 flex items-center gap-3 rounded-lg transition-all ${
                 currentCode === lang.code
                   ? 'bg-purple-500/30 text-white'
