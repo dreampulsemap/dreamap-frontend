@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { getVal } from '@/lib/archetypeTranslations'
+import { getVal, getDreamCardText } from '@/lib/archetypeTranslations'
 
 export default function DeepAnalysisCarouselModal({
   isOpen,
@@ -22,16 +22,14 @@ export default function DeepAnalysisCarouselModal({
   const [touchEnd, setTouchEnd] = useState(null)
 
   if (!isOpen || !premiumAnalysis) return null
+  const t = getDreamCardText(lang)
 
   // Dinamik paylaşım bağlantısı
   const dreamUrl = typeof window !== 'undefined' ? `${window.location.origin}/dreams/${dreamId}` : ''
   const encodedUrl = encodeURIComponent(dreamUrl)
   const encodedImage = encodeURIComponent(dreamImage || '')
   
-  const rawShareText = lang === 'tr'
-    ? `✦ Lunosfer rüya ağına katıldım! 🌌\nRüyamın mistik Jungyen derin analizini ve yapay zeka illüstrasyonunu buradan gör:\n🔗 ${dreamUrl}`
-    : `✦ I joined the Lunosfer dream network! 🌌\nSee my mystical Jungian deep analysis and AI dream illustration here:\n🔗 ${dreamUrl}`
-  
+  const rawShareText = t.shareText.replace('{url}', dreamUrl)
   const encodedText = encodeURIComponent(rawShareText)
 
   // Slayt swipe jestleri
@@ -64,13 +62,13 @@ export default function DeepAnalysisCarouselModal({
   }
 
   const slides = [
-    { title: lang === 'tr' ? 'Rüya Kartı' : 'Dream Card' },
-    { title: lang === 'tr' ? 'Rüya Defteriniz' : 'Your Dream Text' },
-    { title: lang === 'tr' ? 'Bilinçaltı Sinyali (Teaser)' : 'Subconscious Signal' },
-    { title: lang === 'tr' ? 'Kozmik Çözümleme' : 'Symbolic Reading' },
-    { title: lang === 'tr' ? 'Gölge & Çatışma' : 'Shadow & Core Conflict' },
-    { title: lang === 'tr' ? 'Dönüşüm Yolu' : 'Path of Transformation' },
-    { title: lang === 'tr' ? 'Ruhsal Yansımalar' : 'Reflection Questions' },
+    { title: t.slideTitle0 },
+    { title: t.slideTitle1 },
+    { title: t.slideTitle2 },
+    { title: t.slideTitle3 },
+    { title: t.slideTitle4 },
+    { title: t.slideTitle5 },
+    { title: t.slideTitle6 },
   ]
 
   return (
@@ -110,7 +108,7 @@ export default function DeepAnalysisCarouselModal({
             onClick={onOpenStoryMode}
             className="absolute top-18 right-4 z-[180] inline-flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-200 hover:bg-cyan-500/20 transition-all"
           >
-            📱 {lang === 'tr' ? 'HİKAYE MODU' : 'STORY MODE'}
+            📱 {t.storyModeBtn}
           </button>
         )}
 
@@ -147,7 +145,7 @@ export default function DeepAnalysisCarouselModal({
             <div className="h-full flex flex-col justify-center max-w-xl mx-auto">
               <span className="text-2xl mb-3 text-cyan-400">📖</span>
               <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
-                {lang === 'tr' ? 'Rüya Defteriniz' : 'Your Dream Journal'}
+                {t.slideTitle1}
               </h4>
               <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap overflow-y-auto max-h-[30vh] pr-2">
                 {dreamContent}
@@ -160,7 +158,7 @@ export default function DeepAnalysisCarouselModal({
             <div className="h-full flex flex-col justify-center max-w-xl mx-auto">
               <span className="text-2xl mb-3 text-fuchsia-400">✨</span>
               <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
-                {lang === 'tr' ? 'Bilinçaltı Sinyali (Genel Yorum)' : 'Subconscious Signal'}
+                {t.slideTitle2}
               </h4>
               <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap">
                 {teaserSummary}
@@ -173,7 +171,7 @@ export default function DeepAnalysisCarouselModal({
             <div className="h-full flex flex-col justify-center max-w-xl mx-auto">
               <span className="text-2xl mb-3 text-indigo-400">🜂</span>
               <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
-                {lang === 'tr' ? 'Rüyanın Sembolik Yol Haritası' : 'Symbolic Roadmap'}
+                {t.slideTitle3}
               </h4>
               <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap overflow-y-auto max-h-[30vh] pr-2">
                 {getVal(premiumAnalysis?.symbolic_reading, lang) || getVal(premiumAnalysis?.summary, lang)}
@@ -206,7 +204,7 @@ export default function DeepAnalysisCarouselModal({
             <div className="h-full flex flex-col justify-center max-w-xl mx-auto">
               <span className="text-2xl mb-3 text-violet-400">💫</span>
               <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
-                {lang === 'tr' ? 'Uyanık Hayata Entegrasyon' : 'Path of Transformation'}
+                {t.slideTitle5}
               </h4>
               <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap overflow-y-auto max-h-[30vh] pr-2">
                 {getVal(premiumAnalysis?.individuation_path, lang)}
@@ -218,7 +216,7 @@ export default function DeepAnalysisCarouselModal({
           {currentSlide === 6 && (
             <div className="h-full flex flex-col justify-center gap-4 max-w-xl mx-auto">
               <h4 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-2">
-                {lang === 'tr' ? 'Kendinize Sormanız Gereken Sorular' : 'Reflection Questions'}
+                {t.slideTitle6}
               </h4>
               {Array.isArray(premiumAnalysis?.reflection_questions) &&
                 premiumAnalysis?.reflection_questions.slice(0, 3).map((q, idx) => (
@@ -234,8 +232,9 @@ export default function DeepAnalysisCarouselModal({
           )}
         </div>
 
-        {/* ALT NOKTALAR VE NAVİGASYON - SOSYAL PAYLAŞIM MERKEZİ */}
+        {/* ALT NOKTALAR VE NAVİGASYON */}
         <div className="absolute bottom-4 left-0 right-0 px-6 flex flex-col items-center gap-3">
+          
           <div className="flex justify-center gap-1.5">
             {[0, 1, 2, 3, 4, 5, 6].map((idx) => (
               <button
@@ -262,8 +261,8 @@ export default function DeepAnalysisCarouselModal({
               <button
                 type="button"
                 onClick={onLunosferShare}
-                title={lang === 'tr' ? 'Lunosfer Sohbet Çemberinde Paylaş' : 'Share in Lunosfer Chat'}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-fuchsia-600 to-indigo-600 hover:brightness-110 transition-all text-base"
+                title={t.lunosferTitle}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-fuchsia-600 to-indigo-600 hover:brightness-110 transition-all text-base animate-pulse"
               >
                 🔮
               </button>
@@ -272,7 +271,7 @@ export default function DeepAnalysisCarouselModal({
                 href={`https://twitter.com/intent/tweet?text=${encodedText}&hashtags=Lunosfer,JungianDream`}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="X / Twitter'da Paylaş"
+                title={t.twitterTitle}
                 className="flex h-9 w-9 items-center justify-center rounded-xl bg-black hover:bg-white/10 border border-white/10 transition-all text-xs font-bold text-white"
               >
                 X
@@ -282,7 +281,7 @@ export default function DeepAnalysisCarouselModal({
                 href={`https://pinterest.com/pin/create/button/?url=${encodedUrl}&media=${encodedImage}&description=${encodedText}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Pinterest'e Pinle"
+                title={t.pinterestTitle}
                 className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e60023] hover:brightness-110 transition-all text-sm text-white"
               >
                 📌
@@ -292,7 +291,7 @@ export default function DeepAnalysisCarouselModal({
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Facebook'ta Paylaş"
+                title={t.facebookTitle}
                 className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1877f2] hover:brightness-110 transition-all text-sm text-white font-bold"
               >
                 F
@@ -302,7 +301,7 @@ export default function DeepAnalysisCarouselModal({
                 href={`https://api.whatsapp.com/send?text=${encodedText}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="WhatsApp ile Gönder"
+                title={t.whatsappTitle}
                 className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#25d366] hover:brightness-110 transition-all text-base"
               >
                 💬
@@ -311,7 +310,7 @@ export default function DeepAnalysisCarouselModal({
               <button
                 type="button"
                 onClick={onShare}
-                title={lang === 'tr' ? 'Bağlantıyı Kopyala' : 'Copy Link'}
+                title={t.copyLinkTitle}
                 className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 transition-all text-sm text-white"
               >
                 🔗
