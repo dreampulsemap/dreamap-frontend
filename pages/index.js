@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import Hero from '../components/Hero'
-import DreamCard from '../components/DreamCard'
-import { supabase } from '../lib/supabase'
+import Hero from '@/components/Hero'
+import DreamCard from '@/components/DreamCard'
+import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
-import { getTranslation } from '../lib/translations'
+import { getTranslation } from '@/lib/translations'
 
 export default function HomePage() {
   const { i18n } = useTranslation()
-  const lang = i18n.language || 'en'
+  const [mounted, setMounted] = useState(false)
 
   const [dreams, setDreams] = useState([])
   const [dailyProphecy, setDailyProphecy] = useState(null)
@@ -17,6 +17,13 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState('all')
   const [onlineCount, setOnlineCount] = useState(12487)
   const [resonanceMatch, setResonanceMatch] = useState(78)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
+  const lang = currentLang
 
   useEffect(() => {
     async function loadHomeData() {
