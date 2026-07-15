@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { supabase, auth } from '@/lib/supabase'
@@ -6,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
 import DreamCard from '@/components/DreamCard'
 
-const BATCH_SIZE = 12; // 3'lü ızgara ile mükemmel uyuşması için 12'şerli yüklenir
+const BATCH_SIZE = 12;
 
 export default function ProfilePage() {
   const { i18n } = useTranslation()
@@ -162,6 +163,27 @@ export default function ProfilePage() {
       active = false
     }
   }, [router, loadDreams])
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview)
+    }
+  }, [avatarPreview])
+
+  useEffect(() => {
+    if (!highlightDreamId || !dreams.length) return
+
+    const timeout = setTimeout(() => {
+      if (highlightRef.current) {
+        highlightRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        })
+      }
+    }, 300)
+
+    return () => clearTimeout(timeout)
+  }, [highlightDreamId, dreams])
 
   async function loadFriends(userId) {
     try {
