@@ -90,10 +90,11 @@ export default function DreamCard({
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showStoryMode, setShowStoryMode] = useState(false)
 
-  // Bakiye ve Analiz Durumları
+  // Bakiye, Görsel ve Analiz Durumları
   const [premiumAuras, setPremiumAuras] = useState(0)
   const [aurasLoading, setAurasLoading] = useState(false)
   const [premiumGenerating, setPremiumGenerating] = useState(false)
+  const [generatingImage, setGeneratingImage] = useState(false)
   const [premiumError, setPremiumError] = useState('')
   const [premiumAnalysis, setPremiumAnalysis] = useState(
     dream?.premium_deep_analysis || null
@@ -143,6 +144,7 @@ export default function DreamCard({
     setShowConfirmModal(false)
     setShowStoryMode(false)
     setPremiumGenerating(false)
+    setGeneratingImage(false)
     setPremiumError('')
     setPremiumAnalysis(dream?.premium_deep_analysis || null)
     setAnalysisOverride(null)
@@ -538,6 +540,85 @@ export default function DreamCard({
     }
   }
 
+  // Sadece Rüya Görseli Üretme (Bağımsız 2 Aura Tetikleyicisi)
+  const handleGenerateImageOnly = async () => {
+    setPremiumError('')
+
+    try {
+      const {
+        data: { user: verifiedUser },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !verifiedUser?.id) {
+        setUser(null)
+        setPremiumError(getPremiumErrorMessage(currentLang, 'login_required'))
+        router.push('/auth')
+        return
+      }
+
+      setUser(verifiedUser)
+
+      if (premiumAuras < 2) {
+        setPremiumError(getPremiumErrorMessage(currentLang, 'no_auras'))
+        return
+      }
+
+      const confirmMsg = currentLang === 'tr'
+        ? 'Rüyanızın kozmik illüstrasyonunu 2 Aura karşılığında üretmek istiyor musunuz? 🌌'
+        : 'Do you want to generate the dream illustration for 2 Auras? 🌌'
+
+      if (!window.confirm(confirmMsg)) return
+
+      setGeneratingImage(true)
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        setPremiumError(getPremiumErrorMessage(currentLang, 'unauthorized'))
+        return
+      }
+
+      const res = await fetch('/api/generate-dream-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          dreamId: dream.id,
+        }),
+      })
+
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        setPremiumError(currentLang === 'tr' ? 'Görsel üretilirken hata oluştu.' : 'Failed to generate image.')
+        return
+      }
+
+      if (data?.imageUrl) {
+        triggerToast(currentLang === 'tr' ? 'Kozmik Rüya İllüstrasyonu Başarıyla Üretildi! 🌌✨' : 'Cosmic Dream Illustration Generated! 🌌✨')
+        
+        // Sayfa yenilemesi yapmadan, state üzerinden rüya kartına yeni görseli anında giydirir (Erişilebilir Pürüzsüz UX)
+        setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
+      }
+
+      if (typeof data?.aurasLeft === 'number') {
+        setPremiumAuras(data.aurasLeft)
+      } else {
+        setPremiumAuras((prev) => Math.max(0, prev - 2))
+      }
+    } catch (err) {
+      console.error('Image only generation error:', err)
+      setPremiumError(getPremiumErrorMessage(currentLang, 'generic'))
+    } finally {
+      setGeneratingImage(false)
+    }
+  }
+
   // Butona tıklandığında bakiye durumuna göre Onay Modalı veya Gumroad açar
   async function handlePremiumButtonClick() {
     setPremiumError('')
@@ -650,7 +731,7 @@ export default function DreamCard({
             <img
               src={dreamImage}
               alt="Dream"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover animate-fade-in"
               onError={(e) => {
                 e.currentTarget.style.display = 'none'
               }}
@@ -712,7 +793,7 @@ export default function DreamCard({
             </button>
           )}
 
-          {/* Sadece derin rüya analizi bulunmuyorsa Teaser yorum butonu gösterilir (Gereksiz buton kalabalığı temizlendi) */}
+          {/* Sadece derin rüya analizi bulunmuyorsa Teaser yorum butonu gösterilir */}
           {hasTeaserAnalysis && !premiumAnalysis && (
             <div className="mb-5 rounded-[1.5rem] border border-violet-300/18 bg-violet-500/8 p-4 sm:p-5">
               <div className="mb-3 flex items-center gap-2">
@@ -774,7 +855,7 @@ export default function DreamCard({
             type="button"
             onClick={handlePremiumButtonClick}
             disabled={premiumGenerating}
-            className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-300/18 bg-fuchsia-500/10 px-4 py-3.5 text-sm font-semibold text-fuchsia-100 hover:bg-fuchsia-500/18 disabled:cursor-not-allowed disabled:opacity-60 shadow-[0_0_20px_rgba(240,73,214,0.15)] animate-pulse"
+            className="energy-button mb-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-300/18 bg-fuchsia-500/10 px-4 py-3.5 text-sm font-semibold text-fuchsia-100 hover:bg-fuchsia-500/18 disabled:cursor-not-allowed disabled:opacity-60 shadow-[0_0_20px_rgba(240,73,214,0.15)]"
           >
             <span>{premiumGenerating ? '⏳' : '✦'}</span>
             <span>
@@ -784,6 +865,24 @@ export default function DreamCard({
               }
             </span>
           </button>
+
+          {/* Sadece Rüya Görseli Üretme Butonu (2 Aura - Sadece rüya resmi yoksa ve analiz alınmamışsa gösterilir) */}
+          {!premiumAnalysis && !dreamImage && (
+            <button
+              type="button"
+              onClick={handleGenerateImageOnly}
+              disabled={generatingImage}
+              className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-60 shadow-[0_0_20px_rgba(6,182,212,0.15)] animate-pulse"
+            >
+              <span>{generatingImage ? '⏳' : '🌌'}</span>
+              <span>
+                {generatingImage 
+                  ? (currentLang === 'tr' ? 'İllüstrasyon üretiliyor...' : 'Generating illustration...') 
+                  : (currentLang === 'tr' ? `Sadece Rüya Görselini Üret · 2 Aura` : `Generate Dream Image · 2 Auras`)
+                }
+              </span>
+            </button>
+          )}
 
           {premiumError ? (
             <p className="mb-5 -mt-2 text-sm leading-6 text-rose-200/90" role="alert">
