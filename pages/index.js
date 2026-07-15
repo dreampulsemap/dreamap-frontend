@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import Link from 'next/link'
 import Hero from '@/components/Hero'
 import DreamCard from '@/components/DreamCard'
 import { supabase } from '@/lib/supabase'
@@ -33,7 +34,6 @@ export default function HomePage() {
   const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
   const lang = currentLang
 
-  // Arkadaşların ve kendisinin rüyalarını getiren asenkron akış
   const loadFeedData = useCallback(async (pageNum = 0, append = false) => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -43,7 +43,6 @@ export default function HomePage() {
       let query = supabase.from('dreams').select('*').eq('in_feed', true)
 
       if (user?.id) {
-        // 1. Kabul edilmiş arkadaşlık ilişkilerini sorgula
         const { data: friendships } = await supabase
           .from('friendships')
           .select('user_id, friend_id')
@@ -54,7 +53,6 @@ export default function HomePage() {
           ? friendships.map(f => f.user_id === user.id ? f.friend_id : f.user_id) 
           : []
 
-        // Sadece kullanıcının kendisinin ve arkadaşlarının rüyalarını akışa dahil et (Instagram Feed)
         const allowedUserIds = [user.id, ...friendIds]
         query = query.in('user_id', allowedUserIds)
       }
