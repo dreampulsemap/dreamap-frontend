@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect, useRef } from 'react'
-import { auth, supabase } from '../lib/supabase'
-import LanguageSwitcher from './LanguageSwitcher'
+import { auth, supabase } from '@/lib/supabase'
+import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
-import { getTranslation } from '../lib/translations'
+import { getTranslation } from '@/lib/translations'
 
 const GUMROAD_PRODUCT_URL = 'https://lunosfer.gumroad.com/l/lunosfer-deep-analysis'
 
@@ -25,13 +25,22 @@ export default function Navbar() {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [auraDropdownOpen, setAuraDropdownOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const auraDropdownRef = useRef(null)
 
   const { i18n } = useTranslation()
-  const lang = NAV_UI[i18n.language] ? i18n.language : 'en'
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
+  const lang = NAV_UI[currentLang] ? currentLang : 'en'
   const ui = NAV_UI[lang]
 
   useEffect(() => {
+    if (!mounted) return
+
     async function checkUser() {
       try {
         if (auth && typeof auth.getUser === 'function') {
@@ -55,7 +64,6 @@ export default function Navbar() {
     }
     checkUser()
 
-    // Supabase RLS veya gerçek zamanlı güncellemeler için profile değişikliklerini dinleyelim
     const { data: authSubscription } = auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         setUser(session.user)
@@ -72,10 +80,10 @@ export default function Navbar() {
     return () => {
       authSubscription?.subscription?.unsubscribe()
     }
-  }, [])
+  }, [mounted])
 
-  // Dışarı tıklandığında Aura menüsünü kapatma
   useEffect(() => {
+    if (!mounted) return
     function handleClickOutside(event) {
       if (auraDropdownRef.current && !auraDropdownRef.current.contains(event.target)) {
         setAuraDropdownOpen(false)
@@ -83,7 +91,7 @@ export default function Navbar() {
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [mounted])
 
   const globeLabel =
     getTranslation('nav.globe', lang) && getTranslation('nav.globe', lang) !== 'nav.globe'
@@ -120,12 +128,12 @@ export default function Navbar() {
         {/* LOGO */}
         <Link href="/" className="group flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
           <div className="relative shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5 px-2 py-1.5 shadow-[0_0_30px_rgba(56,189,248,0.06)] transition-all duration-300 group-hover:border-cyan-300/20 group-hover:shadow-[0_0_40px_rgba(34,211,238,0.12)] sm:rounded-2xl sm:px-3 sm:py-2">
-            <img
+            <Image
               src="/logo.png"
               alt="Lunosfer"
               width={132}
               height={40}
-              priority="true"
+              priority
               className="h-6 w-auto object-contain sm:h-8 md:h-10"
             />
           </div>
@@ -221,7 +229,7 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* HAMBURGER BUTTON (MOBILE) */}
+          {/* HAMBURGER BUTTON */}
           <button
             type="button"
             aria-label={menuOpen ? ui.close : ui.menu}
@@ -239,7 +247,6 @@ export default function Navbar() {
         <div className="border-t border-white/8 bg-slate-950/95 px-3 py-4 backdrop-blur-2xl sm:px-4">
           <div className="mx-auto grid max-w-7xl grid-cols-1 gap-2">
             
-            {/* MOBİLDE DİL SEÇİM ALANI */}
             <div className="sm:hidden flex justify-center py-1">
               <LanguageSwitcher />
             </div>
@@ -271,7 +278,6 @@ export default function Navbar() {
               <span>{ui.prophecy}</span>
             </a>
 
-            {/* MOBİL HIZLI AURA ALMA SEÇENEĞİ */}
             {user && (
               <div className="mt-2 rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-4 text-center">
                 <p className="text-xs text-fuchsia-300/80 mb-2">{ui.currentAura} ✦ {auras} Aura</p>
