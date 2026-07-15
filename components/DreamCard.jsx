@@ -14,7 +14,8 @@ import StoryModeModal from '@/components/StoryModeModal'
 const GUMROAD_PRODUCT_URL = 'https://shop.lunosfer.com'
 
 function getAnalysisButtonLabel(lang) {
-  return lang === 'tr' ? 'Rüya Analizini Aç' : 'Open Dream Analysis'
+  const map = { tr: 'Rüya Analizini Aç', es: 'Abrir análisis', fr: 'Ouvrir l’analyse', de: 'Traumanalyse öffnen', pt: 'Abrir análise', ru: 'Открыть анализ', ja: '夢の分析を開く' }
+  return map[lang] || 'Open Dream Analysis'
 }
 
 function getCloseLabel(lang) {
@@ -60,7 +61,7 @@ export default function DreamCard({
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showStoryMode, setShowStoryMode] = useState(false)
 
-  // Bakiye ve Analiz Durumları
+  // Bakiye, Görsel ve Analiz Durumları
   const [premiumAuras, setPremiumAuras] = useState(0)
   const [premiumGenerating, setPremiumGenerating] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
@@ -68,6 +69,9 @@ export default function DreamCard({
   const [premiumAnalysis, setPremiumAnalysis] = useState(
     dream?.premium_deep_analysis || null
   )
+
+  // Onay modalının hangi modda açılacağını tutar ('analysis' veya 'image')
+  const [confirmMode, setConfirmMode] = useState('analysis')
 
   const [analysisOverride, setAnalysisOverride] = useState(null)
   const [retryingAnalysis, setRetryingAnalysis] = useState(false)
@@ -240,6 +244,7 @@ export default function DreamCard({
     return Boolean(teaserAnalysis && (getDreamAnalysis() || getDreamMotiv() || getDreamTitle()))
   }, [teaserAnalysis, getDreamAnalysis, getDreamMotiv, getDreamTitle])
 
+  // ONARILAN DEĞİŞKEN TANIMI
   const analysisStatus = effectiveDream?.analysis_status || null
   const isAnalysisProcessing = !hasTeaserAnalysis && (analysisStatus === 'processing')
   const isAnalysisFailed = !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
@@ -277,7 +282,7 @@ export default function DreamCard({
     }
   }
 
-  // Derin Rüya Analizini Başlatma (Gerçek Üretim Tetikleyicisi)
+  // Derin Rüya Analizini/Hediyesini Tetikleme
   async function handlePremiumAnalysisExecute() {
     setShowConfirmModal(false)
     setPremiumGenerating(true)
@@ -356,16 +361,6 @@ export default function DreamCard({
         return
       }
 
-      const confirmMsg = isOwner
-        ? (currentLang === 'tr'
-          ? 'Rüyanızın kozmik illüstrasyonunu 2 Aura karşılığında üretmek istiyor musunuz? 🌌'
-          : 'Do you want to generate the dream illustration for 2 Auras? 🌌')
-        : (currentLang === 'tr'
-          ? 'Arkadaşınızın rüya illüstrasyonunu 2 Aura karşılığında canlandırmak ve ona hediye etmek istiyor musunuz? 🔮✨'
-          : 'Do you want to illuminate and gift this dream illustration to your friend for 2 Auras? 🔮✨')
-
-      if (!window.confirm(confirmMsg)) return
-
       setGeneratingImage(true)
 
       const { data: { session } } = await supabase.auth.getSession()
@@ -427,17 +422,38 @@ export default function DreamCard({
 
       setUser(verifiedUser)
 
-      // Eğer zaten analiz üretilmişse onay ekranı göstermeden doğrudan Instagram carousel'i aç
       if (premiumAnalysis) {
         setShowAnalysisModal(true)
         return
       }
 
-      // Analiz henüz üretilmemişse onay penceresini tetikle
+      // Analiz onay modunda modalı aç
+      setConfirmMode('analysis')
       setShowConfirmModal(true)
     } catch (err) {
       console.error('User verification check failed:', err)
       setPremiumError(getPremiumErrorMessage(currentLang, 'generic'))
+    }
+  }
+
+  // Görsel canlandırma onay ekranını açar (Sınırsız mobil webview uyumluluğu için modal eklendi!)
+  const handleGenerateImageOnlyClick = async () => {
+    setPremiumError('')
+    try {
+      const { data: { user: verifiedUser } } = await supabase.auth.getUser()
+      if (!verifiedUser?.id) {
+        setUser(null)
+        setPremiumError(getPremiumErrorMessage(currentLang, 'login_required'))
+        router.push('/auth')
+        return
+      }
+      setUser(verifiedUser)
+      
+      // Görsel canlandırma modunda onay modalını tetikle ( confirmMode: 'image' )
+      setConfirmMode('image')
+      setShowConfirmModal(true)
+    } catch (err) {
+      console.error(err)
     }
   }
 
@@ -501,7 +517,7 @@ export default function DreamCard({
     }
   }
 
-  // Instagram Özel İleri Paylaşım/Kopyalama İşleyicisi
+  // Instagram Özel Paylaşım
   const handleInstagramShare = async () => {
     const dreamUrl = typeof window !== 'undefined' ? `${window.location.origin}/dreams/${dream.id}` : ''
     const shareText = t.shareText.replace('{url}', dreamUrl)
@@ -657,7 +673,7 @@ export default function DreamCard({
             </div>
           )}
 
-          {/* Derin Rüya Analizini Başlat/Aç/Hediye Et Butonu */}
+          {/* Derin Rüya Analizini Başlat/Aç Butonu */}
           <button
             type="button"
             onClick={handlePremiumButtonClick}
@@ -673,11 +689,11 @@ export default function DreamCard({
             </span>
           </button>
 
-          {/* Sadece Rüya Görseli Üretme/Hediye Etme Butonu (2 Aura) */}
+          {/* Sadece Rüya Görseli Üretme/Hediye Etme Butonu (Geliştirilmiş Onay Tetikleyicili) */}
           {!premiumAnalysis && !dreamImage && (
             <button
               type="button"
-              onClick={handleGenerateImageOnly}
+              onClick={handleGenerateImageOnlyClick} // window.confirm yerine artık güvenli onay modalını tetikliyor!
               disabled={generatingImage}
               className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-60 shadow-[0_0_20px_rgba(6,182,212,0.15)] animate-pulse"
             >
@@ -841,15 +857,16 @@ export default function DreamCard({
         </div>
       )}
 
-      {/* ONAY MODALİ (8 AURA SATIN ALMA/BAŞLATMA EKRANI - HEDİYELEŞME DESTEKLİ) */}
+      {/* ONAY MODALİ (8 AURA / 2 AURA SATIN ALMA - HEDİYELEŞME DESTEKLİ) */}
       <DeepAnalysisConfirmationModal
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
         auras={premiumAuras}
-        onConfirm={handlePremiumAnalysisExecute}
+        onConfirm={confirmMode === 'image' ? handleGenerateImageOnly : handlePremiumAnalysisExecute}
         lang={currentLang}
         gumroadUrl={GUMROAD_PRODUCT_URL}
         isGift={!isOwner}
+        mode={confirmMode}
       />
 
       {/* HİBRİT ANALİZ İNCELEME MODALÜ (Premium ise 7 Slaytlı Carousel, Teaser ise Klasik Görünüm) */}
