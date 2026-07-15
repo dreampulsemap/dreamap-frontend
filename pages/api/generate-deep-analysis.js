@@ -327,15 +327,17 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'invalid_json_from_model' })
     }
 
+    // =========================================================================
+    // HEDİYE KOZMİK RÜYA GÖRSELİ ÜRETİMİ (Flux Schnell Entegrasyonu)
+    // =========================================================================
     let imageUrl = null
     let imagePrompt = null
 
     try {
-      const topArchetype = analysis.archetypes?.[0] || 'Dreamer'
-      const topSymbol = analysis.symbols?.[0]?.symbol || 'mystical elements'
-      const shortContent = String(dream.content || '').replace(/\s+/g, ' ').trim().slice(0, 240)
+      // SAHNE ODAKLI YENİ PROMPT DİZAYNI
+      const shortContent = String(dream.content || '').replace(/\s+/g, ' ').trim().slice(0, 300)
       
-      imagePrompt = `A breathtaking, ethereal dreamscape representing the ${topArchetype} archetype, with moody and atmospheric lighting, featuring ${topSymbol}, mystical surrealism style, dark cosmic tarot card aesthetic, deep indigo, fuchsia, and glowing gold accents, oil painting texture mixed with modern digital double-exposure, evocative of ${analysis.sentiment || 'mystery'}, high-art composition, hauntingly beautiful, cinematic, octane render, masterpiece, extremely detailed, inspired by Carl Jung's subconscious visual representations, based on: ${shortContent}`
+      imagePrompt = `A breathtaking, highly detailed mystical illustration of the most striking and vivid scene from this dream: "${shortContent}". Focus heavily on visualizing the exact environment, characters, and actions described in the dream text. Style: cinematic lighting, ethereal atmosphere, dark cosmic tarot card aesthetic, mystical surrealism, oil painting texture mixed with modern digital double-exposure, deep indigo, fuchsia, and glowing gold accents. Evocative of ${analysis.sentiment || 'mystery'}, high-art composition, hauntingly beautiful, masterpiece, octane render.`
 
       const replicateRes = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions', {
         method: 'POST',
