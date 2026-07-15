@@ -12,10 +12,6 @@ import StoryModeModal from './StoryModeModal'
 
 const GUMROAD_PRODUCT_URL = 'https://lunosfer.gumroad.com/l/lunosfer-deep-analysis'
 
-function getAnalysisButtonLabel(lang) {
-  return lang === 'tr' ? 'Rüya Analizini Aç' : 'Open Dream Analysis'
-}
-
 function getCloseLabel(lang) {
   return lang === 'tr' ? 'Kapat' : 'Close'
 }
@@ -25,7 +21,7 @@ function getPremiumButtonLabel(lang, auras, loading) {
     return lang === 'tr' ? 'Derin analiz oluşturuluyor...' : 'Generating deep analysis...'
   }
   if (auras > 0) {
-    return lang === 'tr' ? `Derin Analizi Aç · ${auras} Aura` : `Open Deep Analysis · ${auras} Auras`
+    return lang === 'tr' ? `Derin Rüya Analizi · ${auras} Aura` : `Deep Dream Analysis · ${auras} Auras`
   }
   return lang === 'tr' ? '10 Aura al ve derin analizi aç' : 'Buy 10 Auras and open deep analysis'
 }
@@ -139,7 +135,6 @@ export default function DreamCard({
     setCommentsCount(dream.comments_count || 0)
     setComments([])
     setShowComments(false)
-    setLiked(false)
     setShowAnalysisModal(false)
     setShowConfirmModal(false)
     setShowStoryMode(false)
@@ -250,7 +245,6 @@ export default function DreamCard({
     return Boolean(teaserAnalysis && (getDreamAnalysis() || getDreamMotiv() || getDreamTitle()))
   }, [teaserAnalysis, getDreamAnalysis, getDreamMotiv, getDreamTitle])
 
-  const analysisStatus = effectiveDream?.analysis_status || null
   const isAnalysisProcessing = !hasTeaserAnalysis && analysisStatus === 'processing'
   const isAnalysisFailed =
     !hasTeaserAnalysis && !isAnalysisProcessing && (analysisStatus === 'failed' || !analysisStatus)
@@ -572,6 +566,42 @@ export default function DreamCard({
     }
   }
 
+  // Lunosfer Sohbet Çemberi Paylaşımı (Gerçek Veritabanı ve Akış Entegrasyonu)
+  const handleLunosferShare = async () => {
+    if (!user?.id) {
+      alert(getTranslation('social.loginToComment', currentLang))
+      return
+    }
+
+    try {
+      const shareMsg = currentLang === 'tr' 
+        ? `✦ Bu rüyamın kozmik derin analiz kartlarını ve mistik illüstrasyonunu Sohbet Çemberinde paylaştım! Tüm arkadaşlarımla bilinçaltı rezonansımızı yakalamaya hazırım. 🔮✨`
+        : `✦ I shared my mystical dream analysis cards and cosmic illustration in the Dream Circle! Ready to capture subconscious resonance with all my friends. 🔮✨`
+
+      const res = await fetch('/api/comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dreamId: dream.id,
+          userId: user.id,
+          content: shareMsg,
+        }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setComments((prev) => [data.comment, ...prev])
+        setCommentsCount((prev) => prev + 1)
+        triggerToast(currentLang === 'tr' ? 'Rüyanız Lunosfer Sohbet Çemberinde Paylaşıldı! 🔮✨' : 'Dream Shared in Lunosfer Chat Circle! 🔮✨')
+      } else {
+        throw new Error('Sohbet paylaşımı başarısız')
+      }
+    } catch (err) {
+      console.error('Lunosfer share error:', err)
+      triggerToast(currentLang === 'tr' ? 'Paylaşım bağlantısı kopyalandı!' : 'Share link copied!')
+    }
+  }
+
   // Sosyal Medya & Instagram Paylaşım Fonksiyonu (Web Share API & Clipboard Fallback)
   const handleShareOnSocial = async () => {
     const dreamUrl = typeof window !== 'undefined' ? `${window.location.origin}/dreams/${dream.id}` : ''
@@ -677,7 +707,8 @@ export default function DreamCard({
             </button>
           )}
 
-          {hasTeaserAnalysis && (
+          {/* Sadece derin rüya analizi bulunmuyorsa Teaser yorum butonu gösterilir (Gereksiz buton kalabalığı temizlendi) */}
+          {hasTeaserAnalysis && !premiumAnalysis && (
             <div className="mb-5 rounded-[1.5rem] border border-violet-300/18 bg-violet-500/8 p-4 sm:p-5">
               <div className="mb-3 flex items-center gap-2">
                 <span className="text-lg text-violet-200">🜂</span>
@@ -733,17 +764,17 @@ export default function DreamCard({
             </div>
           )}
 
-          {/* Derin Rüya Analizi Butonu */}
+          {/* Derin Rüya Analizini Başlat/Aç Butonu */}
           <button
             type="button"
             onClick={handlePremiumButtonClick}
             disabled={premiumGenerating}
-            className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-300/18 bg-fuchsia-500/10 px-4 py-3.5 text-sm font-semibold text-fuchsia-100 hover:bg-fuchsia-500/18 disabled:cursor-not-allowed disabled:opacity-60 shadow-[0_0_20px_rgba(240,73,214,0.15)]"
+            className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-300/18 bg-fuchsia-500/10 px-4 py-3.5 text-sm font-semibold text-fuchsia-100 hover:bg-fuchsia-500/18 disabled:cursor-not-allowed disabled:opacity-60 shadow-[0_0_20px_rgba(240,73,214,0.15)] animate-pulse"
           >
             <span>{premiumGenerating ? '⏳' : '✦'}</span>
             <span>
               {premiumAnalysis 
-                ? (currentLang === 'tr' ? 'Derin Rüya Analizini İncele' : 'Explore Deep Dream Analysis')
+                ? (currentLang === 'tr' ? 'Mistik Analiz Kartlarını Aç' : 'Explore Mystic Analysis Cards')
                 : (currentLang === 'tr' ? 'Derin Rüya Analizini Al' : 'Get Deep Dream Analysis')
               }
             </span>
@@ -782,7 +813,8 @@ export default function DreamCard({
               <span>{commentsCount}</span>
             </button>
 
-            {hasTeaserAnalysis && (
+            {/* Mükerrerliği önlemek adına; rüya analiz kartları varsa sadece premium carousel açılır, yoksa teaser açılır */}
+            {hasTeaserAnalysis && !premiumAnalysis && (
               <button
                 type="button"
                 onClick={() => {
@@ -912,7 +944,7 @@ export default function DreamCard({
         gumroadUrl={GUMROAD_PRODUCT_URL}
       />
 
-      {/* HİBRİT ANALİZ İNCELEME MODALÜ (Premium ise Carousel, Teaser ise DreamAnalysisView) */}
+      {/* HİBRİT ANALİZ İNCELEME MODALÜ (Premium ise 7 Slaytlı Carousel, Teaser ise Klasik Görünüm) */}
       {showAnalysisModal && (
         <div
           className="fixed inset-0 z-[100] flex items-end justify-center bg-black/85 backdrop-blur-md sm:items-center sm:p-4"
@@ -924,7 +956,7 @@ export default function DreamCard({
           aria-modal="true"
         >
           {premiumAnalysis ? (
-            /* Premium ise Instagram Tarzı Carousel Modal */
+            /* Premium ise Gelişmiş 7 Slaytlı ve Sosyal Paylaşım Merkezli Instagram Carousel Modal */
             <DeepAnalysisCarouselModal
               isOpen={showAnalysisModal}
               onClose={() => setShowAnalysisModal(false)}
@@ -933,9 +965,13 @@ export default function DreamCard({
               dreamTitle={dreamTitle}
               dreamImage={dreamImage}
               dreamMotiv={dreamMotiv}
+              dreamContent={dream.content}
+              teaserSummary={teaserAnalysis?.summary?.[currentLang] || teaserAnalysis?.summary?.en || dream.ai_summary}
               onShare={handleShareOnSocial}
+              onLunosferShare={handleLunosferShare}
               translateArchetype={translateArchetype}
               onOpenStoryMode={() => setShowStoryMode(true)}
+              dreamId={dream.id}
             />
           ) : (
             /* Ücretsiz Teaser ise Klasik DreamAnalysisView */
