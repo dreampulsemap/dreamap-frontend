@@ -13,7 +13,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
     if (!token) return res.status(401).json({ error: 'missing_token' });
 
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
@@ -34,7 +35,6 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: 'already_used_today' });
     }
 
-    // VİRALİTE: Gemini'den paylaşılabilir şık bir JSON formatı istiyoruz
     const model = genAI.getGenerativeModel({ 
       model: "gemini-1.5-flash",
       generationConfig: { responseMimeType: "application/json" }
@@ -50,7 +50,22 @@ export default async function handler(req, res) {
     }`;
 
     const result = await model.generateContent(prompt);
-    const compassData = JSON.parse(result.response.text());
+    const rawText = result.response.text().trim();
+
+    // GÜVENLİ JSON PARSER (API Çökmesini Engeller)
+    let compassData;
+    try {
+      const cleanText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+      compassData = JSON.parse(cleanText);
+    } catch (parseErr) {
+      console.error("Gemini JSON Parse error:", rawText);
+      // Fallback (B Planı) - Eğer Gemini JSON vermezse çökmek yerine varsayılan bir kart verir
+      compassData = {
+        reading: lang === 'tr' ? "Bilinçaltının sularında sessizce yüz, cevaplar derinde yatıyor." : "Swim silently in the waters of the subconscious, answers lie deep.",
+        archetype: "The Seeker",
+        color: "#8b5cf6"
+      };
+    }
 
     await supabaseAdmin
       .from('user_profiles')
@@ -61,6 +76,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Daily Compass Error:', error);
-    return res.status(500).json({ error: 'internal_server_error' });
+    return res.status(500).json({ error: error.message || 'internal_server_error' });
   }
 }
