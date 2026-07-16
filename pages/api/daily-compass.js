@@ -35,6 +35,7 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: 'already_used_today' });
     }
 
+    // KÜTÜPHANE GÜNCELLENDİĞİ İÇİN ARTIK BUNU KULLANABİLİRİZ
     const model = genAI.getGenerativeModel({ 
       model: "gemini-1.5-flash",
       generationConfig: { responseMimeType: "application/json" }
@@ -50,22 +51,7 @@ export default async function handler(req, res) {
     }`;
 
     const result = await model.generateContent(prompt);
-    const rawText = result.response.text().trim();
-
-    // GÜVENLİ JSON PARSER (API Çökmesini Engeller)
-    let compassData;
-    try {
-      const cleanText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-      compassData = JSON.parse(cleanText);
-    } catch (parseErr) {
-      console.error("Gemini JSON Parse error:", rawText);
-      // Fallback (B Planı) - Eğer Gemini JSON vermezse çökmek yerine varsayılan bir kart verir
-      compassData = {
-        reading: lang === 'tr' ? "Bilinçaltının sularında sessizce yüz, cevaplar derinde yatıyor." : "Swim silently in the waters of the subconscious, answers lie deep.",
-        archetype: "The Seeker",
-        color: "#8b5cf6"
-      };
-    }
+    const compassData = JSON.parse(result.response.text());
 
     await supabaseAdmin
       .from('user_profiles')
