@@ -1,10 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { createClient } from '@supabase/supabase-js';
 
 // Vercel limitlerini aşmamak için maksimum süre
 export const config = { maxDuration: 60 };
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_KEY });
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -69,8 +69,7 @@ export default async function handler(req, res) {
 
     const pastContext = pastDreams?.map(d => `Content: "${d.content}"\nShadow focus: "${d.premium_deep_analysis?.shadow_focus}"`).join("\n---\n") || "No past history.";
 
-    // Gemini 1.5 Flash ile Analiz
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // Gemini 2.5 Flash ile Analiz
     const prompt = `
       ${SYSTEM_PROMPT}
       Analyze this dream for a user who previously experienced these patterns: ${pastContext}
@@ -79,8 +78,11 @@ export default async function handler(req, res) {
       Required JSON format: ${JSON.stringify(buildShape())}
     `;
 
-    const result = await model.generateContent(prompt);
-    const rawText = result.response.text();
+    const result = await genAI.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    const rawText = result.text;
     const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
     const analysis = JSON.parse(cleanJson);
 
