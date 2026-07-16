@@ -1,4 +1,4 @@
-import React from 'react'
+ import React from 'react'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 
 export default function DeepAnalysisConfirmationModal({
