@@ -17,7 +17,8 @@ export default async function handler(req, res) {
 
     const { dreamId } = req.body;
     const { data: dream } = await supabaseAdmin.from('dreams').select('*').eq('id', dreamId).single();
-    
+    if (!dream) return res.status(404).json({ error: 'dream_not_found' });
+
     // Aura Kontrolü
     const { data: profile } = await supabaseAdmin.from('user_profiles').select('premium_analysis_auras').eq('id', user.id).single();
     if (Number(profile?.premium_analysis_auras || 0) < 2) return res.status(402).json({ error: 'no_auras' });
@@ -49,10 +50,11 @@ export default async function handler(req, res) {
     }
 
     // Başarılı ise veritabanını güncelle ve Aura düş
-    await supabaseAdmin.from('user_profiles').update({ premium_analysis_auras: profile.premium_analysis_auras - 2 }).eq('id', user.id);
+    const nextAuras = profile.premium_analysis_auras - 2;
+    await supabaseAdmin.from('user_profiles').update({ premium_analysis_auras: nextAuras }).eq('id', user.id);
     await supabaseAdmin.from('dreams').update({ ai_image_url: imageUrl }).eq('id', dreamId);
 
-    return res.status(200).json({ ok: true, imageUrl });
+    return res.status(200).json({ ok: true, imageUrl, aurasLeft: nextAuras });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
