@@ -49,12 +49,19 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   const [showToast, setShowToast] = useState(false)
 
   const effectiveDream = useMemo(() => (analysisOverride ? { ...dream, ...analysisOverride } : dream), [dream, analysisOverride])
-  const isOwner = useMemo(() => user?.id && effectiveDream?.user_id && user.id === effectiveDream.user_id, [user, effectiveDream])
+  const isOwner = useMemo(() => {
+    if (!user?.id) return false
+    const ownerId = effectiveDream?.user_id ?? effectiveDream?.owner_id ?? effectiveDream?.author_id ?? effectiveDream?.uid
+    if (ownerId == null && process.env.NODE_ENV !== 'production') {
+      console.warn('[DreamCard] Could not find an owner id field on the dream object (checked user_id, owner_id, author_id, uid). isOwner will default to false.', effectiveDream)
+    }
+    return ownerId != null && String(ownerId) === String(user.id)
+  }, [user, effectiveDream])
 
   useEffect(() => {
     let active = true
-    const loadUserAndAuras = async () => {
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
+
+    const applyUser = async (currentUser) => {
       if (!active) return
       setUser(currentUser)
       if (currentUser) {
@@ -66,8 +73,22 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
         if (active && profile) setPremiumAuras(profile.premium_analysis_auras || 0)
       }
     }
-    loadUserAndAuras()
-    return () => { active = false }
+
+    // getSession() reads from local storage synchronously and avoids the
+    // hydration race condition that getUser() (a network round-trip) has
+    // on first render, right after the page loads.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      applyUser(session?.user || null)
+    })
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      applyUser(session?.user || null)
+    })
+
+    return () => {
+      active = false
+      authListener?.subscription?.unsubscribe()
+    }
   }, [])
 
   const triggerToast = (msg) => { setToastMessage(msg); setShowToast(true); setTimeout(() => setShowToast(false), 2800) }
