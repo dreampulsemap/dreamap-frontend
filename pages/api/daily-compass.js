@@ -45,11 +45,11 @@ export default async function handler(req, res) {
     try {
       const genAI = getGeminiClient();
       if (!genAI) throw new Error("No Gemini Keys");
-      const result = await genAI.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
+      const interaction = await genAI.interactions.create({
+        model: "gemini-3.5-flash",
+        input: prompt,
       });
-      compassData = JSON.parse(result.text.replace(/```json|```/g, '').trim());
+      compassData = JSON.parse(interaction.output_text.replace(/```json|```/g, '').trim());
     } catch (e) {
       console.error("Gemini failed, trying OpenAI...", e);
       // PLAN B: OpenAI Fallback
