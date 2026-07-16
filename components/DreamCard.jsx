@@ -51,6 +51,25 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   const effectiveDream = useMemo(() => (analysisOverride ? { ...dream, ...analysisOverride } : dream), [dream, analysisOverride])
   const isOwner = useMemo(() => user?.id && effectiveDream?.user_id && user.id === effectiveDream.user_id, [user, effectiveDream])
 
+  useEffect(() => {
+    let active = true
+    const loadUserAndAuras = async () => {
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (!active) return
+      setUser(currentUser)
+      if (currentUser) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('premium_analysis_auras')
+          .eq('id', currentUser.id)
+          .single()
+        if (active && profile) setPremiumAuras(profile.premium_analysis_auras || 0)
+      }
+    }
+    loadUserAndAuras()
+    return () => { active = false }
+  }, [])
+
   const triggerToast = (msg) => { setToastMessage(msg); setShowToast(true); setTimeout(() => setShowToast(false), 2800) }
 
   const translateArchetype = useCallback((arch) => {
@@ -69,6 +88,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
     setGeneratingImage(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error(t.loginRequired || 'Please log in to continue')
       const res = await fetch('/api/generate-dream-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -91,6 +111,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
     setPremiumGenerating(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error(t.loginRequired || 'Please log in to continue')
       const res = await fetch('/api/generate-deep-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -130,8 +151,17 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       {showConfirmModal && <DeepAnalysisConfirmationModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} auras={premiumAuras} onConfirm={handlePremiumAnalysisExecute} lang={currentLang} gumroadUrl={GUMROAD_PRODUCT_URL} isGift={!isOwner} />}
       {showAnalysisModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setShowAnalysisModal(false)}>
-           <DeepAnalysisCarouselModal isOpen={showAnalysisModal} onClose={() => setShowAnalysisModal(false)} premiumAnalysis={premiumAnalysis || effectiveDream?.premium_deep_analysis} lang={currentLang} dreamTitle={dream.ai_title} dreamImage={effectiveDream.ai_image_url} dreamId={dream.id} onGenerateImageOnly={handleGenerateImageOnly} generatingImage={generatingImage} premiumError={premiumError} />
+           <DeepAnalysisCarouselModal isOpen={showAnalysisModal} onClose={() => setShowAnalysisModal(false)} premiumAnalysis={premiumAnalysis || effectiveDream?.premium_deep_analysis} lang={currentLang} dreamTitle={dream.ai_title} dreamContent={translated ? translatedContent : dream.content} dreamImage={effectiveDream.ai_image_url} dreamId={dream.id} onGenerateImageOnly={handleGenerateImageOnly} generatingImage={generatingImage} premiumError={premiumError} translateArchetype={translateArchetype} onOpenStoryMode={() => setShowStoryMode(true)} />
         </div>
+      )}
+      {showStoryMode && (
+        <StoryModeModal
+          isOpen={showStoryMode}
+          onClose={() => setShowStoryMode(false)}
+          dream={effectiveDream}
+          premiumAnalysis={premiumAnalysis || effectiveDream?.premium_deep_analysis}
+          lang={currentLang}
+        />
       )}
     </>
   )
