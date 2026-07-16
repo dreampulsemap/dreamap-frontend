@@ -8,11 +8,11 @@ export default function DailyCompass({ lang }) {
   const [loading, setLoading] = useState(false)
   const [alreadyUsed, setAlreadyUsed] = useState(false)
   const [timeLeft, setTimeLeft] = useState('')
+  const [streak, setStreak] = useState(0) // YENİ: Seri (Streak) Sistemi 🔥
   
   const timerRef = useRef(null)
-  const HOLD_DURATION = 2000 // 2 saniye basılı tutma gereksinimi
+  const HOLD_DURATION = 2000 
 
-  // Gece yarısına kalan süreyi hesaplayan FOMO sayacı
   useEffect(() => {
     if (!alreadyUsed) return;
     const interval = setInterval(() => {
@@ -32,11 +32,26 @@ export default function DailyCompass({ lang }) {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      // Cihaz hafızasından bugünün kartını çek (Eğer sayfayı yenilerse kartı kaybolmasın)
+      // Cihazdan geçmiş gün sayısını (Streak) çek
+      const savedStreak = parseInt(localStorage.getItem('lunosfer_streak') || '0', 10);
+      setStreak(savedStreak);
+
       const savedCard = localStorage.getItem('lunosfer_daily_compass')
       if (savedCard) {
         const parsed = JSON.parse(savedCard)
-        if (parsed.date === new Date().toISOString().split('T')[0]) {
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Eğer dün girmiş ama bugün girmemişse seriyi koru, 2 gün girmemişse sıfırla
+        const lastDate = new Date(parsed.date);
+        const currentDate = new Date(today);
+        const diffDays = Math.floor((currentDate - lastDate) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > 1) {
+          setStreak(0);
+          localStorage.setItem('lunosfer_streak', '0');
+        }
+
+        if (parsed.date === today) {
           setCompassData(parsed.data)
           setAlreadyUsed(true)
           return
@@ -68,7 +83,12 @@ export default function DailyCompass({ lang }) {
       } else if (json.data) {
         setCompassData(json.data)
         setAlreadyUsed(true)
-        // Bugünü kaydet ki kullanıcı gün boyu kartına bakıp paylaşabilsin
+        
+        // Seriyi (Streak) 1 artır
+        const newStreak = streak + 1;
+        setStreak(newStreak);
+        localStorage.setItem('lunosfer_streak', newStreak.toString());
+
         localStorage.setItem('lunosfer_daily_compass', JSON.stringify({
           date: new Date().toISOString().split('T')[0],
           data: json.data
@@ -108,8 +128,8 @@ export default function DailyCompass({ lang }) {
 
   const handleShare = async () => {
     const text = lang === 'tr' 
-      ? `✦ Lunosfer Günlük Pusulam 🔮\nBugünün Arketipi: ${compassData.archetype}\n\n"${compassData.reading}"\n\nSenin bugünkü frekansın ne? Öğrenmek için: lunosfer.com`
-      : `✦ My Lunosfer Daily Compass 🔮\nToday's Archetype: ${compassData.archetype}\n\n"${compassData.reading}"\n\nFind your daily frequency at lunosfer.com`;
+      ? `✦ Lunosfer Günlük Pusulam 🔮\nBugünün Arketipi: ${compassData.archetype} (Seri: ${streak}🔥)\n\n"${compassData.reading}"\n\nSenin bugünkü frekansın ne? Öğrenmek için: lunosfer.com`
+      : `✦ My Lunosfer Daily Compass 🔮\nToday's Archetype: ${compassData.archetype} (Streak: ${streak}🔥)\n\n"${compassData.reading}"\n\nFind your daily frequency at lunosfer.com`;
 
     if (navigator.share) {
       await navigator.share({ title: 'Lunosfer Oracle', text }).catch(console.error);
@@ -122,13 +142,17 @@ export default function DailyCompass({ lang }) {
   const title = lang === 'tr' ? 'Bilinçaltı Pusulası' : 'Daily Compass'
   const instruction = lang === 'tr' ? 'Günün frekansını almak için basılı tut' : 'Hold to align with today’s frequency'
 
-  // Eğer kart açıldıysa Paylaşılabilir "Viral" Görünüm Sun
   if (compassData) {
     return (
       <div 
         className="relative overflow-hidden rounded-[24px] p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[220px] transition-all duration-1000 border border-white/10 shadow-2xl"
         style={{ background: `radial-gradient(circle at center, ${compassData.color}40 0%, #050711 80%)` }}
       >
+        <div className="absolute top-4 right-5 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5 shadow-lg animate-fade-in">
+          <span className="text-orange-400 text-sm">🔥</span>
+          <span className="text-white font-bold font-mono text-xs">{streak}</span>
+        </div>
+
         <span className="text-3xl mb-3 animate-fade-in" style={{ textShadow: `0 0 20px ${compassData.color}` }}>👁️</span>
         <h3 className="text-xs font-bold uppercase tracking-[0.3em] mb-4 animate-fade-in" style={{ color: compassData.color }}>
           {compassData.archetype}
@@ -137,7 +161,6 @@ export default function DailyCompass({ lang }) {
           "{compassData.reading}"
         </p>
         
-        {/* VIRAL SHARE BUTTON */}
         <button 
           onClick={handleShare}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-white transition-all hover:scale-105 shadow-lg"
@@ -151,6 +174,13 @@ export default function DailyCompass({ lang }) {
 
   return (
     <div className="glass-card relative overflow-hidden rounded-[24px] p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[200px] shadow-[0_0_40px_rgba(34,211,238,0.05)]">
+      {streak > 0 && (
+        <div className="absolute top-4 right-5 bg-white/5 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5">
+          <span className="text-orange-400/50 text-sm grayscale">🔥</span>
+          <span className="text-white/50 font-bold font-mono text-xs">{streak}</span>
+        </div>
+      )}
+
       <div className={`absolute inset-0 transition-opacity duration-1000 ${holding ? 'opacity-100' : 'opacity-0'}`}>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-fuchsia-500/20 blur-[50px] rounded-full" />
       </div>
