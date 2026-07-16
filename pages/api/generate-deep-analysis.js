@@ -69,7 +69,7 @@ export default async function handler(req, res) {
 
     const pastContext = pastDreams?.map(d => `Content: "${d.content}"\nShadow focus: "${d.premium_deep_analysis?.shadow_focus}"`).join("\n---\n") || "No past history.";
 
-    // Gemini 2.5 Flash ile Analiz
+    // Gemini 3.5 Flash ile Analiz (Interactions API)
     const prompt = `
       ${SYSTEM_PROMPT}
       Analyze this dream for a user who previously experienced these patterns: ${pastContext}
@@ -78,11 +78,11 @@ export default async function handler(req, res) {
       Required JSON format: ${JSON.stringify(buildShape())}
     `;
 
-    const result = await genAI.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
+    const interaction = await genAI.interactions.create({
+      model: "gemini-3.5-flash",
+      input: prompt,
     });
-    const rawText = result.text;
+    const rawText = interaction.output_text;
     const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
     const analysis = JSON.parse(cleanJson);
 
