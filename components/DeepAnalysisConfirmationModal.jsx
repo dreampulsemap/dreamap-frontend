@@ -24,6 +24,7 @@ export default function DeepAnalysisConfirmationModal({
         className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/10 bg-[#070b14] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.65)] sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* KAPATMA BUTONU */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white transition-colors"
@@ -31,6 +32,7 @@ export default function DeepAnalysisConfirmationModal({
           ✕
         </button>
 
+        {/* BAŞLIK */}
         <div className="text-center mb-6">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-fuchsia-300 mb-3 shadow-[0_0_15px_rgba(240,73,214,0.1)]">
             ✦ {t.confirmBadge}
@@ -40,6 +42,7 @@ export default function DeepAnalysisConfirmationModal({
           </h3>
         </div>
 
+        {/* DETAYLAR */}
         <div className="space-y-4 mb-8 text-sm">
           <div className="flex gap-3">
             <span className="text-lg">🌌</span>
@@ -74,6 +77,7 @@ export default function DeepAnalysisConfirmationModal({
           </div>
         </div>
 
+        {/* BAKİYE VE EYLEM */}
         <div className="border-t border-white/10 pt-6">
           <div className="flex justify-between items-center mb-4">
             <span className="text-slate-400 text-xs uppercase tracking-wider">{t.balanceLabel}</span>
