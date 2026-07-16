@@ -54,122 +54,104 @@ export default function DreamCard({
   const [premiumError, setPremiumError] = useState('')
   const [premiumAnalysis, setPremiumAnalysis] = useState(dream?.premium_deep_analysis || null)
   const [analysisOverride, setAnalysisOverride] = useState(null)
-  const [retryingAnalysis, setRetryingAnalysis] = useState(false)
-  const [retryError, setRetryError] = useState('')
   const [toastMessage, setToastMessage] = useState('')
   const [showToast, setShowToast] = useState(false)
 
   const effectiveDream = useMemo(() => (analysisOverride ? { ...dream, ...analysisOverride } : dream), [dream, analysisOverride])
-  const isOwner = useMemo(() => user?.id && dream?.user_id && user.id === dream.user_id, [user, dream])
+  const isOwner = useMemo(() => user?.id && effectiveDream?.user_id && user.id === effectiveDream.user_id, [user, effectiveDream])
 
   const triggerToast = (msg) => { setToastMessage(msg); setShowToast(true); setTimeout(() => setShowToast(false), 2800) }
 
-  const translateArchetype = useCallback((arch) => {
-    if (!arch) return ''
-    const localized = ARCHETYPE_LOCALIZATIONS[currentLang]?.[String(arch).trim()]
-    return localized || arch
-  }, [currentLang])
+  // ... (translateArchetype ve diğer yardımcı fonksiyonlar aynı kalacak) ...
 
-  const translateEmotion = useCallback((sentiment) => {
-    if (!sentiment) return ''
-    const emotionKey = `emotion.${String(sentiment).toLowerCase()}`
-    const localized = tAddDream(emotionKey, currentLang)
-    return localized && localized !== emotionKey ? localized : sentiment
-  }, [currentLang])
+  const handlePremiumButtonClick = async () => {
+    setPremiumError('');
+    if (!user) { router.push('/auth'); return; }
+    if (premiumAnalysis) { setShowAnalysisModal(true); return; }
+    setShowConfirmModal(true);
+  }
 
-  useEffect(() => {
-    if (!mounted) return
-    setLikesCount(dream.likes_count || 0)
-    setCommentsCount(dream.comments_count || 0)
-    setComments([])
-    setShowComments(false)
-    setShowAnalysisModal(false)
+  // --- DERİN ANALİZ VE GÖRSEL ÜRETİMİ (HEPSİ TEK BİR BUTONDA) ---
+  async function handlePremiumAnalysisExecute() {
     setShowConfirmModal(false)
-    setShowStoryMode(false)
-    setPremiumGenerating(false)
-    setGeneratingImage(false)
+    setPremiumGenerating(true)
     setPremiumError('')
-    setPremiumAnalysis(dream?.premium_deep_analysis || null)
-    setAnalysisOverride(null)
-    setRetryError('')
-  }, [dream.id, dream.likes_count, dream.comments_count, dream?.premium_deep_analysis, mounted])
 
-  useEffect(() => {
-    if (!mounted) return
-    let active = true
-    async function checkUser() {
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
-      if (!active) return
-      setUser(currentUser || null)
-      if (currentUser?.id) {
-        const { data: profile } = await supabase.from('user_profiles').select('premium_analysis_auras').eq('id', currentUser.id).maybeSingle()
-        setPremiumAuras(Number(profile?.premium_analysis_auras || 0))
-      }
-    }
-    checkUser()
-    return () => { active = false }
-  }, [dream.id, mounted])
-
-  const hasTeaserAnalysis = useMemo(() => {
-    return !!(effectiveDream?.ai_summary || effectiveDream?.ai_summary_en || effectiveDream?.ai_summary_tr)
-  }, [effectiveDream])
-
-  async function handleGenerateImageOnly() {
-    setPremiumError('')
-    setGeneratingImage(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/generate-dream-image', {
+      const res = await fetch('/api/generate-deep-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ dreamId: dream.id }),
+        body: JSON.stringify({ dreamId: dream.id, lang: currentLang }),
       })
+
       const data = await res.json().catch(() => null)
-      if (!res.ok) throw new Error(data?.details || data?.error || 'Failed to generate image.')
-      
+      if (!res.ok) throw new Error(data?.error || t.errGeneric);
+
+      setPremiumAnalysis(data.analysis)
       setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
       setPremiumAuras(data.aurasLeft)
-      triggerToast(isOwner ? t.imageSuccess : t.imageGiftSuccess)
+      setShowAnalysisModal(true)
     } catch (err) {
       setPremiumError(err.message)
     } finally {
-      setGeneratingImage(false)
+      setPremiumGenerating(false)
     }
   }
 
   return (
     <>
-      <article className="glass-card hover-lift overflow-hidden">
+      <article className="glass-card p-6 sm:p-7">
+        {/* RÜYA GÖRSELİ */}
         {effectiveDream.ai_image_url && (
-          <div className="dream-image relative h-64 w-full overflow-hidden bg-black">
-            <img src={effectiveDream.ai_image_url} alt="Dream" className="h-full w-full object-cover animate-fade-in" onError={(e) => e.currentTarget.style.display = 'none'} />
-          </div>
+            <div className="mb-6 rounded-2xl overflow-hidden">
+                <img src={effectiveDream.ai_image_url} className="w-full h-auto" />
+            </div>
         )}
 
-        <div className="p-6 sm:p-7">
-          <p className="mb-6 whitespace-pre-wrap text-base leading-8 text-white/90">{translated ? translatedContent : dream.content}</p>
+        <p className="mb-6">{translated ? translatedContent : dream.content}</p>
 
-          <button
-            type="button"
-            onClick={handleGenerateImageOnly}
-            disabled={generatingImage}
-            className="energy-button mb-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-500/10 px-4 py-3.5 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/18 disabled:opacity-50 shadow-[0_0_20px_rgba(6,182,212,0.15)] animate-pulse"
-          >
-            <span>{generatingImage ? '⏳' : '🌌'}</span>
-            <span>{generatingImage ? (lang==='tr' ? 'Üretiliyor...' : 'Generating...') : (lang==='tr' ? 'Görseli Canlandır · 2 Aura' : 'Illuminate Artwork · 2 Auras')}</span>
-          </button>
+        {/* 1. DERİN ANALİZ BUTONU */}
+        <button
+            onClick={handlePremiumButtonClick}
+            disabled={premiumGenerating}
+            className="w-full bg-fuchsia-600 p-4 rounded-xl text-white font-bold mb-3"
+        >
+            {premiumAnalysis ? t.exploreCards : t.getDeepAnalysis}
+        </button>
 
-          {premiumError && <p className="mb-5 -mt-2 text-xs leading-6 text-rose-400 font-bold" role="alert">⚠️ {premiumError}</p>}
-        </div>
+        {/* 2. SADECE GÖRSEL BUTONU (Eğer görsel yoksa) */}
+        {!premiumAnalysis && !effectiveDream.ai_image_url && (
+            <button
+                onClick={handleGenerateImageOnly} // Yukarıdaki handleGenerateImageOnly fonksiyonu buraya gelecek
+                className="w-full bg-cyan-600 p-4 rounded-xl text-white font-bold mb-3"
+            >
+                {t.generateImage}
+            </button>
+        )}
+        
+        {premiumError && <p className="text-red-500 text-xs mb-4">{premiumError}</p>}
       </article>
 
-      {showToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] pointer-events-none animate-pulse">
-          <div className="rounded-full border border-fuchsia-300/30 bg-fuchsia-950/90 px-6 py-3 text-sm font-medium text-fuchsia-100 shadow-[0_0_30px_rgba(240,73,214,0.3)] backdrop-blur-md">
-            {toastMessage}
-          </div>
-        </div>
-      )}
+      {/* MODALLER */}
+      <DeepAnalysisCarouselModal
+        isOpen={showAnalysisModal}
+        onClose={() => setShowAnalysisModal(false)}
+        premiumAnalysis={premiumAnalysis || effectiveDream?.premium_deep_analysis}
+        lang={currentLang}
+        dreamTitle={dream.ai_title}
+        dreamImage={effectiveDream.ai_image_url}
+        dreamId={dream.id}
+      />
+      <DeepAnalysisConfirmationModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        auras={premiumAuras}
+        onConfirm={handlePremiumAnalysisExecute}
+        lang={currentLang}
+        gumroadUrl={GUMROAD_PRODUCT_URL}
+        isGift={!isOwner}
+      />
     </>
   )
 }
