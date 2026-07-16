@@ -14,54 +14,47 @@ export default async function handler(req, res) {
 
   try {
     const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-    if (!token) return res.status(401).json({ error: 'missing_token' });
-
+    const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
-    if (userError || !user) return res.status(401).json({ error: 'unauthorized' });
+    if (!user) return res.status(401).json({ error: 'unauthorized' });
 
     const { lang = 'en' } = req.body;
 
-    const { data: profile } = await supabaseAdmin
-      .from('user_profiles')
-      .select('last_compass_check_in')
-      .eq('id', user.id)
-      .single();
-
+    const { data: profile } = await supabaseAdmin.from('user_profiles').select('last_compass_check_in').eq('id', user.id).single();
     const today = new Date().toISOString().split('T')[0];
-    const lastCheckIn = profile?.last_compass_check_in ? profile.last_compass_check_in.split('T')[0] : null;
-
-    if (lastCheckIn === today) {
+    if (profile?.last_compass_check_in?.split('T')[0] === today) {
       return res.status(429).json({ error: 'already_used_today' });
     }
 
-    // KÜTÜPHANE GÜNCELLENDİĞİ İÇİN ARTIK BUNU KULLANABİLİRİZ
+    // YENİ KÜTÜPHANE FORMATI: v1beta yerine stabil kanalı kullanır
     const model = genAI.getGenerativeModel({ 
       model: "gemini-1.5-flash",
-      generationConfig: { responseMimeType: "application/json" }
     });
 
     const prompt = `You are a mystical Jungian oracle. Generate the user's daily subconscious compass.
     MUST BE WRITTEN IN: ${LANG_MAP[lang] || 'English'}.
-    Return ONLY a JSON object with:
+    Return ONLY a JSON object with this structure:
     {
-      "reading": "One short, profound, esoteric psychological advice (max 12 words). No quotes.",
-      "archetype": "The Jungian Archetype guiding them today (e.g. The Magician, The Explorer)",
-      "color": "A hex color code representing this energy (use dark/neon magical colors like #8b5cf6, #ec4899, #06b6d4, etc.)"
+      "reading": "One short profound esoteric advice (max 12 words).",
+      "archetype": "The Jungian Archetype",
+      "color": "A hex code like #8b5cf6"
     }`;
 
+    // Yeni sürümde JSON modunu bu şekilde güvenli alıyoruz
     const result = await model.generateContent(prompt);
-    const compassData = JSON.parse(result.response.text());
+    const response = await result.response;
+    const text = response.text();
+    
+    // JSON temizleme (Markdown işaretleri varsa kaldırır)
+    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const compassData = JSON.parse(cleanJson);
 
-    await supabaseAdmin
-      .from('user_profiles')
-      .update({ last_compass_check_in: new Date().toISOString() })
-      .eq('id', user.id);
+    await supabaseAdmin.from('user_profiles').update({ last_compass_check_in: new Date().toISOString() }).eq('id', user.id);
 
     return res.status(200).json({ ok: true, data: compassData });
 
   } catch (error) {
-    console.error('Daily Compass Error:', error);
-    return res.status(500).json({ error: error.message || 'internal_server_error' });
+    console.error('Compass Error:', error);
+    return res.status(500).json({ error: error.message });
   }
 }
