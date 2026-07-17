@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function DailyCompass({ lang }) {
+  const [mounted, setMounted] = useState(false)
   const [holding, setHolding] = useState(false)
   const [progress, setProgress] = useState(0)
   const [compassData, setCompassData] = useState(null)
@@ -12,6 +13,10 @@ export default function DailyCompass({ lang }) {
   
   const timerRef = useRef(null)
   const HOLD_DURATION = 2000 // 2 saniye basılı tutma gereksinimi
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!alreadyUsed) return;
@@ -134,6 +139,18 @@ export default function DailyCompass({ lang }) {
 
   const title = lang === 'tr' ? 'Bilinçaltı Pusulası' : 'Daily Compass'
   const instruction = lang === 'tr' ? 'Günün frekansını almak için basılı tut' : 'Hold to align with today’s frequency'
+
+  if (!mounted) {
+    return (
+      <div className="glass-card relative overflow-hidden rounded-[24px] p-6 sm:p-8 min-h-[200px] animate-pulse">
+        <div className="flex flex-col items-center justify-center text-center gap-4">
+          <div className="w-16 h-8 rounded-full bg-white/5" />
+          <div className="w-24 h-24 rounded-full bg-white/5" />
+          <div className="w-40 h-4 rounded bg-white/5" />
+        </div>
+      </div>
+    )
+  }
 
   if (compassData) {
     return (
