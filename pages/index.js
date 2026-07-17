@@ -12,6 +12,7 @@ export default function HomePage() {
   const { i18n } = useTranslation()
   const [mounted, setMounted] = useState(false)
   const [user, setUser] = useState(null)
+  const [userLoading, setUserLoading] = useState(true)
 
   const [dreams, setDreams] = useState([])
   const [page, setPage] = useState(0)
@@ -34,6 +35,7 @@ export default function HomePage() {
     async function checkUser() {
       const { data: { session } } = await supabase.auth.getSession()
       setUser(session?.user || null)
+      setUserLoading(false)
     }
     checkUser()
   }, [])
@@ -134,17 +136,24 @@ export default function HomePage() {
 
       <main className="mx-auto w-full max-w-2xl px-0 sm:px-4 py-4 sm:py-8">
         
-        {/* SADECE GİRİŞ YAPMAYANLARA HERO (KARŞILAMA) GÖSTER */}
-        {!user && (
+        {/* AUTH YÜKLENİYOR → SKELETON; HERO (MİSAFİR) VEYA DAILYCOMPASS (GİRİŞ YAPMIŞ) */}
+        {userLoading ? (
           <div className="px-4 sm:px-0 mb-8">
-            <Hero />
+            <div className="glass-card relative overflow-hidden rounded-[24px] p-6 sm:p-8 min-h-[200px] animate-pulse">
+              <div className="flex flex-col items-center justify-center text-center gap-4">
+                <div className="w-32 h-6 rounded-full bg-white/5" />
+                <div className="w-48 h-4 rounded bg-white/5" />
+                <div className="w-24 h-24 rounded-full bg-white/5" />
+              </div>
+            </div>
           </div>
-        )}
-
-        {/* GÜNLÜK PUSULA (Sadece Giriş Yapanlara Göster) */}
-        {user && (
+        ) : user ? (
           <div className="px-4 sm:px-0 mb-6">
             <DailyCompass lang={lang} />
+          </div>
+        ) : (
+          <div className="px-4 sm:px-0 mb-8">
+            <Hero />
           </div>
         )}
 
