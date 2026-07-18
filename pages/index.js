@@ -5,14 +5,18 @@ import DreamCard from '@/components/DreamCard'
 import DailyCompass from '@/components/DailyCompass'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
+import { ARCHETYPE_LOCALIZATIONS } from '@/lib/archetypeTranslations'
 
 const BATCH_SIZE = 10;
+
+// "Derin Duygular" sekmesi eskiden sadece 3 duyguya bakıyordu (Fear/Anxiety/Awe).
+// Yoğun/rahatsız edici sayılabilecek duyguların tamamını kapsayacak şekilde genişletildi.
+const INTENSE_EMOTIONS = ['Fear', 'Anxiety', 'Anger', 'Sadness', 'Loneliness', 'Shame', 'Disgust', 'Confusion']
 
 export default function HomePage() {
   const { i18n } = useTranslation()
   const [mounted, setMounted] = useState(false)
   const [user, setUser] = useState(null)
-  const [userLoading, setUserLoading] = useState(true)
 
   const [dreams, setDreams] = useState([])
   const [page, setPage] = useState(0)
@@ -20,6 +24,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [activeFilter, setActiveFilter] = useState('all')
+  const [selectedArchetype, setSelectedArchetype] = useState(null)
 
   const observerRef = useRef(null)
 
@@ -35,7 +40,6 @@ export default function HomePage() {
     async function checkUser() {
       const { data: { session } } = await supabase.auth.getSession()
       setUser(session?.user || null)
-      setUserLoading(false)
     }
     checkUser()
   }, [])
@@ -113,19 +117,58 @@ export default function HomePage() {
     [loading, loadingMore, hasMore, loadMoreDreams]
   )
 
+  const translateArchetype = useCallback((arch) => {
+    const clean = String(arch).trim()
+    return ARCHETYPE_LOCALIZATIONS[lang]?.[clean] || clean
+  }, [lang])
+
+  // Feed'de o an var olan rüyalardan gerçek arketip listesini (ve sayılarını) çıkarıyoruz.
+  // Böylece "Arketipler" sekmesi statik bir "var mı yok mu" kontrolü değil,
+  // kullanıcının seçip filtreleyebileceği canlı bir liste haline geliyor.
+  const availableArchetypes = useMemo(() => {
+    const counts = new Map()
+    for (const d of dreams) {
+      if (Array.isArray(d?.ai_archetypes)) {
+        for (const raw of d.ai_archetypes) {
+          const clean = String(raw).trim()
+          if (!clean) continue
+          counts.set(clean, (counts.get(clean) || 0) + 1)
+        }
+      }
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }))
+  }, [dreams])
+
+  const handleFilterClick = (filter) => {
+    setActiveFilter(filter)
+    if (filter !== 'archetypes') setSelectedArchetype(null)
+  }
+
   const filteredDreams = useMemo(() => {
     const baseDreams = Array.isArray(dreams) ? dreams : []
     const validDreams = baseDreams.filter(d => d && d.id)
 
     if (activeFilter === 'all') return validDreams
+
     if (activeFilter === 'archetypes') {
-      return validDreams.filter(d => Array.isArray(d.ai_archetypes) && d.ai_archetypes.length > 0)
+      const withArchetype = validDreams.filter(d => Array.isArray(d.ai_archetypes) && d.ai_archetypes.length > 0)
+      if (!selectedArchetype) return withArchetype
+      return withArchetype.filter(d => d.ai_archetypes.some(a => String(a).trim() === selectedArchetype))
     }
+
     if (activeFilter === 'intense') {
-      return validDreams.filter(d => d.user_selected_sentiment && ['Fear', 'Anxiety', 'Awe'].includes(d.user_selected_sentiment))
+      return validDreams.filter(d => {
+        if (!d.user_selected_sentiment) return false
+        // Alan artık virgülle ayrılmış çoklu duygu tutabiliyor; herhangi biri eşleşirse say
+        const sentiments = String(d.user_selected_sentiment).split(',').map(s => s.trim()).filter(Boolean)
+        return sentiments.some(s => INTENSE_EMOTIONS.includes(s))
+      })
     }
+
     return validDreams
-  }, [dreams, activeFilter])
+  }, [dreams, activeFilter, selectedArchetype])
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-black text-white pb-20 md:pb-0">
@@ -136,53 +179,74 @@ export default function HomePage() {
 
       <main className="mx-auto w-full max-w-2xl px-0 sm:px-4 py-4 sm:py-8">
         
-        {/* AUTH YÜKLENİYOR → SKELETON; HERO (MİSAFİR) VEYA DAILYCOMPASS (GİRİŞ YAPMIŞ) */}
-        {userLoading ? (
-          <div className="px-4 sm:px-0 mb-8">
-            <div className="glass-card relative overflow-hidden rounded-[24px] p-6 sm:p-8 min-h-[200px] animate-pulse">
-              <div className="flex flex-col items-center justify-center text-center gap-4">
-                <div className="w-32 h-6 rounded-full bg-white/5" />
-                <div className="w-48 h-4 rounded bg-white/5" />
-                <div className="w-24 h-24 rounded-full bg-white/5" />
-              </div>
-            </div>
-          </div>
-        ) : user ? (
-          <div className="px-4 sm:px-0 mb-6">
-            <DailyCompass lang={lang} />
-          </div>
-        ) : (
+        {/* SADECE GİRİŞ YAPMAYANLARA HERO (KARŞILAMA) GÖSTER */}
+        {!user && (
           <div className="px-4 sm:px-0 mb-8">
             <Hero />
           </div>
         )}
 
+        {/* GÜNLÜK PUSULA (Sadece Giriş Yapanlara Göster) */}
+        {user && (
+          <div className="px-4 sm:px-0 mb-6">
+            <DailyCompass lang={lang} />
+          </div>
+        )}
+
         {/* MİNİMALİST YATAY FİLTRE ÇUBUĞU (INSTAGRAM / TIKTOK STYLE) */}
-        <div className="sticky top-[60px] md:top-[76px] z-40 bg-black/80 backdrop-blur-xl border-b border-white/10 px-4 py-3 mb-6 flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setActiveFilter('all')}
-            className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-              activeFilter === 'all' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
-            }`}
-          >
-            {lang === 'tr' ? 'Ana Akış' : 'Feed'}
-          </button>
-          <button
-            onClick={() => setActiveFilter('archetypes')}
-            className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-              activeFilter === 'archetypes' ? 'bg-cyan-500 text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
-            }`}
-          >
-            {lang === 'tr' ? 'Arketipler' : 'Archetypes'}
-          </button>
-          <button
-            onClick={() => setActiveFilter('intense')}
-            className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-              activeFilter === 'intense' ? 'bg-rose-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
-            }`}
-          >
-            {lang === 'tr' ? 'Derin Duygular' : 'Intense'}
-          </button>
+        <div className={`sticky top-[60px] md:top-[76px] z-40 bg-black/80 backdrop-blur-xl border-b border-white/10 px-4 py-3 mb-6 transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => handleFilterClick('all')}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
+                activeFilter === 'all' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+              }`}
+            >
+              {lang === 'tr' ? 'Ana Akış' : 'Feed'}
+            </button>
+            <button
+              onClick={() => handleFilterClick('archetypes')}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
+                activeFilter === 'archetypes' ? 'bg-cyan-500 text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+              }`}
+            >
+              {lang === 'tr' ? 'Arketipler' : 'Archetypes'}
+            </button>
+            <button
+              onClick={() => handleFilterClick('intense')}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
+                activeFilter === 'intense' ? 'bg-rose-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+              }`}
+            >
+              {lang === 'tr' ? 'Derin Duygular' : 'Intense'}
+            </button>
+          </div>
+
+          {/* ARKETİP ALT-FİLTRESİ: gerçek arketip isimleriyle seçim yapılabiliyor */}
+          {activeFilter === 'archetypes' && availableArchetypes.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar mt-2 pt-2 border-t border-white/5">
+              <button
+                onClick={() => setSelectedArchetype(null)}
+                className={`whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${
+                  !selectedArchetype ? 'bg-cyan-400/90 text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+                }`}
+              >
+                {lang === 'tr' ? 'Tümü' : 'All'}
+              </button>
+              {availableArchetypes.map(({ name, count }) => (
+                <button
+                  key={name}
+                  onClick={() => setSelectedArchetype(name)}
+                  className={`whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-semibold transition-all flex items-center gap-1.5 ${
+                    selectedArchetype === name ? 'bg-cyan-400/90 text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+                  }`}
+                >
+                  {translateArchetype(name)}
+                  <span className="opacity-60 text-[10px]">{count}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* RÜYA AKIŞI LİSTESİ */}
@@ -213,6 +277,7 @@ export default function HomePage() {
                   <DreamCard
                     dream={dream}
                     lang={lang}
+                    currentUserId={user?.id}
                     onTranslate={() => {}}
                     translating={false}
                     translated={false}
