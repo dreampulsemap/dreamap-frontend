@@ -29,11 +29,15 @@ export default async function handler(req, res) {
     if (error) throw error
 
     const usersWithStatus = await Promise.all(users.map(async (user) => {
+      // NOT: Supabase/PostgREST'te iç içe grup filtresi `and(...)` anahtar kelimesi
+      // olmadan geçersizdir. Eski hâli `(a,b),(c,d)` şeklindeydi ve bu sorgu
+      // sessizce başarısız oluyordu — sonuç olarak arkadaşlık durumu asla doğru
+      // gelmiyordu (herkes "takip et" olarak görünüyordu).
       const { data: friendship } = await supabase
         .from('friendships')
         .select('status')
-        .or(`(user_id.eq.${userId},friend_id.eq.${user.id}),(user_id.eq.${user.id},friend_id.eq.${userId})`)
-        .single()
+        .or(`and(user_id.eq.${userId},friend_id.eq.${user.id}),and(user_id.eq.${user.id},friend_id.eq.${userId})`)
+        .maybeSingle()
 
       return {
         ...user,
