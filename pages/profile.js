@@ -317,7 +317,7 @@ export default function ProfilePage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         
         {/* INSTAGRAM TARZI PROFİL BAŞLIĞI */}
-        <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-10 border-b border-white/10 pb-8 mb-6 relative">
+        <div className={`flex flex-col sm:flex-row items-center gap-6 sm:gap-10 border-b border-white/10 pb-8 mb-6 relative transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           <div className="shrink-0 relative group">
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-2 border-fuchsia-500 bg-white/5 shadow-[0_0_20px_rgba(240,73,214,0.15)] flex items-center justify-center">
               {displayAvatar ? (
@@ -533,6 +533,7 @@ export default function ProfilePage() {
             <DreamCard 
               dream={activeDream} 
               lang={lang} 
+              currentUserId={user?.id}
               onTranslate={() => {}}
               translating={false}
               translated={false}

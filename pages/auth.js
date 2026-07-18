@@ -30,6 +30,16 @@ export default function AuthPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    // Referral kodu (?ref=<inviter_user_id>) varsa yakala ve sakla — kayıt
+    // e-posta onayı gerektirdiği için asıl claim işlemi ilk gerçek girişte yapılır.
+    if (router.query?.ref && typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('pending_referral_code', String(router.query.ref))
+      } catch (_) {}
+    }
+  }, [router.query])
+
+  useEffect(() => {
     let mounted = true
 
     const loadUser = async () => {
@@ -55,6 +65,27 @@ export default function AuthPage() {
       }
 
       setUser(session?.user || null)
+
+      // İlk gerçek girişte bekleyen bir referral kodu varsa claim et.
+      // Endpoint idempotent: aynı kullanıcı için ikinci çağrı 'already_referred'
+      // ile başarısız olur ve zararsızca yutulur.
+      if (session?.access_token && typeof window !== 'undefined') {
+        const pendingCode = window.localStorage.getItem('pending_referral_code')
+        if (pendingCode) {
+          fetch('/api/referrals/claim', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ inviterCode: pendingCode }),
+          })
+            .catch(() => {})
+            .finally(() => {
+              try { window.localStorage.removeItem('pending_referral_code') } catch (_) {}
+            })
+        }
+      }
     })
 
     return () => {

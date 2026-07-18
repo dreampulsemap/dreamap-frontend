@@ -195,7 +195,7 @@ export default function AddDreamPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-fuchsia-300 text-sm tracking-widest uppercase font-bold animate-pulse">
-          {mounted ? tAddDream('auth.loading', lang) : 'Loading...'}
+          {mounted ? tAddDream('auth.loading', lang) : <span className="inline-block h-4 w-24 rounded bg-white/10 align-middle" />}
         </div>
       </div>
     )

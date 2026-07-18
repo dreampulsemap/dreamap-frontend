@@ -15,6 +15,7 @@ export default function ExplorePage() {
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [user, setUser] = useState(null)
 
   // Seçili rüyanın dizi içerisindeki indeksini tutar (Explore Slider için)
   const [activeDreamIndex, setActiveDreamIndex] = useState(null)
@@ -22,6 +23,22 @@ export default function ExplorePage() {
 
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  // Kullanıcıyı bir kere burada çözüp DreamCard'lara aşağı geçiriyoruz;
+  // her kart kendi başına ayrı auth sorgusu yapmasın (yarış durumu / gecikme).
+  useEffect(() => {
+    let active = true
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (active) setUser(session?.user || null)
+    })
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) setUser(session?.user || null)
+    })
+    return () => {
+      active = false
+      authListener?.subscription?.unsubscribe()
+    }
   }, [])
 
   const lang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
@@ -100,7 +117,7 @@ export default function ExplorePage() {
       
       <main className="mx-auto w-full max-w-[1200px] px-3 py-6 sm:px-6">
         {/* ÜST BAŞLIK */}
-        <div className="mb-8 text-center sm:text-left">
+        <div className={`mb-8 text-center sm:text-left transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2">
             🌐 {lang === 'tr' ? 'Küresel Rüya Ağı' : 'Global Dream Nexus'}
           </span>
@@ -199,6 +216,7 @@ export default function ExplorePage() {
             <DreamCard 
               dream={dreams[activeDreamIndex]} 
               lang={lang} 
+              currentUserId={user?.id}
               onTranslate={() => {}}
               translating={false}
               translated={false}
