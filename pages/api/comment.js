@@ -1,92 +1,65 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+
+const MAX_COMMENT_LENGTH = 1000
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'DELETE') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
-
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
-
   try {
     if (req.method === 'GET') {
-      // Yorumları listele
-      const { dreamId } = req.query
-      
-      if (!dreamId) {
-        return res.status(400).json({ error: 'dreamId gerekli' })
-      }
+      const { goalId } = req.query
+      if (!goalId) return res.status(400).json({ error: 'goalId_required' })
 
-      const { data, error } = await supabase
-        .from('comments')
-        .select(`
-          *,
-          user_profiles (
-            id,
-            username,
-            display_name,
-            avatar_url
-          )
-        `)
-        .eq('dream_id', dreamId)
+      const { data, error } = await supabaseAdmin
+        .from('goal_comments')
+        .select('*, user_profiles(id, username, display_name, avatar_url)')
+        .eq('goal_id', goalId)
         .order('created_at', { ascending: false })
 
       if (error) throw error
-
       return res.status(200).json({ comments: data || [] })
     }
 
     if (req.method === 'POST') {
-      // Yorum ekle
-      const { dreamId, userId, content } = req.body
+      const user = await getAuthedUser(req)
+      if (!user) return res.status(401).json({ error: 'unauthorized' })
 
-      if (!dreamId || !userId || !content) {
-        return res.status(400).json({ error: 'Eksik parametreler' })
+      const { goalId, content } = req.body || {}
+      const cleanContent = typeof content === 'string' ? content.trim() : ''
+      if (!goalId || !cleanContent) return res.status(400).json({ error: 'invalid_params' })
+      if (cleanContent.length > MAX_COMMENT_LENGTH) {
+        return res.status(413).json({ error: 'comment_too_long', max: MAX_COMMENT_LENGTH })
       }
 
-      const { data, error } = await supabase
-        .from('comments')
-        .insert([{ user_id: userId, dream_id: dreamId, content }])
-        .select(`
-          *,
-          user_profiles (
-            id,
-            username,
-            display_name,
-            avatar_url
-          )
-        `)
+      const { data, error } = await supabaseAdmin
+        .from('goal_comments')
+        .insert({ user_id: user.id, goal_id: goalId, content: cleanContent })
+        .select('*, user_profiles(id, username, display_name, avatar_url)')
         .single()
 
       if (error) throw error
-
-      return res.status(200).json({ success: true, comment: data })
+      // Trigger (handle_goal_comment_change) goals.comments_count'u zaten güncelledi
+      return res.status(200).json({ comment: data })
     }
 
     if (req.method === 'DELETE') {
-      // Yorum sil
-      const { commentId, userId } = req.body
+      const user = await getAuthedUser(req)
+      if (!user) return res.status(401).json({ error: 'unauthorized' })
 
-      if (!commentId || !userId) {
-        return res.status(400).json({ error: 'Eksik parametreler' })
-      }
+      const { commentId } = req.body || {}
+      if (!commentId) return res.status(400).json({ error: 'commentId_required' })
 
-      const { error } = await supabase
-        .from('comments')
+      const { error } = await supabaseAdmin
+        .from('goal_comments')
         .delete()
         .eq('id', commentId)
-        .eq('user_id', userId)
+        .eq('user_id', user.id) // yalnızca kendi yorumunu silebilir
 
       if (error) throw error
-
       return res.status(200).json({ success: true })
     }
+
+    return res.status(405).json({ error: 'method_not_allowed' })
   } catch (error) {
-    console.error('Comment error:', error)
-    return res.status(500).json({ error: error.message })
+    console.error('goals/comment error:', error)
+    return res.status(500).json({ error: error.message || 'internal_error' })
   }
-                                 }
+}
