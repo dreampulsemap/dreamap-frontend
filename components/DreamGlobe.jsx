@@ -231,9 +231,9 @@ export default function DreamGlobe() {
     function initGlobe() {
       try {
         const globe = window.Globe()
-          .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
-          .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
-          .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+          .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
+          .bumpImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png')
+          .backgroundImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/night-sky.png')
           .pointsData(pointsData)
           .pointLat('lat')
           .pointLng('lng')

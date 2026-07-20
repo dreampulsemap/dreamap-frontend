@@ -103,7 +103,7 @@ export default function MiniGlobe() {
 
         globe = window
           .Globe()
-          .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
+          .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
           .backgroundColor('rgba(0,0,0,0)')
           .pointsData(pointsData)
           .pointLat('lat')
