@@ -5,6 +5,11 @@ import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import GoalCard from '@/components/GoalCard'
 import CreateGoalModal from '@/components/CreateGoalModal'
 import GoalDetailModal from '@/components/GoalDetailModal'
+import DailySeedsPanel from '@/components/DailySeedsPanel'
+import MentalWallPanel from '@/components/MentalWallPanel'
+import ReferralWidget from '@/components/ReferralWidget'
+import EmptyState from '@/components/EmptyState'
+import ErrorState from '@/components/ErrorState'
 import Navbar from '@/components/Navbar'
 
 export default function VisionBoardPage() {
@@ -22,6 +27,26 @@ export default function VisionBoardPage() {
   const [hasMore, setHasMore] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [activeGoal, setActiveGoal] = useState(null)
+  const [ownActiveGoals, setOwnActiveGoals] = useState([])
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    if (!user?.id) { setOwnActiveGoals([]); return }
+    let active = true
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) return
+      try {
+        const res = await fetch('/api/goals/list?mode=own&status=active', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        const json = await res.json()
+        if (active && res.ok) setOwnActiveGoals(json.goals || [])
+      } catch {
+        // sessiz
+      }
+    })
+    return () => { active = false }
+  }, [user])
 
   useEffect(() => {
     let active = true
@@ -39,23 +64,26 @@ export default function VisionBoardPage() {
 
   const loadGoals = useCallback(async (targetTab, targetPage, replace) => {
     setLoading(true)
+    setLoadError('')
     try {
       let url = `/api/goals/list?mode=${targetTab === 'own' ? 'own' : 'feed'}&page=${targetPage}`
       const headers = {}
-      if (targetTab === 'own') {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) { setLoading(false); return }
-        headers.Authorization = `Bearer ${session.access_token}`
-      }
+      const { data: { session } } = await supabase.auth.getSession()
+      if (targetTab === 'own' && !session) { setLoading(false); return }
+      if (session) headers.Authorization = `Bearer ${session.access_token}`
       const res = await fetch(url, { headers })
       const json = await res.json()
-      if (!res.ok) { setLoading(false); return }
+      if (!res.ok) {
+        setLoadError(json.error || 'error')
+        setLoading(false)
+        return
+      }
 
       setGoals((prev) => (replace ? (json.goals || []) : [...prev, ...(json.goals || [])]))
       setHasMore(!!json.hasMore)
       setPage(targetPage)
     } catch {
-      // sessizce yut, kullanıcı "yeniden dene"yebilir
+      setLoadError('network_error')
     } finally {
       setLoading(false)
     }
@@ -80,7 +108,7 @@ export default function VisionBoardPage() {
       <div className="max-w-6xl mx-auto px-4 pt-24 pb-16">
         <div className={`mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           <div>
-            <h1 className="text-2xl font-bold text-white">{t.pageTitle}</h1>
+            <h1 className="text-h1 text-white">{t.pageTitle}</h1>
             <p className="text-slate-400 text-sm mt-1">{t.pageSubtitle}</p>
           </div>
           <button
@@ -90,6 +118,10 @@ export default function VisionBoardPage() {
             + {t.createGoalBtn}
           </button>
         </div>
+
+        <DailySeedsPanel lang={lang} user={user} activeGoals={ownActiveGoals} />
+        <MentalWallPanel lang={lang} user={user} />
+        <ReferralWidget lang={lang} user={user} />
 
         <div className="flex items-center gap-2 mb-6">
           <button
@@ -110,10 +142,17 @@ export default function VisionBoardPage() {
           </button>
         </div>
 
-        {goals.length === 0 && !loading && (
-          <div className="text-center py-20 text-slate-500 text-sm">
-            {tab === 'own' ? t.emptyMyGoals : t.emptyFeed}
-          </div>
+        {loadError && !loading && (
+          <ErrorState lang={lang} onRetry={() => loadGoals(tab, 0, true)} />
+        )}
+
+        {!loadError && goals.length === 0 && !loading && (
+          <EmptyState
+            icon="🌠"
+            title={tab === 'own' ? t.emptyMyGoals : t.emptyFeed}
+            actionLabel={tab === 'own' ? `+ ${t.createGoalBtn}` : undefined}
+            onAction={tab === 'own' ? () => (user ? setShowCreate(true) : (window.location.href = '/auth')) : undefined}
+          />
         )}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
