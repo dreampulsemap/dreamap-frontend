@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
+import { getTranslation } from '@/lib/translations'
 
 const locationCoords = {
   Turkey: { lat: 39, lng: 35 },
@@ -65,7 +66,12 @@ function getStableRandom(id, range = 0.4) {
 }
 
 export default function DreamGlobe() {
-  const { i18n, t } = useTranslation()
+  // NOT: t()/useTranslation() burada sadece kullanıcının SEÇTİĞİ dili
+  // öğrenmek için kullanılıyor (i18n.language). Gerçek metinler
+  // lib/translations.js'deki getTranslation()'dan geliyor — react-i18next'in
+  // kendi resources'unda (lib/i18n.js) globe.* anahtarları HİÇ yoktu, bu
+  // yüzden bu component daha önce hep ham anahtar/İngilizce fallback gösteriyordu.
+  const { i18n } = useTranslation()
   const lang = (i18n.language || 'en').split('-')[0]
 
   const globeContainer = useRef(null)
@@ -78,6 +84,7 @@ export default function DreamGlobe() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [translatingDreams, setTranslatingDreams] = useState({})
+  const [predictionsExpanded, setPredictionsExpanded] = useState(false)
 
   const getDreamAnalysis = (dream) =>
     dream[`ai_summary_${lang}`] || dream.ai_summary || dream.ai_summary_en || ''
@@ -182,7 +189,7 @@ export default function DreamGlobe() {
   useEffect(() => {
     if (typeof window === 'undefined' || !globeContainer.current) return
     if (typeof window.Globe === 'undefined') {
-      setError(t('globe.libraryFailed', 'Three Globe library could not be loaded'))
+      setError(getTranslation('globe.libraryFailed', lang))
       return
     }
 
@@ -257,7 +264,7 @@ export default function DreamGlobe() {
         globeInstance.current = globe
       } catch (err) {
         console.error('Globe init error:', err)
-        setError(`${t('globe.initFailed', 'Globe could not be initialized')}: ${err.message}`)
+        setError(`${getTranslation('globe.initFailed', lang)}: ${err.message}`)
       }
     }
 
@@ -275,7 +282,7 @@ export default function DreamGlobe() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-white text-xl animate-pulse">
-          {t('globe.loading', 'Loading...')}
+          {getTranslation('globe.loading', lang)}
         </div>
       </div>
     )
@@ -297,7 +304,7 @@ export default function DreamGlobe() {
               value={lang}
               onChange={(e) => changeLanguage(e.target.value)}
               className="glass-card px-3 py-2 bg-black/40 text-white text-sm outline-none border border-white/10 rounded-lg"
-              aria-label={t('common.language', 'Language')}
+              aria-label={getTranslation('common.language', lang)}
             >
               {supportedLanguages.map((item) => (
                 <option key={item.code} value={item.code} className="bg-black text-white">
@@ -308,30 +315,46 @@ export default function DreamGlobe() {
           </div>
 
           <a href="/" className="glass-card px-3 py-2 text-white/80 hover:text-white whitespace-nowrap">
-            ← {t('common.back', 'Back')}
+            ← {getTranslation('common.back', lang)}
           </a>
         </div>
       </div>
 
       {predictions.length > 0 && (
-        <div className="absolute z-20 pointer-events-auto top-20 left-3 right-3 sm:top-24 sm:left-6 sm:right-auto sm:max-w-sm">
-          <div className="glass-card p-3 sm:p-4 max-h-[38vh] sm:max-h-[70vh] overflow-y-auto">
+        <div className="absolute z-20 pointer-events-auto top-20 left-3 sm:top-24 sm:left-6 sm:right-auto sm:max-w-sm">
+          {/* MOBİLDE: küçük kapsül, küreyi kapatmasın diye varsayılan kapalı.
+              Önceden bu panel mobilde tam genişlik + %38 yükseklikte açık
+              duruyordu ve küreyi neredeyse tamamen kapatıyordu. */}
+          <button
+            onClick={() => setPredictionsExpanded((e) => !e)}
+            className="sm:hidden glass-card px-4 py-2 flex items-center gap-2 text-sm font-semibold"
+            aria-expanded={predictionsExpanded}
+          >
+            🔮 {predictions.length} {getTranslation('globe.dreamCount', lang)}
+            <span className="text-white/50 text-xs">{predictionsExpanded ? '▲' : '▼'}</span>
+          </button>
+
+          <div
+            className={`glass-card p-3 sm:p-4 max-h-[45vh] sm:max-h-[70vh] overflow-y-auto mt-2 sm:mt-0 sm:w-80 sm:block ${
+              predictionsExpanded ? 'block' : 'hidden'
+            }`}
+          >
             <h3 className="text-base sm:text-lg font-bold gradient-text mb-3">
-              🔮 {t('globe.collectivePredictions', 'Collective Predictions')}
+              🔮 {getTranslation('globe.collectivePredictions', lang)}
             </h3>
 
             <div className="space-y-2">
               {predictions.map((pred) => (
                 <button
                   key={pred.id}
-                  onClick={() => setSelectedPrediction(pred)}
+                  onClick={() => { setSelectedPrediction(pred); setPredictionsExpanded(false) }}
                   className="w-full text-left glass-card p-3 hover:bg-purple-500/20 transition-all"
                 >
                   <div className="text-sm font-semibold">
                     {pred[`title_${lang}`] || pred.title_en || pred.title}
                   </div>
                   <div className="text-xs text-white/60 mt-1">
-                    {pred.dream_count} {t('globe.dreamCount', 'dreams')}
+                    {pred.dream_count} {getTranslation('globe.dreamCount', lang)}
                   </div>
                 </button>
               ))}
@@ -370,7 +393,7 @@ export default function DreamGlobe() {
             {getTranslatedContent(selectedDream) ? (
               <p className="text-white/90 mb-6 whitespace-pre-wrap">{getTranslatedContent(selectedDream)}</p>
             ) : (
-              <p className="text-white/40 italic mb-6">{t('globe.deletedContent', '[Content deleted]')}</p>
+              <p className="text-white/40 italic mb-6">{getTranslation('globe.deletedContent', lang)}</p>
             )}
 
             {selectedDream.original_language !== lang && selectedDream.content && (
@@ -382,12 +405,12 @@ export default function DreamGlobe() {
                 {translatingDreams[selectedDream.id]?.loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
-                    {t('globe.translating', 'Translating...')}
+                    {getTranslation('globe.translating', lang)}
                   </span>
                 ) : translatingDreams[selectedDream.id]?.translated ? (
-                  t('globe.showOriginal', 'Show original')
+                  getTranslation('globe.showOriginal', lang)
                 ) : (
-                  t('globe.translateToLanguage', { lang: lang.toUpperCase(), defaultValue: 'Translate to {{lang}}' })
+                  getTranslation('globe.translateToLanguage', lang).replace('{{lang}}', lang.toUpperCase())
                 )}
               </button>
             )}
@@ -395,7 +418,7 @@ export default function DreamGlobe() {
             {getTranslatedAnalysis(selectedDream) && (
               <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/30 mb-6">
                 <div className="font-semibold text-purple-300 mb-2 flex items-center gap-2">
-                  <span>🔮</span> {t('globe.jungianAnalysis', 'Jungian Analysis')}
+                  <span>🔮</span> {getTranslation('globe.jungianAnalysis', lang)}
                 </div>
                 <p className="text-white/80 text-sm mb-2">{getTranslatedAnalysis(selectedDream)}</p>
                 {getDreamMotiv(selectedDream) && (
