@@ -1,5 +1,6 @@
- import React from 'react'
+ import React, { useRef } from 'react'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
+import { useModalA11y } from '@/lib/useModalA11y'
 
 export default function DeepAnalysisConfirmationModal({
   isOpen,
@@ -10,6 +11,8 @@ export default function DeepAnalysisConfirmationModal({
   gumroadUrl,
   isGift = false,
 }) {
+  const modalRef = useRef(null)
+  useModalA11y(modalRef, isOpen ? onClose : null)
   if (!isOpen) return null
   const t = getDreamCardText(lang)
 
@@ -21,12 +24,14 @@ export default function DeepAnalysisConfirmationModal({
       onClick={onClose}
     >
       <div
+        ref={modalRef}
         className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/10 bg-[#070b14] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.65)] sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         {/* KAPATMA BUTONU */}
         <button
           onClick={onClose}
+          aria-label={lang === 'tr' ? 'Kapat' : 'Close'}
           className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white transition-colors"
         >
           ✕

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useState, useEffect } from 'react'
+import TextSkeleton from '@/components/TextSkeleton'
 
 const languages = [
   { code: 'en', flag: '🇬🇧', name: 'English' },
@@ -30,9 +31,9 @@ export default function LanguageSwitcher() {
         type="button"
         className="glass-card px-3 sm:px-4 py-2 flex items-center gap-2 hover:bg-white/10 transition-all"
       >
-        <span className="text-xl sm:text-2xl">{currentLang.flag}</span>
+        <span className="text-xl sm:text-2xl">{mounted ? currentLang.flag : <TextSkeleton width="w-6" height="h-6" className="rounded-full" />}</span>
         <span className="hidden sm:inline text-sm text-white/80">
-          {currentLang.name}
+          {mounted ? currentLang.name : <TextSkeleton width="w-14" />}
         </span>
         <span className="text-white/60 text-xs">▼</span>
       </button>

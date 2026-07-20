@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
+import { useModalA11y } from '@/lib/useModalA11y'
 
 // Meta for Developers'tan alınan uygulama kimliğinizi buraya girin.
 // instagram-stories:// deep link'i source_application parametresi olmadan da
@@ -18,6 +19,8 @@ export default function StoryModeModal({
 }) {
   const [sharing, setSharing] = useState(false)
   const [shareStatus, setShareStatus] = useState('')
+  const modalRef = useRef(null)
+  useModalA11y(modalRef, isOpen ? onClose : null)
 
   if (!isOpen || !premiumAnalysis) return null
   const t = getDreamCardText(lang)
@@ -90,11 +93,15 @@ export default function StoryModeModal({
       onClick={onClose}
     >
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
         className="relative w-full max-w-[360px] aspect-[9/16] rounded-3xl overflow-hidden border border-white/10 bg-[#050711] shadow-[0_30px_100px_rgba(0,0,0,0.95)] flex flex-col justify-between p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
+          aria-label={lang === 'tr' ? 'Kapat' : 'Close'}
           className="absolute top-4 right-4 z-[220] text-xl text-white/60 hover:text-white transition-colors"
         >
           ✕

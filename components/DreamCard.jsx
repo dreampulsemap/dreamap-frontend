@@ -13,7 +13,7 @@ import StoryModeModal from '@/components/StoryModeModal'
 
 const GUMROAD_PRODUCT_URL = 'https://shop.lunosfer.com'
 
-export default function DreamCard({ dream, lang, onTranslate, translating, translated, translatedContent, translatedAnalysis }) {
+export default function DreamCard({ dream, lang, onTranslate, translating, translated, translatedContent, translatedAnalysis, currentUserId }) {
   const { i18n } = useTranslation()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -50,13 +50,18 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
 
   const effectiveDream = useMemo(() => (analysisOverride ? { ...dream, ...analysisOverride } : dream), [dream, analysisOverride])
   const isOwner = useMemo(() => {
-    if (!user?.id) return false
+    // Ebeveyn sayfa zaten oturumu çözmüşse (currentUserId) buna güven —
+    // bu, her kartın kendi başına asenkron auth sorgusu bitene kadar
+    // "sahip değilmiş gibi" görünmesinden (ve bu yüzden yanlışlıkla
+    // "arkadaşına hediye" metni göstermesinden) kaynaklanan yarış durumunu ortadan kaldırır.
+    const effectiveUserId = currentUserId ?? user?.id
+    if (!effectiveUserId) return false
     const ownerId = effectiveDream?.user_id ?? effectiveDream?.owner_id ?? effectiveDream?.author_id ?? effectiveDream?.uid
     if (ownerId == null && process.env.NODE_ENV !== 'production') {
       console.warn('[DreamCard] Could not find an owner id field on the dream object (checked user_id, owner_id, author_id, uid). isOwner will default to false.', effectiveDream)
     }
-    return ownerId != null && String(ownerId) === String(user.id)
-  }, [user, effectiveDream])
+    return ownerId != null && String(ownerId) === String(effectiveUserId)
+  }, [user, effectiveDream, currentUserId])
 
   useEffect(() => {
     let active = true

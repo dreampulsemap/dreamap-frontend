@@ -273,7 +273,9 @@ export default function Hero() {
       <div className="absolute right-0 top-0 h-36 w-36 rounded-full bg-violet-500/10 blur-3xl sm:h-48 sm:w-48" />
 
       <div className="relative grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)] lg:items-center lg:gap-8">
-        <div className="min-w-0">
+        {/* mount öncesi 'en' varsayılanı gösterip sonra gerçek dile "flaşlamak" yerine,
+            gerçek dil belli olana kadar görünmez tutup tek seferde beliriyoruz */}
+        <div className={`min-w-0 transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           <div className="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-cyan-300/14 bg-cyan-400/8 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.22em] text-cyan-100/85 sm:mb-5 sm:px-4">
             <span className="signal-dot cyan" />
             {ui.badge}

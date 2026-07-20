@@ -4,12 +4,14 @@ import { supabase } from '@/lib/supabase'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
+import TextSkeleton from '@/components/TextSkeleton'
 
 const SHOP_URL = 'https://shop.lunosfer.com'
 
 export default function Navbar() {
   const [user, setUser] = useState(null)
   const [auras, setAuras] = useState(0)
+  const [mana, setMana] = useState(0)
   const [avatarUrl, setAvatarUrl] = useState('')
   const [auraDropdownOpen, setAuraDropdownOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -39,12 +41,13 @@ export default function Navbar() {
         if (currentUser) {
           const { data: profile } = await supabase
             .from('user_profiles')
-            .select('avatar_url, premium_analysis_auras')
+            .select('avatar_url, premium_analysis_auras, mana_balance')
             .eq('id', currentUser.id)
             .maybeSingle()
             
           setAvatarUrl(profile?.avatar_url || currentUser?.user_metadata?.avatar_url || '')
           setAuras(Number(profile?.premium_analysis_auras || 0))
+          setMana(Number(profile?.mana_balance ?? 0))
         }
       } catch (error) {
         console.error('Navbar user check failed:', error)
@@ -53,6 +56,13 @@ export default function Navbar() {
     
     checkUser()
 
+    // GoalCard mana verince bu event'i fırlatır — Navbar'daki bakiyeyi
+    // sayfa yenilemeden anında günceller.
+    function handleManaUpdate(e) {
+      if (typeof e.detail?.balance === 'number') setMana(e.detail.balance)
+    }
+    window.addEventListener('mana-balance-updated', handleManaUpdate)
+
     // Oturum değişikliklerini dinleme (Hatasız Abonelik İptali)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!active) return
@@ -60,15 +70,17 @@ export default function Navbar() {
         setUser(session.user)
         const { data: profile } = await supabase
           .from('user_profiles')
-          .select('avatar_url, premium_analysis_auras')
+          .select('avatar_url, premium_analysis_auras, mana_balance')
           .eq('id', session.user.id)
           .maybeSingle()
           
         setAuras(Number(profile?.premium_analysis_auras || 0))
+        setMana(Number(profile?.mana_balance ?? 0))
         setAvatarUrl(profile?.avatar_url || '')
       } else {
         setUser(null)
         setAuras(0)
+        setMana(0)
         setAvatarUrl('')
       }
     })
@@ -76,6 +88,7 @@ export default function Navbar() {
     return () => {
       active = false
       subscription?.unsubscribe()
+      window.removeEventListener('mana-balance-updated', handleManaUpdate)
     }
   }, [mounted])
 
@@ -111,9 +124,10 @@ export default function Navbar() {
 
         {/* MASAÜSTÜ NAVİGASYONU (Sadece PC'de görünür) */}
         <nav className="hidden md:flex items-center gap-8">
-          <Link href="/" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{currentLang === 'tr' ? 'Ana Sayfa' : 'Home'}</Link>
-          <Link href="/explore" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{currentLang === 'tr' ? 'Keşfet' : 'Explore'}</Link>
-          <Link href="/globe" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{currentLang === 'tr' ? 'Küre' : 'Globe'}</Link>
+          <Link href="/" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{mounted ? (currentLang === 'tr' ? 'Ana Sayfa' : 'Home') : <TextSkeleton width="w-14" />}</Link>
+          <Link href="/explore" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{mounted ? (currentLang === 'tr' ? 'Keşfet' : 'Explore') : <TextSkeleton width="w-14" />}</Link>
+          <Link href="/globe" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{mounted ? (currentLang === 'tr' ? 'Küre' : 'Globe') : <TextSkeleton width="w-14" />}</Link>
+          <Link href="/vision-board" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{mounted ? (currentLang === 'tr' ? 'Vizyon' : 'Vision') : <TextSkeleton width="w-14" />}</Link>
         </nav>
 
         {/* SAĞ KONTROLLER (Aura & Dil) */}
@@ -121,6 +135,17 @@ export default function Navbar() {
           <div className="shrink-0">
             <LanguageSwitcher />
           </div>
+
+          {/* MANA (Can Suyu) GÖSTERGESİ — günlük yenilenen, hedeflere verilen enerji */}
+          {user && (
+            <div
+              className="flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3.5 py-1.5 text-xs font-bold text-cyan-300 [box-shadow:0_0_15px_rgba(34,211,238,0.1)]"
+              title={currentLang === 'tr' ? 'Mana bakiyen — her gün yenilenir' : 'Your Mana — refills daily'}
+            >
+              <span className="text-sm">💧</span>
+              <span>{mana}</span>
+            </div>
+          )}
 
           {/* PREMIUM AURA CONTAINER */}
           {user && (
@@ -162,7 +187,7 @@ export default function Navbar() {
               href="/auth"
               className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/25 bg-cyan-500/10 px-4 text-xs font-bold text-cyan-100 transition-all hover:bg-cyan-500/20"
             >
-              🔑 {currentLang === 'tr' ? 'Giriş' : 'Log In'}
+              🔑 {mounted ? (currentLang === 'tr' ? 'Giriş' : 'Log In') : <TextSkeleton width="w-10" />}
             </Link>
           )}
 
