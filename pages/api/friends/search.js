@@ -28,21 +28,33 @@ export default async function handler(req, res) {
 
     if (error) throw error
 
-    const usersWithStatus = await Promise.all(users.map(async (user) => {
-      // NOT: Supabase/PostgREST'te iç içe grup filtresi `and(...)` anahtar kelimesi
-      // olmadan geçersizdir. Eski hâli `(a,b),(c,d)` şeklindeydi ve bu sorgu
-      // sessizce başarısız oluyordu — sonuç olarak arkadaşlık durumu asla doğru
-      // gelmiyordu (herkes "takip et" olarak görünüyordu).
-      const { data: friendship } = await supabase
-        .from('friendships')
-        .select('status')
-        .or(`and(user_id.eq.${userId},friend_id.eq.${user.id}),and(user_id.eq.${user.id},friend_id.eq.${userId})`)
-        .maybeSingle()
+    // ÖNCEDEN: her sonuç için ayrı bir friendships sorgusu atılıyordu
+    // (10 sonuç = 11 DB round-trip). Ölçekte (yüksek trafik, yavaş ağ)
+    // bu gecikmeyi katlıyor. Şimdi TEK sorguda, kullanıcının bu sonuç
+    // listesindeki herkesle olan tüm arkadaşlık kayıtlarını çekip
+    // bellekte eşliyoruz.
+    const resultIds = users.map((u) => u.id)
+    let friendshipMap = new Map()
 
-      return {
-        ...user,
-        friendshipStatus: friendship?.status || null
+    if (resultIds.length > 0) {
+      const orConditions = resultIds
+        .map((id) => `and(user_id.eq.${userId},friend_id.eq.${id}),and(user_id.eq.${id},friend_id.eq.${userId})`)
+        .join(',')
+
+      const { data: friendships } = await supabase
+        .from('friendships')
+        .select('user_id, friend_id, status')
+        .or(orConditions)
+
+      for (const f of friendships || []) {
+        const otherId = f.user_id === userId ? f.friend_id : f.user_id
+        friendshipMap.set(otherId, f.status)
       }
+    }
+
+    const usersWithStatus = users.map((user) => ({
+      ...user,
+      friendshipStatus: friendshipMap.get(user.id) || null,
     }))
 
     return res.status(200).json({ users: usersWithStatus })
