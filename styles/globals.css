@@ -365,3 +365,13 @@ p {
 .flip-face-back {
   transform: rotateY(180deg);
 }
+
+/* Navbar.jsx'teki mobil alt sekme çubuğu `fixed bottom-0` — sayfa içeriğinin
+   son kısmının bunun altında kalmaması için global bir güvenlik boşluğu.
+   Belirli bir sayfanın kendi fixed alt elemanı varsa (ör. bir CTA barı),
+   o sayfa bu değeri kendi içinde override edebilir. */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+}
