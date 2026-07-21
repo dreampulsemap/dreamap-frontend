@@ -4,11 +4,13 @@ export default function Document() {
   return (
     <Html>
       <Head>
-        {/* THREE.js ve Globe.gl CDN'den yükleniyor */}
-        <script src="https://unpkg.com/three@0.164.0/build/three.min.js" />
-        <script src="https://unpkg.com/three@0.164.0/examples/js/controls/TrackballControls.js" />
-        <script src="https://unpkg.com/three@0.164.0/examples/js/controls/OrbitControls.js" />
-        <script src="https://unpkg.com/globe.gl@2.33.0/dist/globe.gl.min.js" />
+        {/* THREE.js ve Globe.gl — jsDelivr CDN (unpkg deprecated bu sürümleri) */}
+          {/* three@0.160.0: build/three.min.js'nin bulunduğu son sürüm (r161+ kaldırıldı) */}
+          <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" />
+          {/* TrackballControls / OrbitControls — three@0.160.0 examples/js/ dizininde
+              bağımsız dosya olarak CDN'de yok. globe.gl@2.33.0 kendi kontrollerini
+              dahili olarak yönetiyor (globe.controls() API'si üzerinden). */}
+          <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.33.0/dist/globe.gl.min.js" />
       </Head>
       <body>
         <Main />
