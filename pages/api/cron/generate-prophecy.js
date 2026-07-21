@@ -1,189 +1,168 @@
-import { createClient } from '@supabase/supabase-js';
+import { GoogleGenAI } from '@google/genai'
+import { createClient } from '@supabase/supabase-js'
 
-export const config = {
-  runtime: 'edge',
-};
+// =====================================================================
+// GÜNLÜK KOLEKTİF ÖNGÖRÜ ÜRETİMİ — Vercel Cron (vercel.json: her gün 06:00 UTC)
+//
+// ÖNCEKİ HALİ NEDEN HİÇ ÇALIŞMIYORDU (iki bağımsız sebep):
+//  1. `daily_prophecy` tablosuna yazıyordu, ama DreamGlobe.jsx `collective_predictions`
+//     tablosunu okuyor — yazan ve okuyan hiç buluşmuyordu.
+//  2. Vercel Cron isteği GET olarak gönderir, ama handler `req.method !== 'POST'`
+//     kontrolüyle her çağrıyı 405 ile reddediyordu.
+//
+// Bu sürüm: doğru tabloya (collective_predictions) yazıyor, GET kabul ediyor,
+// Groq yerine Gemini kullanıyor (diğer AI route'larıyla tutarlı), tek uzun
+// "kehanet" yerine son 3 günün rüyalarından birkaç KISA öngörü üretiyor.
+// =====================================================================
 
-export default async function handler(req) {
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
-  }
+const getGeminiClient = () => {
+  const key = process.env.GEMINI_FREE_KEY || process.env.GEMINI_KEY
+  if (!key) return null
+  return new GoogleGenAI({ apiKey: key })
+}
 
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const GROQ_KEY = process.env.GROQ_KEY;
+// DreamGlobe.jsx / lib/translations.js ile aynı 8 dil (title_{lang}/content_{lang} şeması)
+const LANGS = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja']
+const DAYS_WINDOW = 3
+const MAX_PREDICTIONS = 5
 
-  if (!SUPABASE_URL || !SUPABASE_KEY || !GROQ_KEY) {
-    return new Response('Missing env vars', { status: 500 });
-  }
+function buildPrompt(dreamExcerpts, archetypeCounts, emotionCounts) {
+  const langList = LANGS.join(', ')
+  return `You are analyzing ${dreamExcerpts.length} real anonymized dreams shared in the
+last ${DAYS_WINDOW} days on a collective dream-journaling platform.
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-  const today = new Date().toISOString().split('T')[0];
+Dream excerpts (may be partial):
+${dreamExcerpts.map((d, i) => `${i + 1}. "${d}"`).join('\n')}
 
-  console.log(`🔮 Cron: Generating prophecy for ${today}`);
+Archetype frequency: ${JSON.stringify(archetypeCounts)}
+Emotion frequency: ${JSON.stringify(emotionCounts)}
 
-  // Zaten var mı?
-  const { data: existing } = await supabase
-    .from('daily_prophecy')
-    .select('*')
-    .eq('prophecy_date', today)
-    .single();
+Task: Identify up to ${MAX_PREDICTIONS} distinct recurring patterns/themes across these
+dreams (e.g. a dominant archetype, a shared emotional undercurrent, a recurring symbol).
+For EACH pattern, write a SHORT "collective prediction" — a brief, evocative 2-3 sentence
+insight about what this pattern might suggest about the collective unconscious right now.
+Keep each one SHORT (30-50 words), not a long prophecy.
 
-  if (existing) {
-    return new Response(JSON.stringify({ success: true, message: 'Already exists' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  // Son 7 gün rüyaları
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-  const { data: recentDreams } = await supabase
-    .from('dreams')
-    .select('*')
-    .gte('created_at', sevenDaysAgo.toISOString())
-    .order('created_at', { ascending: false })
-    .limit(100);
-
-  if (!recentDreams || recentDreams.length === 0) {
-    return new Response(JSON.stringify({ success: false, message: 'No dreams' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  // Analiz
-  const archetypeCount = {};
-  const emotionCount = {};
-  let totalArchetypes = 0;
-
-  recentDreams.forEach(dream => {
-    if (dream.ai_archetypes && Array.isArray(dream.ai_archetypes)) {
-      dream.ai_archetypes.forEach(arch => {
-        archetypeCount[arch] = (archetypeCount[arch] || 0) + 1;
-        totalArchetypes++;
-      });
-    }
-    if (dream.ai_sentiment) {
-      emotionCount[dream.ai_sentiment] = (emotionCount[dream.ai_sentiment] || 0) + 1;
-    }
-  });
-
-  const dominantArchetype = Object.entries(archetypeCount).sort((a, b) => b[1] - a[1])[0];
-  const dominantArchetypeName = dominantArchetype ? dominantArchetype[0] : 'Shadow';
-  const dominantArchetypeCount = dominantArchetype ? dominantArchetype[1] : 0;
-  const archetypePercentage = totalArchetypes > 0
-    ? Math.round((dominantArchetypeCount / totalArchetypes) * 100)
-    : 0;
-
-  const dominantEmotion = Object.entries(emotionCount).sort((a, b) => b[1] - a[1])[0];
-  const dominantEmotionName = dominantEmotion ? dominantEmotion[0] : 'Mystery';
-
-  // Groq ile 8 dilde kehanet üret
-  try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GROQ_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are Prophet AI. Return ONLY valid JSON, no markdown, no backticks.'
-          },
-          {
-            role: 'user',
-            content: `Generate TODAY'S collective dream prophecy from ${recentDreams.length} real dreams.
-
-DATA:
-- Total dreams: ${recentDreams.length}
-- DOMINANT ARCHETYPE: ${dominantArchetypeName} (${dominantArchetypeCount} times, ${archetypePercentage}%)
-- DOMINANT EMOTION: ${dominantEmotionName}
-
-Write in NATIVE language for each. Return ONLY JSON:
+Return ONLY valid JSON, no markdown fences, in this exact shape:
 {
-  "content_en": "English prophecy (100-150 words)...",
-  "content_tr": "Turkish prophecy in Turkish (100-150 words)...",
-  "content_ru": "Russian prophecy in Russian (100-150 words)...",
-  "content_es": "Spanish prophecy in Spanish (100-150 words)...",
-  "content_ar": "Arabic prophecy in Arabic (100-150 words)...",
-  "content_hi": "Hindi prophecy in Hindi (100-150 words)...",
-  "content_zh": "Chinese prophecy in Chinese (100-150 words)...",
-  "content_de": "German prophecy in German (100-150 words)...",
-  "advice_en": "English advice (40-60 words)...",
-  "advice_tr": "Turkish advice in Turkish (40-60 words)...",
-  "advice_ru": "Russian advice in Russian (40-60 words)...",
-  "advice_es": "Spanish advice in Spanish (40-60 words)...",
-  "advice_ar": "Arabic advice in Arabic (40-60 words)...",
-  "advice_hi": "Hindi advice in Hindi (40-60 words)...",
-  "advice_zh": "Chinese advice in Chinese (40-60 words)...",
-  "advice_de": "German advice in German (40-60 words)...",
-  "symbol": "Visual description for AI image (English, 20-30 words)"
-}`
-          }
-        ],
-        temperature: 0.8,
-        max_tokens: 3000,
-        response_format: { type: 'json_object' }
-      })
-    });
+  "predictions": [
+    {
+      "themes": ["short-tag-1", "short-tag-2"],
+      "title": { ${LANGS.map((l) => `"${l}": "short title in that language"`).join(', ')} },
+      "content": { ${LANGS.map((l) => `"${l}": "2-3 sentence insight in that language"`).join(', ')} }
+    }
+  ]
+}
+Write native, natural text in each of these ${LANGS.length} languages (${langList}) —
+do not machine-translate word-for-word, adapt naturally.`
+}
 
-    const data = await response.json();
-    const content = data.choices[0].message.content.trim();
-    const cleanContent = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
-    const prophecy = JSON.parse(cleanContent);
-
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prophecy.symbol || dominantArchetypeName)}`;
-
-    const dbProphecy = {
-      prophecy_date: today,
-      archetype: dominantArchetypeName,
-      content_en: prophecy.content_en,
-      content_tr: prophecy.content_tr,
-      content_ru: prophecy.content_ru,
-      content_es: prophecy.content_es,
-      content_ar: prophecy.content_ar,
-      content_hi: prophecy.content_hi,
-      content_zh: prophecy.content_zh,
-      content_de: prophecy.content_de,
-      advice_en: prophecy.advice_en,
-      advice_tr: prophecy.advice_tr,
-      advice_ru: prophecy.advice_ru,
-      advice_es: prophecy.advice_es,
-      advice_ar: prophecy.advice_ar,
-      advice_hi: prophecy.advice_hi,
-      advice_zh: prophecy.advice_zh,
-      advice_de: prophecy.advice_de,
-      archetypes: [dominantArchetypeName],
-      sentiment: dominantEmotionName,
-      ai_advice: prophecy.advice_tr,
-      image_url: imageUrl,
-      ai_stats: {
-        totalDreams: recentDreams.length,
-        dominantArchetype: dominantArchetypeName,
-        dominancePercentage: archetypePercentage,
-        dominantEmotion: dominantEmotionName
-      }
-    };
-
-    await supabase.from('daily_prophecy').insert([dbProphecy]);
-
-    console.log('✅ Prophecy generated!');
-
-    return new Response(JSON.stringify({ success: true, prophecy: dbProphecy }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    console.error('❌ Error:', error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+export default async function handler(req, res) {
+  // Vercel Cron GET ile çağırır. Manuel test için POST da kabul ediyoruz.
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'method_not_allowed' })
   }
-            }
+
+  // Vercel, CRON_SECRET tanımlıysa isteğe otomatik olarak
+  // `Authorization: Bearer <CRON_SECRET>` ekler. Tanımlıysa doğruluyoruz;
+  // tanımlı değilse (henüz kurulmadıysa) engellemiyoruz.
+  if (process.env.CRON_SECRET) {
+    const authHeader = req.headers.authorization
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      return res.status(401).json({ error: 'unauthorized' })
+    }
+  }
+
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    return res.status(500).json({ error: 'missing_env_vars' })
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  const today = new Date().toISOString().split('T')[0]
+
+  try {
+    // Bugün için zaten üretilmiş mi? (idempotent — cron yanlışlıkla iki kez
+    // tetiklenirse veya manuel tekrar çalıştırılırsa duplike kayıt oluşmasın)
+    const { data: existing } = await supabase
+      .from('collective_predictions')
+      .select('id')
+      .eq('prediction_date', today)
+      .limit(1)
+
+    if (existing && existing.length > 0) {
+      return res.status(200).json({ success: true, message: 'already_exists_for_today' })
+    }
+
+    const windowStart = new Date()
+    windowStart.setDate(windowStart.getDate() - DAYS_WINDOW)
+
+    const { data: recentDreams, error: dreamsError } = await supabase
+      .from('dreams')
+      .select('content, ai_archetypes, ai_sentiment')
+      .eq('in_feed', true)
+      .gte('created_at', windowStart.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(150)
+
+    if (dreamsError) throw dreamsError
+
+    if (!recentDreams || recentDreams.length < 5) {
+      // Çok az veri varken zorla öngörü üretmek anlamsız/uydurma olur —
+      // sessizce atla, ertesi gün tekrar dener.
+      return res.status(200).json({ success: false, message: 'not_enough_dreams', count: recentDreams?.length || 0 })
+    }
+
+    const archetypeCounts = {}
+    const emotionCounts = {}
+    for (const dream of recentDreams) {
+      if (Array.isArray(dream.ai_archetypes)) {
+        for (const a of dream.ai_archetypes) archetypeCounts[a] = (archetypeCounts[a] || 0) + 1
+      }
+      if (dream.ai_sentiment) emotionCounts[dream.ai_sentiment] = (emotionCounts[dream.ai_sentiment] || 0) + 1
+    }
+
+    const dreamExcerpts = recentDreams
+      .filter((d) => d.content)
+      .slice(0, 60)
+      .map((d) => String(d.content).slice(0, 300))
+
+    const genAI = getGeminiClient()
+    if (!genAI) return res.status(500).json({ error: 'no_gemini_key' })
+
+    const prompt = buildPrompt(dreamExcerpts, archetypeCounts, emotionCounts)
+    const interaction = await genAI.interactions.create({ model: 'gemini-3.5-flash', input: prompt })
+    const parsed = JSON.parse(interaction.output_text.replace(/```json|```/g, '').trim())
+
+    const predictions = Array.isArray(parsed.predictions) ? parsed.predictions.slice(0, MAX_PREDICTIONS) : []
+    if (predictions.length === 0) {
+      return res.status(502).json({ error: 'no_predictions_generated' })
+    }
+
+    const rows = predictions.map((p) => {
+      const row = {
+        prediction_date: today,
+        dream_count: recentDreams.length,
+        themes: Array.isArray(p.themes) ? p.themes : [],
+      }
+      for (const l of LANGS) {
+        row[`title_${l}`] = p.title?.[l] || p.title?.en || null
+        row[`content_${l}`] = p.content?.[l] || p.content?.en || null
+      }
+      return row
+    })
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('collective_predictions')
+      .insert(rows)
+      .select('id')
+
+    if (insertError) throw insertError
+
+    return res.status(200).json({ success: true, count: inserted?.length || 0 })
+  } catch (error) {
+    console.error('generate-prophecy cron error:', error)
+    return res.status(500).json({ error: error.message || 'internal_error' })
+  }
+}
