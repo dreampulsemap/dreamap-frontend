@@ -1,5 +1,7 @@
 import Link from 'next/link'
+import { useRouter } from 'next/router'
 import { useState, useEffect, useRef } from 'react'
+import { Home, Compass, Globe as GlobeIcon, Sparkles, User, LogIn } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
@@ -8,7 +10,25 @@ import TextSkeleton from '@/components/TextSkeleton'
 
 const SHOP_URL = 'https://shop.lunosfer.com'
 
+// Alt sekme çubuğu (mobil) — büyük şirketlerin (Instagram, Facebook, TikTok)
+// yaptığı gibi: birincil gezinme başparmakla ulaşılabilir şekilde EKRANIN
+// ALTINDA, ikon-öncelikli. Üst bar'da metin linkleriyle sıkıştırmıyoruz.
+const NAV_ITEMS = [
+  { href: '/', icon: Home, key: 'home' },
+  { href: '/explore', icon: Compass, key: 'explore' },
+  { href: '/globe', icon: GlobeIcon, key: 'globe' },
+  { href: '/vision-board', icon: Sparkles, key: 'vision' },
+]
+
+const NAV_LABELS = {
+  home: { tr: 'Ana Sayfa', en: 'Home' },
+  explore: { tr: 'Keşfet', en: 'Explore' },
+  globe: { tr: 'Küre', en: 'Globe' },
+  vision: { tr: 'Vizyon', en: 'Vision' },
+}
+
 export default function Navbar() {
+  const router = useRouter()
   const [user, setUser] = useState(null)
   const [auras, setAuras] = useState(0)
   const [mana, setMana] = useState(0)
@@ -104,16 +124,17 @@ export default function Navbar() {
   }, [mounted])
 
   return (
+    <>
     <header className="sticky top-0 z-50 border-b border-white/8 bg-slate-950/70 backdrop-blur-2xl">
-      <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-2 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-2 px-3 py-2.5 sm:px-6 sm:py-3">
         
         {/* LOGO */}
-        <Link href="/" className="group flex min-w-0 shrink-0 items-center gap-3">
-          <div className="relative shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 shadow-[0_0_30px_rgba(56,189,248,0.06)] transition-all duration-300 group-hover:border-cyan-300/20 group-hover:shadow-[0_0_40px_rgba(34,211,238,0.12)]">
-            <img src="/logo.png" alt="Lunosfer" className="h-7 w-auto object-contain sm:h-9" />
+        <Link href="/" className="group flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+          <div className="relative shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5 px-2 py-1 sm:px-2.5 sm:py-1.5 shadow-[0_0_30px_rgba(56,189,248,0.06)] transition-all duration-300 group-hover:border-cyan-300/20 group-hover:shadow-[0_0_40px_rgba(34,211,238,0.12)]">
+            <img src="/logo.png" alt="Lunosfer" className="h-6 w-auto object-contain sm:h-9" />
           </div>
           <div className="flex min-w-0 flex-col leading-none">
-            <span className="text-[1.05rem] font-black uppercase tracking-[0.18em] text-transparent md:text-[1.3rem] bg-clip-text bg-gradient-to-r from-fuchsia-300 via-cyan-200 to-violet-300 [text-shadow:0_0_8px_rgba(168,85,247,0.3)] transition-all group-hover:from-fuchsia-200 group-hover:via-cyan-100">
+            <span className="text-[0.85rem] font-black uppercase tracking-[0.14em] text-transparent sm:text-[1.05rem] md:text-[1.3rem] sm:tracking-[0.18em] bg-clip-text bg-gradient-to-r from-fuchsia-300 via-cyan-200 to-violet-300 [text-shadow:0_0_8px_rgba(168,85,247,0.3)] transition-all group-hover:from-fuchsia-200 group-hover:via-cyan-100">
               LUNOSFER
             </span>
             <span className="mt-0.5 hidden text-[9px] font-medium uppercase tracking-[0.28em] text-cyan-200/50 md:block">
@@ -122,40 +143,48 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {/* MASAÜSTÜ NAVİGASYONU (Sadece PC'de görünür) */}
+        {/* MASAÜSTÜ NAVİGASYONU (Sadece PC'de görünür — mobilde alt sekme çubuğunda) */}
         <nav className="hidden md:flex items-center gap-8">
-          <Link href="/" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{mounted ? (currentLang === 'tr' ? 'Ana Sayfa' : 'Home') : <TextSkeleton width="w-14" />}</Link>
-          <Link href="/explore" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{mounted ? (currentLang === 'tr' ? 'Keşfet' : 'Explore') : <TextSkeleton width="w-14" />}</Link>
-          <Link href="/globe" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{mounted ? (currentLang === 'tr' ? 'Küre' : 'Globe') : <TextSkeleton width="w-14" />}</Link>
-          <Link href="/vision-board" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{mounted ? (currentLang === 'tr' ? 'Vizyon' : 'Vision') : <TextSkeleton width="w-14" />}</Link>
+          {NAV_ITEMS.map(({ href, key }) => (
+            <Link key={key} href={href} className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+              {mounted ? NAV_LABELS[key][currentLang === 'tr' ? 'tr' : 'en'] : <TextSkeleton width="w-14" />}
+            </Link>
+          ))}
         </nav>
 
-        {/* SAĞ KONTROLLER (Aura & Dil) */}
-        <div className="flex shrink-0 items-center gap-3">
+        {/* SAĞ KONTROLLER — mobilde sadece dil + avatar/giriş; Mana/Aura
+            rozetleri mobil üst barda YER AÇMIYOR (Instagram/Facebook deseni:
+            üst bar minimal tutulur, ikincil bilgiler menüye/profile taşınır).
+            Masaüstünde (sm+) hepsi görünür kalıyor, orada yer sorunu yok. */}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
           <div className="shrink-0">
             <LanguageSwitcher />
           </div>
 
-          {/* MANA (Can Suyu) GÖSTERGESİ — günlük yenilenen, hedeflere verilen enerji */}
+          {/* MANA (Can Suyu) GÖSTERGESİ — mobilde kompakt (ikon+sayı, pill yok),
+              sm+ ekranlarda tam pill. Instagram'ın takipçi sayısı gibi "ikincil
+              sosyal veri" değil, Duolingo'nun can/elmas göstergesi gibi ANA
+              EKONOMİ mekaniği — bu yüzden mobilde tamamen gizlemek yerine
+              sadece küçültüyoruz. */}
           {user && (
             <div
-              className="flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3.5 py-1.5 text-xs font-bold text-cyan-300 [box-shadow:0_0_15px_rgba(34,211,238,0.1)]"
+              className="flex items-center gap-1 sm:gap-1.5 sm:rounded-full sm:border sm:border-cyan-400/30 sm:bg-cyan-500/10 px-1 sm:px-3.5 py-1 sm:py-1.5 text-xs font-bold text-cyan-300 sm:[box-shadow:0_0_15px_rgba(34,211,238,0.1)]"
               title={currentLang === 'tr' ? 'Mana bakiyen — her gün yenilenir' : 'Your Mana — refills daily'}
             >
-              <span className="text-sm">💧</span>
+              <span className="text-xs sm:text-sm">💧</span>
               <span>{mana}</span>
             </div>
           )}
 
-          {/* PREMIUM AURA CONTAINER */}
+          {/* PREMIUM AURA CONTAINER — aynı mantık, mobilde kompakt */}
           {user && (
             <div className="relative" ref={auraDropdownRef}>
               <button
                 type="button"
                 onClick={() => setAuraDropdownOpen(!auraDropdownOpen)}
-                className="flex items-center gap-1.5 rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-3.5 py-1.5 text-xs font-bold text-fuchsia-300 transition hover:border-fuchsia-400/50 hover:bg-fuchsia-500/20 [box-shadow:0_0_15px_rgba(240,73,214,0.1)]"
+                className="flex items-center gap-1 sm:gap-1.5 sm:rounded-full sm:border sm:border-fuchsia-400/30 sm:bg-fuchsia-500/10 px-1 sm:px-3.5 py-1 sm:py-1.5 text-xs font-bold text-fuchsia-300 transition sm:hover:border-fuchsia-400/50 sm:hover:bg-fuchsia-500/20 sm:[box-shadow:0_0_15px_rgba(240,73,214,0.1)]"
               >
-                <span className="text-sm">✦</span>
+                <span className="text-xs sm:text-sm">✦</span>
                 <span>{auras}</span>
               </button>
 
@@ -179,20 +208,71 @@ export default function Navbar() {
           )}
 
           {user ? (
-            <Link href="/profile" className="hidden md:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 overflow-hidden hover:border-fuchsia-400/50 transition-all">
-              {avatarUrl ? <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" /> : <span className="text-sm">👤</span>}
+            <Link href="/profile" className="hidden sm:inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 overflow-hidden hover:border-fuchsia-400/50 transition-all">
+              {avatarUrl ? <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" /> : <User size={16} className="text-white/70" />}
             </Link>
           ) : (
             <Link
               href="/auth"
-              className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/25 bg-cyan-500/10 px-4 text-xs font-bold text-cyan-100 transition-all hover:bg-cyan-500/20"
+              className="hidden sm:inline-flex h-8 sm:h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/25 bg-cyan-500/10 px-2.5 sm:px-4 text-xs font-bold text-cyan-100 transition-all hover:bg-cyan-500/20"
             >
-              🔑 {mounted ? (currentLang === 'tr' ? 'Giriş' : 'Log In') : <TextSkeleton width="w-10" />}
+              <LogIn size={13} />
+              <span className="hidden sm:inline">{mounted ? (currentLang === 'tr' ? 'Giriş' : 'Log In') : <TextSkeleton width="w-10" />}</span>
             </Link>
           )}
 
         </div>
       </div>
     </header>
+
+    {/* ALT SEKME ÇUBUĞU (mobil-only) — asıl gezinme burada, Instagram/
+        Facebook/TikTok'un mobil web ve uygulamalarında kullandığı desen:
+        başparmakla ulaşılabilir sabit alt bar, ikon + aktif durum vurgusu. */}
+    <nav
+      className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-white/8 bg-slate-950/95 backdrop-blur-2xl pb-[env(safe-area-inset-bottom)]"
+      aria-label={currentLang === 'tr' ? 'Ana gezinme' : 'Main navigation'}
+    >
+      <div className="flex items-stretch justify-around">
+        {NAV_ITEMS.map(({ href, icon: Icon, key }) => {
+          const isActive = router.pathname === href
+          return (
+            <Link
+              key={key}
+              href={href}
+              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5"
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <Icon
+                size={22}
+                strokeWidth={isActive ? 2.5 : 2}
+                className={isActive ? 'text-fuchsia-400' : 'text-slate-400'}
+              />
+              <span className={`text-[10px] font-medium ${isActive ? 'text-fuchsia-400' : 'text-slate-500'}`}>
+                {mounted ? NAV_LABELS[key][currentLang === 'tr' ? 'tr' : 'en'] : ''}
+              </span>
+            </Link>
+          )
+        })}
+        <Link
+          href={user ? '/profile' : '/auth'}
+          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5"
+          aria-current={router.pathname === '/profile' ? 'page' : undefined}
+        >
+          {user && avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt="Profile"
+              className={`h-[22px] w-[22px] rounded-full object-cover ${router.pathname === '/profile' ? 'ring-2 ring-fuchsia-400' : ''}`}
+            />
+          ) : (
+            <User size={22} className={router.pathname === '/profile' ? 'text-fuchsia-400' : 'text-slate-400'} />
+          )}
+          <span className={`text-[10px] font-medium ${router.pathname === '/profile' ? 'text-fuchsia-400' : 'text-slate-500'}`}>
+            {mounted ? (currentLang === 'tr' ? 'Profil' : 'Profile') : ''}
+          </span>
+        </Link>
+      </div>
+    </nav>
+    </>
   )
 }
