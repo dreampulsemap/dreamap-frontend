@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/router'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
@@ -13,6 +14,7 @@ import ErrorState from '@/components/ErrorState'
 import Navbar from '@/components/Navbar'
 
 export default function VisionBoardPage() {
+  const router = useRouter()
   const { i18n } = useTranslation()
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
@@ -29,6 +31,24 @@ export default function VisionBoardPage() {
   const [activeGoal, setActiveGoal] = useState(null)
   const [ownActiveGoals, setOwnActiveGoals] = useState([])
   const [loadError, setLoadError] = useState('')
+  const [authChecked, setAuthChecked] = useState(false)
+
+  // BottomNav'daki "+" menüsünden "Yeni Vizyon" seçilince /vision-board?create=1
+  // ile buraya geliniyor — modalı otomatik aç ve "Hedeflerim" sekmesine geç.
+  useEffect(() => {
+    if (!router.isReady || !authChecked) return
+    if (router.query.create === '1') {
+      if (user) {
+        setTab('own')
+        setShowCreate(true)
+      } else {
+        router.replace('/auth')
+        return
+      }
+      // URL'i temizle (paylaşılırsa/yenilenirse modal tekrar açılmasın)
+      router.replace('/vision-board', undefined, { shallow: true })
+    }
+  }, [router.isReady, router.query.create, user, authChecked])
 
   useEffect(() => {
     if (!user?.id) { setOwnActiveGoals([]); return }
@@ -51,7 +71,10 @@ export default function VisionBoardPage() {
   useEffect(() => {
     let active = true
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (active) setUser(session?.user || null)
+      if (active) {
+        setUser(session?.user || null)
+        setAuthChecked(true)
+      }
     })
     const { data: authListener } = supabase.auth.onAuthStateChange((_e, session) => {
       if (active) setUser(session?.user || null)
