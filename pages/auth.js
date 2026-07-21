@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { auth } from '../lib/supabase'
 import { getTranslation } from '../lib/translations'
 import LanguageSwitcher from '../components/LanguageSwitcher'
+import TextSkeleton from '../components/TextSkeleton'
 
 const OAUTH_PROVIDERS = [
   { key: 'google', label: 'Google ile devam et', icon: 'G' },
@@ -15,7 +16,16 @@ const OAUTH_PROVIDERS = [
 export default function AuthPage() {
   const router = useRouter()
   const { i18n } = useTranslation()
-  const lang = i18n.language || 'en'
+  // ÖNEMLİ DÜZELTME: bu satır önceden `i18n.language`'ı doğrudan, mount
+  // koruması OLMADAN okuyordu. auth.js muhtemelen çıkış yapmış kullanıcıların
+  // gördüğü İLK sayfa (giriş/kayıt) — bu yüzden "ilk açılışta eski versiyon
+  // görünüp sonra düzeliyor" şikayetinin en olası kaynağı buydu: sayfadaki
+  // 20'den fazla metin, server'da hep 'en' render edilip client'ta gerçek
+  // dile flaşlıyordu. Diğer sayfalarda (index/explore/profile/vb.) zaten
+  // düzeltilmiş olan mounted-gate deseniyle hizalandı.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  const lang = mounted ? (i18n.language || 'en') : 'en'
 
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
@@ -217,7 +227,7 @@ export default function AuthPage() {
                 href="/"
                 className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white whitespace-nowrap"
               >
-                {getTranslation('nav.backToHome', lang) || 'Ana Sayfa'}
+                {mounted ? (getTranslation('nav.backToHome', lang) || 'Ana Sayfa') : <TextSkeleton width="w-20" />}
               </Link>
             </div>
           </div>
@@ -310,14 +320,14 @@ export default function AuthPage() {
               href="/"
               className="glass-card px-3 sm:px-4 py-2 text-sm text-white/80 hover:text-white whitespace-nowrap"
             >
-              {getTranslation('nav.backToHome', lang) || 'Ana Sayfa'}
+              {mounted ? (getTranslation('nav.backToHome', lang) || 'Ana Sayfa') : <TextSkeleton width="w-20" />}
             </Link>
           </div>
         </div>
       </header>
 
       <main className="min-h-[calc(100vh-76px)] flex items-center justify-center px-4 py-8">
-        <div className="relative w-full max-w-md">
+        <div className={`relative w-full max-w-md transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           <div className="absolute -inset-0.5 rounded-[28px] bg-gradient-to-r from-fuchsia-500/20 via-cyan-500/20 to-violet-500/20 blur-xl pointer-events-none" />
 
           <div className="relative glass-card p-6 sm:p-8">
