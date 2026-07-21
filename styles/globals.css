@@ -366,12 +366,13 @@ p {
   transform: rotateY(180deg);
 }
 
-/* Navbar.jsx'teki mobil alt sekme çubuğu `fixed bottom-0` — sayfa içeriğinin
-   son kısmının bunun altında kalmaması için global bir güvenlik boşluğu.
-   Belirli bir sayfanın kendi fixed alt elemanı varsa (ör. bir CTA barı),
-   o sayfa bu değeri kendi içinde override edebilir. */
-@media (max-width: 767px) {
-  body {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom));
-  }
+/* animate-fade-in birden fazla dosyada (Navbar aura dropdown, modal'lar,
+   BottomNav "+" menüsü) kullanılıyordu ama hiçbir yerde tanımlı değildi —
+   sessizce hiçbir şey yapmıyordu. */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.15s ease-out;
 }
