@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import AddMenu from '@/components/AddMenu'
 
 export default function BottomNav() {
   const router = useRouter()
@@ -71,16 +72,8 @@ export default function BottomNav() {
           </svg>
         </Link>
 
-        {/* 3. RÜYA EKLE */}
-        <Link href="/add-dream" className="group relative -mt-6 p-2">
-          <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-500 to-cyan-500 rounded-full blur opacity-60 group-hover:opacity-100 transition-opacity animate-pulse" />
-          <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-slate-900 border-2 border-white/20 text-white shadow-xl">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-6 h-6">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </div>
-        </Link>
+        {/* 3. EKLE (menü açar) */}
+        <AddMenu position="mobile" />
 
         {/* 4. KÜRE */}
         <Link href="/globe" className={`p-2 transition-all ${isActive('/globe') ? 'text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.6)]' : 'text-slate-400 hover:text-white'}`}>

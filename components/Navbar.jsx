@@ -5,6 +5,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 import TextSkeleton from '@/components/TextSkeleton'
+import AddMenu from '@/components/AddMenu'
 
 const SHOP_URL = 'https://shop.lunosfer.com'
 
@@ -130,8 +131,13 @@ export default function Navbar() {
           <Link href="/vision-board" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">{mounted ? (currentLang === 'tr' ? 'Vizyon' : 'Vision') : <TextSkeleton width="w-14" />}</Link>
         </nav>
 
-        {/* SAĞ KONTROLLER (Aura & Dil) */}
+        {/* SAĞ KONTROLLER (Ekle, Aura & Dil) */}
         <div className="flex shrink-0 items-center gap-3">
+          {/* MASAÜSTÜ EKLE BUTONU */}
+          <div className="hidden md:block relative">
+            <AddMenu lang={currentLang} position="desktop" />
+          </div>
+
           <div className="shrink-0">
             <LanguageSwitcher />
           </div>
