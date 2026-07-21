@@ -1,7 +1,6 @@
 import Link from 'next/link'
-import { useRouter } from 'next/router'
 import { useState, useEffect, useRef } from 'react'
-import { Home, Compass, Globe as GlobeIcon, Sparkles, User, LogIn } from 'lucide-react'
+import { User, LogIn } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
@@ -10,14 +9,11 @@ import TextSkeleton from '@/components/TextSkeleton'
 
 const SHOP_URL = 'https://shop.lunosfer.com'
 
-// Alt sekme çubuğu (mobil) — büyük şirketlerin (Instagram, Facebook, TikTok)
-// yaptığı gibi: birincil gezinme başparmakla ulaşılabilir şekilde EKRANIN
-// ALTINDA, ikon-öncelikli. Üst bar'da metin linkleriyle sıkıştırmıyoruz.
 const NAV_ITEMS = [
-  { href: '/', icon: Home, key: 'home' },
-  { href: '/explore', icon: Compass, key: 'explore' },
-  { href: '/globe', icon: GlobeIcon, key: 'globe' },
-  { href: '/vision-board', icon: Sparkles, key: 'vision' },
+  { href: '/', key: 'home' },
+  { href: '/explore', key: 'explore' },
+  { href: '/globe', key: 'globe' },
+  { href: '/vision-board', key: 'vision' },
 ]
 
 const NAV_LABELS = {
@@ -28,7 +24,6 @@ const NAV_LABELS = {
 }
 
 export default function Navbar() {
-  const router = useRouter()
   const [user, setUser] = useState(null)
   const [auras, setAuras] = useState(0)
   const [mana, setMana] = useState(0)
@@ -124,7 +119,6 @@ export default function Navbar() {
   }, [mounted])
 
   return (
-    <>
     <header className="sticky top-0 z-50 border-b border-white/8 bg-slate-950/70 backdrop-blur-2xl">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-2 px-3 py-2.5 sm:px-6 sm:py-3">
         
@@ -208,13 +202,13 @@ export default function Navbar() {
           )}
 
           {user ? (
-            <Link href="/profile" className="hidden sm:inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 overflow-hidden hover:border-fuchsia-400/50 transition-all">
+            <Link href="/profile" className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 overflow-hidden hover:border-fuchsia-400/50 transition-all">
               {avatarUrl ? <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" /> : <User size={16} className="text-white/70" />}
             </Link>
           ) : (
             <Link
               href="/auth"
-              className="hidden sm:inline-flex h-8 sm:h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/25 bg-cyan-500/10 px-2.5 sm:px-4 text-xs font-bold text-cyan-100 transition-all hover:bg-cyan-500/20"
+              className="inline-flex h-8 sm:h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-cyan-300/25 bg-cyan-500/10 px-2.5 sm:px-4 text-xs font-bold text-cyan-100 transition-all hover:bg-cyan-500/20"
             >
               <LogIn size={13} />
               <span className="hidden sm:inline">{mounted ? (currentLang === 'tr' ? 'Giriş' : 'Log In') : <TextSkeleton width="w-10" />}</span>
@@ -224,55 +218,5 @@ export default function Navbar() {
         </div>
       </div>
     </header>
-
-    {/* ALT SEKME ÇUBUĞU (mobil-only) — asıl gezinme burada, Instagram/
-        Facebook/TikTok'un mobil web ve uygulamalarında kullandığı desen:
-        başparmakla ulaşılabilir sabit alt bar, ikon + aktif durum vurgusu. */}
-    <nav
-      className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-white/8 bg-slate-950/95 backdrop-blur-2xl pb-[env(safe-area-inset-bottom)]"
-      aria-label={currentLang === 'tr' ? 'Ana gezinme' : 'Main navigation'}
-    >
-      <div className="flex items-stretch justify-around">
-        {NAV_ITEMS.map(({ href, icon: Icon, key }) => {
-          const isActive = router.pathname === href
-          return (
-            <Link
-              key={key}
-              href={href}
-              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5"
-              aria-current={isActive ? 'page' : undefined}
-            >
-              <Icon
-                size={22}
-                strokeWidth={isActive ? 2.5 : 2}
-                className={isActive ? 'text-fuchsia-400' : 'text-slate-400'}
-              />
-              <span className={`text-[10px] font-medium ${isActive ? 'text-fuchsia-400' : 'text-slate-500'}`}>
-                {mounted ? NAV_LABELS[key][currentLang === 'tr' ? 'tr' : 'en'] : ''}
-              </span>
-            </Link>
-          )
-        })}
-        <Link
-          href={user ? '/profile' : '/auth'}
-          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5"
-          aria-current={router.pathname === '/profile' ? 'page' : undefined}
-        >
-          {user && avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt="Profile"
-              className={`h-[22px] w-[22px] rounded-full object-cover ${router.pathname === '/profile' ? 'ring-2 ring-fuchsia-400' : ''}`}
-            />
-          ) : (
-            <User size={22} className={router.pathname === '/profile' ? 'text-fuchsia-400' : 'text-slate-400'} />
-          )}
-          <span className={`text-[10px] font-medium ${router.pathname === '/profile' ? 'text-fuchsia-400' : 'text-slate-500'}`}>
-            {mounted ? (currentLang === 'tr' ? 'Profil' : 'Profile') : ''}
-          </span>
-        </Link>
-      </div>
-    </nav>
-    </>
   )
 }

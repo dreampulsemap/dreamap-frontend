@@ -1,11 +1,23 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Moon, Target, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 export default function BottomNav() {
   const router = useRouter()
   const [avatarUrl, setAvatarUrl] = useState('')
+  const [createMenuOpen, setCreateMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  // "+" butonuna dışarı tıklanınca menüyü kapat
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setCreateMenuOpen(false)
+    }
+    if (createMenuOpen) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [createMenuOpen])
 
   useEffect(() => {
     let active = true
@@ -71,16 +83,51 @@ export default function BottomNav() {
           </svg>
         </Link>
 
-        {/* 3. RÜYA EKLE */}
-        <Link href="/add-dream" className="group relative -mt-6 p-2">
-          <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-500 to-cyan-500 rounded-full blur opacity-60 group-hover:opacity-100 transition-opacity animate-pulse" />
-          <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-slate-900 border-2 border-white/20 text-white shadow-xl">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-6 h-6">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </div>
-        </Link>
+        {/* 3. OLUŞTUR — artık tek seçenek (Rüya) değil, Rüya/Vizyon seçim menüsü.
+            Vision Board/Goals özelliği eklendiğinde bu buton hâlâ sadece
+            /add-dream'e gidiyordu — yeni özellik mobilde keşfedilemezdi. */}
+        <div className="relative -mt-6" ref={menuRef}>
+          {createMenuOpen && (
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-44 rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl shadow-[0_15px_40px_rgba(0,0,0,0.5)] overflow-hidden animate-fade-in">
+              <Link
+                href="/add-dream"
+                onClick={() => setCreateMenuOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-3 text-sm text-slate-200 hover:bg-white/5 transition-colors"
+              >
+                <Moon size={16} className="text-fuchsia-400" />
+                Yeni Rüya
+              </Link>
+              <div className="h-px bg-white/10" />
+              <Link
+                href="/vision-board?create=1"
+                onClick={() => setCreateMenuOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-3 text-sm text-slate-200 hover:bg-white/5 transition-colors"
+              >
+                <Target size={16} className="text-cyan-400" />
+                Yeni Vizyon
+              </Link>
+            </div>
+          )}
+
+          <button
+            onClick={() => setCreateMenuOpen((o) => !o)}
+            aria-label="Oluştur"
+            aria-expanded={createMenuOpen}
+            className="group relative p-2 block"
+          >
+            <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-500 to-cyan-500 rounded-full blur opacity-60 group-hover:opacity-100 transition-opacity animate-pulse" />
+            <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-slate-900 border-2 border-white/20 text-white shadow-xl">
+              {createMenuOpen ? (
+                <X size={22} />
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-6 h-6">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              )}
+            </div>
+          </button>
+        </div>
 
         {/* 4. KÜRE */}
         <Link href="/globe" className={`p-2 transition-all ${isActive('/globe') ? 'text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.6)]' : 'text-slate-400 hover:text-white'}`}>
