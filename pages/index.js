@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { ARCHETYPE_LOCALIZATIONS } from '@/lib/archetypeTranslations'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
+import TextSkeleton from '@/components/TextSkeleton'
 
 const BATCH_SIZE = 10;
 
@@ -241,7 +242,7 @@ export default function HomePage() {
               homeTab === 'vision' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            ✦ {lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board'}
+            ✦ {mounted ? (lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board') : <TextSkeleton width="w-20" />}
           </button>
           <button
             onClick={() => setHomeTab('dreams')}
@@ -249,12 +250,12 @@ export default function HomePage() {
               homeTab === 'dreams' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            🌙 {lang === 'tr' ? 'Rüyalar' : 'Dreams'}
+            🌙 {mounted ? (lang === 'tr' ? 'Rüyalar' : 'Dreams') : <TextSkeleton width="w-14" />}
           </button>
         </div>
 
         {homeTab === 'vision' ? (
-          <div className="px-4 sm:px-0">
+          <div className={`px-4 sm:px-0 transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
             <div className="flex justify-end mb-4">
               <button
                 onClick={() => (user ? setShowCreateGoal(true) : (window.location.href = '/auth'))}

@@ -11,6 +11,7 @@ import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import CreateGoalModal from '@/components/CreateGoalModal'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
+import TextSkeleton from '@/components/TextSkeleton'
 
 const BATCH_SIZE = 12;
 
@@ -456,7 +457,7 @@ export default function ProfilePage() {
               profileTab === 'vision' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            ✦ {lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board'}
+            ✦ {mounted ? (lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board') : <TextSkeleton width="w-20" />}
           </button>
           <button
             onClick={() => setProfileTab('dreams')}
@@ -464,12 +465,12 @@ export default function ProfilePage() {
               profileTab === 'dreams' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            🌙 {lang === 'tr' ? 'Rüyalar' : 'Dreams'}
+            🌙 {mounted ? (lang === 'tr' ? 'Rüyalar' : 'Dreams') : <TextSkeleton width="w-14" />}
           </button>
         </div>
 
         {profileTab === 'vision' ? (
-          <>
+          <div className={`transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
             <div className="flex justify-end mb-3">
               <button
                 onClick={() => setShowCreateGoal(true)}
@@ -500,7 +501,7 @@ export default function ProfilePage() {
                 ))}
               </div>
             )}
-          </>
+          </div>
         ) : (
         <>
         {/* 3 KOLONLU PROFİL IZGARASI (INSTAGRAM GRID) */}
