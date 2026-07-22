@@ -15,6 +15,17 @@ const getGeminiClient = () => {
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// ÖNEMLİ DÜZELTME: prompt önceden ham dil kodunu ("tr", "es" vb.) doğrudan
+// cümleye gömüyordu ("Provide advice in tr") — bu, modele "Türkçe yaz"
+// demekten çok daha zayıf bir talimat, model genelde İngilizce'ye
+// düşüyordu. Artık gerçek dil adını kullanıyor (diğer AI route'larıyla
+// aynı desen: daily-seeds/generate.js, mental-wall/generate.js).
+const LANG_NAME = {
+  en: 'English', tr: 'Turkish', es: 'Spanish', fr: 'French',
+  de: 'German', pt: 'Portuguese', ru: 'Russian', ja: 'Japanese',
+  ar: 'Arabic', hi: 'Hindi', zh: 'Chinese',
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -36,8 +47,10 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: 'already_used_today' });
     }
 
-    const { lang = 'en' } = req.body;
-    const prompt = `You are a mystical Jungian oracle. Provide a profound psychological advice in ${lang}. Return ONLY JSON: {"reading": "...", "archetype": "...", "color": "#8b5cf6"}`;
+    const { lang: rawLang = 'en' } = req.body;
+    const lang = String(rawLang).toLowerCase().split('-')[0];
+    const langName = LANG_NAME[lang] || LANG_NAME.en;
+    const prompt = `You are a mystical Jungian oracle. Provide a profound psychological advice written natively in ${langName} (not a translation, write as a native speaker would). Return ONLY JSON: {"reading": "...", "archetype": "...", "color": "#8b5cf6"}`;
 
     let compassData;
 
