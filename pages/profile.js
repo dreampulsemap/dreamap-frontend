@@ -7,6 +7,10 @@ import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 import DreamCard from '@/components/DreamCard'
+import GoalCard from '@/components/GoalCard'
+import GoalDetailModal from '@/components/GoalDetailModal'
+import CreateGoalModal from '@/components/CreateGoalModal'
+import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 
 const BATCH_SIZE = 12;
 
@@ -54,6 +58,16 @@ export default function ProfilePage() {
 
   const lang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
   const tCard = getDreamCardText(lang)
+  const tVision = getVisionBoardText(lang)
+
+  // PROFİL SEKMELERİ — Instagram'ın grid/tagged sekmeleri gibi. Vizyon Panosu
+  // varsayılan (ilk açılan), Rüyalar (DreamCard grid'i) yan sekme.
+  const [profileTab, setProfileTab] = useState('vision') // 'vision' | 'dreams'
+  const [goals, setGoals] = useState([])
+  const [goalsLoading, setGoalsLoading] = useState(true)
+  const [goalsLoaded, setGoalsLoaded] = useState(false)
+  const [activeGoal, setActiveGoal] = useState(null)
+  const [showCreateGoal, setShowCreateGoal] = useState(false)
 
   const displayUsername =
     profile?.username ||
@@ -97,6 +111,24 @@ export default function ProfilePage() {
       }
     } catch (err) {
       console.error('Dreams load error:', err)
+    }
+  }, [])
+
+  const loadGoals = useCallback(async () => {
+    setGoalsLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/goals/list?mode=own', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const json = await res.json()
+      if (res.ok) setGoals(json.goals || [])
+    } catch (err) {
+      console.error('Goals load error:', err)
+    } finally {
+      setGoalsLoading(false)
+      setGoalsLoaded(true)
     }
   }, [])
 
@@ -152,6 +184,7 @@ export default function ProfilePage() {
 
         await Promise.all([
           loadDreams(currentUser.id, 0, false),
+          loadGoals(),
           loadFriends(currentUser.id)
         ])
       } catch (err) {
@@ -166,7 +199,7 @@ export default function ProfilePage() {
     return () => {
       active = false
     }
-  }, [router, loadDreams])
+  }, [router, loadDreams, loadGoals])
 
   useEffect(() => {
     return () => {
@@ -415,7 +448,62 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* 3 KOLONLU PROFİL IZGARASI (INSTAGRAM GRID) */}
+        {/* PROFİL SEKMELERİ (Instagram grid/tagged tarzı) — Vizyon Panosu varsayılan */}
+        <div className="flex items-center justify-center gap-8 border-t border-white/10 mb-4">
+          <button
+            onClick={() => setProfileTab('vision')}
+            className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
+              profileTab === 'vision' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            ✦ {lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board'}
+          </button>
+          <button
+            onClick={() => setProfileTab('dreams')}
+            className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
+              profileTab === 'dreams' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            🌙 {lang === 'tr' ? 'Rüyalar' : 'Dreams'}
+          </button>
+        </div>
+
+        {profileTab === 'vision' ? (
+          <>
+            <div className="flex justify-end mb-3">
+              <button
+                onClick={() => setShowCreateGoal(true)}
+                className="px-4 py-2 rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-xs font-bold uppercase tracking-widest hover:opacity-90"
+              >
+                + {tVision.createGoalBtn}
+              </button>
+            </div>
+
+            {goalsLoading && !goalsLoaded ? (
+              <div className="py-20 flex justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+              </div>
+            ) : goals.length === 0 ? (
+              <div className="text-center py-20 text-white/40 text-sm">
+                {tVision.emptyMyGoals}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+                {goals.map((goal) => (
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    lang={lang}
+                    currentUserId={user?.id}
+                    onOpenGoal={setActiveGoal}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+        <>
+        {/* 3 KOLONLU PROFİL IZGARASI (INSTAGRAM GRID) */}
         {dreams.length === 0 ? (
           <div className="text-center py-20 text-white/40 text-sm">
             {getTranslation('journal.noDreams', lang)}
@@ -466,6 +554,8 @@ export default function ProfilePage() {
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
             <span className="text-xs uppercase tracking-widest">{lang === 'tr' ? 'Rüyalarınız Alınıyor...' : 'Loading More...'}</span>
           </div>
+        )}
+        </>
         )}
       </div>
 
@@ -542,6 +632,28 @@ export default function ProfilePage() {
             />
           </div>
         </div>
+      )}
+      {activeGoal && (
+        <GoalDetailModal
+          goal={activeGoal}
+          lang={lang}
+          currentUserId={user?.id}
+          onClose={() => setActiveGoal(null)}
+          onChanged={(updated) => {
+            setGoals((list) => list.map((g) => (g.id === updated.id ? { ...g, ...updated } : g)))
+          }}
+          onDeleted={(goalId) => {
+            setGoals((list) => list.filter((g) => g.id !== goalId))
+          }}
+        />
+      )}
+
+      {showCreateGoal && (
+        <CreateGoalModal
+          lang={lang}
+          onClose={() => setShowCreateGoal(false)}
+          onCreated={(goal) => setGoals((g) => [goal, ...g])}
+        />
       )}
     </div>
   )
