@@ -11,7 +11,6 @@ import MentalWallPanel from '@/components/MentalWallPanel'
 import ReferralWidget from '@/components/ReferralWidget'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
-import Navbar from '@/components/Navbar'
 
 export default function VisionBoardPage() {
   const router = useRouter()
@@ -126,9 +125,7 @@ export default function VisionBoardPage() {
 
   return (
     <div className="min-h-screen bg-black">
-      <Navbar />
-
-      <div className="max-w-6xl mx-auto px-4 pt-24 pb-16">
+      <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8 pb-16">
         <div className={`mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           <div>
             <h1 className="text-h1 text-white">{t.pageTitle}</h1>
