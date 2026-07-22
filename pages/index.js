@@ -3,9 +3,13 @@ import Link from 'next/link'
 import Hero from '@/components/Hero'
 import DreamCard from '@/components/DreamCard'
 import DailyCompass from '@/components/DailyCompass'
+import GoalCard from '@/components/GoalCard'
+import GoalDetailModal from '@/components/GoalDetailModal'
+import CreateGoalModal from '@/components/CreateGoalModal'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { ARCHETYPE_LOCALIZATIONS } from '@/lib/archetypeTranslations'
+import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 
 const BATCH_SIZE = 10;
 
@@ -26,6 +30,15 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState('all')
   const [selectedArchetype, setSelectedArchetype] = useState(null)
 
+  // ANA SEKME (profile.js'deki ile aynı format): Vizyon Panosu varsayılan,
+  // Rüyalar (mevcut filtre çubuklu akış) yan sekme.
+  const [homeTab, setHomeTab] = useState('vision') // 'vision' | 'dreams'
+  const [goals, setGoals] = useState([])
+  const [goalsLoading, setGoalsLoading] = useState(true)
+  const [goalsLoaded, setGoalsLoaded] = useState(false)
+  const [activeGoal, setActiveGoal] = useState(null)
+  const [showCreateGoal, setShowCreateGoal] = useState(false)
+
   const observerRef = useRef(null)
 
   useEffect(() => {
@@ -34,14 +47,41 @@ export default function HomePage() {
 
   const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
   const lang = currentLang
+  const tVision = getVisionBoardText(lang)
 
   // Kullanıcı Durumunu Kontrol Et (Hero görünürlüğü için)
   useEffect(() => {
     async function checkUser() {
       const { data: { session } } = await supabase.auth.getSession()
       setUser(session?.user || null)
+      loadGoals(session?.user || null)
     }
     checkUser()
+  }, [loadGoals])
+
+  const loadGoals = useCallback(async (currentUser) => {
+    setGoalsLoading(true)
+    try {
+      if (currentUser?.id) {
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch('/api/goals/list?mode=friends', {
+          headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+        })
+        const json = await res.json()
+        if (res.ok) setGoals(json.goals || [])
+      } else {
+        // Giriş yapmamış kullanıcı: "arkadaşlar" kapsamı anlamsız, herkese
+        // açık keşfet feed'ine düş (dream feed'in guest davranışıyla tutarlı).
+        const res = await fetch('/api/goals/list?mode=feed')
+        const json = await res.json()
+        if (res.ok) setGoals(json.goals || [])
+      }
+    } catch (err) {
+      console.error('Goals load error:', err)
+    } finally {
+      setGoalsLoading(false)
+      setGoalsLoaded(true)
+    }
   }, [])
 
   // Akışı Getir
@@ -193,6 +233,69 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* ANA SEKME (profile.js'deki ile aynı format) */}
+        <div className="flex items-center justify-center gap-8 border-b border-white/10 mb-6">
+          <button
+            onClick={() => setHomeTab('vision')}
+            className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-b-2 -mb-px transition-colors ${
+              homeTab === 'vision' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            ✦ {lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board'}
+          </button>
+          <button
+            onClick={() => setHomeTab('dreams')}
+            className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-b-2 -mb-px transition-colors ${
+              homeTab === 'dreams' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            🌙 {lang === 'tr' ? 'Rüyalar' : 'Dreams'}
+          </button>
+        </div>
+
+        {homeTab === 'vision' ? (
+          <div className="px-4 sm:px-0">
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => (user ? setShowCreateGoal(true) : (window.location.href = '/auth'))}
+                className="px-4 py-2 rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-xs font-bold uppercase tracking-widest hover:opacity-90"
+              >
+                + {tVision.createGoalBtn}
+              </button>
+            </div>
+
+            {goalsLoading && !goalsLoaded ? (
+              <div className="py-20 flex justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+              </div>
+            ) : goals.length === 0 ? (
+              <div className="text-center mt-10">
+                <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-white/5 text-3xl mb-4">✦</div>
+                <h3 className="text-lg font-bold text-white mb-2">
+                  {lang === 'tr' ? 'Henüz bir vizyon yok' : 'No visions yet'}
+                </h3>
+                <p className="text-sm text-slate-400 max-w-sm mx-auto mb-6">
+                  {lang === 'tr'
+                    ? 'Siz veya arkadaşlarınız henüz bir hedef eklemedi.'
+                    : 'Neither you nor your friends have planted a vision yet.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {goals.map((goal) => (
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    lang={lang}
+                    currentUserId={user?.id}
+                    onOpenGoal={setActiveGoal}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+        <>
         {/* MİNİMALİST YATAY FİLTRE ÇUBUĞU (INSTAGRAM / TIKTOK STYLE) */}
         <div className={`sticky top-[60px] md:top-[76px] z-40 bg-black/80 backdrop-blur-xl border-b border-white/10 px-4 py-3 mb-6 transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
@@ -294,7 +397,32 @@ export default function HomePage() {
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-fuchsia-500 border-t-transparent" />
           </div>
         )}
+        </>
+        )}
       </main>
+
+      {activeGoal && (
+        <GoalDetailModal
+          goal={activeGoal}
+          lang={lang}
+          currentUserId={user?.id}
+          onClose={() => setActiveGoal(null)}
+          onChanged={(updated) => {
+            setGoals((list) => list.map((g) => (g.id === updated.id ? { ...g, ...updated } : g)))
+          }}
+          onDeleted={(goalId) => {
+            setGoals((list) => list.filter((g) => g.id !== goalId))
+          }}
+        />
+      )}
+
+      {showCreateGoal && (
+        <CreateGoalModal
+          lang={lang}
+          onClose={() => setShowCreateGoal(false)}
+          onCreated={(goal) => setGoals((g) => [goal, ...g])}
+        />
+      )}
     </div>
   )
 }
