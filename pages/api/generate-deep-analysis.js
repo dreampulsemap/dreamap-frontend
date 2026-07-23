@@ -53,9 +53,16 @@ export default async function handler(req, res) {
     const { data: dream } = await supabaseAdmin.from('dreams').select('*').eq('id', dreamId).single();
     if (!dream) return res.status(404).json({ error: 'dream_not_found' });
 
-    // Bakiye kontrolü
-    const { data: profile } = await supabaseAdmin.from('user_profiles').select('premium_analysis_auras').eq('id', user.id).single();
-    if (Number(profile?.premium_analysis_auras || 0) < 8) return res.status(402).json({ error: 'no_auras' });
+    // ATOMİK aura düşüşü — önceki SELECT-sonra-UPDATE deseni TOCTOU yarış
+    // durumuna açıktı (bkz. migration 004/005'teki mana/aura düzeltmeleri).
+    // spend_auras RPC'si tek atomik UPDATE ile hem kontrol hem düşüşü yapıyor.
+    const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
+      p_user_id: user.id,
+      p_amount: 8,
+    });
+    if (spendError) throw spendError;
+    const spend = spendResult?.[0];
+    if (!spend?.success) return res.status(402).json({ error: 'no_auras' });
 
     // Geçmiş rüyaları hafıza (Context) olarak çek
     const { data: pastDreams } = await supabaseAdmin
@@ -78,13 +85,20 @@ export default async function handler(req, res) {
       Required JSON format: ${JSON.stringify(buildShape())}
     `;
 
-    const interaction = await genAI.interactions.create({
-      model: "gemini-3.5-flash",
-      input: prompt,
-    });
-    const rawText = interaction.output_text;
-    const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-    const analysis = JSON.parse(cleanJson);
+    let analysis;
+    try {
+      const interaction = await genAI.interactions.create({
+        model: "gemini-3.5-flash",
+        input: prompt,
+      });
+      const rawText = interaction.output_text;
+      const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+      analysis = JSON.parse(cleanJson);
+    } catch (e) {
+      // Analiz üretimi başarısız oldu — auralar zaten düşülmüştü, GERİ VER.
+      await supabaseAdmin.from('user_profiles').update({ premium_analysis_auras: spend.remaining + 8 }).eq('id', user.id);
+      return res.status(502).json({ error: 'analysis_generation_failed', details: e.message });
+    }
 
     // Görsel Üretimi (Replicate / Flux)
     let imageUrl = null;
@@ -97,17 +111,19 @@ export default async function handler(req, res) {
       const data = await rep.json();
       imageUrl = data.output?.[0] || null;
     } catch (e) { console.error("Flux Failed", e); }
+    // NOT: görsel üretimi başarısız olsa bile analiz metni üretildiği için
+    // aura iade EDİLMİYOR — kullanıcı asıl istediği (analiz) karşılığını aldı,
+    // görsel bir bonus. generate-dream-image.js/generate-cover.js'de görsel
+    // TEK ürün olduğu için orada başarısızlıkta iade var, burada farklı.
 
-    // Final Kayıt
-    const nextAuras = profile.premium_analysis_auras - 8;
-    await supabaseAdmin.from('user_profiles').update({ premium_analysis_auras: nextAuras }).eq('id', user.id);
+    // Final Kayıt (aura zaten düşüldü — burada tekrar düşürmüyoruz)
     await supabaseAdmin.from('dreams').update({ 
       premium_deep_analysis: analysis, 
       premium_deep_analysis_status: 'generated',
       ai_image_url: imageUrl 
     }).eq('id', dreamId);
 
-    return res.status(200).json({ ok: true, analysis, aurasLeft: nextAuras, imageUrl });
+    return res.status(200).json({ ok: true, analysis, aurasLeft: spend.remaining, imageUrl });
 
   } catch (error) {
     console.error('Deep Analysis Error:', error);
