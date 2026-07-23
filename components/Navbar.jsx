@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
-import { User, LogIn } from 'lucide-react'
+import { User, LogIn, Bell } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
@@ -29,8 +29,12 @@ export default function Navbar() {
   const [mana, setMana] = useState(0)
   const [avatarUrl, setAvatarUrl] = useState('')
   const [auraDropdownOpen, setAuraDropdownOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const auraDropdownRef = useRef(null)
+  const notifDropdownRef = useRef(null)
 
   const { i18n } = useTranslation()
 
@@ -63,6 +67,7 @@ export default function Navbar() {
           setAvatarUrl(profile?.avatar_url || currentUser?.user_metadata?.avatar_url || '')
           setAuras(Number(profile?.premium_analysis_auras || 0))
           setMana(Number(profile?.mana_balance ?? 0))
+          loadNotifications()
         }
       } catch (error) {
         console.error('Navbar user check failed:', error)
@@ -113,10 +118,49 @@ export default function Navbar() {
       if (auraDropdownRef.current && !auraDropdownRef.current.contains(event.target)) {
         setAuraDropdownOpen(false)
       }
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(event.target)) {
+        setNotifDropdownOpen(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [mounted])
+
+  const loadNotifications = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/notifications', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const json = await res.json()
+      if (res.ok) {
+        setNotifications(json.notifications || [])
+        setUnreadCount(json.unreadCount || 0)
+      }
+    } catch (err) {
+      // sessiz
+    }
+  }
+
+  async function markAllRead() {
+    setUnreadCount(0)
+    setNotifications((list) => list.map((n) => ({ ...n, is_read: true })))
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({}),
+      })
+    } catch (err) {
+      // sessiz
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/8 bg-slate-950/70 backdrop-blur-2xl">
@@ -167,6 +211,59 @@ export default function Navbar() {
             >
               <span className="text-xs sm:text-sm">💧</span>
               <span>{mana}</span>
+            </div>
+          )}
+
+          {/* BİLDİRİM ZİLİ — mana alma, hedef yorumu, arkadaşlık isteği/onayı */}
+          {user && (
+            <div className="relative" ref={notifDropdownRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setNotifDropdownOpen((o) => !o)
+                  if (!notifDropdownOpen && unreadCount > 0) markAllRead()
+                }}
+                aria-label={currentLang === 'tr' ? 'Bildirimler' : 'Notifications'}
+                className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+              >
+                <Bell size={16} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {notifDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 max-h-96 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950 shadow-[0_15px_40px_rgba(0,0,0,0.5)] z-50 animate-fade-in">
+                  {notifications.length === 0 ? (
+                    <p className="text-center text-slate-500 text-sm py-8">
+                      {currentLang === 'tr' ? 'Henüz bildirim yok.' : 'No notifications yet.'}
+                    </p>
+                  ) : (
+                    notifications.map((n) => {
+                      const actorName = n.actor?.display_name || n.actor?.username || (currentLang === 'tr' ? 'Biri' : 'Someone')
+                      const messages = {
+                        mana_received: currentLang === 'tr' ? `${actorName} vizyonuna mana verdi 💧` : `${actorName} gave mana to your vision 💧`,
+                        goal_comment: currentLang === 'tr' ? `${actorName} vizyonuna yorum yaptı 💬` : `${actorName} commented on your vision 💬`,
+                        friend_request: currentLang === 'tr' ? `${actorName} sana arkadaşlık isteği gönderdi 👋` : `${actorName} sent you a friend request 👋`,
+                        friend_accepted: currentLang === 'tr' ? `${actorName} isteğini kabul etti ✓` : `${actorName} accepted your request ✓`,
+                      }
+                      return (
+                        <div
+                          key={n.id}
+                          className={`px-4 py-3 border-b border-white/5 text-sm ${n.is_read ? 'text-slate-400' : 'text-white bg-fuchsia-500/5'}`}
+                        >
+                          {messages[n.type] || n.type}
+                          <p className="text-[10px] text-slate-600 mt-0.5">
+                            {new Date(n.created_at).toLocaleDateString(currentLang === 'tr' ? 'tr-TR' : 'en-US')}
+                          </p>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              )}
             </div>
           )}
 
