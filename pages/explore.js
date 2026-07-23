@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
@@ -322,21 +323,21 @@ export default function ExplorePage() {
                     key={result.id}
                     className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors"
                   >
-                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-600 to-purple-800 flex items-center justify-center text-white font-bold text-sm shrink-0 overflow-hidden relative">
+                    <Link href={`/u/${result.id}`} className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-600 to-purple-800 flex items-center justify-center text-white font-bold text-sm shrink-0 overflow-hidden relative">
                       {result.avatar_url ? (
                         <Image src={result.avatar_url} alt={result.username} fill sizes="44px" className="object-cover" />
                       ) : (
                         (result.display_name || result.username || '?').charAt(0).toUpperCase()
                       )}
-                    </div>
-                    <div className="min-w-0 flex-1">
+                    </Link>
+                    <Link href={`/u/${result.id}`} className="min-w-0 flex-1">
                       <p className="text-white text-sm font-semibold truncate">
                         {result.display_name || result.username}
                       </p>
                       {result.username && (
                         <p className="text-slate-500 text-xs truncate">@{result.username}</p>
                       )}
-                    </div>
+                    </Link>
                     <button
                       onClick={() => handleFollow(result)}
                       disabled={result.friendshipStatus === 'accepted' || result.friendshipStatus === 'pending' || followBusyIds[result.id]}
@@ -367,7 +368,7 @@ export default function ExplorePage() {
         {loading ? (
           <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-            <span className="text-xs tracking-wider uppercase">{lang === 'tr' ? 'Keşfet Yükleniyor...' : 'Loading Explore Grid...'}</span>
+            {mounted && <span className="text-xs tracking-wider uppercase">{lang === 'tr' ? 'Keşfet Yükleniyor...' : 'Loading Explore Grid...'}</span>}
           </div>
         ) : dreams.length === 0 ? (
           <EmptyState icon="🌌" title={lang === 'tr' ? 'Keşfedecek Rüya Yok' : 'Explore is Empty'} />

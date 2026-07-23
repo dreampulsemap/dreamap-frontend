@@ -357,7 +357,7 @@ export default function HomePage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-fuchsia-500 border-t-transparent" />
-            <span className="text-xs uppercase tracking-widest text-slate-400">{lang === 'tr' ? 'Bilinçaltı Yükleniyor...' : 'Loading Subconscious...'}</span>
+            {mounted && <span className="text-xs uppercase tracking-widest text-slate-400">{lang === 'tr' ? 'Bilinçaltı Yükleniyor...' : 'Loading Subconscious...'}</span>}
           </div>
         ) : filteredDreams.length === 0 ? (
           <div className="px-4 text-center mt-10">
