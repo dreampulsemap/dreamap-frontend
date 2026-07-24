@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
-import { Sparkles, Check } from 'lucide-react'
+import { Check, MessageCircle, Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 
@@ -154,7 +154,7 @@ export default function GoalCard({ goal, lang = 'en', currentUserId, onReacted, 
               <span className={`flex items-center gap-1 transition-transform duration-300 ${justReacted ? 'scale-125 text-cyan-300' : ''}`}>
                 <Sparkles size={12} /> {believersCount} {t.believers}
               </span>
-              <span>💬 {goal.comments_count || 0} {t.comments}</span>
+              <span className="flex items-center gap-1"><MessageCircle size={12} /> {goal.comments_count || 0} {t.comments}</span>
             </div>
             <div className="mt-2 text-xs text-cyan-300 font-mono">
               {Math.round(goal.completion_percentage || 0)}% {t.completion}

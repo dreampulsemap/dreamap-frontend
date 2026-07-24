@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import React, { useState, useRef } from 'react'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
@@ -104,7 +105,7 @@ export default function StoryModeModal({
           aria-label={lang === 'tr' ? 'Kapat' : 'Close'}
           className="absolute top-4 right-4 z-[220] text-xl text-white/60 hover:text-white transition-colors"
         >
-          ✕
+          <X size={20} />
         </button>
 
         {dreamImage && (

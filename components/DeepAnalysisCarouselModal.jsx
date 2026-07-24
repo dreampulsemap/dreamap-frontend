@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { X, AlertTriangle } from 'lucide-react'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 
 // Dış bağımlılıkları kaldırmak ve çökmeleri önlemek için Güvenli Okuyucu (Safe Getter) içeriye alındı
@@ -110,7 +111,7 @@ export default function DeepAnalysisCarouselModal({
           onClick={safeOnClose}
           className="absolute top-4 right-4 z-[180] inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white hover:bg-white/10 transition-all"
         >
-          ✕
+          <X size={18} />
         </button>
 
         {/* BAŞLIK & İNDİKATÖR */}
@@ -164,7 +165,7 @@ export default function DeepAnalysisCarouselModal({
                     </button>
                     {premiumError && (
                       <p className="text-xs text-rose-400 max-w-[240px] font-sans mt-2" role="alert">
-                        ⚠️ {premiumError}
+                        <AlertTriangle size={12} className="inline -mt-0.5" /> {premiumError}
                       </p>
                     )}
                   </div>

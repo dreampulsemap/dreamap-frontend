@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Camera, AlertTriangle, Eye } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 export default function DailyCompass({ lang }) {
@@ -173,7 +174,7 @@ export default function DailyCompass({ lang }) {
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-white transition-all hover:scale-105 shadow-lg"
           style={{ backgroundColor: compassData.color }}
         >
-          <span>📸</span> {lang === 'tr' ? 'Hikayende Paylaş' : 'Share to Story'}
+          <Camera size={14} /> {lang === 'tr' ? 'Hikayende Paylaş' : 'Share to Story'}
         </button>
       </div>
     )
@@ -215,7 +216,7 @@ export default function DailyCompass({ lang }) {
               style={{ height: `${progress}%` }}
             />
             <span className={`relative text-4xl transition-all ${holding ? 'animate-pulse scale-110' : ''}`}>
-              {loading ? '🔮' : '👁️'}
+              {loading ? '🔮' : <Eye size={32} />}
             </span>
           </button>
           
@@ -225,8 +226,8 @@ export default function DailyCompass({ lang }) {
           
           {/* HATA VARSA EKRANA BAS */}
           {errorMsg && (
-            <p className="text-xs text-rose-400 font-medium tracking-wider mt-2">
-              ⚠️ {errorMsg}
+            <p className="text-xs text-rose-400 font-medium tracking-wider mt-2 flex items-center justify-center gap-1.5">
+              <AlertTriangle size={12} /> {errorMsg}
             </p>
           )}
         </div>

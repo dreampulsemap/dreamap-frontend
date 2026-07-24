@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { X, Upload, Sparkles } from 'lucide-react'
+import { Sparkles, Upload, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
@@ -274,7 +274,7 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
                 {roadmap.map((step, i) => (
                   <li key={i} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-1.5 text-sm text-slate-300">
                     <span className="truncate">{step}</span>
-                    <button onClick={() => removeStep(i)} className="text-slate-500 hover:text-rose-400 ml-2">✕</button>
+                    <button onClick={() => removeStep(i)} className="text-slate-500 hover:text-rose-400 ml-2"><X size={14} /></button>
                   </li>
                 ))}
               </ul>

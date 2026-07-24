@@ -1,4 +1,5 @@
- import React, { useRef } from 'react'
+import { X } from 'lucide-react'
+import React, { useRef } from 'react'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
 
@@ -34,7 +35,7 @@ export default function DeepAnalysisConfirmationModal({
           aria-label={lang === 'tr' ? 'Kapat' : 'Close'}
           className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white transition-colors"
         >
-          ✕
+          <X size={20} />
         </button>
 
         {/* BAŞLIK */}
