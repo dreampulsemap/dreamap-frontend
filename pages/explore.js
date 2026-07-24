@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Search, Moon, Target, Trophy, Bird } from 'lucide-react'
+import { Bird, Heart, MessageCircle, Moon, Search, Target, Trophy, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
@@ -269,7 +269,7 @@ export default function ExplorePage() {
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-sm"
               >
-                ✕
+                <X size={14} />
               </button>
             )}
           </div>
@@ -406,10 +406,10 @@ export default function ExplorePage() {
 
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-all duration-300">
                     <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white">
-                      ❤️ {dream.likes_count || 0}
+                      <Heart size={13} /> {dream.likes_count || 0}
                     </span>
                     <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white">
-                      💬 {dream.comments_count || 0}
+                      <MessageCircle size={13} /> {dream.comments_count || 0}
                     </span>
                   </div>
                 </div>

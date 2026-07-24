@@ -1,6 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import { Sparkles, Moon } from 'lucide-react'
+import { Heart, MessageCircle, Moon, Sparkles, Users } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { supabase, auth } from '@/lib/supabase'
@@ -377,7 +377,7 @@ export default function ProfilePage() {
                   onClick={() => setShowFriends(!showFriends)}
                   className="rounded-lg bg-slate-900 border border-white/10 px-4 py-1.5 text-xs font-semibold hover:bg-slate-800 transition-all"
                 >
-                  👥 {friends.length} {tCard.followingLabel}
+                  <Users size={13} className="inline -mt-0.5 mr-1" /> {friends.length} {tCard.followingLabel}
                 </button>
               </div>
             </div>
@@ -544,8 +544,8 @@ export default function ProfilePage() {
 
                   {/* HOVER EFEKTİ */}
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-all duration-300">
-                    <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white">❤️ {dream.likes_count || 0}</span>
-                    <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white">💬 {dream.comments_count || 0}</span>
+                    <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white"><Heart size={13} /> {dream.likes_count || 0}</span>
+                    <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white"><MessageCircle size={13} /> {dream.comments_count || 0}</span>
                   </div>
                 </div>
               )

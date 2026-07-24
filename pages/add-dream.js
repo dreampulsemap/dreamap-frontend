@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { useRouter } from 'next/router'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
@@ -316,8 +317,8 @@ export default function AddDreamPage() {
             </label>
 
             {error && (
-              <div className="text-rose-400 text-xs text-center bg-rose-500/10 p-3 rounded-xl border border-rose-500/20 font-medium">
-                ⚠️ {error}
+              <div className="text-rose-400 text-xs text-center bg-rose-500/10 p-3 rounded-xl border border-rose-500/20 font-medium flex items-center justify-center gap-1.5">
+                <AlertTriangle size={13} /> {error}
               </div>
             )}
 
