@@ -1,3 +1,4 @@
+import { Sparkles, Moon } from 'lucide-react'
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import Hero from '@/components/Hero'
@@ -50,16 +51,6 @@ export default function HomePage() {
   const lang = currentLang
   const tVision = getVisionBoardText(lang)
 
-  // Kullanıcı Durumunu Kontrol Et (Hero görünürlüğü için)
-  useEffect(() => {
-    async function checkUser() {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user || null)
-      loadGoals(session?.user || null)
-    }
-    checkUser()
-  }, [loadGoals])
-
   const loadGoals = useCallback(async (currentUser) => {
     setGoalsLoading(true)
     try {
@@ -84,6 +75,16 @@ export default function HomePage() {
       setGoalsLoaded(true)
     }
   }, [])
+
+  // Kullanıcı Durumunu Kontrol Et (Hero görünürlüğü için)
+  useEffect(() => {
+    async function checkUser() {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user || null)
+      loadGoals(session?.user || null)
+    }
+    checkUser()
+  }, [loadGoals])
 
   // Akışı Getir
   const loadFeedData = useCallback(async (pageNum = 0, append = false) => {
@@ -242,7 +243,7 @@ export default function HomePage() {
               homeTab === 'vision' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            ✦ {mounted ? (lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board') : <TextSkeleton width="w-20" />}
+            <Sparkles size={13} /> {mounted ? (lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board') : <TextSkeleton width="w-20" />}
           </button>
           <button
             onClick={() => setHomeTab('dreams')}
@@ -250,7 +251,7 @@ export default function HomePage() {
               homeTab === 'dreams' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            🌙 {mounted ? (lang === 'tr' ? 'Rüyalar' : 'Dreams') : <TextSkeleton width="w-14" />}
+            <Moon size={13} /> {mounted ? (lang === 'tr' ? 'Rüyalar' : 'Dreams') : <TextSkeleton width="w-14" />}
           </button>
         </div>
 
@@ -271,7 +272,7 @@ export default function HomePage() {
               </div>
             ) : goals.length === 0 ? (
               <div className="text-center mt-10">
-                <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-white/5 text-3xl mb-4">✦</div>
+                <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-white/5 mb-4"><Sparkles size={26} className="text-fuchsia-300" /></div>
                 <h3 className="text-lg font-bold text-white mb-2">
                   {lang === 'tr' ? 'Henüz bir vizyon yok' : 'No visions yet'}
                 </h3>

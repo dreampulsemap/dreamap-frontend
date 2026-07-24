@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { Sparkles, Moon } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { supabase, auth } from '@/lib/supabase'
@@ -457,7 +458,7 @@ export default function ProfilePage() {
               profileTab === 'vision' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            ✦ {mounted ? (lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board') : <TextSkeleton width="w-20" />}
+            <Sparkles size={13} /> {mounted ? (lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board') : <TextSkeleton width="w-20" />}
           </button>
           <button
             onClick={() => setProfileTab('dreams')}
@@ -465,7 +466,7 @@ export default function ProfilePage() {
               profileTab === 'dreams' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            🌙 {mounted ? (lang === 'tr' ? 'Rüyalar' : 'Dreams') : <TextSkeleton width="w-14" />}
+            <Moon size={13} /> {mounted ? (lang === 'tr' ? 'Rüyalar' : 'Dreams') : <TextSkeleton width="w-14" />}
           </button>
         </div>
 
@@ -523,10 +524,12 @@ export default function ProfilePage() {
                   className="group aspect-square relative overflow-hidden rounded-xl border border-white/5 bg-slate-900/40 hover:border-fuchsia-500/45 cursor-pointer shadow-lg transition-all duration-300"
                 >
                   {hasImg ? (
-                    <img
+                    <Image
                       src={dream.ai_image_url}
                       alt="Dream Visual"
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      fill
+                      sizes="(max-width: 640px) 33vw, 300px"
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
                     // Görseli olmayan rüyalar için estetik bakiye kartı (Aura harcama dürtüsünü tetikler!)
@@ -534,7 +537,7 @@ export default function ProfilePage() {
                       <span className="text-base sm:text-xl">🌌</span>
                       <p className="text-[9px] sm:text-[11px] text-white/70 leading-relaxed font-light line-clamp-3">"{dream.content}"</p>
                       <button className="self-start rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2 py-0.5 text-[8px] sm:text-[9px] font-bold text-cyan-300 hover:bg-cyan-500/25">
-                        ✦ {lang === 'tr' ? 'Görsel Üret' : 'Create Visual'}
+                        <Sparkles size={10} className="inline -mt-0.5" /> {lang === 'tr' ? 'Görsel Üret' : 'Create Visual'}
                       </button>
                     </div>
                   )}

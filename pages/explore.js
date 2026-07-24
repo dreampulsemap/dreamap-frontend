@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { Search, Moon, Target, Trophy, Bird } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
@@ -256,7 +257,7 @@ export default function ExplorePage() {
         {/* ARAMA ÇUBUĞU (INSTAGRAM EXPLORE STYLE) */}
         <div className={`mb-6 transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           <div className="relative max-w-md">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><Search size={16} /></span>
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -278,10 +279,10 @@ export default function ExplorePage() {
           <div className="flex items-center gap-2 mb-6 overflow-x-auto no-scrollbar">
             {HUBS.map((hub) => {
               const labels = {
-                dreamscape: { tr: '🌙 Rüyalar', en: '🌙 Dreamscape' },
-                vision: { tr: '🎯 Vizyon Panosu', en: '🎯 Vision Board' },
-                victory: { tr: '🏆 Zafer Duvarı', en: '🏆 Victory Wall' },
-                phoenix: { tr: '🕊️ Anka Duvarı', en: '🕊️ Phoenix Wall' },
+                dreamscape: { tr: 'Rüyalar', en: 'Dreamscape', icon: Moon },
+                vision: { tr: 'Vizyon Panosu', en: 'Vision Board', icon: Target },
+                victory: { tr: 'Zafer Duvarı', en: 'Victory Wall', icon: Trophy },
+                phoenix: { tr: 'Anka Duvarı', en: 'Phoenix Wall', icon: Bird },
               }
               const activeStyles = {
                 dreamscape: 'bg-fuchsia-500 text-white',
@@ -289,14 +290,16 @@ export default function ExplorePage() {
                 victory: 'bg-emerald-500 text-black',
                 phoenix: 'bg-slate-400 text-black',
               }
+              const HubIcon = labels[hub].icon
               return (
                 <button
                   key={hub}
                   onClick={() => handleHubClick(hub)}
-                  className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
+                  className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${
                     activeHub === hub ? activeStyles[hub] : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
                   }`}
                 >
+                  <HubIcon size={13} />
                   {labels[hub][lang] || labels[hub].en}
                 </button>
               )
@@ -434,7 +437,7 @@ export default function ExplorePage() {
               <ErrorState lang={lang} onRetry={() => loadHubGoals(activeHub)} />
             ) : hubGoals[activeHub].length === 0 ? (
               <EmptyState
-                icon={activeHub === 'vision' ? '🎯' : activeHub === 'victory' ? '🏆' : '🕊️'}
+                icon={activeHub === 'vision' ? <Target size={28} /> : activeHub === 'victory' ? <Trophy size={28} /> : <Bird size={28} />}
                 title={
                   activeHub === 'vision'
                     ? (lang === 'tr' ? 'Henüz aktif bir vizyon yok' : 'No active visions yet')
