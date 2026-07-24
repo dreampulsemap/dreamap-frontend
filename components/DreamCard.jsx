@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
+import Image from 'next/image'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from 'next/router'
 import { getTranslation } from '@/lib/translations'
@@ -159,7 +160,17 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   return (
     <>
       <article className="glass-card p-6 rounded-3xl border border-white/10 bg-slate-900/40">
-        {effectiveDream.ai_image_url && <img src={effectiveDream.ai_image_url} className="w-full rounded-2xl mb-4" />}
+        {effectiveDream.ai_image_url && (
+          <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-4">
+            <Image
+              src={effectiveDream.ai_image_url}
+              alt=""
+              fill
+              sizes="(max-width: 640px) 100vw, 600px"
+              className="object-cover"
+            />
+          </div>
+        )}
         <p className="mb-6">{translated ? translatedContent : dream.content}</p>
         
         <button onClick={() => premiumAnalysis ? setShowAnalysisModal(true) : setShowConfirmModal(true)} className="w-full bg-fuchsia-600 p-4 rounded-xl text-white font-bold mb-3">
