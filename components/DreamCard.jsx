@@ -53,6 +53,11 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   const [showToast, setShowToast] = useState(false)
 
   const effectiveDream = useMemo(() => (analysisOverride ? { ...dream, ...analysisOverride } : dream), [dream, analysisOverride])
+  const isAnalysisPreparing = useMemo(() => {
+    if (premiumAnalysis || effectiveDream?.premium_deep_analysis) return false
+    if (premiumQueued) return true
+    return effectiveDream?.premium_deep_analysis_status === 'pending' || effectiveDream?.premium_deep_analysis_status === 'processing'
+  }, [premiumAnalysis, effectiveDream, premiumQueued])
   const isOwner = useMemo(() => {
     // Ebeveyn sayfa zaten oturumu çözmüşse (currentUserId) buna güven —
     // bu, her kartın kendi başına asenkron auth sorgusu bitene kadar
@@ -174,11 +179,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       setPremiumAuras(data.aurasLeft)
       setPremiumQueued(true)
       setShowConfirmModal(false)
-      triggerToast(
-        currentLang === 'tr'
-          ? 'Analiziniz hazırlanıyor. Hazır olduğunda size bildirim göndereceğiz ✨'
-          : "We're preparing your analysis. We'll notify you when it's ready ✨"
-      )
+      triggerToast(t.analysisQueuedToast)
     } catch (err) {
       setPremiumError(err.message)
       setShowConfirmModal(false)
@@ -202,9 +203,42 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
           </div>
         )}
         <p className="mb-6">{translated ? translatedContent : dream.content}</p>
+
+        {(() => {
+          const summary = effectiveDream?.[`ai_summary_${currentLang}`] || effectiveDream?.ai_summary || effectiveDream?.ai_summary_en
+          const motiv = effectiveDream?.[`ai_motiv_${currentLang}`] || effectiveDream?.ai_motiv || effectiveDream?.ai_motiv_en
+          if (!summary && !motiv) return null
+          return (
+            <div className="mb-5 rounded-2xl border border-fuchsia-300/15 bg-fuchsia-500/8 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-fuchsia-200">🜂</span>
+                <p className="text-xs uppercase tracking-[0.18em] text-fuchsia-100">
+                  {t.jungianAnalysisLabel}
+                </p>
+              </div>
+              {summary && <p className="text-sm leading-7 text-slate-200">{summary}</p>}
+              {motiv && (
+                <p className="mt-3 border-l border-fuchsia-300/30 pl-3 text-xs italic text-slate-400">
+                  "{motiv}"
+                </p>
+              )}
+            </div>
+          )
+        })()}
         
-        <button onClick={() => premiumAnalysis ? setShowAnalysisModal(true) : setShowConfirmModal(true)} className="w-full bg-fuchsia-600 p-4 rounded-xl text-white font-bold mb-3">
-          {premiumAnalysis ? t.exploreCards : (isOwner ? t.getDeepAnalysis : t.giftDeepAnalysis)}
+        <button
+          onClick={() => {
+            if (isAnalysisPreparing) return
+            premiumAnalysis ? setShowAnalysisModal(true) : setShowConfirmModal(true)
+          }}
+          disabled={isAnalysisPreparing}
+          className="w-full bg-fuchsia-600 p-4 rounded-xl text-white font-bold mb-3 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {premiumAnalysis
+            ? t.exploreCards
+            : isAnalysisPreparing
+              ? t.analysisPreparing
+              : (isOwner ? t.getDeepAnalysis : t.giftDeepAnalysis)}
         </button>
 
         {!premiumAnalysis && !effectiveDream.ai_image_url && (
