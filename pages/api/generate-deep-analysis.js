@@ -9,48 +9,32 @@ import {
 import { notifyAnalysisOutcome } from '@/lib/notify'
 
 // =====================================================================
-// PLAN A / PLAN B
+// SADECE OpenAI, TAMAMEN SENKRON — kuyruk yok, cron yok, dış worker yok.
 // -----------------------------------------------------------------------
-// PLAN A: bu route, isteği bekletmeden doğrudan OpenAI ile SENKRON analiz
-//   üretmeyi dener (aynı OPENAI_API_KEY, normal jung analizindeki gibi).
-//   Başarılı olursa kullanıcı sonucu ANINDA bu yanıtta alır — kuyruk yok,
-//   cron yok, bildirim beklemek yok.
-// PLAN B: PLAN A başarısız/boş/zaman aşımına uğrarsa (OpenAI'da geçici bir
-//   sorun, kota, vb.) eskisi gibi 'pending' işaretlenir ve
-//   /api/cron/process-deep-analysis worker'ı arka planda fire-and-forget
-//   tetiklenir; cron-job.org → /api/cron/trigger-sweep güvenlik ağı olarak
-//   kalmaya devam eder.
+// İlk deneme başarısız/boş/zaman aşımına uğrarsa, AYNI istek içinde bir
+// kez daha denenir (kısa bir gecikmeyle — geçici OpenAI hatalarını
+// (rate limit, ağ, vs.) tolere etmek için). İkinci deneme de başarısız
+// olursa rüya 'failed' olarak işaretlenir, Aura iade edilir ve kullanıcıya
+// hemen hata döner. Hiçbir zaman 'pending'/'processing' durumunda takılı
+// kalmaz, çünkü onu işleyecek bir arka plan mekanizması artık yok.
 // =====================================================================
 
 export const config = { maxDuration: 45 }
 
-// PLAN A için ayrılan bütçe — Hobby'nin 60sn sert sınırının altında,
-// Plan B'ye düşmek için de yeterli pay bırakıyor.
-const SYNC_DEADLINE_MS = 30_000
+const SYNC_DEADLINE_MS = 20_000
+const RETRY_DEADLINE_MS = 15_000
+const RETRY_DELAY_MS = 1_500
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-function triggerWorker(dreamId, lang) {
-  const base = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL || 'www.lunosfer.com'}`
-  const secret = process.env.CRON_SECRET
-
-  // Yanıtı beklemeden ateşle-unut: worker'ın süresi bu isteğin süresini etkilemesin.
-  fetch(`${base}/api/cron/process-deep-analysis`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(secret ? { Authorization: `Bearer ${secret}` } : {})
-    },
-    body: JSON.stringify({ dreamId, lang })
-  }).catch((err) => {
-    console.error('worker trigger failed (cron sweep will catch it later):', err.message)
-  })
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function tryPlanA({ dream, lang }) {
+async function attemptAnalysis({ dream, lang, deadlineMs }) {
   const { data: pastDreams } = await supabaseAdmin
     .from('dreams')
     .select('content, premium_deep_analysis')
@@ -77,7 +61,7 @@ async function tryPlanA({ dream, lang }) {
     pastContext
   })
 
-  const deadlineAt = Date.now() + SYNC_DEADLINE_MS
+  const deadlineAt = Date.now() + deadlineMs
   return generateWithOpenAIOnly(prompt, detectedLang, deadlineAt)
 }
 
@@ -121,10 +105,27 @@ export default async function handler(req, res) {
       return res.status(402).json({ error: 'no_auras' })
     }
 
-    // ---- PLAN A: doğrudan OpenAI, senkron ----
-    try {
-      const best = await tryPlanA({ dream, lang })
+    // ---- Deneme 1: doğrudan OpenAI, senkron ----
+    let best = null
+    let lastError = null
 
+    try {
+      best = await attemptAnalysis({ dream, lang, deadlineMs: SYNC_DEADLINE_MS })
+    } catch (firstError) {
+      lastError = firstError
+      console.error('generate-deep-analysis: 1st OpenAI attempt failed, retrying once:', firstError.message)
+
+      // ---- Deneme 2: kısa gecikmeden sonra tek seferlik retry ----
+      await sleep(RETRY_DELAY_MS)
+      try {
+        best = await attemptAnalysis({ dream, lang, deadlineMs: RETRY_DEADLINE_MS })
+        lastError = null
+      } catch (secondError) {
+        lastError = secondError
+      }
+    }
+
+    if (best) {
       const { error: updateError } = await supabaseAdmin
         .from('dreams')
         .update({
@@ -146,7 +147,7 @@ export default async function handler(req, res) {
         dreamId,
         status: 'generated',
         lang
-      }).catch((err) => console.error('Plan A notify error:', err.message))
+      }).catch((err) => console.error('notify error:', err.message))
 
       // Görsel best-effort, yanıtı bekletmeden arka planda dener.
       generateImageIfPossible(best.analysis.visual_prompt_en)
@@ -155,39 +156,46 @@ export default async function handler(req, res) {
             await supabaseAdmin.from('dreams').update({ ai_image_url: imageUrl }).eq('id', dreamId)
           }
         })
-        .catch((err) => console.error('Plan A image gen error:', err.message))
+        .catch((err) => console.error('image gen error:', err.message))
 
       return res.status(200).json({
         ok: true,
         generated: true,
-        plan: 'a',
         analysis: best.analysis,
         provider: best.provider,
         aurasLeft: spend.remaining
       })
-    } catch (planAError) {
-      console.error('generate-deep-analysis: Plan A (sync OpenAI) failed, falling back to Plan B (queue):', planAError.message)
     }
 
-    // ---- PLAN B: mevcut kuyruk + cron worker akışı ----
-    const { error: updateError } = await supabaseAdmin
+    // ---- İki deneme de başarısız: 'pending'de takılı bırakma — direkt failed + iade ----
+    console.error('generate-deep-analysis: both OpenAI attempts failed:', lastError?.message)
+
+    const refundResult = await supabaseAdmin.rpc('refund_auras', {
+      p_user_id: user.id,
+      p_amount: 8
+    })
+    if (refundResult.error) console.error('refund error:', refundResult.error.message)
+
+    await supabaseAdmin
       .from('dreams')
       .update({
-        premium_deep_analysis_status: 'pending',
-        premium_deep_analysis_error: null,
+        premium_deep_analysis_status: 'failed',
+        premium_deep_analysis_error: lastError?.message || 'openai_failed',
         premium_deep_analysis_lang: lang
       })
       .eq('id', dreamId)
 
-    if (updateError) throw updateError
+    notifyAnalysisOutcome(supabaseAdmin, {
+      userId: dream.user_id,
+      dreamId,
+      status: 'failed',
+      lang
+    }).catch((err) => console.error('notify error:', err.message))
 
-    triggerWorker(dreamId, lang)
-
-    return res.status(200).json({
-      ok: true,
-      queued: true,
-      plan: 'b',
-      aurasLeft: spend.remaining
+    return res.status(502).json({
+      error: 'analysis_failed',
+      details: lastError?.message || 'openai_failed',
+      aurasRefunded: true
     })
   } catch (error) {
     console.error('Deep Analysis Enqueue Error:', error)
