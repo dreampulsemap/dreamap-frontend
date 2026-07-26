@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { useRouter } from 'next/router'
 import { useState, useEffect, useRef } from 'react'
 import { User, LogIn, Bell } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -6,6 +7,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 import TextSkeleton from '@/components/TextSkeleton'
+import { usePushSubscription } from '@/hooks/usePushSubscription'
 
 const SHOP_URL = 'https://shop.lunosfer.com'
 
@@ -24,6 +26,8 @@ const NAV_LABELS = {
 }
 
 export default function Navbar() {
+  const router = useRouter()
+  const { subscribe: subscribeToPush } = usePushSubscription()
   const [user, setUser] = useState(null)
   const [auras, setAuras] = useState(0)
   const [mana, setMana] = useState(0)
@@ -222,6 +226,7 @@ export default function Navbar() {
                 onClick={() => {
                   setNotifDropdownOpen((o) => !o)
                   if (!notifDropdownOpen && unreadCount > 0) markAllRead()
+                  subscribeToPush()
                 }}
                 aria-label={currentLang === 'tr' ? 'Bildirimler' : 'Notifications'}
                 className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
@@ -248,11 +253,20 @@ export default function Navbar() {
                         goal_comment: currentLang === 'tr' ? `${actorName} vizyonuna yorum yaptı 💬` : `${actorName} commented on your vision 💬`,
                         friend_request: currentLang === 'tr' ? `${actorName} sana arkadaşlık isteği gönderdi 👋` : `${actorName} sent you a friend request 👋`,
                         friend_accepted: currentLang === 'tr' ? `${actorName} isteğini kabul etti ✓` : `${actorName} accepted your request ✓`,
+                        analysis_ready: currentLang === 'tr' ? 'Derinlemesine analiziniz hazır ✨' : 'Your deep analysis is ready ✨',
+                        analysis_failed: currentLang === 'tr' ? 'Analiz oluşturulamadı, Auralarınız iade edildi' : 'Analysis failed, your auras were refunded',
                       }
+                      const clickable = (n.type === 'analysis_ready' || n.type === 'analysis_failed') && n.dream_id
                       return (
                         <div
                           key={n.id}
-                          className={`px-4 py-3 border-b border-white/5 text-sm ${n.is_read ? 'text-slate-400' : 'text-white bg-fuchsia-500/5'}`}
+                          onClick={() => {
+                            if (clickable) {
+                              setNotifDropdownOpen(false)
+                              router.push(`/dream/${n.dream_id}`)
+                            }
+                          }}
+                          className={`px-4 py-3 border-b border-white/5 text-sm ${n.is_read ? 'text-slate-400' : 'text-white bg-fuchsia-500/5'} ${clickable ? 'cursor-pointer hover:bg-white/5' : ''}`}
                         >
                           {messages[n.type] || n.type}
                           <p className="text-[10px] text-slate-600 mt-0.5">

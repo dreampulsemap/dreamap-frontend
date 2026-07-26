@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
+import { usePushSubscription } from '@/hooks/usePushSubscription'
 import Image from 'next/image'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from 'next/router'
@@ -40,8 +41,10 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showStoryMode, setShowStoryMode] = useState(false)
 
+  const { subscribe: subscribeToPush } = usePushSubscription()
   const [premiumAuras, setPremiumAuras] = useState(0)
   const [premiumGenerating, setPremiumGenerating] = useState(false)
+  const [premiumQueued, setPremiumQueued] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
   const [premiumError, setPremiumError] = useState('')
   const [premiumAnalysis, setPremiumAnalysis] = useState(dream?.premium_deep_analysis || null)
@@ -140,6 +143,13 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error(t.loginRequired || 'Please log in to continue')
+
+      // Bildirim izni bu an bağlamda anlamlı olduğu için burada isteniyor
+      // (sonucu bildirimle alacaklarını söylediğimiz an). Reddedilirse veya
+      // desteklenmiyorsa sessizce devam eder — kuyruk/uygulama-içi bildirim
+      // her durumda çalışır.
+      subscribeToPush()
+
       const res = await fetch('/api/generate-deep-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -160,11 +170,15 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
           : ''
         throw new Error(`${data.error || 'Failed'}${data.details ? ` (${data.details})` : ''}${failureDetail}`)
       }
-      setPremiumAnalysis(data.analysis)
-      setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
+
       setPremiumAuras(data.aurasLeft)
+      setPremiumQueued(true)
       setShowConfirmModal(false)
-      setShowAnalysisModal(true)
+      triggerToast(
+        currentLang === 'tr'
+          ? 'Analiziniz hazırlanıyor. Hazır olduğunda size bildirim göndereceğiz ✨'
+          : "We're preparing your analysis. We'll notify you when it's ready ✨"
+      )
     } catch (err) {
       setPremiumError(err.message)
       setShowConfirmModal(false)
