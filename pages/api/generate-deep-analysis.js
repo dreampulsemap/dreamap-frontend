@@ -100,21 +100,77 @@ function buildShape() {
   };
 }
 
+function collapseSpaces(str) {
+  let result = str;
+  while (result.indexOf('  ') !== -1) {
+    result = result.split('  ').join(' ');
+  }
+  return result;
+}
+
 function cleanText(text = '') {
-  return String(text).replace(/s+/g, ' ').trim();
+  const NEWLINE = String.fromCharCode(10);
+  const CARRIAGE = String.fromCharCode(13);
+  const TAB = String.fromCharCode(9);
+
+  const replaced = String(text)
+    .split(NEWLINE).join(' ')
+    .split(CARRIAGE).join(' ')
+    .split(TAB).join(' ');
+
+  return collapseSpaces(replaced).trim();
+}
+
+function textWordCount(text = '') {
+  return cleanText(text).split(' ').filter(Boolean).length;
+}
+
+function countParagraphs(text = '') {
+  const NEWLINE = String.fromCharCode(10);
+  const lines = String(text).split(NEWLINE);
+
+  let paragraphs = 0;
+  let inParagraph = false;
+
+  for (const line of lines) {
+    if (cleanText(line).length > 0) {
+      if (!inParagraph) {
+        paragraphs++;
+        inParagraph = true;
+      }
+    } else {
+      inParagraph = false;
+    }
+  }
+
+  return paragraphs;
+}
+
+function looksEnglishHeavy(text = '') {
+  const padded = ' ' + cleanText(text).toLowerCase() + ' ';
+  const englishMarkers = [
+    ' the ', ' and ', ' with ', ' dream ', ' shadow ', ' conflict ',
+    ' self ', ' fear ', ' mother ', ' father ', ' hidden ', ' need '
+  ];
+  return englishMarkers.some((marker) => padded.indexOf(marker) !== -1);
+}
+
+function hasAnyWord(text, words) {
+  const padded = ' ' + text + ' ';
+  return words.some((w) => padded.indexOf(' ' + w + ' ') !== -1);
 }
 
 function detectDreamLanguage(dreamText, requestedLang) {
   const text = cleanText(dreamText).toLowerCase();
 
-  if (/[çğıöşü]/.test(text) || /\b(ben|rüyamda|rüyada|kapı|evde|annem|babam|kaçıyordum|gördüm|yakalanıyordum)\b/.test(text)) return 'tr';
+  if (/[çğıöşü]/.test(text) || hasAnyWord(text, ['ben', 'rüyamda', 'rüyada', 'kapı', 'evde', 'annem', 'babam', 'kaçıyordum', 'gördüm', 'yakalanıyordum'])) return 'tr';
   if (/[а-яё]/.test(text)) return 'ru';
   if (/[ぁ-んァ-ン一-龯]/.test(text)) return 'ja';
-  if (/\b(el|la|los|las|soñé|sueño|casa|miedo|puerta)\b/.test(text)) return 'es';
-  if (/\b(le|la|les|rêve|maison|peur|porte|dans)\b/.test(text)) return 'fr';
-  if (/\b(der|die|das|ich|traum|haus|angst|tür)\b/.test(text)) return 'de';
-  if (/\b(o|a|os|as|sonho|casa|medo|porta|estava)\b/.test(text)) return 'pt';
-  if (/\b(the|dream|house|fear|mother|running|door|caught)\b/.test(text)) return 'en';
+  if (hasAnyWord(text, ['el', 'la', 'los', 'las', 'soñé', 'sueño', 'casa', 'miedo', 'puerta'])) return 'es';
+  if (hasAnyWord(text, ['le', 'la', 'les', 'rêve', 'maison', 'peur', 'porte', 'dans'])) return 'fr';
+  if (hasAnyWord(text, ['der', 'die', 'das', 'ich', 'traum', 'haus', 'angst', 'tür'])) return 'de';
+  if (hasAnyWord(text, ['o', 'a', 'os', 'as', 'sonho', 'casa', 'medo', 'porta', 'estava'])) return 'pt';
+  if (hasAnyWord(text, ['the', 'dream', 'house', 'fear', 'mother', 'running', 'door', 'caught'])) return 'en';
 
   return requestedLang && SUPPORTED_LANGS[requestedLang] ? requestedLang : 'en';
 }
@@ -262,21 +318,6 @@ function coerceAnalysisShape(data) {
   return merged;
 }
 
-function textWordCount(text = '') {
-  return cleanText(text).split(/s+/).filter(Boolean).length;
-}
-
-function countParagraphs(text = '') {
-  return String(text).split(/
-s*
-/).filter((p) => cleanText(p).length > 0).length;
-}
-
-function looksEnglishHeavy(text = '') {
-  const t = cleanText(text).toLowerCase();
-  return /\b(the|and|with|dream|shadow|conflict|self|fear|mother|father|hidden|need)\b/.test(t);
-}
-
 function validateAnalysisQuality(analysis, detectedLang) {
   const issues = [];
 
@@ -339,29 +380,20 @@ async function callOpenAICompatible({
   providerName,
   extraHeaders = {}
 }) {
-  const client = new OpenAI({
-    apiKey,
-    baseURL
-  });
+  const client = new OpenAI({ apiKey, baseURL });
 
   const response = await client.chat.completions.create({
     model,
     temperature: 0.9,
     response_format: { type: 'json_object' },
     messages: [
-      {
-        role: 'system',
-        content: 'Return only valid JSON. Respect all depth, structure, and language rules.'
-      },
-      {
-        role: 'user',
-        content: prompt
-      }
+      { role: 'system', content: 'Return only valid JSON. Respect all depth, structure, and language rules.' },
+      { role: 'user', content: prompt }
     ],
     extra_headers: extraHeaders
   });
 
-  const raw = response?.choices?.[0]?.message?.content;
+  const raw = response?.choices?.?.message?.content;
   if (!raw) throw new Error(`${providerName}_empty_response`);
 
   return { raw, parsed: coerceAnalysisShape(safeJsonParse(raw)) };
@@ -375,29 +407,20 @@ async function repairMalformedJson({
   rawOutput,
   extraHeaders = {}
 }) {
-  const client = new OpenAI({
-    apiKey,
-    baseURL
-  });
+  const client = new OpenAI({ apiKey, baseURL });
 
   const response = await client.chat.completions.create({
     model,
     temperature: 0.2,
     response_format: { type: 'json_object' },
     messages: [
-      {
-        role: 'system',
-        content: 'Repair malformed structured outputs into valid JSON only.'
-      },
-      {
-        role: 'user',
-        content: buildJsonRepairPrompt(rawOutput)
-      }
+      { role: 'system', content: 'Repair malformed structured outputs into valid JSON only.' },
+      { role: 'user', content: buildJsonRepairPrompt(rawOutput) }
     ],
     extra_headers: extraHeaders
   });
 
-  const raw = response?.choices?.[0]?.message?.content;
+  const raw = response?.choices?.?.message?.content;
   if (!raw) throw new Error(`${providerName}_json_repair_empty_response`);
 
   return { raw, parsed: coerceAnalysisShape(safeJsonParse(raw)) };
@@ -413,33 +436,20 @@ async function repromptForQuality({
   issues,
   extraHeaders = {}
 }) {
-  const client = new OpenAI({
-    apiKey,
-    baseURL
-  });
+  const client = new OpenAI({ apiKey, baseURL });
 
   const response = await client.chat.completions.create({
     model,
     temperature: 0.95,
     response_format: { type: 'json_object' },
     messages: [
-      {
-        role: 'system',
-        content: 'Return only repaired, high-quality JSON that strictly satisfies the schema.'
-      },
-      {
-        role: 'user',
-        content: buildRepairPrompt({
-          originalPrompt,
-          previousOutput,
-          issues
-        })
-      }
+      { role: 'system', content: 'Return only repaired, high-quality JSON that strictly satisfies the schema.' },
+      { role: 'user', content: buildRepairPrompt({ originalPrompt, previousOutput, issues }) }
     ],
     extra_headers: extraHeaders
   });
 
-  const raw = response?.choices?.[0]?.message?.content;
+  const raw = response?.choices?.?.message?.content;
   if (!raw) throw new Error(`${providerName}_repair_empty_response`);
 
   return { raw, parsed: coerceAnalysisShape(safeJsonParse(raw)) };
@@ -570,11 +580,7 @@ async function tryProvider(provider, detectedLang) {
     const firstQuality = validateAnalysisQuality(first.parsed, detectedLang);
 
     if (firstQuality.pass) {
-      return {
-        ok: true,
-        analysis: first.parsed,
-        provider: provider.name
-      };
+      return { ok: true, analysis: first.parsed, provider: provider.name };
     }
 
     const repaired = await repromptForQuality({
@@ -591,11 +597,7 @@ async function tryProvider(provider, detectedLang) {
     const repairedQuality = validateAnalysisQuality(repaired.parsed, detectedLang);
 
     if (repairedQuality.pass) {
-      return {
-        ok: true,
-        analysis: repaired.parsed,
-        provider: provider.name
-      };
+      return { ok: true, analysis: repaired.parsed, provider: provider.name };
     }
 
     return {
@@ -619,11 +621,7 @@ async function tryProvider(provider, detectedLang) {
         const repairedQuality = validateAnalysisQuality(jsonRepaired.parsed, detectedLang);
 
         if (repairedQuality.pass) {
-          return {
-            ok: true,
-            analysis: jsonRepaired.parsed,
-            provider: provider.name
-          };
+          return { ok: true, analysis: jsonRepaired.parsed, provider: provider.name };
         }
 
         return {
@@ -659,10 +657,7 @@ async function generateBestAnalysis(prompt, detectedLang) {
     const result = await tryProvider(provider, detectedLang);
 
     if (result.ok) {
-      return {
-        analysis: result.analysis,
-        provider: result.provider
-      };
+      return { analysis: result.analysis, provider: result.provider };
     }
 
     failures.push({
@@ -687,7 +682,7 @@ async function refundAuras(userId, amount) {
     throw new Error(`refund_failed: ${error.message}`);
   }
 
-  const refund = data?.[0];
+  const refund = data?.;
   if (!refund?.success) {
     throw new Error('refund_failed_user_not_found');
   }
@@ -707,15 +702,12 @@ async function generateImageIfPossible(visualPrompt) {
         Prefer: 'wait=15'
       },
       body: JSON.stringify({
-        input: {
-          prompt: visualPrompt,
-          aspect_ratio: '1:1'
-        }
+        input: { prompt: visualPrompt, aspect_ratio: '1:1' }
       })
     });
 
     const data = await rep.json();
-    return data?.output?.[0] || null;
+    return data?.output?. || null;
   } catch (e) {
     console.error('Flux Failed', e);
     return null;
@@ -729,9 +721,7 @@ export default async function handler(req, res) {
 
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
-    const {
-      data: { user }
-    } = await supabaseAdmin.auth.getUser(token);
+    const { data: { user } } = await supabaseAdmin.auth.getUser(token);
 
     if (!user) return res.status(401).json({ error: 'unauthorized' });
 
@@ -755,7 +745,7 @@ export default async function handler(req, res) {
 
     if (spendError) throw spendError;
 
-    const spend = spendResult?.[0];
+    const spend = spendResult?.;
     if (!spend?.success) {
       return res.status(402).json({ error: 'no_auras' });
     }
@@ -769,20 +759,19 @@ export default async function handler(req, res) {
       .order('premium_deep_analysis_generated_at', { ascending: false })
       .limit(3);
 
-    const pastContext =
-      pastDreams?.length
-        ? pastDreams
-            .map(
-              (d) =>
-                `Content: "${cleanText(d.content || '')}"
+    const pastContext = pastDreams?.length
+      ? pastDreams
+          .map(
+            (d) =>
+              `Content: "${cleanText(d.content || '')}"
 Shadow focus: "${cleanText(
-                  d.premium_deep_analysis?.shadow_focus || ''
-                )}"`
-            )
-            .join('
+                d.premium_deep_analysis?.shadow_focus || ''
+              )}"`
+          )
+          .join('
 ---
 ')
-        : 'No past history.';
+      : 'No past history.';
 
     const detectedLang = detectDreamLanguage(dream.content || '', lang);
 
