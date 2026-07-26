@@ -22,10 +22,10 @@ import { notifyAnalysisOutcome } from '@/lib/notify'
 
 export const config = { maxDuration: 60 }
 
-// Hobby planının 60sn sert tavanına yakın — OpenAI'ın uzun JSON çıktıyı
-// tamamlaması için yeterli süre. İki ayrı deneme yapacak bütçe yok (biri
-// bile bu süreye yakın sürebiliyor), o yüzden tek denemeye tüm bütçe veriliyor.
-const SYNC_DEADLINE_MS = 55_000
+// Metin analizi için ayrılan bütçe. Görsel üretimi artık bundan SONRA,
+// yanıttan ÖNCE await ediliyor — toplamı 60sn tavanın altında tutmak için
+// ikisine birden pay bırakacak şekilde küçültüldü.
+const SYNC_DEADLINE_MS = 30_000
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -143,20 +143,28 @@ export default async function handler(req, res) {
         lang
       }).catch((err) => console.error('notify error:', err.message))
 
-      // Görsel best-effort, yanıtı bekletmeden arka planda dener.
-      generateImageIfPossible(best.analysis.visual_prompt_en)
-        .then(async (imageUrl) => {
-          if (imageUrl) {
-            await supabaseAdmin.from('dreams').update({ ai_image_url: imageUrl }).eq('id', dreamId)
-          }
-        })
-        .catch((err) => console.error('image gen error:', err.message))
+      // Görsel üretimi artık yanıt dönmeden ÖNCE await ediliyor. Önceden
+      // yanıttan sonra fire-and-forget çalıştırılıyordu; Vercel serverless
+      // fonksiyonu yanıt gönderilir gönderilmez sonlandırdığı için görsel
+      // isteği çoğu zaman hiç tamamlanamıyordu. Best-effort olmaya devam
+      // ediyor: başarısız olursa analiz yine de kullanıcıya ulaşır, görsel
+      // eksik kalır.
+      let imageUrl = null
+      try {
+        imageUrl = await generateImageIfPossible(best.analysis.visual_prompt_en)
+        if (imageUrl) {
+          await supabaseAdmin.from('dreams').update({ ai_image_url: imageUrl }).eq('id', dreamId)
+        }
+      } catch (imageError) {
+        console.error('image gen error:', imageError.message)
+      }
 
       return res.status(200).json({
         ok: true,
         generated: true,
         analysis: best.analysis,
         provider: best.provider,
+        imageUrl,
         aurasLeft: spend.remaining
       })
     }
