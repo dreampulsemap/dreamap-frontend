@@ -288,7 +288,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
               : (isOwner ? t.getDeepAnalysis : t.giftDeepAnalysis)}
         </button>
 
-        {!premiumAnalysis && !effectiveDream.ai_image_url && (
+        {!effectiveDream.ai_image_url && (
             <button onClick={handleGenerateImageOnly} disabled={generatingImage} className="w-full bg-cyan-600 p-4 rounded-xl text-white font-bold mb-3 hover:bg-cyan-500 transition">
                 {generatingImage ? t.generatingImage : (isOwner ? t.generateImage : t.giftDreamImage)}
             </button>
