@@ -145,7 +145,12 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ dreamId: dream.id, lang: currentLang }),
       })
-      const data = await res.json()
+      let data
+      try {
+        data = await res.json()
+      } catch {
+        throw new Error(t.analysisTimeout || 'The analysis is taking longer than expected. Please try again in a moment.')
+      }
       if (!res.ok) throw new Error(data.error || 'Failed')
       setPremiumAnalysis(data.analysis)
       setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
