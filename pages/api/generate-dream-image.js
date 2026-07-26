@@ -8,6 +8,9 @@ const supabaseAdmin = createClient(
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// wait=20 senkron bekleme + olası polling (25sn'ye kadar) için yeterli süre.
+export const config = { maxDuration: 60 };
+
 const REPLICATE_MODEL_URL =
   'https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions';
 
@@ -188,6 +191,32 @@ ${originalSnippet}
   };
 }
 
+async function pollPrediction(getUrl, maxWaitMs = 25_000) {
+  const start = Date.now();
+
+  while (Date.now() - start < maxWaitMs) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const poll = await fetch(getUrl, {
+      headers: { Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}` }
+    });
+    const data = await poll.json();
+
+    if (data?.status === 'succeeded') {
+      if (Array.isArray(data?.output) && data.output[0]) return data.output[0];
+      if (typeof data?.output === 'string') return data.output;
+      throw new Error('Replicate succeeded but returned no output');
+    }
+
+    if (data?.status === 'failed' || data?.status === 'canceled') {
+      throw new Error(data?.error || `Replicate prediction ${data.status}`);
+    }
+    // status is 'starting' or 'processing' — keep polling
+  }
+
+  throw new Error('Replicate prediction timed out while polling');
+}
+
 async function generateWithReplicate(prompt, negativePrompt) {
   const rep = await fetch(REPLICATE_MODEL_URL, {
     method: 'POST',
@@ -221,6 +250,13 @@ async function generateWithReplicate(prompt, negativePrompt) {
 
   if (typeof data?.output === 'string') {
     return data.output;
+  }
+
+  // 'Prefer: wait=20' süresi içinde bitmediyse Replicate output'suz, 'processing'
+  // durumunda bir yanıt döner. Bu durumda hataya düşmek yerine prediction'ı
+  // kendi 'get' URL'inden polling ile takip edip bitmesini bekliyoruz.
+  if (data?.urls?.get && (data?.status === 'starting' || data?.status === 'processing')) {
+    return pollPrediction(data.urls.get);
   }
 
   throw new Error(data?.detail || 'Replicate did not return an image URL');
