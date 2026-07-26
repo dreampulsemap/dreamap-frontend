@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/generate-prophecy",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/process-deep-analysis",
+      "schedule": "30 6 * * *"
     }
   ]
 }
