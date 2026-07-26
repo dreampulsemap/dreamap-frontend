@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
-const CREDIT_COST = 1
+const AURA_COST = 2 // generate-dream-image.js'deki tekli görsel üretim maliyetiyle tutarlı
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -43,16 +43,19 @@ export default async function handler(req, res) {
       if (!cleanTitle) return res.status(400).json({ error: 'title_required' })
     }
 
-    // ATOMİK kredi düşüşü — generate-dream-image.js'deki SELECT-sonra-UPDATE
-    // TOCTOU deseni yerine (bkz. migration 005 notu).
-    const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_image_credits', {
+    // ATOMİK aura düşüşü — image_credits yerine Aura kullanıyoruz (kullanıcının
+    // zaten bol bulunan ve rüya analizi/görsel üretiminde alıştığı para birimi;
+    // image_credits ayrı ve neredeyse hiç bakiyesi olmayan bir sistemdi, kafa
+    // karıştırıyordu). generate-dream-image.js'deki TOCTOU deseni yerine
+    // (bkz. migration 005) atomik RPC kullanıyoruz.
+    const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
       p_user_id: user.id,
-      p_amount: CREDIT_COST,
+      p_amount: AURA_COST,
     })
     if (spendError) throw spendError
     const spend = spendResult?.[0]
     if (!spend?.success) {
-      return res.status(402).json({ error: 'insufficient_credits', cost: CREDIT_COST })
+      return res.status(402).json({ error: 'insufficient_auras', cost: AURA_COST })
     }
 
     const promptSubject = promptDescription
@@ -86,7 +89,7 @@ export default async function handler(req, res) {
         // İkisi de başarısız oldu — krediyi GERİ VER, kullanıcı karşılıksız harcamış olmasın.
         await supabaseAdmin
           .from('user_profiles')
-          .update({ image_credits: spend.remaining + CREDIT_COST })
+          .update({ premium_analysis_auras: spend.remaining + AURA_COST })
           .eq('id', user.id)
         return res.status(502).json({ error: 'image_generation_failed', details })
       }
@@ -101,11 +104,11 @@ export default async function handler(req, res) {
         .single()
 
       if (updateError) throw updateError
-      return res.status(200).json({ goal: updatedGoal, imageUrl, creditsLeft: spend.remaining })
+      return res.status(200).json({ goal: updatedGoal, imageUrl, aurasLeft: spend.remaining })
     }
 
     // Hedef henüz yok — sadece üretilen görseli döndür.
-    return res.status(200).json({ imageUrl, creditsLeft: spend.remaining })
+    return res.status(200).json({ imageUrl, aurasLeft: spend.remaining })
   } catch (error) {
     console.error('goals/generate-cover error:', error)
     return res.status(500).json({ error: error.message || 'internal_error' })
