@@ -26,7 +26,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   const [generatingCover, setGeneratingCover] = useState(false)
   const [coverError, setCoverError] = useState('')
 
-  const IMAGE_CREDIT_COST = 1
+  const AURA_COST = 2  // generate-cover.js ile aynı maliyet
 
   const isOwner = currentUserId && goal.user_id === currentUserId
 
@@ -54,8 +54,8 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
       })
       const json = await res.json()
       if (!res.ok) {
-        if (json.error === 'insufficient_credits') {
-          setCoverError(lang === 'tr' ? `Yetersiz görsel kredisi (${IMAGE_CREDIT_COST} gerekiyor).` : `Not enough image credits (need ${IMAGE_CREDIT_COST}).`)
+        if (json.error === 'insufficient_auras') {
+          setCoverError(lang === 'tr' ? `Yetersiz Aura (${AURA_COST} gerekiyor).` : `Not enough Auras (need ${AURA_COST}).`)
         } else if (json.error === 'image_generation_failed') {
           setCoverError(lang === 'tr' ? 'Görsel üretilemedi, kredi iade edildi.' : 'Image generation failed, credit refunded.')
         } else {
@@ -253,7 +253,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
               <ImageIcon size={14} />
               {generatingCover
                 ? (lang === 'tr' ? 'Görsel Üretiliyor...' : 'Generating Image...')
-                : (lang === 'tr' ? `AI Kapak Üret (${IMAGE_CREDIT_COST} Kredi)` : `Generate AI Cover (${IMAGE_CREDIT_COST} Credit)`)}
+                : (lang === 'tr' ? `AI Kapak Üret (${AURA_COST} Aura)` : `Generate AI Cover (${AURA_COST} Auras)`)}
             </button>
             {coverError && <p className="text-rose-400 text-xs mt-1.5">{coverError}</p>}
           </div>

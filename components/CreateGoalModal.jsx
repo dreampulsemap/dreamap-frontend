@@ -90,7 +90,7 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
       })
       const json = await res.json()
       if (!res.ok) {
-        if (json.error === 'insufficient_credits') setCoverError(t.coverInsufficientCredits)
+        if (json.error === 'insufficient_auras') setCoverError(t.coverInsufficientCredits)
         else if (json.error === 'image_generation_failed') setCoverError(t.coverGenerationFailed)
         else setCoverError(json.error || 'error')
         return
