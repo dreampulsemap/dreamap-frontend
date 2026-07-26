@@ -118,8 +118,13 @@ async function processDream(dream) {
 
     const deadlineAt = Date.now() + REQUEST_DEADLINE_MS
     const best = await generateBestAnalysis(prompt, detectedLang, deadlineAt)
-    const imageUrl = await generateImageIfPossible(best.analysis.visual_prompt_en)
 
+    // ÖNEMLİ: DB'yi 'generated' yapıp bildirimi HEMEN gönder — görsel üretimini
+    // (best-effort, 20sn'e kadar sürebilir) bundan SONRAYA bırak. Önceden görsel
+    // üretimi bildirimden önceydi; toplam süre 60sn'lik maxDuration sınırına çok
+    // yaklaşınca fonksiyon tam bildirim adımına gelirken sert şekilde
+    // öldürülebiliyordu — sonuç: DB'de 'generated' ama kullanıcıya hiç haber
+    // gitmemiş oluyordu. Şimdi bildirim, görsel beklenmeden garantiye alınıyor.
     const { error: updateError } = await supabaseAdmin
       .from('dreams')
       .update({
@@ -127,8 +132,7 @@ async function processDream(dream) {
         premium_deep_analysis_status: 'generated',
         premium_deep_analysis_generated_at: new Date().toISOString(),
         premium_deep_analysis_provider: best.provider,
-        premium_deep_analysis_error: null,
-        ai_image_url: imageUrl
+        premium_deep_analysis_error: null
       })
       .eq('id', dream.id)
 
@@ -140,6 +144,20 @@ async function processDream(dream) {
       status: 'generated',
       lang
     })
+
+    // Görsel best-effort: başarısız olursa ya da süre yetişmezse analiz yine de
+    // kullanıcıya ulaşmış olur, görsel eksik kalır (sonradan tamamlanabilir).
+    try {
+      const imageUrl = await generateImageIfPossible(best.analysis.visual_prompt_en)
+      if (imageUrl) {
+        await supabaseAdmin
+          .from('dreams')
+          .update({ ai_image_url: imageUrl })
+          .eq('id', dream.id)
+      }
+    } catch (imageError) {
+      console.error('process-deep-analysis: post-notify image generation failed:', dream.id, imageError.message)
+    }
 
     return { ok: true, dreamId: dream.id, provider: best.provider }
   } catch (e) {
