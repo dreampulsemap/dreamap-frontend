@@ -19,20 +19,17 @@ import { notifyAnalysisOutcome } from '@/lib/notify'
 // kalmaz, çünkü onu işleyecek bir arka plan mekanizması artık yok.
 // =====================================================================
 
-export const config = { maxDuration: 45 }
+export const config = { maxDuration: 60 }
 
-const SYNC_DEADLINE_MS = 20_000
-const RETRY_DEADLINE_MS = 15_000
-const RETRY_DELAY_MS = 1_500
+// Hobby planının 60sn sert tavanına yakın — OpenAI'ın uzun JSON çıktıyı
+// tamamlaması için yeterli süre. İki ayrı deneme yapacak bütçe yok (biri
+// bile bu süreye yakın sürebiliyor), o yüzden tek denemeye tüm bütçe veriliyor.
+const SYNC_DEADLINE_MS = 55_000
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 async function attemptAnalysis({ dream, lang, deadlineMs }) {
   const { data: pastDreams } = await supabaseAdmin
@@ -105,24 +102,15 @@ export default async function handler(req, res) {
       return res.status(402).json({ error: 'no_auras' })
     }
 
-    // ---- Deneme 1: doğrudan OpenAI, senkron ----
+    // ---- Tek deneme, tam bütçeyle ----
     let best = null
     let lastError = null
 
     try {
       best = await attemptAnalysis({ dream, lang, deadlineMs: SYNC_DEADLINE_MS })
-    } catch (firstError) {
-      lastError = firstError
-      console.error('generate-deep-analysis: 1st OpenAI attempt failed, retrying once:', firstError.message)
-
-      // ---- Deneme 2: kısa gecikmeden sonra tek seferlik retry ----
-      await sleep(RETRY_DELAY_MS)
-      try {
-        best = await attemptAnalysis({ dream, lang, deadlineMs: RETRY_DEADLINE_MS })
-        lastError = null
-      } catch (secondError) {
-        lastError = secondError
-      }
+    } catch (err) {
+      lastError = err
+      console.error('generate-deep-analysis: OpenAI attempt failed:', err.message)
     }
 
     if (best) {
@@ -167,8 +155,8 @@ export default async function handler(req, res) {
       })
     }
 
-    // ---- İki deneme de başarısız: 'pending'de takılı bırakma — direkt failed + iade ----
-    console.error('generate-deep-analysis: both OpenAI attempts failed:', lastError?.message)
+    // ---- Deneme başarısız: 'pending'de takılı bırakma — direkt failed + iade ----
+    console.error('generate-deep-analysis: OpenAI attempt failed:', lastError?.message)
 
     const refundResult = await supabaseAdmin.rpc('refund_auras', {
       p_user_id: user.id,
