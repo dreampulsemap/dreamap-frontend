@@ -3,6 +3,16 @@ import { createClient } from '@supabase/supabase-js';
 
 export const config = { maxDuration: 60 };
 
+// Tek bir LLM çağrısının bekleyebileceği azami süre. OpenAI SDK'nın varsayılanı
+// 10 dakika idi — bu, tek bir yavaş/donan sağlayıcının Vercel'in maxDuration
+// sınırını (60sn) sessizce aşmasına ve platformun JSON olmayan bir hata sayfası
+// döndürmesine (client tarafında "is not valid JSON" hatası) yol açıyordu.
+const PROVIDER_TIMEOUT_MS = 15_000;
+// Fonksiyonun toplam bütçesi: maxDuration'dan biraz düşük tutuluyor ki,
+// zaman aşımına yaklaşıldığında Vercel bizi ortadan kesmeden önce her zaman
+// düzgün bir JSON hata yanıtı dönebilelim.
+const REQUEST_DEADLINE_MS = 48_000;
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -380,7 +390,7 @@ async function callOpenAICompatible({
   providerName,
   extraHeaders = {}
 }) {
-  const client = new OpenAI({ apiKey, baseURL });
+  const client = new OpenAI({ apiKey, baseURL, timeout: PROVIDER_TIMEOUT_MS, maxRetries: 0 });
 
   const response = await client.chat.completions.create({
     model,
@@ -407,7 +417,7 @@ async function repairMalformedJson({
   rawOutput,
   extraHeaders = {}
 }) {
-  const client = new OpenAI({ apiKey, baseURL });
+  const client = new OpenAI({ apiKey, baseURL, timeout: PROVIDER_TIMEOUT_MS, maxRetries: 0 });
 
   const response = await client.chat.completions.create({
     model,
@@ -436,7 +446,7 @@ async function repromptForQuality({
   issues,
   extraHeaders = {}
 }) {
-  const client = new OpenAI({ apiKey, baseURL });
+  const client = new OpenAI({ apiKey, baseURL, timeout: PROVIDER_TIMEOUT_MS, maxRetries: 0 });
 
   const response = await client.chat.completions.create({
     model,
@@ -652,8 +662,14 @@ async function generateBestAnalysis(prompt, detectedLang) {
   if (!providers.length) throw new Error('no_llm_provider_configured');
 
   const failures = [];
+  const startedAt = Date.now();
 
   for (const provider of providers) {
+    if (Date.now() - startedAt > REQUEST_DEADLINE_MS) {
+      failures.push({ provider: provider.name, reason: 'skipped_time_budget_exhausted' });
+      break;
+    }
+
     const result = await tryProvider(provider, detectedLang);
 
     if (result.ok) {
@@ -693,6 +709,9 @@ async function refundAuras(userId, amount) {
 async function generateImageIfPossible(visualPrompt) {
   if (!process.env.REPLICATE_API_TOKEN || !visualPrompt) return null;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20_000);
+
   try {
     const rep = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions', {
       method: 'POST',
@@ -703,7 +722,8 @@ async function generateImageIfPossible(visualPrompt) {
       },
       body: JSON.stringify({
         input: { prompt: visualPrompt, aspect_ratio: '1:1' }
-      })
+      }),
+      signal: controller.signal
     });
 
     const data = await rep.json();
@@ -711,6 +731,8 @@ async function generateImageIfPossible(visualPrompt) {
   } catch (e) {
     console.error('Flux Failed', e);
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
