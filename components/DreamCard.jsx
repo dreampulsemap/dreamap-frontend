@@ -153,7 +153,10 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       }
       if (!res.ok) {
         const failureDetail = Array.isArray(data.failures) && data.failures.length
-          ? ' | ' + data.failures.map(f => `${f.provider}: ${f.reason}`).join(', ')
+          ? ' | ' + data.failures.map(f => {
+              const issues = Array.isArray(f.issues) && f.issues.length ? ` [${f.issues.join(', ')}]` : ''
+              return `${f.provider}: ${f.reason}${issues}`
+            }).join(', ')
           : ''
         throw new Error(`${data.error || 'Failed'}${data.details ? ` (${data.details})` : ''}${failureDetail}`)
       }
