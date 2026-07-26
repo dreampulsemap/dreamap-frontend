@@ -58,6 +58,44 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
     if (premiumQueued) return true
     return effectiveDream?.premium_deep_analysis_status === 'pending' || effectiveDream?.premium_deep_analysis_status === 'processing'
   }, [premiumAnalysis, effectiveDream, premiumQueued])
+  // Kuyrukta/işlemdeyken birkaç saniyede bir arka planda bitip bitmediğini
+  // kontrol et — aksi halde analiz tamamlansa bile kullanıcı sayfayı elle
+  // yenilemeden ne bildirim dışında bir değişiklik ne de "göster" butonunu görür.
+  useEffect(() => {
+    if (!isAnalysisPreparing) return
+
+    let active = true
+    const dreamId = dream.id
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/get-dream?id=${dreamId}`)
+        if (!active || !res.ok) return
+        const { dream: fresh } = await res.json()
+        if (!active || !fresh) return
+
+        if (fresh.premium_deep_analysis_status === 'generated' && fresh.premium_deep_analysis) {
+          setPremiumAnalysis(fresh.premium_deep_analysis)
+          setAnalysisOverride((prev) => ({ ...prev, ...fresh }))
+          setPremiumQueued(false)
+        } else if (fresh.premium_deep_analysis_status === 'failed') {
+          setPremiumError(fresh.premium_deep_analysis_error || t.analysisTimeout || 'Analysis failed')
+          setPremiumQueued(false)
+        }
+      } catch {
+        // sessizce geç, bir sonraki taramada tekrar denenecek
+      }
+    }
+
+    const intervalId = setInterval(poll, 6000)
+    poll()
+
+    return () => {
+      active = false
+      clearInterval(intervalId)
+    }
+  }, [isAnalysisPreparing, dream.id])
+
   const isOwner = useMemo(() => {
     // Ebeveyn sayfa zaten oturumu çözmüşse (currentUserId) buna güven —
     // bu, her kartın kendi başına asenkron auth sorgusu bitene kadar
