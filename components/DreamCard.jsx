@@ -215,9 +215,18 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       }
 
       setPremiumAuras(data.aurasLeft)
-      setPremiumQueued(true)
       setShowConfirmModal(false)
-      triggerToast(t.analysisQueuedToast)
+
+      if (data.generated && data.analysis) {
+        // PLAN A: analiz zaten bu yanıtla birlikte geldi — kuyruğa hiç girmedi.
+        setPremiumAnalysis(data.analysis)
+        setAnalysisOverride((prev) => ({ ...prev, premium_deep_analysis: data.analysis, premium_deep_analysis_status: 'generated' }))
+        setShowAnalysisModal(true)
+      } else {
+        // PLAN B: kuyruğa alındı, arka planda işlenecek.
+        setPremiumQueued(true)
+        triggerToast(t.analysisQueuedToast)
+      }
     } catch (err) {
       setPremiumError(err.message)
       setShowConfirmModal(false)
