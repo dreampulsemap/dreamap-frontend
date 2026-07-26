@@ -104,5 +104,51 @@ export default function DreamDetailPage() {
     )
   }
 
-  return <DreamAnalysisView dream={dream} lang="tr" />
+  // NOT: DreamAnalysisView `analysis` prop'u bekliyor, `dream` değil — önceden
+  // burada `dream={dream}` geçiliyordu, bu yüzden `analysis` hep undefined
+  // kalıp component sonsuza dek "yükleniyor" spinner'ı gösteriyordu (analiz
+  // DB'de tamamlanmış olsa bile). Push bildirimleri kullanıcıyı doğrudan bu
+  // sayfaya yönlendirdiği için etkisi büyüktü.
+  if (dream.premium_deep_analysis_status === 'pending' || dream.premium_deep_analysis_status === 'processing') {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#0D1018',
+          color: '#F8F5EF',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          fontSize: 18,
+        }}
+      >
+        <div>Analiziniz hazırlanıyor...</div>
+        <div style={{ fontSize: 13, opacity: 0.6 }}>Bu birkaç dakika sürebilir, bittiğinde bildirim gelecek.</div>
+      </div>
+    )
+  }
+
+  if (dream.premium_deep_analysis_status === 'failed') {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#0D1018',
+          color: '#F8F5EF',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+          textAlign: 'center',
+          fontSize: 18,
+        }}
+      >
+        Analiz oluşturulamadı. Auralarınız iade edildi, tekrar deneyebilirsiniz.
+      </div>
+    )
+  }
+
+  return <DreamAnalysisView analysis={dream.premium_deep_analysis} lang={dream.premium_deep_analysis_lang || 'tr'} />
 }
