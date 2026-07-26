@@ -399,9 +399,8 @@ async function callOpenAICompatible({
     messages: [
       { role: 'system', content: 'Return only valid JSON. Respect all depth, structure, and language rules.' },
       { role: 'user', content: prompt }
-    ],
-    extra_headers: extraHeaders
-  });
+    ]
+  }, { headers: extraHeaders });
 
   const raw = response?.choices?.[0]?.message?.content;
   if (!raw) throw new Error(`${providerName}_empty_response`);
@@ -426,9 +425,8 @@ async function repairMalformedJson({
     messages: [
       { role: 'system', content: 'Repair malformed structured outputs into valid JSON only.' },
       { role: 'user', content: buildJsonRepairPrompt(rawOutput) }
-    ],
-    extra_headers: extraHeaders
-  });
+    ]
+  }, { headers: extraHeaders });
 
   const raw = response?.choices?.[0]?.message?.content;
   if (!raw) throw new Error(`${providerName}_json_repair_empty_response`);
@@ -455,9 +453,8 @@ async function repromptForQuality({
     messages: [
       { role: 'system', content: 'Return only repaired, high-quality JSON that strictly satisfies the schema.' },
       { role: 'user', content: buildRepairPrompt({ originalPrompt, previousOutput, issues }) }
-    ],
-    extra_headers: extraHeaders
-  });
+    ]
+  }, { headers: extraHeaders });
 
   const raw = response?.choices?.[0]?.message?.content;
   if (!raw) throw new Error(`${providerName}_repair_empty_response`);
@@ -515,39 +512,6 @@ function getProviders(prompt) {
     });
   }
 
-  if (process.env.ZAI_API_KEY) {
-    providers.push({
-      name: 'zai',
-      baseURL: 'https://open.bigmodel.cn/api/paas/v4',
-      apiKey: process.env.ZAI_API_KEY,
-      model: 'glm-4.5-air',
-      extraHeaders: {},
-      prompt
-    });
-  }
-
-  if (process.env.MISTRAL_API_KEY) {
-    providers.push({
-      name: 'mistral',
-      baseURL: 'https://api.mistral.ai/v1',
-      apiKey: process.env.MISTRAL_API_KEY,
-      model: 'mistral-small-latest',
-      extraHeaders: {},
-      prompt
-    });
-  }
-
-  if (process.env.COHERE_API_KEY) {
-    providers.push({
-      name: 'cohere',
-      baseURL: 'https://api.cohere.ai/compatibility/v1',
-      apiKey: process.env.COHERE_API_KEY,
-      model: 'command-r-plus',
-      extraHeaders: {},
-      prompt
-    });
-  }
-
   if (process.env.GITHUB_MODELS_TOKEN) {
     providers.push({
       name: 'github_models',
@@ -564,7 +528,7 @@ function getProviders(prompt) {
       name: 'nvidia_nim',
       baseURL: 'https://integrate.api.nvidia.com/v1',
       apiKey: process.env.NVIDIA_NIM_API_KEY,
-      model: 'meta/llama-3.3-70b-instruct',
+      model: 'meta/llama-3.1-8b-instruct',
       extraHeaders: {},
       prompt
     });
