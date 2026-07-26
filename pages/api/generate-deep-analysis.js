@@ -393,7 +393,7 @@ async function callOpenAICompatible({
     extra_headers: extraHeaders
   });
 
-  const raw = response?.choices?.?.message?.content;
+  const raw = response?.choices?.[0]?.message?.content;
   if (!raw) throw new Error(`${providerName}_empty_response`);
 
   return { raw, parsed: coerceAnalysisShape(safeJsonParse(raw)) };
@@ -420,7 +420,7 @@ async function repairMalformedJson({
     extra_headers: extraHeaders
   });
 
-  const raw = response?.choices?.?.message?.content;
+  const raw = response?.choices?.[0]?.message?.content;
   if (!raw) throw new Error(`${providerName}_json_repair_empty_response`);
 
   return { raw, parsed: coerceAnalysisShape(safeJsonParse(raw)) };
@@ -449,7 +449,7 @@ async function repromptForQuality({
     extra_headers: extraHeaders
   });
 
-  const raw = response?.choices?.?.message?.content;
+  const raw = response?.choices?.[0]?.message?.content;
   if (!raw) throw new Error(`${providerName}_repair_empty_response`);
 
   return { raw, parsed: coerceAnalysisShape(safeJsonParse(raw)) };
