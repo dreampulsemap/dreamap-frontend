@@ -138,14 +138,21 @@ export default function DreamDetailPage() {
           background: '#0D1018',
           color: '#F8F5EF',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: 10,
           padding: 24,
           textAlign: 'center',
           fontSize: 18,
         }}
       >
-        Analiz oluşturulamadı. Auralarınız iade edildi, tekrar deneyebilirsiniz.
+        <div>Analiz oluşturulamadı. Auralarınız iade edildi, tekrar deneyebilirsiniz.</div>
+        {dream.premium_deep_analysis_error && (
+          <div style={{ fontSize: 13, opacity: 0.6, maxWidth: 480 }}>
+            Sebep: {dream.premium_deep_analysis_error}
+          </div>
+        )}
       </div>
     )
   }
