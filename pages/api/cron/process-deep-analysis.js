@@ -3,7 +3,7 @@ import {
   cleanText,
   detectDreamLanguage,
   buildPrompt,
-  generateBestAnalysis,
+  generateWithOpenAIOnly,
   generateImageIfPossible,
   REQUEST_DEADLINE_MS
 } from '@/lib/deepAnalysisEngine'
@@ -117,7 +117,7 @@ async function processDream(dream) {
     })
 
     const deadlineAt = Date.now() + REQUEST_DEADLINE_MS
-    const best = await generateBestAnalysis(prompt, detectedLang, deadlineAt)
+    const best = await generateWithOpenAIOnly(prompt, detectedLang, deadlineAt)
 
     // ÖNEMLİ: DB'yi 'generated' yapıp bildirimi HEMEN gönder — görsel üretimini
     // (best-effort, 20sn'e kadar sürebilir) bundan SONRAYA bırak. Önceden görsel
