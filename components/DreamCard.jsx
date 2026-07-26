@@ -151,7 +151,12 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       } catch {
         throw new Error(t.analysisTimeout || 'The analysis is taking longer than expected. Please try again in a moment.')
       }
-      if (!res.ok) throw new Error(data.error || 'Failed')
+      if (!res.ok) {
+        const failureDetail = Array.isArray(data.failures) && data.failures.length
+          ? ' | ' + data.failures.map(f => `${f.provider}: ${f.reason}`).join(', ')
+          : ''
+        throw new Error(`${data.error || 'Failed'}${data.details ? ` (${data.details})` : ''}${failureDetail}`)
+      }
       setPremiumAnalysis(data.analysis)
       setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
       setPremiumAuras(data.aurasLeft)
