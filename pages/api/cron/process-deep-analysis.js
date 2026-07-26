@@ -5,6 +5,7 @@ import {
   buildPrompt,
   generateWithOpenAIOnly,
   generateImageIfPossible,
+  isSupportedLang,
   REQUEST_DEADLINE_MS
 } from '@/lib/deepAnalysisEngine'
 import { notifyAnalysisOutcome } from '@/lib/notify'
@@ -108,7 +109,9 @@ async function processDream(dream) {
           .join('\n---\n')
       : 'No past history.'
 
-    const detectedLang = detectDreamLanguage(dream.content || '', lang)
+    const detectedLang = isSupportedLang(dream.original_language)
+      ? dream.original_language
+      : detectDreamLanguage(dream.content || '', lang)
 
     const prompt = buildPrompt({
       dreamContent: cleanText(dream.content || ''),
