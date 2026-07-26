@@ -11,12 +11,25 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const REPLICATE_MODEL_URL =
   'https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions';
 
+function collapseSpaces(str) {
+  let result = str;
+  while (result.indexOf('  ') !== -1) {
+    result = result.split('  ').join(' ');
+  }
+  return result;
+}
+
 function cleanDreamText(text = '') {
-  return String(text)
-    .replace(/s+/g, ' ')
-    .replace(/[^S
-]+/g, ' ')
-    .trim();
+  const NEWLINE = String.fromCharCode(10);
+  const CARRIAGE = String.fromCharCode(13);
+  const TAB = String.fromCharCode(9);
+
+  const replaced = String(text)
+    .split(NEWLINE).join(' ')
+    .split(CARRIAGE).join(' ')
+    .split(TAB).join(' ');
+
+  return collapseSpaces(replaced).trim();
 }
 
 function truncateText(text = '', max = 1800) {
@@ -230,6 +243,24 @@ async function generateWithOpenAI(prompt) {
   return imageUrl;
 }
 
+async function refundAuras(userId, amount) {
+  const { data, error } = await supabaseAdmin.rpc('refund_auras', {
+    p_user_id: userId,
+    p_amount: amount
+  });
+
+  if (error) {
+    throw new Error(`refund_failed: ${error.message}`);
+  }
+
+  const refund = data?.[0];
+  if (!refund?.success) {
+    throw new Error('refund_failed_user_not_found');
+  }
+
+  return refund.remaining;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -269,22 +300,34 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'dream_content_empty' });
     }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('user_profiles')
-      .select('premium_analysis_auras')
-      .eq('id', user.id)
-      .single();
+    const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
+      p_user_id: user.id,
+      p_amount: 2
+    });
 
-    if (profileError || !profile) {
-      return res.status(404).json({ error: 'profile_not_found' });
-    }
+    if (spendError) throw spendError;
 
-    const currentAuras = Number(profile?.premium_analysis_auras || 0);
-    if (currentAuras < 2) {
+    const spend = spendResult?.[0];
+    if (!spend?.success) {
       return res.status(402).json({ error: 'no_auras' });
     }
 
-    const scene = await extractDreamScene(dream.content);
+    let scene;
+    try {
+      scene = await extractDreamScene(dream.content);
+    } catch (sceneError) {
+      try {
+        await refundAuras(user.id, 2);
+      } catch (refundError) {
+        console.error('Refund Error:', refundError);
+      }
+
+      return res.status(502).json({
+        error: 'scene_extraction_failed',
+        details: sceneError.message
+      });
+    }
+
     const { prompt, negativePrompt } = buildImagePrompt(scene, dream.content);
 
     let imageUrl = null;
@@ -305,26 +348,18 @@ export default async function handler(req, res) {
         imageUrl = await generateWithOpenAI(prompt);
         provider = 'openai_dalle_3';
       } catch (err) {
+        try {
+          await refundAuras(user.id, 2);
+        } catch (refundError) {
+          console.error('Refund Error:', refundError);
+        }
+
         const details = generationError?.message || err?.message || 'unknown_generation_error';
         return res.status(502).json({
           error: 'image_generation_failed',
           details
         });
       }
-    }
-
-    const nextAuras = currentAuras - 2;
-
-    const { error: updateProfileError } = await supabaseAdmin
-      .from('user_profiles')
-      .update({ premium_analysis_auras: nextAuras })
-      .eq('id', user.id);
-
-    if (updateProfileError) {
-      return res.status(500).json({
-        error: 'failed_to_update_auras',
-        details: updateProfileError.message
-      });
     }
 
     const { error: updateDreamError } = await supabaseAdmin
@@ -335,6 +370,12 @@ export default async function handler(req, res) {
       .eq('id', dreamId);
 
     if (updateDreamError) {
+      try {
+        await refundAuras(user.id, 2);
+      } catch (refundError) {
+        console.error('Refund Error:', refundError);
+      }
+
       return res.status(500).json({
         error: 'failed_to_save_image_url',
         details: updateDreamError.message
@@ -344,7 +385,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       imageUrl,
-      aurasLeft: nextAuras,
+      aurasLeft: spend.remaining,
       provider,
       promptPreview: prompt.slice(0, 700),
       scene
