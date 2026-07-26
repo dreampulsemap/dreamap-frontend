@@ -5,57 +5,354 @@ const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+const REPLICATE_MODEL_URL =
+  'https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions';
+
+function cleanDreamText(text = '') {
+  return String(text)
+    .replace(/s+/g, ' ')
+    .replace(/[^S
+]+/g, ' ')
+    .trim();
+}
+
+function truncateText(text = '', max = 1800) {
+  if (!text) return '';
+  return text.length <= max ? text : `${text.slice(0, max)}...`;
+}
+
+async function extractDreamScene(dreamContent) {
+  const cleaned = truncateText(cleanDreamText(dreamContent), 1800);
+
+  const response = await openai.responses.create({
+    model: 'gpt-4.1-mini',
+    input: [
+      {
+        role: 'system',
+        content: `
+You convert dream narratives into image-safe, scene-faithful structured outputs.
+
+Your job:
+- Read the user's dream narrative.
+- Identify the SINGLE most vivid visual moment.
+- Preserve concrete setting, actions, characters, emotional tone, and dreamlike distortions.
+- Avoid generic fantasy replacements unless the dream explicitly contains them.
+- Do NOT add castles, temples, heavenly clouds, cosmic scenes, wings, floating islands, or glowing portals unless explicitly described.
+- Prefer realistic environments with subtle surreal distortion if the dream is grounded.
+- Output strict JSON only.
+
+JSON schema:
+{
+  "scene_title": string,
+  "primary_scene": string,
+  "setting": string,
+  "characters": string,
+  "action": string,
+  "mood": string,
+  "visual_symbols": string[],
+  "style_guidance": string,
+  "negative_elements": string[],
+  "composition_notes": string
+}
+        `.trim()
+      },
+      {
+        role: 'user',
+        content: `Dream narrative:
+${cleaned}`
+      }
+    ],
+    text: {
+      format: {
+        type: 'json_schema',
+        name: 'dream_scene_extraction',
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            scene_title: { type: 'string' },
+            primary_scene: { type: 'string' },
+            setting: { type: 'string' },
+            characters: { type: 'string' },
+            action: { type: 'string' },
+            mood: { type: 'string' },
+            visual_symbols: {
+              type: 'array',
+              items: { type: 'string' }
+            },
+            style_guidance: { type: 'string' },
+            negative_elements: {
+              type: 'array',
+              items: { type: 'string' }
+            },
+            composition_notes: { type: 'string' }
+          },
+          required: [
+            'scene_title',
+            'primary_scene',
+            'setting',
+            'characters',
+            'action',
+            'mood',
+            'visual_symbols',
+            'style_guidance',
+            'negative_elements',
+            'composition_notes'
+          ]
+        }
+      }
+    }
+  });
+
+  const raw = response.output_text || '{}';
+  return JSON.parse(raw);
+}
+
+function buildImagePrompt(scene, originalDream) {
+  const symbols = Array.isArray(scene.visual_symbols) && scene.visual_symbols.length
+    ? scene.visual_symbols.join(', ')
+    : 'subtle dreamlike details';
+
+  const negativeElements = Array.isArray(scene.negative_elements) && scene.negative_elements.length
+    ? scene.negative_elements.join(', ')
+    : 'castles, temples, heavenly clouds, floating islands, angelic light rays, abstract fantasy landscapes';
+
+  const originalSnippet = truncateText(cleanDreamText(originalDream), 600);
+
+  const prompt = `
+Create a single cinematic image that faithfully represents the most vivid moment from this dream.
+
+SCENE TITLE:
+${scene.scene_title}
+
+PRIMARY SCENE:
+${scene.primary_scene}
+
+SETTING:
+${scene.setting}
+
+CHARACTERS:
+${scene.characters}
+
+ACTION:
+${scene.action}
+
+MOOD:
+${scene.mood}
+
+VISUAL SYMBOLS:
+${symbols}
+
+COMPOSITION:
+${scene.composition_notes}
+
+STYLE:
+${scene.style_guidance}
+
+IMPORTANT RULES:
+- Stay faithful to the dream's literal events.
+- Prefer concrete environments over generic fantasy scenery.
+- If the dream is realistic, keep it realistic with only subtle surreal distortion.
+- Show narrative tension and recognizably human action.
+- Do not replace the dream with an unrelated mystical landscape.
+- Avoid symbolic over-interpretation unless visually grounded in the dream.
+- No text, watermark, logo, frame, collage, split panel, or multiple scenes in one image.
+- One coherent moment only.
+
+NEGATIVE PROMPT:
+${negativeElements}
+
+ORIGINAL DREAM FOR REFERENCE:
+${originalSnippet}
+  `.trim();
+
+  return {
+    prompt,
+    negativePrompt: negativeElements
+  };
+}
+
+async function generateWithReplicate(prompt, negativePrompt) {
+  const rep = await fetch(REPLICATE_MODEL_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+      'Content-Type': 'application/json',
+      Prefer: 'wait=20'
+    },
+    body: JSON.stringify({
+      input: {
+        prompt,
+        aspect_ratio: '1:1',
+        output_format: 'jpg',
+        output_quality: 90,
+        go_fast: true,
+        prompt_strength: 0.8,
+        negative_prompt: negativePrompt
+      }
+    })
+  });
+
+  const data = await rep.json();
+
+  if (!rep.ok) {
+    throw new Error(data?.detail || data?.error || JSON.stringify(data));
+  }
+
+  if (Array.isArray(data?.output) && data.output[0]) {
+    return data.output[0];
+  }
+
+  if (typeof data?.output === 'string') {
+    return data.output;
+  }
+
+  throw new Error(data?.detail || 'Replicate did not return an image URL');
+}
+
+async function generateWithOpenAI(prompt) {
+  const image = await openai.images.generate({
+    model: 'dall-e-3',
+    prompt,
+    n: 1,
+    size: '1024x1024',
+    quality: 'standard'
+  });
+
+  const imageUrl = image?.data?.[0]?.url;
+  if (!imageUrl) {
+    throw new Error('OpenAI did not return an image URL');
+  }
+
+  return imageUrl;
+}
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
-    const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-    if (!user) return res.status(401).json({ error: 'unauthorized' });
-
-    const { dreamId } = req.body;
-    const { data: dream } = await supabaseAdmin.from('dreams').select('*').eq('id', dreamId).single();
-    if (!dream) return res.status(404).json({ error: 'dream_not_found' });
-
-    // Aura Kontrolü
-    const { data: profile } = await supabaseAdmin.from('user_profiles').select('premium_analysis_auras').eq('id', user.id).single();
-    if (Number(profile?.premium_analysis_auras || 0) < 2) return res.status(402).json({ error: 'no_auras' });
-
-    const prompt = `A breathtaking dreamscape scene: ${dream.content.slice(0, 200)}, mystical surrealism, cinematic lighting, masterpiece, high-art.`;
-    let imageUrl = null;
-    let details = "Unknown error";
-
-    // PLAN A: Replicate (Flux)
-    try {
-        const rep = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${process.env.REPLICATE_API_TOKEN}`, 'Content-Type': 'application/json', 'Prefer': 'wait=15' },
-            body: JSON.stringify({ input: { prompt, aspect_ratio: "1:1" } })
-        });
-        const data = await rep.json();
-        if (data.output) imageUrl = data.output[0];
-        else details = data.detail || JSON.stringify(data);
-    } catch (e) { details = e.message; }
-
-    // PLAN B: OpenAI DALL-E 3 (Fallback)
-    if (!imageUrl) {
-        try {
-            const image = await openai.images.generate({ model: "dall-e-3", prompt, n: 1, size: "1024x1024" });
-            imageUrl = image.data[0].url;
-        } catch (e) {
-            return res.status(502).json({ error: 'image_generation_failed', details: details });
-        }
+    if (!token) {
+      return res.status(401).json({ error: 'unauthorized' });
     }
 
-    // Başarılı ise veritabanını güncelle ve Aura düş
-    const nextAuras = profile.premium_analysis_auras - 2;
-    await supabaseAdmin.from('user_profiles').update({ premium_analysis_auras: nextAuras }).eq('id', user.id);
-    await supabaseAdmin.from('dreams').update({ ai_image_url: imageUrl }).eq('id', dreamId);
+    const {
+      data: { user },
+      error: authError
+    } = await supabaseAdmin.auth.getUser(token);
 
-    return res.status(200).json({ ok: true, imageUrl, aurasLeft: nextAuras });
+    if (authError || !user) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
+
+    const { dreamId } = req.body || {};
+    if (!dreamId) {
+      return res.status(400).json({ error: 'dream_id_required' });
+    }
+
+    const { data: dream, error: dreamError } = await supabaseAdmin
+      .from('dreams')
+      .select('*')
+      .eq('id', dreamId)
+      .single();
+
+    if (dreamError || !dream) {
+      return res.status(404).json({ error: 'dream_not_found' });
+    }
+
+    if (!dream.content || !String(dream.content).trim()) {
+      return res.status(400).json({ error: 'dream_content_empty' });
+    }
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .select('premium_analysis_auras')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(404).json({ error: 'profile_not_found' });
+    }
+
+    const currentAuras = Number(profile?.premium_analysis_auras || 0);
+    if (currentAuras < 2) {
+      return res.status(402).json({ error: 'no_auras' });
+    }
+
+    const scene = await extractDreamScene(dream.content);
+    const { prompt, negativePrompt } = buildImagePrompt(scene, dream.content);
+
+    let imageUrl = null;
+    let provider = null;
+    let generationError = null;
+
+    if (process.env.REPLICATE_API_TOKEN) {
+      try {
+        imageUrl = await generateWithReplicate(prompt, negativePrompt);
+        provider = 'replicate_flux_schnell';
+      } catch (err) {
+        generationError = err;
+      }
+    }
+
+    if (!imageUrl) {
+      try {
+        imageUrl = await generateWithOpenAI(prompt);
+        provider = 'openai_dalle_3';
+      } catch (err) {
+        const details = generationError?.message || err?.message || 'unknown_generation_error';
+        return res.status(502).json({
+          error: 'image_generation_failed',
+          details
+        });
+      }
+    }
+
+    const nextAuras = currentAuras - 2;
+
+    const { error: updateProfileError } = await supabaseAdmin
+      .from('user_profiles')
+      .update({ premium_analysis_auras: nextAuras })
+      .eq('id', user.id);
+
+    if (updateProfileError) {
+      return res.status(500).json({
+        error: 'failed_to_update_auras',
+        details: updateProfileError.message
+      });
+    }
+
+    const { error: updateDreamError } = await supabaseAdmin
+      .from('dreams')
+      .update({
+        ai_image_url: imageUrl
+      })
+      .eq('id', dreamId);
+
+    if (updateDreamError) {
+      return res.status(500).json({
+        error: 'failed_to_save_image_url',
+        details: updateDreamError.message
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      imageUrl,
+      aurasLeft: nextAuras,
+      provider,
+      promptPreview: prompt.slice(0, 700),
+      scene
+    });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      error: 'internal_server_error',
+      details: error.message
+    });
   }
 }
