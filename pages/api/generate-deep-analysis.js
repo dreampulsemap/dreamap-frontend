@@ -4,7 +4,8 @@ import {
   detectDreamLanguage,
   buildPrompt,
   generateWithOpenAIOnly,
-  generateImageIfPossible
+  generateImageIfPossible,
+  isSupportedLang
 } from '@/lib/deepAnalysisEngine'
 import { notifyAnalysisOutcome } from '@/lib/notify'
 
@@ -50,7 +51,12 @@ async function attemptAnalysis({ dream, lang, deadlineMs }) {
         .join('\n---\n')
     : 'No past history.'
 
-  const detectedLang = detectDreamLanguage(dream.content || '', lang)
+  // Rüya kaydedilirken 'original_language' zaten Supabase'e yazılıyor
+  // (submit-dream.js) — içerikten tahmin etmek yerine önce ona bakıyoruz.
+  // Sadece eksik/desteklenmeyen bir değerse içerik bazlı tahmine düşüyoruz.
+  const detectedLang = isSupportedLang(dream.original_language)
+    ? dream.original_language
+    : detectDreamLanguage(dream.content || '', lang)
 
   const prompt = buildPrompt({
     dreamContent: cleanText(dream.content || ''),
@@ -78,7 +84,7 @@ export default async function handler(req, res) {
 
     const { data: dream, error: dreamError } = await supabaseAdmin
       .from('dreams')
-      .select('id, user_id, content, premium_deep_analysis_status')
+      .select('id, user_id, content, premium_deep_analysis_status, original_language')
       .eq('id', dreamId)
       .single()
 
