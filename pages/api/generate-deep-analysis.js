@@ -768,9 +768,7 @@ Shadow focus: "${cleanText(
                 d.premium_deep_analysis?.shadow_focus || ''
               )}"`
           )
-          .join('
----
-')
+          .join('\n---\n')
       : 'No past history.';
 
     const detectedLang = detectDreamLanguage(dream.content || '', lang);
