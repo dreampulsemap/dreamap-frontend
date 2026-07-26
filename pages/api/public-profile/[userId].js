@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     // yanlış varsayımla gizlilik açığı açmaktansa güvenli tarafta kalıyoruz.
     const { data: dreams, error: dreamsError } = await supabaseAdmin
       .from('dreams')
-      .select('id, user_id, content, ai_image_url, ai_sentiment, ai_archetypes, likes_count, comments_count, created_at, premium_deep_analysis')
+      .select('id, user_id, content, ai_image_url, ai_sentiment, ai_archetypes, likes_count, comments_count, created_at, premium_deep_analysis, premium_deep_analysis_status')
       .eq('user_id', userId)
       .eq('visibility', 'public')
       .eq('in_feed', true)
