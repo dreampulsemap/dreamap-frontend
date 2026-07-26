@@ -682,7 +682,7 @@ async function refundAuras(userId, amount) {
     throw new Error(`refund_failed: ${error.message}`);
   }
 
-  const refund = data?.;
+  const refund = data?.[0];
   if (!refund?.success) {
     throw new Error('refund_failed_user_not_found');
   }
@@ -707,7 +707,7 @@ async function generateImageIfPossible(visualPrompt) {
     });
 
     const data = await rep.json();
-    return data?.output?. || null;
+    return data?.output?.[0] || null;
   } catch (e) {
     console.error('Flux Failed', e);
     return null;
@@ -745,7 +745,7 @@ export default async function handler(req, res) {
 
     if (spendError) throw spendError;
 
-    const spend = spendResult?.;
+    const spend = spendResult?.[0];
     if (!spend?.success) {
       return res.status(402).json({ error: 'no_auras' });
     }
