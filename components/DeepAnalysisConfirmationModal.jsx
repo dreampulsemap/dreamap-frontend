@@ -11,6 +11,7 @@ export default function DeepAnalysisConfirmationModal({
   lang,
   gumroadUrl,
   isGift = false,
+  isGenerating = false,
 }) {
   const modalRef = useRef(null)
   useModalA11y(modalRef, isOpen ? onClose : null)
@@ -22,7 +23,7 @@ export default function DeepAnalysisConfirmationModal({
       className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
       role="dialog"
       aria-modal="true"
-      onClick={onClose}
+      onClick={isGenerating ? undefined : onClose}
     >
       <div
         ref={modalRef}
@@ -32,8 +33,9 @@ export default function DeepAnalysisConfirmationModal({
         {/* KAPATMA BUTONU */}
         <button
           onClick={onClose}
+          disabled={isGenerating}
           aria-label={lang === 'tr' ? 'Kapat' : 'Close'}
-          className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white transition-colors"
+          className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <X size={20} />
         </button>
@@ -92,10 +94,18 @@ export default function DeepAnalysisConfirmationModal({
 
           {auras >= 8 ? (
             <button
-              onClick={onConfirm}
-              className="w-full inline-flex min-h-[50px] items-center justify-center rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-3.5 text-sm font-bold text-white transition hover:scale-[1.01] hover:brightness-110 shadow-[0_0_20px_rgba(240,73,214,0.3)]"
+              onClick={isGenerating ? undefined : onConfirm}
+              disabled={isGenerating}
+              className="w-full inline-flex min-h-[50px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-3.5 text-sm font-bold text-white transition hover:scale-[1.01] hover:brightness-110 shadow-[0_0_20px_rgba(240,73,214,0.3)] disabled:opacity-80 disabled:hover:scale-100"
             >
-              {isGift ? t.startGiftAnalysisLabel : t.startAnalysisLabel}
+              {isGenerating ? (
+                <>
+                  <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                  {t.generatingAnalysis}
+                </>
+              ) : (
+                isGift ? t.startGiftAnalysisLabel : t.startAnalysisLabel
+              )}
             </button>
           ) : (
             <div className="space-y-3">

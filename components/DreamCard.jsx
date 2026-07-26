@@ -134,7 +134,8 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   }
 
   const handlePremiumAnalysisExecute = async () => {
-    setShowConfirmModal(false)
+    if (premiumGenerating) return
+    setPremiumError('')
     setPremiumGenerating(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -149,9 +150,11 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       setPremiumAnalysis(data.analysis)
       setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
       setPremiumAuras(data.aurasLeft)
+      setShowConfirmModal(false)
       setShowAnalysisModal(true)
     } catch (err) {
       setPremiumError(err.message)
+      setShowConfirmModal(false)
     } finally {
       setPremiumGenerating(false)
     }
@@ -185,7 +188,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
         {premiumError && <p className="text-red-500 text-xs mb-4">{premiumError}</p>}
       </article>
 
-      {showConfirmModal && <DeepAnalysisConfirmationModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} auras={premiumAuras} onConfirm={handlePremiumAnalysisExecute} lang={currentLang} gumroadUrl={GUMROAD_PRODUCT_URL} isGift={!isOwner} />}
+      {showConfirmModal && <DeepAnalysisConfirmationModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} auras={premiumAuras} onConfirm={handlePremiumAnalysisExecute} lang={currentLang} gumroadUrl={GUMROAD_PRODUCT_URL} isGift={!isOwner} isGenerating={premiumGenerating} />}
       {showAnalysisModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setShowAnalysisModal(false)}>
            <DeepAnalysisCarouselModal isOpen={showAnalysisModal} onClose={() => setShowAnalysisModal(false)} premiumAnalysis={premiumAnalysis || effectiveDream?.premium_deep_analysis} lang={currentLang} dreamTitle={dream.ai_title} dreamContent={translated ? translatedContent : dream.content} dreamImage={effectiveDream.ai_image_url} dreamId={dream.id} onGenerateImageOnly={handleGenerateImageOnly} generatingImage={generatingImage} premiumError={premiumError} translateArchetype={translateArchetype} onOpenStoryMode={() => setShowStoryMode(true)} />
