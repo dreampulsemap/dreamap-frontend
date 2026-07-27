@@ -8,11 +8,24 @@ const supabaseAdmin = createClient(
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// wait=20 senkron bekleme + olası polling (25sn'ye kadar) için yeterli süre.
 export const config = { maxDuration: 60 };
 
 const REPLICATE_MODEL_URL =
   'https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions';
+
+// Bağlantı kopmaları veya geçici ağ hatalarına karşı yeniden deneme (retry) mekanizması
+async function fetchWithRetry(url, options = {}, retries = 3, backoff = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok || res.status < 500) return res;
+      if (i === retries - 1) return res;
+    } catch (err) {
+      if (i === retries - 1) throw err;
+    }
+    await new Promise((resolve) => setTimeout(resolve, backoff * Math.pow(2, i)));
+  }
+}
 
 function collapseSpaces(str) {
   let result = str;
@@ -77,8 +90,7 @@ JSON schema:
       },
       {
         role: 'user',
-        content: `Dream narrative:
-${cleaned}`
+        content: `Dream narrative:\n${cleaned}`
       }
     ],
     text: {
@@ -197,7 +209,7 @@ async function pollPrediction(getUrl, maxWaitMs = 25_000) {
   while (Date.now() - start < maxWaitMs) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    const poll = await fetch(getUrl, {
+    const poll = await fetchWithRetry(getUrl, {
       headers: { Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}` }
     });
     const data = await poll.json();
@@ -211,14 +223,13 @@ async function pollPrediction(getUrl, maxWaitMs = 25_000) {
     if (data?.status === 'failed' || data?.status === 'canceled') {
       throw new Error(data?.error || `Replicate prediction ${data.status}`);
     }
-    // status is 'starting' or 'processing' — keep polling
   }
 
   throw new Error('Replicate prediction timed out while polling');
 }
 
 async function generateWithReplicate(prompt, negativePrompt) {
-  const rep = await fetch(REPLICATE_MODEL_URL, {
+  const rep = await fetchWithRetry(REPLICATE_MODEL_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
@@ -252,9 +263,6 @@ async function generateWithReplicate(prompt, negativePrompt) {
     return data.output;
   }
 
-  // 'Prefer: wait=20' süresi içinde bitmediyse Replicate output'suz, 'processing'
-  // durumunda bir yanıt döner. Bu durumda hataya düşmek yerine prediction'ı
-  // kendi 'get' URL'inden polling ile takip edip bitmesini bekliyoruz.
   if (data?.urls?.get && (data?.status === 'starting' || data?.status === 'processing')) {
     return pollPrediction(data.urls.get);
   }
@@ -432,4 +440,4 @@ export default async function handler(req, res) {
       details: error.message
     });
   }
-  }
+}
