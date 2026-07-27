@@ -1,0 +1,29 @@
+/**
+ * AI Servisleri için Rate Limit (TPM / 429) korumalı istek yöneticisi
+ */
+export async function callAIWithRetry(apiCallFn, maxRetries = 4, baseDelay = 4000) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await apiCallFn();
+    } catch (error) {
+      const errorMessage = error?.message || '';
+      const isRateLimit = error?.status === 429 || errorMessage.includes('Rate limit');
+
+      if (isRateLimit && attempt < maxRetries - 1) {
+        // Hata mesajı içinde "try again in X.XXs" varsa süreyi çek
+        let waitTime = baseDelay * Math.pow(2, attempt);
+        const match = errorMessage.match(/try again in ([0-9.]+)s/);
+        
+        if (match && match[1]) {
+          waitTime = Math.ceil(parseFloat(match[1]) * 1000) + 500; // Ekstra 500ms tampon
+        }
+
+        console.warn(`[AI Rate Limit] ${waitTime}ms bekleniyor... (Deneme: ${attempt + 1}/${maxRetries})`);
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      throw error;
+    }
+  }
+}
