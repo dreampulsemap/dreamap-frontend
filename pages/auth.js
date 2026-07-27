@@ -91,23 +91,31 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
-      <Navbar />
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
-          {/* Auth form content... */}
+          {/* Auth form content... replicate the existing form UI here or import a component */}
+          <div className="glass-card p-6">
+            <h1 className="text-2xl font-bold mb-4">{isLogin ? (getTranslation('auth.title', lang) || 'Giriş Yap') : (getTranslation('auth.registerTitle', lang) || 'Kayıt Ol')}</h1>
+            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+              <div>
+                <label className="block text-sm text-white/70 mb-1">{getTranslation('auth.email', lang) || 'E-posta'}</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded px-3 py-2 bg-black/40" />
+              </div>
+
+              <div>
+                <label className="block text-sm text-white/70 mb-1">{getTranslation('auth.password', lang) || 'Şifre'}</label>
+                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded px-3 py-2 bg-black/40" />
+              </div>
+
+              <button type="submit" className="w-full rounded bg-violet-600 py-2 text-white font-semibold">{getTranslation('auth.login', lang) || 'Giriş Yap'}</button>
+            </form>
+
+            <div className="mt-4 text-center">
+              <button type="button" onClick={() => setIsLogin(!isLogin)} className="text-sm text-purple-300">{isLogin ? (getTranslation('auth.noAccount', lang) || 'Hesabın yok mu? Kayıt ol') : (getTranslation('auth.hasAccount', lang) || 'Zaten hesabın var mı? Giriş yap')}</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  )
-}
-
-function Navbar() {
-  return (
-    <nav className="border-b border-white/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-        <div className="font-serif text-2xl font-bold">Lunosfer</div>
-        <LanguageSwitcher />
-      </div>
-    </nav>
   )
 }
