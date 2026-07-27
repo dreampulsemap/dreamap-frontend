@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'DELETE') {
@@ -8,45 +8,40 @@ export default async function handler(req, res) {
   const { dreamId, userId } = req.body
 
   if (!dreamId || !userId) {
-    return res.status(400).json({ error: 'Eksik parametreler' })
+    return res.status(400).json({ error: 'Missing parameters' })
   }
-
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
 
   try {
     if (req.method === 'POST') {
-      // Beğeni ekle
-      const { error } = await supabase
+      // Add like - rely on database trigger to update count
+      const { error } = await supabaseAdmin
         .from('likes')
         .insert([{ user_id: userId, dream_id: dreamId }])
 
       if (error) {
         if (error.code === '23505') {
-          return res.status(400).json({ error: 'Zaten beğenilmiş' })
+          return res.status(400).json({ error: 'Already liked' })
         }
         throw error
       }
 
-      // Sayacı manuel güncelle
-      const { data: countData } = await supabase
-        .from('likes')
-        .select('id', { count: 'exact' })
-        .eq('dream_id', dreamId)
-
-      await supabase
+      // Get updated count - single query instead of two
+      const { data: countResult, error: countError } = await supabaseAdmin
         .from('dreams')
-        .update({ likes_count: countData.length })
+        .select('likes_count')
         .eq('id', dreamId)
+        .single()
 
-      return res.status(200).json({ success: true, liked: true, count: countData.length })
+      if (countError) throw countError
+
+      return res.status(200).json({
+        success: true,
+        liked: true,
+        count: countResult?.likes_count || 0
+      })
     } else {
-      // Beğeniyi kaldır
-      const { error } = await supabase
+      // Remove like
+      const { error } = await supabaseAdmin
         .from('likes')
         .delete()
         .eq('user_id', userId)
@@ -54,18 +49,20 @@ export default async function handler(req, res) {
 
       if (error) throw error
 
-      // Sayacı manuel güncelle
-      const { data: countData } = await supabase
-        .from('likes')
-        .select('id', { count: 'exact' })
-        .eq('dream_id', dreamId)
-
-      await supabase
+      // Get updated count - single query
+      const { data: countResult, error: countError } = await supabaseAdmin
         .from('dreams')
-        .update({ likes_count: countData.length })
+        .select('likes_count')
         .eq('id', dreamId)
+        .single()
 
-      return res.status(200).json({ success: true, liked: false, count: countData.length })
+      if (countError) throw countError
+
+      return res.status(200).json({
+        success: true,
+        liked: false,
+        count: countResult?.likes_count || 0
+      })
     }
   } catch (error) {
     console.error('Like error:', error)
