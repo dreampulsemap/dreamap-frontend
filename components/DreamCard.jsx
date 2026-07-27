@@ -46,6 +46,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   const [premiumGenerating, setPremiumGenerating] = useState(false)
   const [premiumQueued, setPremiumQueued] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
+  const [stepMessage, setStepMessage] = useState('')
   const [premiumError, setPremiumError] = useState('')
   const [premiumAnalysis, setPremiumAnalysis] = useState(dream?.premium_deep_analysis || null)
   const [analysisOverride, setAnalysisOverride] = useState(null)
@@ -58,9 +59,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
     if (premiumQueued) return true
     return effectiveDream?.premium_deep_analysis_status === 'pending' || effectiveDream?.premium_deep_analysis_status === 'processing'
   }, [premiumAnalysis, effectiveDream, premiumQueued])
-  // Kuyrukta/işlemdeyken birkaç saniyede bir arka planda bitip bitmediğini
-  // kontrol et — aksi halde analiz tamamlansa bile kullanıcı sayfayı elle
-  // yenilemeden ne bildirim dışında bir değişiklik ne de "göster" butonunu görür.
+
   useEffect(() => {
     if (!isAnalysisPreparing) return
 
@@ -83,7 +82,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
           setPremiumQueued(false)
         }
       } catch {
-        // sessizce geç, bir sonraki taramada tekrar denenecek
+        // sessizce geç
       }
     }
 
@@ -97,16 +96,9 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   }, [isAnalysisPreparing, dream.id])
 
   const isOwner = useMemo(() => {
-    // Ebeveyn sayfa zaten oturumu çözmüşse (currentUserId) buna güven —
-    // bu, her kartın kendi başına asenkron auth sorgusu bitene kadar
-    // "sahip değilmiş gibi" görünmesinden (ve bu yüzden yanlışlıkla
-    // "arkadaşına hediye" metni göstermesinden) kaynaklanan yarış durumunu ortadan kaldırır.
     const effectiveUserId = currentUserId ?? user?.id
     if (!effectiveUserId) return false
     const ownerId = effectiveDream?.user_id ?? effectiveDream?.owner_id ?? effectiveDream?.author_id ?? effectiveDream?.uid
-    if (ownerId == null && process.env.NODE_ENV !== 'production') {
-      console.warn('[DreamCard] Could not find an owner id field on the dream object (checked user_id, owner_id, author_id, uid). isOwner will default to false.', effectiveDream)
-    }
     return ownerId != null && String(ownerId) === String(effectiveUserId)
   }, [user, effectiveDream, currentUserId])
 
@@ -126,9 +118,6 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       }
     }
 
-    // getSession() reads from local storage synchronously and avoids the
-    // hydration race condition that getUser() (a network round-trip) has
-    // on first render, right after the page loads.
     supabase.auth.getSession().then(({ data: { session } }) => {
       applyUser(session?.user || null)
     })
@@ -150,18 +139,16 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
     return ARCHETYPE_LOCALIZATIONS[currentLang]?.[cleanArch] || cleanArch
   }, [currentLang])
 
-  const translateEmotion = useCallback((sentiment) => {
-    const emotionKey = `emotion.${String(sentiment).toLowerCase()}`
-    const localized = tAddDream(emotionKey, currentLang)
-    return localized && localized !== emotionKey ? localized : sentiment
-  }, [currentLang])
-
   const handleGenerateImageOnly = async () => {
     setPremiumError('')
     setGeneratingImage(true)
+    setStepMessage('Rüya sahnesi analiz ediliyor...')
+    
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error(t.loginRequired || 'Please log in to continue')
+      
+      setStepMessage('Sinematik görsel oluşturuluyor...')
       const res = await fetch('/api/generate-dream-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -169,6 +156,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.details || data.error || 'Failed to generate')
+      
       setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
       setPremiumAuras(data.aurasLeft)
       triggerToast(isOwner ? t.imageSuccess : t.imageGiftSuccess)
@@ -176,6 +164,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       setPremiumError(err.message)
     } finally {
       setGeneratingImage(false)
+      setStepMessage('')
     }
   }
 
@@ -187,18 +176,8 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error(t.loginRequired || 'Please log in to continue')
 
-      // Bildirim izni bu an bağlamda anlamlı olduğu için burada isteniyor
-      // (sonucu bildirimle alacaklarını söylediğimiz an). Reddedilirse veya
-      // desteklenmiyorsa sessizce devam eder — kuyruk/uygulama-içi bildirim
-      // her durumda çalışır.
       subscribeToPush()
 
-      // Kullanıcıyı analiz süresince (30-60sn) bu ekranda beklemeye zorlamak
-      // yerine hemen bilgilendirip akışa/profile yönlendiriyoruz — analiz
-      // arka planda tamamlanınca hem uygulama-içi bildirim hem push
-      // gönderiliyor (bkz. lib/notify.js), bildirime dokununca /dream/[id]'ye
-      // gidiyor. İstek, client-side routing olduğu için sayfa geçişinden
-      // sonra da arka planda tamamlanmaya devam ediyor.
       setPremiumQueued(true)
       setShowConfirmModal(false)
       triggerToast(t.analysisQueuedToast)
@@ -231,11 +210,6 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       setPremiumAuras(data.aurasLeft)
 
       if (data.generated && data.analysis) {
-        // Analiz bu yanıtla birlikte geldi. Kullanıcı zaten başka bir
-        // sayfaya yönlendirilmiş olabilir; modalı burada otomatik açmıyoruz
-        // — bildirim zaten gönderildi (notifyAnalysisOutcome), kullanıcı
-        // bildirime dokununca analize ulaşacak. Kart hâlâ ekrandaysa diye
-        // state'i yine de güncel tutuyoruz.
         setPremiumAnalysis(data.analysis)
         setAnalysisOverride((prev) => ({ ...prev, premium_deep_analysis: data.analysis, premium_deep_analysis_status: 'generated' }))
       }
@@ -303,11 +277,31 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
         </button>
 
         {!effectiveDream.ai_image_url && (
-            <button onClick={handleGenerateImageOnly} disabled={generatingImage} className="w-full bg-cyan-600 p-4 rounded-xl text-white font-bold mb-3 hover:bg-cyan-500 transition">
-                {generatingImage ? t.generatingImage : (isOwner ? t.generateImage : t.giftDreamImage)}
+          <div className="mb-3 space-y-2">
+            <button 
+              onClick={handleGenerateImageOnly} 
+              disabled={generatingImage} 
+              className="w-full bg-cyan-600 p-4 rounded-xl text-white font-bold hover:bg-cyan-500 transition disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {generatingImage ? (stepMessage || t.generatingImage) : (isOwner ? t.generateImage : t.giftDreamImage)}
             </button>
+            {generatingImage && stepMessage && (
+              <p className="text-center text-xs text-cyan-300 animate-pulse">{stepMessage}</p>
+            )}
+          </div>
         )}
-        {premiumError && <p className="text-red-500 text-xs mb-4">{premiumError}</p>}
+
+        {premiumError && (
+          <div className="mb-4 flex flex-col gap-2 rounded-xl bg-red-500/10 border border-red-500/20 p-3">
+            <p className="text-red-400 text-xs">{premiumError}</p>
+            <button
+              onClick={!effectiveDream.ai_image_url ? handleGenerateImageOnly : handlePremiumAnalysisExecute}
+              className="self-end rounded-lg bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-500 transition"
+            >
+              Yeniden Dene
+            </button>
+          </div>
+        )}
       </article>
 
       {showConfirmModal && <DeepAnalysisConfirmationModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} auras={premiumAuras} onConfirm={handlePremiumAnalysisExecute} lang={currentLang} gumroadUrl={GUMROAD_PRODUCT_URL} isGift={!isOwner} isGenerating={premiumGenerating} />}
@@ -327,4 +321,5 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       )}
     </>
   )
-}
+      }
+      
