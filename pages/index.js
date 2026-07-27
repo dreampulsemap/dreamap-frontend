@@ -6,7 +6,6 @@ import { getTranslation } from '@/lib/translations'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import Hero from '@/components/Hero'
-import Navbar from '@/components/Navbar'
 import DreamCard from '@/components/DreamCard'
 import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
@@ -208,8 +207,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <Navbar />
-
       {homeTab === 'vision' ? (
         <div className="pt-20 px-4">
           {!mounted ? (
