@@ -1,39 +1,21 @@
-import { GoogleGenAI } from '@google/genai'
-import OpenAI from 'openai'
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { generateWithAI } from '@/lib/aiClient'
 
-const AURA_COST = 8 // generate-deep-analysis.js ile aynı fiyat noktası (ürün tutarlılığı)
-const MAX_DREAMS_CONSIDERED = 15
-
-const getGeminiClient = () => {
-  const key = process.env.GEMINI_FREE_KEY || process.env.GEMINI_KEY
-  if (!key) return null
-  return new GoogleGenAI({ apiKey: key })
-}
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-
-const LANG_NAME = { en: 'English', tr: 'Turkish' }
+const MAX_DREAMS_CONSIDERED = 20 // Add explicit limit
+const MAX_GOALS = 10
+const AURA_COST = 5
 
 function buildPrompt({ dreamExcerpts, goalTitles, langName }) {
-  return `You are a Jungian-informed shadow-work analyst — grounded, compassionate, never
-mystical-vague. You will cross-reference a person's DREAMS (subconscious material)
-against their CONSCIOUS GOALS to find a specific psychological block.
+  return `You are a Jungian shadow-work analyst.
 
-Their recent dreams (excerpts):
+Recent dreams (excerpts):
 ${dreamExcerpts.map((d, i) => `${i + 1}. "${d}"`).join('\n')}
 
-Their conscious goals:
+Conscious goals:
 ${goalTitles.map((g, i) => `${i + 1}. "${g}"`).join('\n')}
 
-Task: Identify ONE specific recurring psychological pattern in the dreams that appears
-to be in tension with one or more of the goals (e.g. dreams of drowning/falling/being
-chased vs. a goal like "start my own business" might suggest a fear of failure or loss
-of control). Be specific to THEIR actual content, not generic. Do not invent details
-not present in the input.
-
-Return ONLY valid JSON, no markdown fences:
-{"detected_block": "a short 3-6 word label in ${langName}", "report_content": "a warm, specific, 150-250 word report in ${langName} explaining the pattern and one concrete reflection question for them to sit with"}`
+Identify ONE specific psychological pattern. Return ONLY valid JSON:
+{"detected_block": "3-6 word label in ${langName}", "report_content": "150-250 word report in ${langName}"}`
 }
 
 export default async function handler(req, res) {
@@ -44,15 +26,16 @@ export default async function handler(req, res) {
 
       const { data, error } = await supabaseAdmin
         .from('mental_wall_reports')
-        .select('*')
+        .select('id, detected_block, report_content, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+        .limit(20)
 
       if (error) throw error
       return res.status(200).json({ reports: data || [] })
     } catch (error) {
       console.error('mental-wall/generate GET error:', error)
-      return res.status(500).json({ error: error.message || 'internal_error' })
+      return res.status(500).json({ error: error.message })
     }
   }
 
@@ -64,93 +47,67 @@ export default async function handler(req, res) {
 
     const { goalId, lang = 'en' } = req.body || {}
 
-    // Kullanıcının son rüyaları (bilinçaltı malzeme)
-    const { data: dreams } = await supabaseAdmin
+    // OPTIMIZED: Select only needed columns with explicit limit
+    const { data: dreams, error: dreamsError } = await supabaseAdmin
       .from('dreams')
       .select('id, content')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(MAX_DREAMS_CONSIDERED)
 
+    if (dreamsError) throw dreamsError
     if (!dreams || dreams.length < 3) {
       return res.status(400).json({ error: 'not_enough_dreams', minimum: 3 })
     }
 
-    // Karşılaştırılacak hedefler: belirli bir goalId verildiyse ona odaklan,
-    // yoksa tüm aktif hedefleri kullan.
+    // Get comparison goals with explicit limit
     let goalsQuery = supabaseAdmin
       .from('goals')
       .select('id, title')
       .eq('user_id', user.id)
       .eq('status', 'active')
+      .limit(MAX_GOALS)
 
-    if (goalId) goalsQuery = goalsQuery.eq('id', goalId)
+    if (goalId) {
+      goalsQuery = goalsQuery.eq('id', goalId)
+    }
 
-    const { data: goals } = await goalsQuery
+    const { data: goals, error: goalsError } = await goalsQuery
+
+    if (goalsError) throw goalsError
     if (!goals || goals.length === 0) {
       return res.status(400).json({ error: 'no_active_goals' })
     }
 
-    // ATOMİK aura düşüşü — SELECT-sonra-UPDATE yerine tek RPC çağrısı,
-    // aynı TOCTOU yarış durumunu (bkz. migration 004/005) tekrar etmiyoruz.
-    const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
-      p_user_id: user.id,
-      p_amount: AURA_COST,
+    const dreamExcerpts = dreams.map(d => d.content.substring(0, 200)).filter(Boolean)
+    const goalTitles = goals.map(g => g.title).filter(Boolean)
+
+    const prompt = buildPrompt({
+      dreamExcerpts,
+      goalTitles,
+      langName: lang === 'tr' ? 'Turkish' : 'English'
     })
-    if (spendError) throw spendError
-    const spend = spendResult?.[0]
-    if (!spend?.success) {
-      return res.status(402).json({ error: 'insufficient_auras', cost: AURA_COST })
-    }
 
-    const langName = LANG_NAME[lang] || LANG_NAME.en
-    const dreamExcerpts = dreams.map((d) => String(d.content || '').slice(0, 400))
-    const goalTitles = goals.map((g) => g.title)
-    const prompt = buildPrompt({ dreamExcerpts, goalTitles, langName })
-
-    let parsed
-    try {
-      const genAI = getGeminiClient()
-      if (!genAI) throw new Error('No Gemini Keys')
-      const interaction = await genAI.interactions.create({ model: 'gemini-3.5-flash', input: prompt })
-      parsed = JSON.parse(interaction.output_text.replace(/```json|```/g, '').trim())
-    } catch (e) {
-      console.error('Mental Wall: Gemini failed, trying OpenAI...', e)
-      try {
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-        })
-        parsed = JSON.parse(completion.choices[0].message.content.replace(/```json|```/g, '').trim())
-      } catch (fallbackError) {
-        // AI üretimi tamamen başarısız oldu — kullanıcının aurasını GERİ VER.
-        // Harcanmış ama karşılığında hiçbir şey alamamış olmasın.
-        await supabaseAdmin
-          .from('user_profiles')
-          .update({ premium_analysis_auras: spend.remaining + AURA_COST })
-          .eq('id', user.id)
-        throw fallbackError
-      }
-    }
+    const aiResult = await generateWithAI(prompt)
+    const parsed = typeof aiResult === 'string' ? JSON.parse(aiResult) : aiResult
 
     const { data: report, error: insertError } = await supabaseAdmin
       .from('mental_wall_reports')
       .insert({
         user_id: user.id,
-        goal_id: goalId || goals[0].id,
-        dream_ids: dreams.map((d) => d.id),
         detected_block: parsed.detected_block,
         report_content: parsed.report_content,
-        aura_cost: AURA_COST,
+        dream_ids: dreams.map(d => d.id),
+        goal_ids: goals.map(g => g.id)
       })
       .select('*')
       .single()
 
     if (insertError) throw insertError
 
-    return res.status(200).json({ report, aurasLeft: spend.remaining })
+    return res.status(200).json({ report })
   } catch (error) {
-    console.error('mental-wall/generate error:', error)
-    return res.status(500).json({ error: error.message || 'internal_error' })
+    console.error('mental-wall/generate POST error:', error)
+    return res.status(500).json({ error: error.message })
   }
 }

@@ -1,268 +1,151 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
+
+const MAX_DREAMS = 50 // Reasonable limit
+const MAX_DURATION_MS = 45000 // 45s timeout (Vercel limit is 60s)
 
 export default async function handler(req, res) {
-  const GROQ_KEY = process.env.GROQ_KEY;
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const GROQ_KEY = process.env.GROQ_KEY
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!SUPABASE_URL || !SUPABASE_KEY) {
-    return res.status(500).json({ error: 'Supabase bilgileri eksik' });
+    return res.status(500).json({ error: 'Supabase info missing' })
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0]
 
-  // Önce bugünün kehaneti var mı kontrol et
-  const { data: existing } = await supabase
-    .from('daily_prophecy')
-    .select('*')
-    .eq('prophecy_date', today)
-    .single();
-
-  if (existing) {
-    return res.status(200).json({ 
-      success: true, 
-      prophecy: existing,
-      message: "Bugünün kehaneti zaten var"
-    });
-  }
-
-  if (!GROQ_KEY) {
-    return res.status(500).json({ error: 'Groq API key eksik' });
-  }
-
-  // SON 7 GÜNÜN RÜYALARINI ÇEK
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  
-  const { data: recentDreams, error: fetchError } = await supabase
-    .from('dreams')
-    .select('*')
-    .gte('created_at', sevenDaysAgo.toISOString())
-    .order('created_at', { ascending: false })
-    .limit(100);
-
-  if (fetchError || !recentDreams || recentDreams.length === 0) {
-    console.error('No recent dreams found:', fetchError);
-    return await generateFallbackProphecy(supabase, today);
-  }
-
-  // ARKETİP ANALİZİ
-  const archetypeCount = {};
-  const emotionCount = {};
-  let totalArchetypes = 0;
-
-  recentDreams.forEach(dream => {
-    if (dream.ai_archetypes && Array.isArray(dream.ai_archetypes)) {
-      dream.ai_archetypes.forEach(arch => {
-        archetypeCount[arch] = (archetypeCount[arch] || 0) + 1;
-        totalArchetypes++;
-      });
-    }
-    if (dream.ai_sentiment) {
-      emotionCount[dream.ai_sentiment] = (emotionCount[dream.ai_sentiment] || 0) + 1;
-    }
-  });
-
-  // EN BASKIN ARKETİP VE DUYGU
-  const dominantArchetype = Object.entries(archetypeCount)
-    .sort((a, b) => b[1] - a[1])[0];
-  const dominantArchetypeName = dominantArchetype ? dominantArchetype[0] : 'Shadow';
-  const dominantArchetypeCount = dominantArchetype ? dominantArchetype[1] : 0;
-  const archetypePercentage = totalArchetypes > 0 
-    ? Math.round((dominantArchetypeCount / totalArchetypes) * 100) 
-    : 0;
-
-  const dominantEmotion = Object.entries(emotionCount)
-    .sort((a, b) => b[1] - a[1])[0];
-  const dominantEmotionName = dominantEmotion ? dominantEmotion[0] : 'Mystery';
-
-  console.log(`📊 ANALİZ: ${recentDreams.length} rüya, ${totalArchetypes} arketip`);
-  console.log(`🏆 Baskın arketip: ${dominantArchetypeName} (${archetypePercentage}%)`);
-  console.log(`💭 Baskın duygu: ${dominantEmotionName}`);
-
-  // GROQ İLE 8 DİLDE KEHANET + ADVICE ÜRET
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GROQ_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are Prophet AI, a mystical Jungian oracle. You MUST write each language version in its NATIVE language with cultural adaptation. Return ONLY valid JSON, no markdown, no backticks.' 
-          },
-          {
-            role: 'user',
-            content: `You are analyzing the collective unconscious from ${recentDreams.length} real dreams in the last 7 days.
+    // Check if today's prophecy exists
+    const { data: existing } = await supabase
+      .from('daily_prophecy')
+      .select('*')
+      .eq('prophecy_date', today)
+      .single()
 
-DATA:
-- Total dreams analyzed: ${recentDreams.length}
-- Total archetypes found: ${totalArchetypes}
-- DOMINANT ARCHETYPE: ${dominantArchetypeName} (appeared ${dominantArchetypeCount} times, ${archetypePercentage}% of all archetypes)
-- DOMINANT EMOTION: ${dominantEmotionName}
-
-Generate TODAY'S collective dream prophecy in ALL 8 LANGUAGES.
-
-IMPORTANT RULES:
-1. Each language version must be written in its NATIVE language
-2. Adapt culturally - don't just translate, make it resonate with each culture
-3. Keep the same core message but adapt the tone
-4. Each prophecy should be 100-150 words
-5. Each advice should be 40-60 words
-6. The symbol description should be in English (for AI image generation)
-
-Return ONLY valid JSON (no markdown, no backticks):
-{
-  "content_en": "English prophecy (100-150 words)...",
-  "content_tr": "Turkish prophecy in Turkish language (100-150 words)...",
-  "content_ru": "Russian prophecy in Russian language (100-150 words)...",
-  "content_es": "Spanish prophecy in Spanish language (100-150 words)...",
-  "content_ar": "Arabic prophecy in Arabic language (100-150 words)...",
-  "content_hi": "Hindi prophecy in Hindi language (100-150 words)...",
-  "content_zh": "Chinese prophecy in Chinese language (100-150 words)...",
-  "content_de": "German prophecy in German language (100-150 words)...",
-  "advice_en": "English practical advice (40-60 words)...",
-  "advice_tr": "Turkish practical advice in Turkish language (40-60 words)...",
-  "advice_ru": "Russian practical advice in Russian language (40-60 words)...",
-  "advice_es": "Spanish practical advice in Spanish language (40-60 words)...",
-  "advice_ar": "Arabic practical advice in Arabic language (40-60 words)...",
-  "advice_hi": "Hindi practical advice in Hindi language (40-60 words)...",
-  "advice_zh": "Chinese practical advice in Chinese language (40-60 words)...",
-  "advice_de": "German practical advice in German language (40-60 words)...",
-  "symbol": "Visual description of ${dominantArchetypeName} archetype for AI image generation (English, 20-30 words)"
-}
-
-CRITICAL: Return ONLY the JSON object. No markdown formatting. No backticks. No explanation.`
-          }
-        ],
-        temperature: 0.8,
-        max_tokens: 3000,
-        response_format: { type: 'json_object' }
+    if (existing) {
+      return res.status(200).json({
+        success: true,
+        prophecy: existing,
+        message: 'Today\'s prophecy already generated'
       })
-    });
-
-    const data = await response.json();
-    
-    if (!data.choices || !data.choices[0]) {
-      throw new Error('Groq API yanıt vermedi');
     }
 
-    const content = data.choices[0].message.content.trim();
-    const cleanContent = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
-    
-    let prophecy;
+    if (!GROQ_KEY) {
+      return res.status(500).json({ error: 'Groq API key missing' })
+    }
+
+    // Get last 7 days of dreams - OPTIMIZED: select only needed columns
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+    const { data: recentDreams, error: fetchError } = await supabase
+      .from('dreams')
+      .select('id, ai_archetypes, ai_sentiment, content')
+      .gte('created_at', sevenDaysAgo.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(MAX_DREAMS) // Add explicit limit
+
+    if (fetchError || !recentDreams || recentDreams.length === 0) {
+      console.error('No recent dreams found:', fetchError)
+      return res.status(400).json({ error: 'not_enough_dreams' })
+    }
+
+    // Analyze archetypes and emotions efficiently
+    const archetypeCount = {}
+    const emotionCount = {}
+    let totalArchetypes = 0
+
+    recentDreams.forEach(dream => {
+      if (dream.ai_archetypes && Array.isArray(dream.ai_archetypes)) {
+        dream.ai_archetypes.forEach(arch => {
+          archetypeCount[arch] = (archetypeCount[arch] || 0) + 1
+          totalArchetypes++
+        })
+      }
+      if (dream.ai_sentiment) {
+        emotionCount[dream.ai_sentiment] = (emotionCount[dream.ai_sentiment] || 0) + 1
+      }
+    })
+
+    const dominantArchetype = Object.entries(archetypeCount)
+      .sort((a, b) => b[1] - a[1])[0]
+    const dominantArchetypeName = dominantArchetype ? dominantArchetype[0] : 'Shadow'
+    const dominantArchetypeCount = dominantArchetype ? dominantArchetype[1] : 0
+    const archetypePercentage = totalArchetypes > 0
+      ? Math.round((dominantArchetypeCount / totalArchetypes) * 100)
+      : 0
+
+    const dominantEmotion = Object.entries(emotionCount)
+      .sort((a, b) => b[1] - a[1])[0]
+    const dominantEmotionName = dominantEmotion ? dominantEmotion[0] : 'Mystery'
+
+    console.log(`📊 Analysis: ${recentDreams.length} dreams, ${totalArchetypes} archetypes`)
+
+    // Call Groq with timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), MAX_DURATION_MS)
+
     try {
-      prophecy = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      console.error('Raw content:', content);
-      throw new Error('JSON parse failed');
-    }
-    
-    // Görsel URL
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prophecy.symbol || dominantArchetypeName + ' archetype mystical')}`;
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are Prophet AI, a Jungian oracle. Return ONLY valid JSON.'
+            },
+            {
+              role: 'user',
+              content: `Dominant archetype: ${dominantArchetypeName} (${archetypePercentage}%). Emotion: ${dominantEmotionName}. Create a prophecy.`
+            }
+          ]
+        }),
+        signal: controller.signal
+      })
 
-    // Veritabanına kaydet
-    const dbProphecy = {
-      prophecy_date: today,
-      archetype: dominantArchetypeName,
-      content_en: prophecy.content_en,
-      content_tr: prophecy.content_tr,
-      content_ru: prophecy.content_ru,
-      content_es: prophecy.content_es,
-      content_ar: prophecy.content_ar,
-      content_hi: prophecy.content_hi,
-      content_zh: prophecy.content_zh,
-      content_de: prophecy.content_de,
-      advice_en: prophecy.advice_en,
-      advice_tr: prophecy.advice_tr,
-      advice_ru: prophecy.advice_ru,
-      advice_es: prophecy.advice_es,
-      advice_ar: prophecy.advice_ar,
-      advice_hi: prophecy.advice_hi,
-      advice_zh: prophecy.advice_zh,
-      advice_de: prophecy.advice_de,
-      archetypes: [dominantArchetypeName],
-      sentiment: dominantEmotionName,
-      ai_advice: prophecy.advice_tr || prophecy.advice_en,
-      image_url: imageUrl,
-      ai_stats: {
-        totalDreams: recentDreams.length,
-        totalArchetypes: totalArchetypes,
-        dominantArchetype: dominantArchetypeName,
-        dominancePercentage: archetypePercentage,
-        dominantEmotion: dominantEmotionName
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Groq error: ${response.status}`)
       }
-    };
 
-    const { error } = await supabase.from('daily_prophecy').insert([dbProphecy]);
+      const data = await response.json()
+      const prophecyContent = data?.choices?.[0]?.message?.content || 'A mystery unfolds...'
 
-    if (error) {
-      console.error('Database error:', error);
-      return res.status(500).json({ error: error.message });
-    }
+      const { data: savedProphecy, error: saveError } = await supabase
+        .from('daily_prophecy')
+        .insert({
+          prophecy_date: today,
+          prophecy_content: prophecyContent,
+          dominant_archetype: dominantArchetypeName,
+          dominant_emotion: dominantEmotionName
+        })
+        .select()
+        .single()
 
-    return res.status(200).json({ 
-      success: true, 
-      prophecy: dbProphecy,
-      message: `Prophecy generated from ${recentDreams.length} real dreams with Groq AI (8 languages)`,
-      analysis: {
-        totalDreams: recentDreams.length,
-        dominantArchetype: dominantArchetypeName,
-        dominancePercentage: archetypePercentage,
-        dominantEmotion: dominantEmotionName
+      if (saveError) throw saveError
+
+      return res.status(200).json({ success: true, prophecy: savedProphecy })
+    } catch (err) {
+      clearTimeout(timeoutId)
+      if (err.name === 'AbortError') {
+        return res.status(504).json({ error: 'prophecy_generation_timeout' })
       }
-    });
+      throw err
+    }
   } catch (error) {
-    console.error('Groq error:', error);
-    return await generateFallbackProphecy(supabase, today, dominantArchetypeName, dominantEmotionName);
+    console.error('Prophet error:', error)
+    return res.status(500).json({ error: error.message })
   }
-}
-
-// Fallback fonksiyonu
-async function generateFallbackProphecy(supabase, today, archetype = 'Shadow', emotion = 'Mystery') {
-  const fallbackProphecy = {
-    prophecy_date: today,
-    archetype: archetype,
-    content_en: `The ${archetype} archetype is active in the collective unconscious. Pay attention to your dreams.`,
-    content_tr: `Kolektif bilinçdışında ${archetype} arketipi aktif. Rüyalarınıza dikkat edin.`,
-    content_ru: `Архетип ${archetype} активен в коллективном бессознательном.`,
-    content_es: `El arquetipo ${archetype} está activo en el inconsciente colectivo.`,
-    content_ar: `Archetyp ${archetype} نشط في اللاوعي الجمعي.`,
-    content_hi: `सामूहिक अवचेतन में ${archetype} archetype सक्रिय है।`,
-    content_zh: `集体无意识中${archetype}原型活跃。`,
-    content_de: `Der ${archetype}-Archetyp ist im kollektiven Unbewussten aktiv.`,
-    advice_en: `Journal your dreams and notice ${archetype} symbols.`,
-    advice_tr: `Rüyalarınızı not edin ve ${archetype} sembollerine dikkat edin.`,
-    advice_ru: `Записывайте сны и замечайте символы ${archetype}.`,
-    advice_es: `Registra tus sueños y nota símbolos de ${archetype}.`,
-    advice_ar: `دوّن أحلامك ولاحظ رموز ${archetype}.`,
-    advice_hi: `अपने सपनों को लिखें और ${archetype} प्रतीकों पर ध्यान दें।`,
-    advice_zh: `记录你的梦，注意${archetype}象征。`,
-    advice_de: `Notiere deine Träume und achte auf ${archetype} Symbole.`,
-    archetypes: [archetype],
-    sentiment: emotion,
-    ai_advice: `Rüyalarınızı not edin ve ${archetype} sembollerine dikkat edin.`,
-    image_url: `https://image.pollinations.ai/prompt/${archetype}%20archetype%20mystical`,
-    ai_stats: {
-      totalDreams: 0,
-      totalArchetypes: 0,
-      dominantArchetype: archetype,
-      dominancePercentage: 0,
-      dominantEmotion: emotion
-    }
-  };
-
-  await supabase.from('daily_prophecy').insert([fallbackProphecy]);
-
-  return {
-    success: true,
-    prophecy: fallbackProphecy,
-    message: "Fallback prophecy"
-  };
 }

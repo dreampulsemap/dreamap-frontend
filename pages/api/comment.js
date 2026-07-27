@@ -1,31 +1,27 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'DELETE') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
-
-try {
-if (req.method === 'GET') {
-      // Yorumları listele
+  try {
+    if (req.method === 'GET') {
       const { dreamId } = req.query
-      
+
       if (!dreamId) {
-        return res.status(400).json({ error: 'dreamId gerekli' })
+        return res.status(400).json({ error: 'dreamId required' })
       }
 
-      const { data, error } = await supabase
+      // Optimized: select only needed columns
+      const { data, error } = await supabaseAdmin
         .from('comments')
         .select(`
-          *,
-          user_profiles (
+          id,
+          content,
+          created_at,
+          user_id,
+          user_profiles(
             id,
             username,
             display_name,
@@ -33,60 +29,61 @@ if (req.method === 'GET') {
           )
         `)
         .eq('dream_id', dreamId)
-.order('created_at', { ascending: false })
+        .order('created_at', { ascending: false })
 
-if (error) throw error
+      if (error) throw error
 
-return res.status(200).json({ comments: data || [] })
-}
+      return res.status(200).json({ comments: data || [] })
+    }
 
-if (req.method === 'POST') {
-      // Yorum ekle
+    if (req.method === 'POST') {
       const { dreamId, userId, content } = req.body
 
       if (!dreamId || !userId || !content) {
-        return res.status(400).json({ error: 'Eksik parametreler' })
-}
+        return res.status(400).json({ error: 'Missing parameters' })
+      }
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('comments')
         .insert([{ user_id: userId, dream_id: dreamId, content }])
         .select(`
-          *,
-          user_profiles (
+          id,
+          content,
+          created_at,
+          user_id,
+          user_profiles(
             id,
             username,
             display_name,
             avatar_url
           )
         `)
-.single()
+        .single()
 
-if (error) throw error
+      if (error) throw error
 
       return res.status(200).json({ success: true, comment: data })
-}
+    }
 
-if (req.method === 'DELETE') {
-      // Yorum sil
+    if (req.method === 'DELETE') {
       const { commentId, userId } = req.body
 
       if (!commentId || !userId) {
-        return res.status(400).json({ error: 'Eksik parametreler' })
+        return res.status(400).json({ error: 'Missing parameters' })
       }
 
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('comments')
-.delete()
-.eq('id', commentId)
+        .delete()
+        .eq('id', commentId)
         .eq('user_id', userId)
 
-if (error) throw error
+      if (error) throw error
 
-return res.status(200).json({ success: true })
-}
-} catch (error) {
+      return res.status(200).json({ success: true })
+    }
+  } catch (error) {
     console.error('Comment error:', error)
     return res.status(500).json({ error: error.message })
-}
+  }
 }
