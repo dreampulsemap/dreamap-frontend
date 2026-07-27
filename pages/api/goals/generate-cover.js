@@ -5,6 +5,130 @@ const AURA_COST = 2 // generate-dream-image.js'deki tekli görsel üretim maliye
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+// Doğrudan "başlık + açıklama" metnini görsel modele vermek çok alakasız
+// sonuçlar üretiyordu (model, jenerik "vision board" klişelerine — gün
+// doğumu, gökyüzüne uzanan eller, ışık huzmeleri — kaçıyordu). Bunun yerine
+// önce hedefi SOMUT bir sahneye çeviriyoruz (generate-dream-image.js'deki
+// extractDreamScene ile aynı desen), sonra o sahneyi tarif eden bir prompt
+// kuruyoruz — modelin hedefin ne olduğunu "anlamasını" sağlıyor.
+async function extractGoalScene(title, description) {
+  const response = await openai.responses.create({
+    model: 'gpt-4.1-mini',
+    input: [
+      {
+        role: 'system',
+        content: `
+You convert a personal goal (title + optional description) into a concrete,
+image-safe visual scene description for a vision-board cover image.
+
+Your job:
+- Identify what this goal is LITERALLY about (a skill, an object, a place, an
+  activity, a milestone, a lifestyle change, etc).
+- Describe ONE concrete, specific, photographable moment that represents
+  someone actively living or achieving this exact goal — not an abstract
+  metaphor for "achievement" in general.
+- Prefer showing the real subject matter of the goal (the actual instrument,
+  the actual sport, the actual place, the actual object, the actual activity)
+  over generic symbolism.
+- AVOID generic vision-board clichés unless the goal is literally about them:
+  no sunrises over mountains, no silhouettes with arms raised, no hands
+  reaching for glowing light, no vague "success" imagery, no glowing paths,
+  no abstract galaxies/cosmic backgrounds.
+- If the goal is abstract (e.g. "inner peace", "more confidence"), ground it
+  in one concrete, everyday, human scene that visibly implies that state,
+  rather than a mystical/abstract one.
+- Output strict JSON only.
+
+JSON schema:
+{
+  "concrete_subject": string,
+  "primary_scene": string,
+  "setting": string,
+  "subject_action": string,
+  "mood": string,
+  "key_visual_elements": string[],
+  "negative_elements": string[]
+}
+        `.trim()
+      },
+      {
+        role: 'user',
+        content: `Goal title: ${String(title || '').slice(0, 200)}\nGoal description: ${String(description || '').slice(0, 600)}`
+      }
+    ],
+    text: {
+      format: {
+        type: 'json_schema',
+        name: 'goal_scene_extraction',
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            concrete_subject: { type: 'string' },
+            primary_scene: { type: 'string' },
+            setting: { type: 'string' },
+            subject_action: { type: 'string' },
+            mood: { type: 'string' },
+            key_visual_elements: { type: 'array', items: { type: 'string' } },
+            negative_elements: { type: 'array', items: { type: 'string' } }
+          },
+          required: [
+            'concrete_subject',
+            'primary_scene',
+            'setting',
+            'subject_action',
+            'mood',
+            'key_visual_elements',
+            'negative_elements'
+          ]
+        }
+      }
+    }
+  })
+
+  const raw = response.output_text || '{}'
+  return JSON.parse(raw)
+}
+
+function buildGoalImagePrompt(scene, fallbackSubject) {
+  if (!scene) {
+    return `An inspiring, cinematic vision board image representing this personal goal: ${String(fallbackSubject).slice(0, 200)}. Aspirational, warm light, photorealistic, high-art, no text.`
+  }
+
+  const elements = Array.isArray(scene.key_visual_elements) && scene.key_visual_elements.length
+    ? scene.key_visual_elements.join(', ')
+    : 'concrete, goal-specific details'
+
+  const negativeElements = Array.isArray(scene.negative_elements) && scene.negative_elements.length
+    ? scene.negative_elements.join(', ')
+    : 'sunrise over mountains, silhouette with raised arms, hands reaching for light, glowing paths, abstract cosmic backgrounds, generic motivational stock imagery'
+
+  return `
+A cinematic, photorealistic image representing this exact personal goal: ${scene.concrete_subject}.
+
+SCENE:
+${scene.primary_scene}
+
+SETTING:
+${scene.setting}
+
+SUBJECT / ACTION:
+${scene.subject_action}
+
+MOOD:
+${scene.mood}
+
+KEY VISUAL ELEMENTS TO INCLUDE:
+${elements}
+
+STYLE:
+Warm natural light, photorealistic, high production value, single coherent moment, no text, no watermark, no collage, no split panels.
+
+AVOID:
+${negativeElements}
+  `.trim()
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
 
@@ -61,7 +185,16 @@ export default async function handler(req, res) {
     const promptSubject = promptDescription
       ? `${promptTitle} — ${promptDescription}`
       : promptTitle
-    const prompt = `An inspiring, cinematic vision board image representing this personal goal: ${String(promptSubject).slice(0, 200)}. Aspirational, warm light, photorealistic, high-art, no text.`
+
+    let scene = null
+    try {
+      scene = await extractGoalScene(promptTitle, promptDescription)
+    } catch (e) {
+      console.error('goals/generate-cover scene extraction error:', e)
+      // sahne çıkarımı başarısız olursa eski jenerik prompt'a düşüyoruz —
+      // görsel üretimi tamamen durmasın diye.
+    }
+    const prompt = buildGoalImagePrompt(scene, promptSubject)
 
     let imageUrl = null
     let details = 'Unknown error'
