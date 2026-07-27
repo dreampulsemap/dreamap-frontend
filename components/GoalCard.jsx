@@ -85,12 +85,20 @@ export default function GoalCard({ goal, lang = 'en', currentUserId, onReacted, 
 
   return (
     <div className="flip-perspective w-full aspect-[3/4]">
-      <div
-        className={`flip-card-inner cursor-pointer ${flipped ? 'is-flipped' : ''}`}
-        onClick={() => setFlipped((f) => !f)}
-      >
-        {/* ÖN YÜZ */}
-        <div className="flip-face glass-card overflow-hidden rounded-2xl relative">
+      <div className={`flip-card-inner ${flipped ? 'is-flipped' : ''}`}>
+        {/* ÖN YÜZ — tıklayınca kart büyür ve tam detay görünümü (micro
+            hedefler, tamamlanan adımlar, günlük pratikler) açılır. */}
+        <div
+          className="flip-face vision-card-pressable cursor-pointer glass-card overflow-hidden rounded-2xl relative"
+          onClick={() => onOpenGoal?.(goal)}
+        >
+          <button
+            onClick={(e) => { e.stopPropagation(); setFlipped((f) => !f) }}
+            aria-label={lang === 'tr' ? 'Destek ve yorumları göster' : 'Show support and comments'}
+            className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-black/40 backdrop-blur text-white/80 hover:text-white hover:bg-black/60 flex items-center justify-center text-xs"
+          >
+            <Sparkles size={13} />
+          </button>
           {goal.cover_image_url ? (
             goal.cover_image_source === 'pinterest' ? (
               // Pinterest kaynaklı görseller keyfi/bilinmeyen domainlerden gelir —
@@ -125,7 +133,7 @@ export default function GoalCard({ goal, lang = 'en', currentUserId, onReacted, 
             {statusLabel}
           </span>
           {isOwner && (
-            <span className="absolute top-3 right-3 text-label px-2.5 py-1 rounded-pill bg-white/10 text-white/80 backdrop-blur">
+            <span className="absolute top-12 right-3 text-label px-2.5 py-1 rounded-pill bg-white/10 text-white/80 backdrop-blur">
               {t.ownGoalBadge}
             </span>
           )}
@@ -144,7 +152,14 @@ export default function GoalCard({ goal, lang = 'en', currentUserId, onReacted, 
         </div>
 
         {/* ARKA YÜZ */}
-        <div className="flip-face flip-face-back glass-card rounded-2xl p-5 flex flex-col justify-between">
+        <div className="flip-face flip-face-back glass-card rounded-2xl p-5 flex flex-col justify-between relative">
+          <button
+            onClick={() => setFlipped(false)}
+            aria-label={lang === 'tr' ? 'Geri dön' : 'Go back'}
+            className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white flex items-center justify-center text-xs"
+          >
+            ✕
+          </button>
           <div>
             <h4 className="text-white font-bold text-base line-clamp-2 mb-3">{goal.title}</h4>
             {goal.description && (

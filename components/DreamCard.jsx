@@ -193,6 +193,20 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       // her durumda çalışır.
       subscribeToPush()
 
+      // Kullanıcıyı analiz süresince (30-60sn) bu ekranda beklemeye zorlamak
+      // yerine hemen bilgilendirip akışa/profile yönlendiriyoruz — analiz
+      // arka planda tamamlanınca hem uygulama-içi bildirim hem push
+      // gönderiliyor (bkz. lib/notify.js), bildirime dokununca /dream/[id]'ye
+      // gidiyor. İstek, client-side routing olduğu için sayfa geçişinden
+      // sonra da arka planda tamamlanmaya devam ediyor.
+      setPremiumQueued(true)
+      setShowConfirmModal(false)
+      triggerToast(t.analysisQueuedToast)
+      const redirectTarget = isOwner ? '/profile' : '/'
+      setTimeout(() => {
+        router.push(redirectTarget)
+      }, 1400)
+
       const res = await fetch('/api/generate-deep-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -215,21 +229,21 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       }
 
       setPremiumAuras(data.aurasLeft)
-      setShowConfirmModal(false)
 
       if (data.generated && data.analysis) {
-        // PLAN A: analiz zaten bu yanıtla birlikte geldi — kuyruğa hiç girmedi.
+        // Analiz bu yanıtla birlikte geldi. Kullanıcı zaten başka bir
+        // sayfaya yönlendirilmiş olabilir; modalı burada otomatik açmıyoruz
+        // — bildirim zaten gönderildi (notifyAnalysisOutcome), kullanıcı
+        // bildirime dokununca analize ulaşacak. Kart hâlâ ekrandaysa diye
+        // state'i yine de güncel tutuyoruz.
         setPremiumAnalysis(data.analysis)
         setAnalysisOverride((prev) => ({ ...prev, premium_deep_analysis: data.analysis, premium_deep_analysis_status: 'generated' }))
-        setShowAnalysisModal(true)
-      } else {
-        // PLAN B: kuyruğa alındı, arka planda işlenecek.
-        setPremiumQueued(true)
-        triggerToast(t.analysisQueuedToast)
       }
+      setPremiumQueued(false)
     } catch (err) {
       setPremiumError(err.message)
       setShowConfirmModal(false)
+      setPremiumQueued(false)
     } finally {
       setPremiumGenerating(false)
     }

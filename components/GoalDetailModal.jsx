@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Check, MessageCircle, Trash2, ArrowUp, Image as ImageIcon } from 'lucide-react'
+import { X, Check, MessageCircle, Trash2, ArrowUp, Image as ImageIcon, Sparkles as SparklesIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
+import { getDailyPractice, getPracticeDoneKey } from '@/lib/dailyPractices'
 
 async function authHeader() {
   const { data: { session } } = await supabase.auth.getSession()
@@ -25,10 +26,33 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   const [error, setError] = useState('')
   const [generatingCover, setGeneratingCover] = useState(false)
   const [coverError, setCoverError] = useState('')
+  const [galleryImages, setGalleryImages] = useState(initialGoal.gallery_image_urls || [])
+  const [uploadingImages, setUploadingImages] = useState(false)
+  const [galleryError, setGalleryError] = useState('')
 
   const AURA_COST = 2  // generate-cover.js ile aynı maliyet
 
   const isOwner = currentUserId && goal.user_id === currentUserId
+
+  // GÜNLÜK PRATİK — her gün hedefe küçük bir adım attıran eğlenceli
+  // manifestation/oyun/alıştırma. Sadece aktif hedeflerde ve sahibi için
+  // anlamlı (başkasının hedefinde "bugünkü pratiğini yap" demek garip olur).
+  const dailyPractice = getDailyPractice(goal.id, lang === 'tr' ? 'tr' : 'en')
+  const practiceDoneKey = getPracticeDoneKey(goal.id, dailyPractice.dateKey)
+  const [practiceDone, setPracticeDone] = useState(false)
+  useEffect(() => {
+    try {
+      setPracticeDone(window.localStorage.getItem(practiceDoneKey) === '1')
+    } catch (_) {}
+  }, [practiceDoneKey])
+  function togglePracticeDone() {
+    const next = !practiceDone
+    setPracticeDone(next)
+    try {
+      if (next) window.localStorage.setItem(practiceDoneKey, '1')
+      else window.localStorage.removeItem(practiceDoneKey)
+    } catch (_) {}
+  }
 
   useEffect(() => {
     let active = true
@@ -69,6 +93,71 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
       setCoverError('network_error')
     } finally {
       setGeneratingCover(false)
+    }
+  }
+
+  async function handleGalleryFiles(fileList) {
+    const files = Array.from(fileList || []).filter((f) => f.type?.startsWith('image/'))
+    if (!files.length || !isOwner) return
+
+    setUploadingImages(true)
+    setGalleryError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setGalleryError(t.loginRequired); return }
+
+      for (const file of files) {
+        const fileExt = file.name.split('.').pop() || 'jpg'
+        const filePath = `${session.user.id}/${goal.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('goal-images')
+          .upload(filePath, file, { cacheControl: '3600', upsert: false })
+        if (uploadError) {
+          setGalleryError(uploadError.message || 'upload_error')
+          continue
+        }
+
+        const { data: publicData } = supabase.storage.from('goal-images').getPublicUrl(filePath)
+        const imageUrl = publicData?.publicUrl
+        if (!imageUrl) continue
+
+        const res = await fetch('/api/goals/add-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ goalId: goal.id, imageUrl }),
+        })
+        const json = await res.json()
+        if (res.ok && json.gallery_image_urls) {
+          setGalleryImages(json.gallery_image_urls)
+          if (json.goal) onChanged?.(json.goal)
+        } else {
+          setGalleryError(json.error || 'error')
+        }
+      }
+    } catch {
+      setGalleryError('network_error')
+    } finally {
+      setUploadingImages(false)
+    }
+  }
+
+  async function removeGalleryImage(imageUrl) {
+    if (!isOwner) return
+    const headers = await authHeader()
+    if (!headers) return setGalleryError(t.loginRequired)
+    try {
+      const res = await fetch('/api/goals/remove-image', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ goalId: goal.id, imageUrl }),
+      })
+      const json = await res.json()
+      if (!res.ok) return setGalleryError(json.error || 'error')
+      setGalleryImages(json.gallery_image_urls || [])
+      if (json.goal) onChanged?.(json.goal)
+    } catch {
+      setGalleryError('network_error')
     }
   }
 
@@ -182,7 +271,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div ref={modalRef} role="dialog" aria-modal="true" aria-label={goal.title} className="glass-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label={goal.title} className="glass-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto animate-scale-in">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2 className="text-white font-bold text-lg">{goal.title}</h2>
@@ -201,6 +290,53 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
           <div className="mb-4 p-3 rounded-xl bg-slate-500/10 border border-slate-500/20">
             <p className="text-slate-300 text-xs font-bold uppercase tracking-widest mb-1">{t.phoenixWallTitle}</p>
             <p className="text-slate-200 text-sm">{goal.abandon_reason}</p>
+          </div>
+        )}
+
+        {/* GÖRSEL GALERİSİ — kapak görseli + kullanıcının cihazından
+            yüklediği görseller, yana kaydırarak gezilebilir. */}
+        {(goal.cover_image_url || galleryImages.length > 0) && (
+          <div className="mb-5 -mx-6 px-6">
+            <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+              {goal.cover_image_url && (
+                <div className="relative shrink-0 w-[80%] sm:w-[60%] aspect-[4/3] snap-center rounded-xl overflow-hidden bg-black/30">
+                  <img src={goal.cover_image_url} alt={goal.title} className="w-full h-full object-cover" loading="lazy" />
+                </div>
+              )}
+              {galleryImages.map((url) => (
+                <div key={url} className="relative shrink-0 w-[80%] sm:w-[60%] aspect-[4/3] snap-center rounded-xl overflow-hidden bg-black/30">
+                  <img src={url} alt={goal.title} className="w-full h-full object-cover" loading="lazy" />
+                  {isOwner && (
+                    <button
+                      onClick={() => removeGalleryImage(url)}
+                      aria-label={lang === 'tr' ? 'Görseli kaldır' : 'Remove image'}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white hover:bg-black/80 flex items-center justify-center"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isOwner && goal.status === 'active' && (
+          <div className="mb-5">
+            <label className="block w-full py-2.5 rounded-xl bg-white/5 text-slate-200 text-xs font-bold uppercase tracking-widest hover:bg-white/10 text-center cursor-pointer">
+              {uploadingImages
+                ? (lang === 'tr' ? 'Yükleniyor...' : 'Uploading...')
+                : (lang === 'tr' ? 'Cihazından Görsel Ekle' : 'Add Images From Device')}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                disabled={uploadingImages}
+                onChange={(e) => { handleGalleryFiles(e.target.files); e.target.value = '' }}
+              />
+            </label>
+            {galleryError && <p className="text-rose-400 text-xs mt-1.5">{galleryError}</p>}
           </div>
         )}
 
@@ -241,6 +377,37 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
             </div>
           )}
         </div>
+
+        {/* GÜNLÜK PRATİK — eğlenceli manifestation / oyun / alıştırma */}
+        {goal.status === 'active' && (
+          <div className="mb-5 p-4 rounded-xl bg-gradient-to-br from-fuchsia-500/10 via-purple-500/10 to-cyan-500/10 border border-white/10">
+            <h3 className="text-xs uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5">
+              <SparklesIcon size={14} className="text-fuchsia-300" />
+              {lang === 'tr' ? 'Bugünün Pratiği' : "Today's Practice"}
+            </h3>
+            <p className="text-slate-200 text-sm mb-3">
+              <span className="mr-1.5">{dailyPractice.icon}</span>
+              {dailyPractice.text}
+            </p>
+            <button
+              onClick={togglePracticeDone}
+              className={`w-full py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 ${
+                practiceDone
+                  ? 'bg-emerald-500/90 text-black'
+                  : 'bg-white/10 text-slate-200 hover:bg-white/20'
+              }`}
+            >
+              {practiceDone ? (
+                <>
+                  <Check size={14} />
+                  {lang === 'tr' ? 'Bugün yapıldı ✓' : 'Done today ✓'}
+                </>
+              ) : (
+                lang === 'tr' ? 'Bugün Yaptım' : 'I Did This Today'
+              )}
+            </button>
+          </div>
+        )}
 
         {/* AI KAPAK GÖRSELİ ÜRETİMİ (image_credits harcar) */}
         {isOwner && goal.status === 'active' && (
