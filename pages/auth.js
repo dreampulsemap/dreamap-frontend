@@ -125,12 +125,21 @@ export default function AuthPage() {
     setLoading(true)
     setError('')
 
+    if (!isLogin && !username.trim()) {
+      setError(
+        getTranslation('auth.usernameRequired', lang) ||
+          'Kullanıcı adı zorunludur.'
+      )
+      setLoading(false)
+      return
+    }
+
     try {
       if (isLogin) {
         await auth.signIn(email, password)
         router.push('/profile')
       } else {
-        await auth.signUp(email, password, username)
+        await auth.signUp(email, password, username.trim())
         alert(
           getTranslation('auth.success', lang) ||
             'Kayıt başarılı! E-postanızı kontrol edin.'

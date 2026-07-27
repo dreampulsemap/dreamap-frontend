@@ -65,6 +65,25 @@ export default function ProfilePage() {
   // PROFİL SEKMELERİ — Instagram'ın grid/tagged sekmeleri gibi. Vizyon Panosu
   // varsayılan (ilk açılan), Rüyalar (DreamCard grid'i) yan sekme.
   const [profileTab, setProfileTab] = useState('vision') // 'vision' | 'dreams'
+
+  useEffect(() => {
+    // Sayfa yenilendiğinde en son hangi sekmedeysem (Vizyon/Rüyalar) onda
+    // kalsın diye sessionStorage'dan geri yüklüyoruz.
+    try {
+      const savedTab = window.sessionStorage.getItem('dreamap_profile_tab')
+      if (savedTab === 'vision' || savedTab === 'dreams') {
+        setProfileTab(savedTab)
+      }
+    } catch (_) {}
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    try {
+      window.sessionStorage.setItem('dreamap_profile_tab', profileTab)
+    } catch (_) {}
+  }, [profileTab, mounted])
+
   const [goals, setGoals] = useState([])
   const [goalsLoading, setGoalsLoading] = useState(true)
   const [goalsLoaded, setGoalsLoaded] = useState(false)

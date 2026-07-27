@@ -45,7 +45,22 @@ export default function HomePage() {
 
   useEffect(() => {
     setMounted(true)
+    // Sayfa yenilendiğinde en son hangi sekmedeysem (Vizyon/Rüyalar) onda
+    // kalsın diye sessionStorage'dan geri yüklüyoruz.
+    try {
+      const savedTab = window.sessionStorage.getItem('dreamap_home_tab')
+      if (savedTab === 'vision' || savedTab === 'dreams') {
+        setHomeTab(savedTab)
+      }
+    } catch (_) {}
   }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    try {
+      window.sessionStorage.setItem('dreamap_home_tab', homeTab)
+    } catch (_) {}
+  }, [homeTab, mounted])
 
   const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
   const lang = currentLang
