@@ -376,3 +376,22 @@ p {
 .animate-fade-in {
   animation: fade-in 0.15s ease-out;
 }
+
+/* Vizyon kartına tıklanınca kart "büyüyerek" detay modaline dönüşüyormuş
+   hissi versin diye — GoalDetailModal açılış animasyonu. */
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.92) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-scale-in {
+  animation: scale-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Kart, tıklandığı anda kısa bir "büyüme" tepkisi versin — modal açılmadan
+   önceki geçiş hissini güçlendiriyor. */
+.vision-card-pressable {
+  transition: transform 0.18s ease-out;
+}
+.vision-card-pressable:active {
+  transform: scale(1.04);
+}
