@@ -8,10 +8,9 @@ import { getTranslation } from '@/lib/translations'
 import DreamCard from '@/components/DreamCard'
 import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
+import SlidesViewer from '@/components/SlidesViewer'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
-
-const BATCH_SIZE = 15;
 
 // Brief'teki orijinal mimari: Explore 4 alt-sekmeden oluşan bir "Yaşam Tarlası".
 // Vision Board önceden ayrı bir sayfaydı (/vision-board) — bu geçici bir
@@ -40,6 +39,13 @@ export default function ExplorePage() {
   const [activeDreamIndex, setActiveDreamIndex] = useState(null)
   const observerRef = useRef(null)
 
+  // Kişiselleştirilmiş sıralama: ilk sayfada hesaplanan arketip-ilgi profilini
+  // (rankToken) sonraki sayfalarda tekrar kullanıyoruz. asOf ise "şu an"ı
+  // scroll boyunca sabitler, böylece araya yeni rüya girmesi sayfalar
+  // arasında kayma/tekrar yaratmaz.
+  const rankTokenRef = useRef(null)
+  const asOfRef = useRef(null)
+
   // 4 sekmeli hub: Dreamscape (rüyalar) / Vision Board (aktif hedefler) /
   // Victory Wall (gerçekleşenler) / Phoenix Wall (vazgeçilenler)
   const [activeHub, setActiveHub] = useState('dreamscape')
@@ -48,6 +54,19 @@ export default function ExplorePage() {
   const [hubError, setHubError] = useState({ vision: '', victory: '', phoenix: '' })
   const [hubLoaded, setHubLoaded] = useState({ vision: false, victory: false, phoenix: false })
   const [activeGoal, setActiveGoal] = useState(null)
+  const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
+
+  // Instagram Explore'da bir Reel/karusel karosuna dokunmak doğrudan o
+  // içerik türünün oynatıcısını açar. Aynı mantık: slaytı olan bir hedefe
+  // dokununca GoalDetailModal yerine doğrudan SlidesViewer açılıyor; slaytı
+  // olmayan hedefler eskisi gibi detay modalına gidiyor.
+  function handleOpenGoal(goal) {
+    if ((goal.slide_count || 0) > 0) {
+      setActiveSlidesGoal(goal)
+    } else {
+      setActiveGoal(goal)
+    }
+  }
 
   const HUB_STATUS = { vision: 'active', victory: 'completed', phoenix: 'abandoned' }
 
@@ -168,19 +187,25 @@ export default function ExplorePage() {
 
   const loadGlobalDreams = useCallback(async (pageNum = 0, append = false) => {
     try {
-      const from = pageNum * BATCH_SIZE
-      const to = from + BATCH_SIZE - 1
+      if (!asOfRef.current) {
+        asOfRef.current = new Date().toISOString()
+      }
 
-      const { data, error } = await supabase
-        .from('dreams')
-        .select('*')
-        .eq('in_feed', true)
-        .order('created_at', { ascending: false })
-        .range(from, to)
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {}
 
-      if (error) throw error
+      const params = new URLSearchParams({ page: String(pageNum), asOf: asOfRef.current })
+      if (pageNum > 0 && rankTokenRef.current) {
+        params.set('rankToken', rankTokenRef.current)
+      }
 
-      const fetched = Array.isArray(data) ? data : []
+      const res = await fetch(`/api/explore/feed?${params.toString()}`, { headers })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'explore_feed_error')
+
+      if (json.rankToken) rankTokenRef.current = json.rankToken
+
+      const fetched = Array.isArray(json.dreams) ? json.dreams : []
       if (append) {
         setDreams((prev) => [...prev, ...fetched])
       } else {
@@ -188,11 +213,7 @@ export default function ExplorePage() {
       }
 
       setPage(pageNum)
-      if (fetched.length < BATCH_SIZE) {
-        setHasMore(false)
-      } else {
-        setHasMore(true)
-      }
+      setHasMore(!!json.hasMore)
     } catch (err) {
       console.error('Explore loading failed:', err)
     } finally {
@@ -454,7 +475,7 @@ export default function ExplorePage() {
                     goal={goal}
                     lang={lang}
                     currentUserId={user?.id}
-                    onOpenGoal={setActiveGoal}
+                    onOpenGoal={handleOpenGoal}
                   />
                 ))}
               </div>
@@ -535,6 +556,18 @@ export default function ExplorePage() {
               }
               return next
             })
+          }}
+        />
+      )}
+      {activeSlidesGoal && (
+        <SlidesViewer
+          goal={activeSlidesGoal}
+          lang={lang}
+          onClose={() => setActiveSlidesGoal(null)}
+          onOpenDetails={() => {
+            const goal = activeSlidesGoal
+            setActiveSlidesGoal(null)
+            setActiveGoal(goal)
           }}
         />
       )}
