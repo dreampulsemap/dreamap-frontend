@@ -137,3 +137,107 @@ derleme/runtime testi sizin ortamınızda yapılmalı.
 **001_lunosfer_schema.sql ÇALIŞTIRMAYIN** — ilk taslaktı, mevcut canlı tablolarla
 çakışıyordu (bu yüzden "relation already exists" hatası almıştınız), 002 onun
 yerini aldı.
+
+## 13) Explore ızgarası — kişiselleştirilmiş sıralama (Instagram Explore mantığı)
+
+- `pages/api/explore/feed.js` — YENİ: Dreamscape ızgarasını besleyen endpoint.
+  Eskiden istemci doğrudan `.order('created_at', {ascending:false})` ile Supabase'i
+  sorguluyordu; artık kullanıcının en çok etkileşime girdiği arketiplere göre
+  skorlanmış bir sıralama döndürüyor.
+  - İlgi profili: beğenilen rüyaların arketipleri ×3, yorum yapılanlar ×5, kullanıcının
+    kendi rüyaları ×1 (soğuk başlangıç yardımı). Her sinyal en fazla son 200 kayıtla
+    sınırlı.
+  - Nihai skor: %60 arketip eşleşmesi + %28 tazelik (48 saatte yarıya inen üstel decay)
+    + %12 popülerlik (likes+2×comments, log ölçekli, ~1000 etkileşimde tavan). Arketip
+    baskın ama tek başına değil — yoksa aynı içerik sonsuza dek tepede kalır ve
+    etkileşim geçmişi olmayan kullanıcılarda ızgara anlamsızlaşır.
+  - Sayfalama iki katmanlı: en yeni 240 rüya (RANK_POOL_SIZE) skorlanıp sayfalara
+    bölünüyor; ötesi (derin scroll) düz kronolojiye dönüyor — havuz sınırıyla tam
+    hizalı olduğu için tekrar/atlama olmuyor.
+  - `rankToken`: ilk sayfada hesaplanan ilgi profili base64 ile encode edilip
+    döndürülüyor, istemci sonraki sayfalarda geri gönderiyor — her scroll adımında
+    likes/comments sorgusu tekrarlanmıyor, sadece 240'lık havuz yeniden çekilip
+    skorlanıyor.
+  - `asOf`: istemcinin ilk sayfada sabitlediği "şu an". Sonraki sayfalarda aynı değer
+    kullanılıyor ki scroll sürerken araya yeni rüya girmesi sayfa kaymasına/tekrarına
+    yol açmasın.
+  - **GÜVENLİK DÜZELTMESİ:** `supabaseAdmin` RLS'i bypass eder. Orijinal kod anon
+    client kullanıyordu ve private/friends rüyalarını gizlemeyi RLS policy'sine
+    bırakıyordu. Admin client'a geçince bunu koda taşımak ZORUNLU oldu — yoksa
+    ızgara herkesin private/friends rüyalarını global olarak sızdırırdı. dreams
+    tablosunun RLS'i bu konuşmada incelenmedi; `public-profile/[userId].js`'deki
+    gibi güvenli tarafta kalıp yalnızca `visibility='public'` gösteriliyor.
+    'friends' rüyaları da Explore'da görünsün istersen bu filtreyi genişletmen
+    gerekir.
+  - Savunmacı tasarım: likes/comments sorgularından biri hata verirse (ör.
+    `created_at` kolonu beklenenden farklıysa) `Promise.allSettled` ile
+    yakalanıyor, o sinyal sessizce atlanıyor — tüm Explore sayfası çökmüyor,
+    sadece kişiselleştirme o sinyal için devre dışı kalıyor.
+- `pages/explore.js` — DÜZENLENDİ: `loadGlobalDreams` artık doğrudan Supabase
+  sorgusu yerine `/api/explore/feed`'i çağırıyor; `loadHubGoals`'daki Bearer
+  token deseniyle aynı (`supabase.auth.getSession()` → `Authorization` header).
+  `rankTokenRef` ve `asOfRef` eklendi (sayfalar arası taşınan state). Kullanılmayan
+  `BATCH_SIZE` sabiti kaldırıldı — sayfa boyutu artık API tarafında.
+
+KAPSAM: Bu değişiklik yalnızca Explore/Dreamscape ızgarasında. Ana sayfa
+(`pages/index.js`, arkadaş akışı) kronolojik kaldı — bilinçli bir tercih, çünkü
+arkadaş akışını arketiple kişiselleştirmek "arkadaşının paylaşımını gizleme" gibi
+hissettirebilir. İstenirse aynı mantıkla oraya da uygulanabilir.
+
+DOĞRULANAMAYAN VARSAYIMLAR (network bu ortamda Supabase'e kapalı, canlı şema
+sorgulanamadı):
+- `likes` ve `comments` tablolarında `created_at` kolonu olduğu varsayıldı
+  (projedeki diğer tüm tablolarda var, ama bu ikisinde select ile doğrulanmadı).
+- `likes.dream_id` / `comments.dream_id` için PostgREST embedding'e güvenilmedi,
+  `friends/search.js`'deki 2-adımlı fetch-then-map deseni kullanıldı.
+
+Test edilemedi: npm install / next build bu ortamda da çalıştırılamadı (Supabase'e
+ağ erişimi kapalı). Değişiklikler esbuild ile JSX dahil sözdizimi kontrolünden
+geçti ve manuel gözden geçirildi; gerçek bir runtime testi sizin ortamınızda
+yapılmalı.
+
+## 14) Vizyon Slaytları artık Explore'da görünüyor
+
+Önceki turda eklenen `goal_slides` altyapısı (SlideEditor/SlidesViewer/
+`pages/api/goals/slides/*`) tamamen izole çalışıyordu — slaytlar yalnızca
+`GoalDetailModal` içinden "Vizyon Slaytlarını İzle" butonuyla erişilebiliyordu,
+Explore ızgarasında hiçbir iz bırakmıyordu. Bu turda Instagram Explore'un asıl
+davranışı taklit edildi: bir Reel/karusel karosuna dokunmak doğrudan o içerik
+türünün oynatıcısını açar.
+
+- `pages/api/goals/list.js` — DÜZENLENDİ: `has_reacted` ile birebir aynı desende,
+  sayfadaki hedeflerin `goal_slides` sayısı tek toplu sorguyla çekilip her hedefe
+  `slide_count` olarak işleniyor. `mode` parametresinden bağımsız çalışıyor —
+  yani bu alan Explore dışında (`pages/index.js`'in `mode=friends`/`mode=feed`
+  çağrıları dahil) her yerde otomatik geliyor. GoalCard rozeti bu yüzden
+  ana sayfada da görünecek (zararsız, sadece görsel bir bonus); tıklama davranışı
+  (doğrudan slayt açma) SADECE Explore'da (`handleOpenGoal`) etkin, çünkü
+  `GoalCard`'ın kendisi hâlâ tek bir `onOpenGoal(goal)` çağırıyor — hangi
+  davranışın tetikleneceğine üst bileşen karar veriyor, `GoalCard`'ın API'si
+  değişmedi.
+- `components/GoalCard.jsx` — DÜZENLENDİ: `goal.slide_count > 0` ise ön yüzün
+  sağ-alt köşesine küçük bir ▶ rozeti eklendi (mevcut slayt butonlarıyla aynı
+  gradyan: fuchsia→purple→cyan). Saf görsel — `onOpenGoal` çağrısı hâlâ tek,
+  değişmedi.
+- `components/SlidesViewer.jsx` — DÜZENLENDİ: opsiyonel `onOpenDetails` prop'u
+  eklendi. Verilirse sol üstte küçük, dokunulabilir bir başlık rozeti çıkıyor
+  ("hedef detayına dön"). Verilmezse (GoalDetailModal içinden açılan mevcut
+  kullanım) hiçbir şey değişmiyor — geriye dönük tam uyumlu.
+- `pages/explore.js` — DÜZENLENDİ: `activeSlidesGoal` state'i ve `handleOpenGoal`
+  eklendi — `slide_count > 0` olan bir hedefe dokununca `GoalDetailModal` yerine
+  doğrudan tam ekran `SlidesViewer` açılıyor; `onOpenDetails` ile oradan tek
+  dokunuşla tam detay modalına (yol haritası, mana verme, galeri) geçilebiliyor.
+  Slaytı olmayan hedefler eskisi gibi doğrudan `GoalDetailModal`'a gidiyor —
+  davranış değişmedi.
+
+KAPSAM: Yalnızca Vision Board / Victory Wall / Phoenix Wall hub'ları (üçü de aynı
+paylaşılan GoalCard ızgarasını kullanıyor, tek değişiklik hepsini kapsadı).
+Dreamscape (rüya ızgarası, 13. bölüm) kasıtlı olarak dokunulmadı — slaytlar
+hedeflere ait, rüyalara değil; iki içerik türünü tek bir sıralı akışta karıştırmak
+(dreams + goal_slides birlikte skorlanan tek grid) ayrı ve çok daha büyük bir
+tasarım kararı olurdu, istenirse ayrıca konuşulabilir.
+
+TAMAMLANMADI (bilinçli olarak, kapsam dışı bırakıldı): `create.js`'deki
+`sourceSlideId` ("Explore'dan kendi vizyonuna ekle") remiks mekanizması backend'de
+hazır ama hiçbir UI onu tetiklemiyor — SlidesViewer'da "Kendi Vizyonuma Ekle"
+butonu yok. İstenirse bir sonraki adım bu olabilir.
