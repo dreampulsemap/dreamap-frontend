@@ -378,7 +378,7 @@ export default function DreamComposer({
               </div>
 
               <div className="max-h-[calc(94vh-64px)] overflow-y-auto">
-                <DreamAnalysisView dream={analysisDream} lang={currentLang} />
+                <DreamAnalysisView analysis={analysisDream?.ai_jungian_analysis} lang={currentLang} />
               </div>
             </div>
           </div>
