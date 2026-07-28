@@ -48,8 +48,7 @@ export default async function handler(req, res) {
     const refunded = payload.refunded === 'true' || payload.refunded === '1'
     const isTest =
       payload.test === 'true' ||
-      payload.test === '1' ||
-      payload.test === true
+      payload.test === '1'
 
     // DİNAMİK AURA HESAPLAMA (X Dolar Ödeme = X Aura)
     // Gumroad ödeme miktarını cent bazında gönderir (Örn: $9 = 900 cent, $15 = 1500 cent)
