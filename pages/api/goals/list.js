@@ -79,6 +79,24 @@ export default async function handler(req, res) {
       goals = goals.map((g) => ({ ...g, has_reacted: false }))
     }
 
+    // Explore'da "Vizyon Slaytları" rozeti için: bu sayfadaki hedeflerden
+    // hangilerinin en az bir slaytı var, tek sorguda çekip sayıyoruz
+    // (has_reacted ile aynı desen — count(*) group by yerine ham satırları
+    // çekip JS'te sayıyoruz, sayfa başına en fazla 15 hedef olduğu için ucuz).
+    if (goals.length > 0) {
+      const goalIds = goals.map((g) => g.id)
+      const { data: slideRows } = await supabaseAdmin
+        .from('goal_slides')
+        .select('goal_id')
+        .in('goal_id', goalIds)
+
+      const slideCounts = {}
+      for (const row of slideRows || []) {
+        slideCounts[row.goal_id] = (slideCounts[row.goal_id] || 0) + 1
+      }
+      goals = goals.map((g) => ({ ...g, slide_count: slideCounts[g.id] || 0 }))
+    }
+
     return res.status(200).json({
       goals,
       page: pageNum,
