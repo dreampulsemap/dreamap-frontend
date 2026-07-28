@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
 import { getDailyPractice, getPracticeDoneKey } from '@/lib/dailyPractices'
+import SlideEditor from './SlideEditor'
 
 async function authHeader() {
   const { data: { session } } = await supabase.auth.getSession()
@@ -29,6 +30,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   const [galleryImages, setGalleryImages] = useState(initialGoal.gallery_image_urls || [])
   const [uploadingImages, setUploadingImages] = useState(false)
   const [galleryError, setGalleryError] = useState('')
+  const [showSlideEditor, setShowSlideEditor] = useState(false)
 
   const AURA_COST = 2  // generate-cover.js ile aynı maliyet
 
@@ -337,7 +339,17 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
               />
             </label>
             {galleryError && <p className="text-rose-400 text-xs mt-1.5">{galleryError}</p>}
+            <button
+              onClick={() => setShowSlideEditor(true)}
+              className="mt-2 w-full py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500/20 via-purple-500/20 to-cyan-500/20 text-fuchsia-200 text-xs font-bold uppercase tracking-widest hover:opacity-90"
+            >
+              {lang === 'tr' ? 'Vizyon Slaytlarını Düzenle' : 'Edit Vision Slides'}
+            </button>
           </div>
+        )}
+
+        {showSlideEditor && (
+          <SlideEditor goal={goal} lang={lang} onClose={() => setShowSlideEditor(false)} />
         )}
 
         {/* YOL HARİTASI */}
