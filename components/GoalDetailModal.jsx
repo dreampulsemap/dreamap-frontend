@@ -5,6 +5,7 @@ import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
 import { getDailyPractice, getPracticeDoneKey } from '@/lib/dailyPractices'
 import SlideEditor from './SlideEditor'
+import SlidesViewer from './SlidesViewer'
 
 async function authHeader() {
   const { data: { session } } = await supabase.auth.getSession()
@@ -31,6 +32,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   const [uploadingImages, setUploadingImages] = useState(false)
   const [galleryError, setGalleryError] = useState('')
   const [showSlideEditor, setShowSlideEditor] = useState(false)
+  const [showSlidesViewer, setShowSlidesViewer] = useState(false)
 
   const AURA_COST = 2  // generate-cover.js ile aynı maliyet
 
@@ -321,6 +323,19 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
               ))}
             </div>
           </div>
+        )}
+
+        <div className="mb-5">
+          <button
+            onClick={() => setShowSlidesViewer(true)}
+            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500/90 via-purple-500/90 to-cyan-500/90 text-white text-xs font-bold uppercase tracking-widest hover:opacity-90"
+          >
+            {lang === 'tr' ? '▶ Vizyon Slaytlarını İzle' : '▶ Watch Vision Slides'}
+          </button>
+        </div>
+
+        {showSlidesViewer && (
+          <SlidesViewer goal={goal} lang={lang} onClose={() => setShowSlidesViewer(false)} />
         )}
 
         {isOwner && goal.status === 'active' && (
