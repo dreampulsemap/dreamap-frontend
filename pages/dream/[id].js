@@ -51,8 +51,8 @@ export default function DreamDetailPage() {
   if (loading) {
     return (
       <div
+        className="full-height-mobile-safe"
         style={{
-          minHeight: '100vh',
           background: '#0D1018',
           color: '#F8F5EF',
           display: 'flex',
@@ -69,8 +69,8 @@ export default function DreamDetailPage() {
   if (error) {
     return (
       <div
+        className="full-height-mobile-safe"
         style={{
-          minHeight: '100vh',
           background: '#0D1018',
           color: '#F8F5EF',
           display: 'flex',
@@ -89,8 +89,8 @@ export default function DreamDetailPage() {
   if (!dream) {
     return (
       <div
+        className="full-height-mobile-safe"
         style={{
-          minHeight: '100vh',
           background: '#0D1018',
           color: '#F8F5EF',
           display: 'flex',
@@ -112,8 +112,8 @@ export default function DreamDetailPage() {
   if (dream.premium_deep_analysis_status === 'pending' || dream.premium_deep_analysis_status === 'processing') {
     return (
       <div
+        className="full-height-mobile-safe"
         style={{
-          minHeight: '100vh',
           background: '#0D1018',
           color: '#F8F5EF',
           display: 'flex',
@@ -133,8 +133,8 @@ export default function DreamDetailPage() {
   if (dream.premium_deep_analysis_status === 'failed') {
     return (
       <div
+        className="full-height-mobile-safe"
         style={{
-          minHeight: '100vh',
           background: '#0D1018',
           color: '#F8F5EF',
           display: 'flex',
