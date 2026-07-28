@@ -151,7 +151,10 @@ export default async function handler(req, res) {
       // eksik kalır.
       let imageUrl = null
       try {
-        imageUrl = await generateImageIfPossible(best.analysis.visual_prompt_en)
+        imageUrl = await generateImageIfPossible(best.analysis.visual_prompt_en, {
+          userId: dream.user_id,
+          dreamId,
+        })
         if (imageUrl) {
           await supabaseAdmin.from('dreams').update({ ai_image_url: imageUrl }).eq('id', dreamId)
         }
