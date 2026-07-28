@@ -2,77 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+:root {
+  /* Ortam Astarlaması Dinamik Değişkenleri */
+  --priming-darkness: 0.05;
+  --priming-star-speed: 100s;
+  --priming-blur: 44px;
 }
 
-html {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
-  -webkit-text-size-adjust: 100%;
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
   padding: 0;
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
-  font-family: 'Inter', sans-serif;
-  background: #0a0a1a;
-  color: #e0e0ff;
-}
-
-#__next {
-  width: 100%;
-  max-width: 100%;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: #04060E;
+  color: #E2E8F0;
   overflow-x: hidden;
 }
 
-img,
-video,
-canvas,
-svg {
-  max-width: 100%;
-  height: auto;
-  display: block;
+h1, h2, h3, h4, .font-serif {
+  font-family: 'Cormorant Garamond', serif;
 }
 
-a {
-  color: inherit;
-}
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: 'Cinzel', serif;
-  margin: 0;
-}
-
-p {
-  margin: 0;
-}
-
+/* Yıldızlı Uzay Derinliği & Ortam Astarlaması Katmanı */
 .starry-bg {
   position: fixed;
   inset: 0;
   z-index: -3;
-  background: linear-gradient(135deg, #060816 0%, #120a22 48%, #060816 100%);
+  background: linear-gradient(135deg, #04060E 0%, #090D1A 50%, #04060E 100%);
 }
 
 .starry-bg::before {
@@ -80,318 +41,116 @@ p {
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,0.9), transparent),
-    radial-gradient(2px 2px at 60% 70%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(1px 1px at 50% 50%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(2px 2px at 90% 60%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1px 1px at 33% 80%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1px 1px at 15% 90%, rgba(255,255,255,0.8), transparent);
+    radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(2px 2px at 60% 70%, rgba(230,198,135,0.6), transparent),
+    radial-gradient(1px 1px at 50% 50%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(2px 2px at 90% 60%, rgba(56,189,248,0.5), transparent);
   background-size: 200% 200%;
-  opacity: 0.28;
-  animation: starMove 100s linear infinite;
+  opacity: 0.3;
+  animation: starMove var(--priming-star-speed, 100s) linear infinite;
+}
+
+/* Oturum İlerledikçe Derinleşen Trans Katmanı */
+.starry-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: rgba(2, 4, 12, var(--priming-darkness, 0.05));
+  pointer-events: none;
+  transition: background-color 2s ease;
 }
 
 @keyframes starMove {
-  0% {
-    background-position: 0% 0%;
-  }
-  100% {
-    background-position: 100% 100%;
-  }
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
 }
 
 .floating-orb {
   position: fixed;
   border-radius: 50%;
-  filter: blur(44px);
-  opacity: 0.22;
-  animation: float 20s ease-in-out infinite;
+  filter: blur(var(--priming-blur, 44px));
+  opacity: 0.3;
+  transition: filter 2s ease;
   pointer-events: none;
   z-index: -2;
 }
 
 .orb-1 {
-  width: 260px;
-  height: 260px;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.75), transparent 70%);
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(230, 198, 135, 0.35), transparent 70%);
   top: 8%;
   left: -40px;
-  animation-delay: 0s;
 }
 
 .orb-2 {
-  width: 320px;
-  height: 320px;
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.4), transparent 70%);
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.25), transparent 70%);
   top: 56%;
   right: -80px;
-  animation-delay: 5s;
 }
 
-.orb-3 {
-  width: 220px;
-  height: 220px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.4), transparent 70%);
-  bottom: 12%;
-  left: 20%;
-  animation-delay: 10s;
+/* Parasempatik Nefes Animasyonu (10 Saniyelik / 0.1Hz Döngü) */
+@keyframes parasympatheticBreathing {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.12); opacity: 0.6; }
 }
 
-@keyframes float {
-  0%, 100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  33% {
-    transform: translate3d(24px, -24px, 0) scale(1.06);
-  }
-  66% {
-    transform: translate3d(-14px, 18px, 0) scale(0.94);
-  }
+.animate-breathing-orb {
+  animation: parasympatheticBreathing 10s ease-in-out infinite;
 }
 
+/* Lüks Obsidyen Cam Kart Yapısı */
 .glass-card {
-  background: rgba(255, 255, 255, 0.045);
-  backdrop-filter: blur(18px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 22px;
-  box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition: all 0.28s ease;
+  background: rgba(18, 24, 38, 0.55);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 
+    0 20px 50px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(139, 92, 246, 0.22);
+  background: rgba(24, 32, 50, 0.65);
+  border-color: rgba(230, 198, 135, 0.25);
+  box-shadow: 
+    0 25px 60px rgba(0, 0, 0, 0.6),
+    0 0 30px rgba(230, 198, 135, 0.1),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
   transform: translateY(-2px);
 }
 
-.glow-text {
-  text-shadow:
-    0 0 10px rgba(139, 92, 246, 0.75),
-    0 0 18px rgba(139, 92, 246, 0.45);
-}
-
-.glow-border {
-  box-shadow:
-    0 0 10px rgba(139, 92, 246, 0.35),
-    inset 0 0 10px rgba(139, 92, 246, 0.12);
-}
-
-.archetype-badge {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(236, 72, 153, 0.2));
-  border: 1px solid rgba(139, 92, 246, 0.28);
-  backdrop-filter: blur(10px);
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #edf0ff;
-  transition: all 0.25s ease;
-  cursor: pointer;
-}
-
-.archetype-badge:hover {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.32), rgba(236, 72, 153, 0.28));
-  box-shadow: 0 0 18px rgba(139, 92, 246, 0.3);
-}
-
-.dream-image {
-  position: relative;
-  overflow: hidden;
-  border-radius: 16px;
-}
-
-.dream-image::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, transparent 0%, rgba(10, 10, 26, 0.86) 100%);
-  pointer-events: none;
-}
-
-.dream-image img {
-  transition: transform 0.45s ease;
-}
-
-.dream-image:hover img {
-  transform: scale(1.03);
-}
-
-.typewriter {
-  overflow: hidden;
-  border-right: 2px solid rgba(139, 92, 246, 0.8);
-  white-space: nowrap;
-  animation:
-    typing 3.5s steps(40, end),
-    blink-caret 0.75s step-end infinite;
-}
-
-@keyframes typing {
-  from {
-    width: 0;
-  }
-  to {
-    width: 100%;
-  }
-}
-
-@keyframes blink-caret {
-  from, to {
-    border-color: transparent;
-  }
-  50% {
-    border-color: rgba(139, 92, 246, 0.8);
-  }
-}
-
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(10, 10, 26, 0.5);
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #8b5cf6, #ec4899);
-  border-radius: 999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #a78bfa, #f472b6);
-}
-
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.gradient-text {
-  background: linear-gradient(135deg, #8b5cf6, #ec4899, #3b82f6);
+/* Şampanya Altını Metin Parlaması */
+.gold-gradient-text {
+  background: linear-gradient(135deg, #FFF6D6 0%, #E6C687 50%, #B89753 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
-.globe-container {
-  cursor: grab;
-  width: 100%;
-  max-width: 100%;
-  overflow: hidden;
-}
-
-.globe-container canvas {
-  outline: none;
-  max-width: 100%;
-}
-
-.globe-container:active {
-  cursor: grabbing;
-}
-
-@media (max-width: 768px) {
-  .glass-card {
-    border-radius: 18px;
-  }
-
-  .archetype-badge {
-    font-size: 11px;
-    padding: 5px 12px;
-  }
-
-  .orb-1 {
-    width: 180px;
-    height: 180px;
-    left: -50px;
-  }
-
-  .orb-2 {
-    width: 220px;
-    height: 220px;
-    right: -70px;
-  }
-
-  .orb-3 {
-    width: 150px;
-    height: 150px;
-  }
-}
-
-/* ============================================================
-   VISION CARD 3D FLIP — Tailwind çekirdeği bu utility'leri
-   içermiyor, GoalCard.jsx için burada tanımlanıyor.
-   ============================================================ */
-.flip-perspective {
-  perspective: 1500px;
-}
-
+/* 3D Flip Kart Stilleri */
+.flip-perspective { perspective: 1500px; }
 .flip-card-inner {
   position: relative;
   width: 100%;
   height: 100%;
-  transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
 }
-
-.flip-card-inner.is-flipped {
-  transform: rotateY(180deg);
-}
-
+.flip-card-inner.is-flipped { transform: rotateY(180deg); }
 .flip-face {
   position: absolute;
   inset: 0;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
+.flip-face-back { transform: rotateY(180deg); }
 
-.flip-face-back {
-  transform: rotateY(180deg);
-}
-
-/* animate-fade-in birden fazla dosyada (Navbar aura dropdown, modal'lar,
-   BottomNav "+" menüsü) kullanılıyordu ama hiçbir yerde tanımlı değildi —
-   sessizce hiçbir şey yapmıyordu. */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-in {
-  animation: fade-in 0.15s ease-out;
-}
-
-/* Vizyon kartına tıklanınca kart "büyüyerek" detay modaline dönüşüyormuş
-   hissi versin diye — GoalDetailModal açılış animasyonu. */
-@keyframes scale-in {
-  from { opacity: 0; transform: scale(0.92) translateY(8px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-.animate-scale-in {
-  animation: scale-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Kart, tıklandığı anda kısa bir "büyüme" tepkisi versin — modal açılmadan
-   önceki geçiş hissini güçlendiriyor. */
-.vision-card-pressable {
-  transition: transform 0.18s ease-out;
-}
-.vision-card-pressable:active {
-  transform: scale(1.04);
-}
+.animate-fade-in { animation: fade-in 0.18s ease-out; }
