@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 // Tam ekran "Vizyon Slaytları" oynatıcısı — Instagram Stories tarzı otomatik
 // ilerleyen dokunmatik gösterim. Instagram'dan farkı: hiçbir şey 24 saatte
 // kaybolmuyor, istediğin an geri dönüp tekrar izleyebiliyorsun.
-export default function SlidesViewer({ goal, lang = 'en', onClose }) {
+export default function SlidesViewer({ goal, lang = 'en', onClose, onOpenDetails }) {
   const [slides, setSlides] = useState([])
   const [loading, setLoading] = useState(true)
   const [index, setIndex] = useState(0)
@@ -113,6 +113,15 @@ export default function SlidesViewer({ goal, lang = 'en', onClose }) {
       >
         <X size={16} />
       </button>
+
+      {onOpenDetails && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpenDetails() }}
+          className="absolute top-7 left-3 z-10 max-w-[60%] px-3 py-1.5 rounded-full bg-black/40 hover:bg-black/60 text-white text-xs font-medium truncate text-left"
+        >
+          {goal.title}
+        </button>
+      )}
 
       <img src={current.image_url} alt="" className="w-full h-full object-contain" />
 

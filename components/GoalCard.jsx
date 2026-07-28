@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
-import { Check, MessageCircle, Sparkles } from 'lucide-react'
+import { Check, MessageCircle, Play, Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 
@@ -135,6 +135,14 @@ export default function GoalCard({ goal, lang = 'en', currentUserId, onReacted, 
           {isOwner && (
             <span className="absolute top-12 right-3 text-label px-2.5 py-1 rounded-pill bg-white/10 text-white/80 backdrop-blur">
               {t.ownGoalBadge}
+            </span>
+          )}
+          {goal.slide_count > 0 && (
+            <span
+              className="absolute bottom-3 right-3 z-10 w-7 h-7 rounded-full bg-gradient-to-br from-fuchsia-500/90 via-purple-500/90 to-cyan-500/90 backdrop-blur flex items-center justify-center text-white"
+              title={lang === 'tr' ? 'Vizyon Slaytları mevcut' : 'Vision Slides available'}
+            >
+              <Play size={12} fill="currentColor" className="ml-0.5" />
             </span>
           )}
 
