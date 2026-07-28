@@ -9,10 +9,14 @@ export default function DailyCompass({ lang }) {
   const [loading, setLoading] = useState(false)
   const [alreadyUsed, setAlreadyUsed] = useState(false)
   const [timeLeft, setTimeLeft] = useState('')
-  const [errorMsg, setErrorMsg] = useState('') // Hata mesajı için yeni state
+  const [errorMsg, setErrorMsg] = useState('')
   
+  // 1. TEKNİK: Subliminal Öncülleme için Flaş State'i
+  const [subliminalWord, setSubliminalWord] = useState('')
+
   const timerRef = useRef(null)
-  const HOLD_DURATION = 2000 // 2 saniye basılı tutma gereksinimi
+  const HOLD_DURATION = 2000 
+  const SUBLIMINAL_WORDS = ['PAYLAŞ', 'DEVAM ET', 'HİZALAN', 'YENİDEN GEL']
 
   useEffect(() => {
     if (!alreadyUsed) return;
@@ -93,15 +97,8 @@ export default function DailyCompass({ lang }) {
     }
   }
 
-  // MOBİL VE MASAÜSTÜ KUSURSUZ JEST DENETİMİ
-  const startHold = (e) => {
-    // Pointer ve Touch event'leri modern tarayıcılarda aynı dokunuş için
-    // İKİSİ BİRDEN ateşlenebiliyor. Bu, iki ayrı interval'ın aynı anda
-    // çalışmasına ve fetchReading()'in iki kez tetiklenmesine (iki farklı
-    // metin arasında "flicker" görülmesine) sebep oluyordu.
+  const startHold = () => {
     if (holding || alreadyUsed || loading || compassData) return
-
-    // Önceden kalmış bir interval varsa (savunma amaçlı) temizle
     if (timerRef.current) clearInterval(timerRef.current)
 
     setHolding(true)
@@ -113,6 +110,13 @@ export default function DailyCompass({ lang }) {
       const elapsed = Date.now() - startTime
       const perc = Math.min((elapsed / HOLD_DURATION) * 100, 100)
       setProgress(perc)
+
+      // 1. TEKNİK: Subliminal Mikro Flaş (%90 - %95 İlerlemede 28ms Görünürlük)
+      if (perc >= 90 && perc <= 95 && !subliminalWord) {
+        const randomWord = SUBLIMINAL_WORDS[Math.floor(Math.random() * SUBLIMINAL_WORDS.length)]
+        setSubliminalWord(randomWord)
+        setTimeout(() => setSubliminalWord(''), 28)
+      }
       
       if (perc >= 100) {
         clearInterval(timerRef.current)
@@ -129,10 +133,10 @@ export default function DailyCompass({ lang }) {
       timerRef.current = null
     }
     setHolding(false)
+    setSubliminalWord('')
     if (progress < 100) setProgress(0)
   }
 
-  // Unmount olduğunda interval'ı temizle
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
@@ -153,13 +157,17 @@ export default function DailyCompass({ lang }) {
   }
 
   const title = lang === 'tr' ? 'Bilinçaltı Pusulası' : 'Daily Compass'
-  const instruction = lang === 'tr' ? 'Günün frekansını almak için basılı tut' : 'Hold to align with today’s frequency'
+  
+  // 4. TEKNİK: Gömülü Komut Dili (Embedded Commands)
+  const instruction = lang === 'tr' 
+    ? '...basılı tutmaya devam ettikçe, her sabah buraya geleceksin' 
+    : '...as you hold down, you will return here every morning'
 
   if (compassData) {
     return (
       <div 
-        className="relative overflow-hidden rounded-[24px] p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[220px] transition-all duration-1000 border border-white/10 shadow-2xl"
-        style={{ background: `radial-gradient(circle at center, ${compassData.color}40 0%, #050711 80%)` }}
+        className="relative overflow-hidden rounded-[24px] p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[220px] transition-all duration-1000 border border-astral-gold/20 shadow-2xl"
+        style={{ background: `radial-gradient(circle at center, ${compassData.color}30 0%, #04060E 80%)` }}
       >
         <span className="text-3xl mb-3 animate-fade-in" style={{ textShadow: `0 0 20px ${compassData.color}` }}>👁️</span>
         <h3 className="text-xs font-bold uppercase tracking-[0.3em] mb-4 animate-fade-in" style={{ color: compassData.color }}>
@@ -171,8 +179,7 @@ export default function DailyCompass({ lang }) {
         
         <button 
           onClick={handleShare}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-white transition-all hover:scale-105 shadow-lg"
-          style={{ backgroundColor: compassData.color }}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-void-950 bg-astral-gold hover:brightness-110 transition-all shadow-astral-glow"
         >
           <Camera size={14} /> {lang === 'tr' ? 'Hikayende Paylaş' : 'Share to Story'}
         </button>
@@ -181,13 +188,23 @@ export default function DailyCompass({ lang }) {
   }
 
   return (
-    <div className="glass-card relative overflow-hidden rounded-[24px] p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[200px] shadow-[0_0_40px_rgba(34,211,238,0.05)] select-none">
+    <div className="glass-card relative overflow-hidden rounded-[24px] p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[200px] select-none">
+      
+      {/* 1. TEKNİK: Subliminal Flaş Görünümü */}
+      {subliminalWord && (
+        <div className="absolute top-3 right-4 pointer-events-none z-50">
+          <span className="text-[10px] font-mono tracking-widest text-white/15 uppercase">
+            {subliminalWord}
+          </span>
+        </div>
+      )}
+
       <div className={`absolute inset-0 transition-opacity duration-1000 ${holding ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-fuchsia-500/20 blur-[50px] rounded-full" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-cyan-400/20 blur-[40px] rounded-full" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-astral-gold/15 blur-[50px] rounded-full" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-aether-cyan/15 blur-[40px] rounded-full" />
       </div>
 
-      <h3 className="relative z-10 text-xs font-bold uppercase tracking-[0.25em] text-cyan-300 mb-2">
+      <h3 className="relative z-10 text-xs font-bold uppercase tracking-[0.25em] gold-gradient-text mb-2">
         🧭 {title}
       </h3>
 
@@ -197,8 +214,15 @@ export default function DailyCompass({ lang }) {
           <p className="text-slate-400 text-xs uppercase tracking-widest">
             {lang === 'tr' ? 'Pusula hizalanıyor...' : 'Compass realigning...'}
           </p>
-          <p className="text-fuchsia-400 font-mono text-xl font-bold mt-1 tracking-wider">
+          <p className="text-astral-gold font-mono text-xl font-bold mt-1 tracking-wider">
             {timeLeft}
+          </p>
+          
+          {/* 2. TEKNİK: Gizli Bilgi Konumlandırması (Hidden Information) */}
+          <p className="mt-4 text-[9px] text-slate-600/60 max-w-[260px] leading-snug">
+            {lang === 'tr' 
+              ? '*Görüler 24 saat içinde kaydedilmediğinde arşive devredilir. Haklar her gece 00:00 UTC sıfırlanır (Detaylar: Ayarlar > Akış Tercihleri)'
+              : '*Readings archive automatically after 24h. Quotas reset at 00:00 UTC (Details: Settings > Stream Preferences)'}
           </p>
         </div>
       ) : (
@@ -208,25 +232,24 @@ export default function DailyCompass({ lang }) {
             onPointerUp={endHold}
             onPointerLeave={endHold}
             onPointerCancel={endHold}
-            className="relative flex items-center justify-center w-24 h-24 rounded-full border border-white/20 bg-black/50 shadow-xl touch-none select-none transition-transform hover:scale-105 active:scale-95"
+            className="relative flex items-center justify-center w-24 h-24 rounded-full border border-astral-gold/30 bg-void-950/80 shadow-2xl touch-none select-none transition-transform hover:scale-105 active:scale-95"
             style={{ WebkitUserSelect: 'none', touchAction: 'none' }}
           >
             <div 
-              className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-fuchsia-500/50 to-cyan-500/50 rounded-full transition-all ease-linear"
+              className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-astral-gold/40 to-aether-cyan/40 rounded-full transition-all ease-linear"
               style={{ height: `${progress}%` }}
             />
             <span className={`relative text-4xl transition-all ${holding ? 'animate-pulse scale-110' : ''}`}>
-              {loading ? '🔮' : <Eye size={32} />}
+              {loading ? '🔮' : <Eye size={32} className="text-astral-gold" />}
             </span>
           </button>
           
-          <p className="text-xs text-white/50 tracking-wider">
+          <p className="text-xs text-slate-400 tracking-wider">
             {loading ? (lang === 'tr' ? 'Frekans çözümleniyor...' : 'Decoding frequency...') : instruction}
           </p>
           
-          {/* HATA VARSA EKRANA BAS */}
           {errorMsg && (
-            <p className="text-xs text-rose-400 font-medium tracking-wider mt-2 flex items-center justify-center gap-1.5">
+            <p className="text-xs text-shadowWork-rose font-medium tracking-wider mt-2 flex items-center justify-center gap-1.5">
               <AlertTriangle size={12} /> {errorMsg}
             </p>
           )}
@@ -234,4 +257,4 @@ export default function DailyCompass({ lang }) {
       )}
     </div>
   )
-}
+        }
