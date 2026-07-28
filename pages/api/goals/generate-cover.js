@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { persistRemoteImage } from '@/lib/persistRemoteImage'
 
 const AURA_COST = 2 // generate-dream-image.js'deki tekli görsel üretim maliyetiyle tutarlı
 
@@ -227,6 +228,15 @@ export default async function handler(req, res) {
         return res.status(502).json({ error: 'image_generation_failed', details })
       }
     }
+
+    // Sağlayıcı URL'si (Replicate/DALL-E) geçicidir — kullanıcının kendi
+    // yüklediği kapaklarla aynı bucket'a (goal-covers) kalıcı olarak
+    // kopyalıyoruz, yol deseni de CreateGoalModal'daki istemci yüklemesiyle
+    // aynı (${userId}/${timestamp}.ext).
+    imageUrl = await persistRemoteImage(imageUrl, {
+      bucket: 'goal-covers',
+      path: `${user.id}/${Date.now()}.jpg`,
+    })
 
     if (goalId) {
       const { data: updatedGoal, error: updateError } = await supabaseAdmin
