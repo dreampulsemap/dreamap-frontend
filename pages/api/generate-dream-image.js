@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
+import { persistRemoteImage } from '@/lib/persistRemoteImage';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -405,6 +406,13 @@ export default async function handler(req, res) {
         });
       }
     }
+
+    // Sağlayıcı URL'si (Replicate/DALL-E) geçicidir ve saatler/günler içinde
+    // expire olur — DB'ye kaydetmeden önce kalıcı depolamaya kopyalıyoruz.
+    imageUrl = await persistRemoteImage(imageUrl, {
+      bucket: 'dream-images',
+      path: `${user.id}/${dreamId}-${Date.now()}.jpg`,
+    });
 
     const { error: updateDreamError } = await supabaseAdmin
       .from('dreams')
