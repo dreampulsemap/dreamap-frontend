@@ -3,48 +3,38 @@ export default function ProfileHeader({ user, profile }) {
     profile?.display_name || profile?.username || user?.email?.split('@')?.[0] || 'Dreamwalker'
 
   return (
-    <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl sm:p-7">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(6,182,212,0.14),transparent_32%)]" />
-
-      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-start gap-4">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full border border-cyan-300/20 bg-gradient-to-br from-cyan-500/16 via-violet-500/16 to-emerald-500/10 text-2xl font-semibold text-white shadow-[0_0_35px_rgba(139,92,246,0.15)]">
+    <div className="glass-card relative overflow-hidden rounded-card p-6 sm:p-8 border border-astral-gold/20 mb-6">
+      <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+        
+        <div className="flex items-center gap-4">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full border border-astral-gold/40 bg-void-900 text-2xl font-serif font-bold text-astral-gold shadow-astral-glow">
             {(primaryName || 'D').slice(0, 1).toUpperCase()}
           </div>
 
           <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-500">
+            <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400 font-sans">
               Bilinçaltı Kimliği
             </p>
-            <h1 className="mt-2 text-3xl font-semibold text-white sm:text-4xl">
-              <span className="gradient-text">{primaryName}</span>
+            <h1 className="text-3xl font-serif font-bold gold-gradient-text mt-1">
+              {primaryName}
             </h1>
-
-            {profile?.username ? (
-              <p className="mt-2 text-sm text-violet-200">@{profile.username}</p>
-            ) : null}
-
-            {user?.email ? (
-              <p className="mt-2 text-sm text-slate-300">{user.email}</p>
-            ) : null}
+            {profile?.username && (
+              <p className="text-xs text-aether-indigo font-sans">@{profile.username}</p>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:w-auto">
-          <div className="rounded-[1.25rem] border border-white/10 bg-black/20 p-4">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-              Aura
-            </p>
-            <p className="mt-2 text-sm font-medium text-cyan-200">Neon Mystic</p>
+        <div className="flex gap-3 font-sans">
+          <div className="rounded-xl border border-white/10 bg-void-950/60 p-3 text-center min-w-[100px]">
+            <p className="text-[9px] uppercase tracking-wider text-slate-500">Aura Modu</p>
+            <p className="text-xs font-bold text-astral-gold mt-1">Simyacı</p>
           </div>
-
-          <div className="rounded-[1.25rem] border border-white/10 bg-black/20 p-4">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-              Mode
-            </p>
-            <p className="mt-2 text-sm font-medium text-emerald-200">Dream Active</p>
+          <div className="rounded-xl border border-white/10 bg-void-950/60 p-3 text-center min-w-[100px]">
+            <p className="text-[9px] uppercase tracking-wider text-slate-500">Durum</p>
+            <p className="text-xs font-bold text-aether-cyan mt-1">Aktif Düğüm</p>
           </div>
         </div>
+
       </div>
     </div>
   )
