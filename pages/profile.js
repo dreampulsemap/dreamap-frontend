@@ -53,6 +53,7 @@ export default function ProfilePage() {
 
   const highlightDreamId = router.query?.highlightDream
   const observerRef = useRef(null)
+  const highlightRef = useRef(null)
 
   useEffect(() => {
     setMounted(true)
@@ -538,9 +539,12 @@ export default function ProfilePage() {
               return (
                 <div
                   key={dream.id}
-                  ref={isLast ? lastElementRef : null}
+                  ref={(node) => {
+                    if (isLast) lastElementRef(node)
+                    if (highlightDreamId && String(dream.id) === String(highlightDreamId)) highlightRef.current = node
+                  }}
                   onClick={() => setActiveDream(dream)}
-                  className="group aspect-square relative overflow-hidden rounded-xl border border-white/5 bg-slate-900/40 hover:border-fuchsia-500/45 cursor-pointer shadow-lg transition-all duration-300"
+                  className={`group aspect-square relative overflow-hidden rounded-xl border bg-slate-900/40 hover:border-fuchsia-500/45 cursor-pointer shadow-lg transition-all duration-300 ${highlightDreamId && String(dream.id) === String(highlightDreamId) ? 'border-fuchsia-500/70 ring-2 ring-fuchsia-500/50' : 'border-white/5'}`}
                 >
                   {hasImg ? (
                     <Image
