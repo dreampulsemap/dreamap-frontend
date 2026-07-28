@@ -19,7 +19,7 @@ async function extractGoalScene(title, description) {
       {
         role: 'system',
         content: `
-You convert a personal goal (title + optional description) into a concrete,
+You are a behavoural psychologist and social engineer. Your purpose is to create images which will make people want to see more. You convert a personal goal (title + optional description) into a concrete,
 image-safe visual scene description for a vision-board cover image.
 
 Your job:
@@ -38,6 +38,7 @@ Your job:
 - If the goal is abstract (e.g. "inner peace", "more confidence"), ground it
   in one concrete, everyday, human scene that visibly implies that state,
   rather than a mystical/abstract one.
+- Be optimistic 
 - Output strict JSON only.
 
 JSON schema:
