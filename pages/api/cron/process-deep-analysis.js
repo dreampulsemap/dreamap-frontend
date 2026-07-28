@@ -151,7 +151,10 @@ async function processDream(dream) {
     // Görsel best-effort: başarısız olursa ya da süre yetişmezse analiz yine de
     // kullanıcıya ulaşmış olur, görsel eksik kalır (sonradan tamamlanabilir).
     try {
-      const imageUrl = await generateImageIfPossible(best.analysis.visual_prompt_en)
+      const imageUrl = await generateImageIfPossible(best.analysis.visual_prompt_en, {
+        userId: dream.user_id,
+        dreamId: dream.id,
+      })
       if (imageUrl) {
         await supabaseAdmin
           .from('dreams')
