@@ -4,6 +4,8 @@ export default function Document() {
   return (
     <Html>
       <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+        <meta name="theme-color" content="#04060E" />
         {/* THREE.js ve Globe.gl — jsDelivr CDN (unpkg deprecated bu sürümleri) */}
           {/* three@0.160.0: build/three.min.js'nin bulunduğu son sürüm (r161+ kaldırıldı) */}
           <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" />
