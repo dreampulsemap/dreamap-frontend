@@ -24,6 +24,18 @@ body {
   overflow-x: hidden;
 }
 
+/* iOS home indicator / alt güvenli alan boşluğu (BottomNav bunu kullanıyor) */
+.pb-safe {
+  padding-bottom: calc(0.625rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Mobil adres çubuğu açılıp kapandıkça 100vh zıplamasın diye:
+   önce 100vh (eski tarayıcı fallback'i), destekleniyorsa 100dvh ile ezilir. */
+.full-height-mobile-safe {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 h1, h2, h3, h4, .font-serif {
   font-family: 'Cormorant Garamond', serif;
 }
