@@ -222,8 +222,11 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* MASAÜSTÜ İKİNCİL SATIR: metin linkleri (mobilde BottomNav ikonları karşılıyor) */}
-      <nav className="hidden md:flex items-center justify-center gap-8 border-t border-white/5 px-6 py-2 font-sans">
+      {/* İKİNCİL SATIR artık gereksiz: mobilde BottomNav.jsx, masaüstünde
+          Sidebar.jsx aynı linkleri karşılıyor. Kod korunuyor (NAV_ITEMS/
+          NAV_LABELS başka yerde kullanılmıyorsa kaldırılabilir) ama render
+          edilmiyor. */}
+      <nav className="hidden items-center justify-center gap-8 border-t border-white/5 px-6 py-2 font-sans">
         {NAV_ITEMS.map(({ href, key }) => (
           <Link key={key} href={href} className={`text-sm font-medium transition-colors ${router.pathname === href ? 'text-astral-gold' : 'text-slate-300 hover:text-astral-gold'}`}>
             {mounted ? NAV_LABELS[key][currentLang === 'tr' ? 'tr' : 'en'] : <TextSkeleton width="w-14" />}
