@@ -1,16 +1,11 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { cachePixabayImage } from '@/lib/pixabayCache'
 
-// Kullanıcı Pixabay'den bir görsel seçtiğinde:
-//   1) image_library tablosunda bu görsel daha önce indirilmiş mi diye bakar
-//      (aynı Pixabay görseli birden fazla kullanıcı seçerse tekrar indirmeyiz)
-//   2) Yoksa Pixabay'den indirir, kendi 'image-library' storage bucket'ımıza
-//      yükler ve etiketleriyle birlikte image_library'ye kaydeder
-//   3) Elde edilen kalıcı URL'i goals.gallery_image_urls'e ekler
-// Bkz. MIGRATION_NOTES_pixabay.md — image_library tablosu ve
-// 'image-library' bucket'ının oluşturulması gerekiyor.
+// Kullanıcı Pixabay'den bir görsel seçtiğinde, indirip kendi storage/DB'mize
+// kaydeder (bkz. lib/pixabayCache.js) ve elde edilen kalıcı URL'i
+// goals.gallery_image_urls'e ekler.
 
 const MAX_GALLERY_IMAGES = 20
-const LIBRARY_BUCKET = 'image-library'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
@@ -38,67 +33,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'gallery_limit_reached', max: MAX_GALLERY_IMAGES })
     }
 
-    let storedUrl = null
-
-    // 1) Kendi kütüphanemizde bu Pixabay görseli daha önce indirilmiş mi?
-    const { data: cached } = await supabaseAdmin
-      .from('image_library')
-      .select('id, stored_url, downloads_count')
-      .eq('source', 'pixabay')
-      .eq('source_id', String(pixabayId))
-      .maybeSingle()
-
-    if (cached?.stored_url) {
-      storedUrl = cached.stored_url
-      await supabaseAdmin
-        .from('image_library')
-        .update({ downloads_count: (cached.downloads_count || 0) + 1 })
-        .eq('id', cached.id)
-    } else {
-      // 2) Yoksa Pixabay'den indir ve kendi storage'ımıza yükle.
-      // Not: Bu indirme yalnızca kullanıcı görseli bilinçli olarak SEÇTİĞİNDE
-      // tetiklenir (toplu/otomatik kazıma değil) — Pixabay içerik lisansı
-      // görsellerin ücretsiz kullanımına ve indirilmesine izin verir.
-      const imgRes = await fetch(imageUrl)
-      if (!imgRes.ok) return res.status(502).json({ error: 'pixabay_download_failed' })
-
-      const contentType = imgRes.headers.get('content-type') || 'image/jpeg'
-      const ext = contentType.includes('png') ? 'png' : 'jpg'
-      const arrayBuffer = await imgRes.arrayBuffer()
-      const buffer = Buffer.from(arrayBuffer)
-
-      if (buffer.length > 15 * 1024 * 1024) {
-        return res.status(400).json({ error: 'image_too_large' })
-      }
-
-      const filePath = `pixabay/${pixabayId}.${ext}`
-      const { error: uploadError } = await supabaseAdmin.storage
-        .from(LIBRARY_BUCKET)
-        .upload(filePath, buffer, { contentType, upsert: true })
-      if (uploadError) return res.status(500).json({ error: uploadError.message || 'upload_error' })
-
-      const { data: publicData } = supabaseAdmin.storage.from(LIBRARY_BUCKET).getPublicUrl(filePath)
-      storedUrl = publicData?.publicUrl
-      if (!storedUrl) return res.status(500).json({ error: 'public_url_failed' })
-
-      const cleanTags = Array.isArray(tags) ? tags.slice(0, 20).map((t) => String(t).slice(0, 40)) : []
-
-      const { error: libError } = await supabaseAdmin.from('image_library').upsert(
-        {
-          source: 'pixabay',
-          source_id: String(pixabayId),
-          tags: cleanTags,
-          original_url: imageUrl,
-          stored_url: storedUrl,
-          width: width || null,
-          height: height || null,
-          pixabay_user: pixabayUser || null,
-          downloads_count: 1,
-        },
-        { onConflict: 'source,source_id' }
-      )
-      if (libError) console.error('image_library upsert error:', libError)
-    }
+    const { storedUrl, error: cacheError } = await cachePixabayImage({ pixabayId, imageUrl, tags, pixabayUser, width, height })
+    if (!storedUrl) return res.status(500).json({ error: cacheError || 'cache_failed' })
 
     if (existing.includes(storedUrl)) {
       return res.status(200).json({ goal, gallery_image_urls: existing })
