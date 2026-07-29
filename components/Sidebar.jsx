@@ -16,22 +16,13 @@ const NAV_ITEMS = [
   { href: '/profile', key: 'profile', icon: User },
 ]
 
-const LABELS = {
-  home: { tr: 'Ana Sayfa', en: 'Home' },
-  explore: { tr: 'Keşfet', en: 'Explore' },
-  vision: { tr: 'Vizyon', en: 'Vision' },
-  message: { tr: 'Mesaj', en: 'Messages' },
-  profile: { tr: 'Profil', en: 'Profile' },
-}
-
 export default function Sidebar() {
   const router = useRouter()
-  const { i18n } = useTranslation()
+  const { t } = useTranslation()
   const [mounted, setMounted] = useState(false)
   const [user, setUser] = useState(null)
 
   useEffect(() => { setMounted(true) }, [])
-  const lang = mounted ? (i18n?.language || 'en').split('-')[0] : 'en'
 
   // Sadece "giriş yapılmış mı" bilgisi lazım (CTA'ları /auth'a yönlendirmek
   // için) — mana/aura/bildirim gibi zaten Navbar.jsx'te yönetilen state'i
@@ -61,7 +52,7 @@ export default function Sidebar() {
   return (
     <aside
       className="hidden md:flex md:flex-col fixed left-0 top-0 z-40 h-screen w-64 overflow-y-auto border-r border-white/5 bg-void-950/70 px-4 pb-6 pt-24 backdrop-blur-2xl"
-      aria-label={lang === 'tr' ? 'Ana gezinme' : 'Main navigation'}
+      aria-label={t('nav.home')}
     >
       {/* ODAK NOKTASI: birincil CTA — mevcut ?create=1 akışını kullanır
           (vision-board.js zaten bunu dinliyor, BottomNav.jsx ile aynı yol) */}
@@ -72,7 +63,7 @@ export default function Sidebar() {
       >
         <span className="absolute inset-0 -translate-x-full bg-white/20 transition-transform duration-500 group-hover:translate-x-full" />
         <Plus size={18} className="relative shrink-0" />
-        <span className="relative">{lang === 'tr' ? 'Yeni Vizyon Ekle' : 'New Vision'}</span>
+        <span className="relative">{t('nav.newVision')}</span>
       </Link>
 
       {/* İkincil oluşturma seçeneği — BottomNav'daki "Oluştur" menüsünün
@@ -83,7 +74,7 @@ export default function Sidebar() {
         className="mb-6 flex items-center justify-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-slate-400 transition-colors hover:border-aether-indigo/40 hover:text-aether-indigo"
       >
         <Moon size={14} />
-        <span>{lang === 'tr' ? 'Yeni Rüya Anlat' : 'Log a Dream'}</span>
+        <span>{t('nav.logDream')}</span>
       </Link>
 
       <nav className="flex flex-col gap-1">
@@ -103,7 +94,7 @@ export default function Sidebar() {
                 size={19}
                 className={active ? 'shrink-0 drop-shadow-[0_0_6px_rgba(230,198,135,0.6)]' : 'shrink-0'}
               />
-              <span>{mounted ? LABELS[key][lang === 'tr' ? 'tr' : 'en'] : '\u00A0'}</span>
+              <span>{mounted ? t(`nav.${key}`) : '\u00A0'}</span>
             </Link>
           )
         })}

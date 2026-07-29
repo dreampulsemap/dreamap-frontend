@@ -39,7 +39,7 @@ export default function Navbar() {
   const auraDropdownRef = useRef(null)
   const notifDropdownRef = useRef(null)
 
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   useEffect(() => { setMounted(true) }, [])
   const currentLang = mounted ? (i18n?.language || 'en').split('-')[0] : 'en'
@@ -176,8 +176,8 @@ export default function Navbar() {
               {notifDropdownOpen && (
                 <div className="absolute right-0 top-full mt-2 w-72 max-h-96 overflow-y-auto rounded-card border border-white/10 bg-void-900 shadow-2xl z-50 animate-fade-in">
                   <div className="p-3 border-b border-white/5 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Bildirimler</span>
-                    <span className="text-[9px] text-aether-cyan font-mono">Otomatik Hizalı</span>
+                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">{t('notif.title')}</span>
+                    <span className="text-[9px] text-aether-cyan font-mono">{t('notif.autoAligned')}</span>
                   </div>
                   {notifications.length === 0 ? (
                     <p className="text-center text-slate-500 text-sm py-6">{currentLang === 'tr' ? 'Henüz bildirim yok.' : 'No notifications yet.'}</p>
