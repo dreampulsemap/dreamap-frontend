@@ -3,7 +3,6 @@ import { useRouter } from 'next/router'
 import { useState, useEffect, useRef } from 'react'
 import { User, LogIn, Bell, Droplet, Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 import TextSkeleton from '@/components/TextSkeleton'
@@ -154,9 +153,6 @@ export default function Navbar() {
 
         {/* ORTA: LOGO & MARKA (sabit merkez) */}
         <Link href="/" className="group flex items-center justify-center gap-2 sm:gap-3">
-          <div className="relative shrink-0 overflow-hidden rounded-xl border border-astral-gold/20 bg-void-900/80 px-2 py-1 shadow-astral-glow transition-all duration-300 group-hover:border-astral-gold/40">
-            <img src="/logo.svg" alt="Lunosfer" className="h-6 w-auto object-contain sm:h-8" />
-          </div>
           <span className="text-[0.9rem] font-black font-serif uppercase tracking-[0.18em] gold-gradient-text sm:text-[1.2rem]">
             LUNOSFER
           </span>
@@ -164,8 +160,6 @@ export default function Navbar() {
 
         {/* SAĞ: DİL, BİLDİRİM, PROFİL */}
         <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 sm:gap-2.5 font-sans">
-          <LanguageSwitcher />
-
           {/* BİLDİRİM & GİZLİ AKIŞ TERCİHLERİ */}
           {user && (
             <div className="relative" ref={notifDropdownRef}>
