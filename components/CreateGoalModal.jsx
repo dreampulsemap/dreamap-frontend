@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
-import { Sparkles, Upload, X } from 'lucide-react'
+import { Sparkles, Upload, X, Search as SearchIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
+import PixabayPicker from './PixabayPicker'
 
 export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
   const t = getVisionBoardText(lang)
@@ -25,6 +26,7 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
   const [uploadingCover, setUploadingCover] = useState(false)
   const [generatingCover, setGeneratingCover] = useState(false)
   const [coverError, setCoverError] = useState('')
+  const [showPixabayPicker, setShowPixabayPicker] = useState(false)
   const fileInputRef = useRef(null)
 
   function addRoadmapStep() {
@@ -101,6 +103,38 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
       setCoverError('network_error')
     } finally {
       setGeneratingCover(false)
+    }
+  }
+
+  // Pixabay picker'da bir görsele tıklandığında çağrılır. Henüz bir goal
+  // yok, o yüzden goal-bağımsız import endpoint'ini kullanıyoruz — sadece
+  // indirip kendi storage'ımıza kaydediyor, hiçbir goal'a bağlamıyor.
+  async function handleCoverPixabayPick(hit) {
+    setCoverError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setCoverError(t.loginRequired); return false }
+
+      const res = await fetch('/api/pixabay/import-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          pixabayId: hit.id,
+          imageUrl: hit.largeImageURL,
+          tags: hit.tags,
+          pixabayUser: hit.user,
+          width: hit.width,
+          height: hit.height,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setCoverError(json.error || 'error'); return false }
+      setCoverImageUrl(json.url)
+      setCoverImageSource('pixabay')
+      return true
+    } catch (err) {
+      setCoverError('network_error')
+      return false
     }
   }
 
@@ -183,12 +217,12 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
                 </button>
               </div>
             ) : (
-              <div className="flex gap-2 mb-1">
+              <div className="grid grid-cols-3 gap-1.5 mb-1">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingCover || generatingCover}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-xs font-semibold hover:bg-white/10 disabled:opacity-40"
+                  className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-[10px] font-semibold hover:bg-white/10 disabled:opacity-40"
                 >
                   <Upload size={14} />
                   {uploadingCover ? t.uploading : t.uploadBtn}
@@ -204,10 +238,19 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
                   type="button"
                   onClick={handleGenerateCover}
                   disabled={uploadingCover || generatingCover}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-cyan-300 text-xs font-semibold hover:bg-white/10 disabled:opacity-40"
+                  className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-white/5 border border-white/10 text-cyan-300 text-[10px] font-semibold hover:bg-white/10 disabled:opacity-40"
                 >
                   <Sparkles size={14} />
                   {generatingCover ? t.generatingCoverBtn : t.generateAiBtn}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPixabayPicker(true)}
+                  disabled={uploadingCover || generatingCover}
+                  className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-white/5 border border-white/10 text-fuchsia-300 text-[10px] font-semibold hover:bg-white/10 disabled:opacity-40"
+                >
+                  <SearchIcon size={14} />
+                  {lang === 'tr' ? 'Pixabay' : 'Pixabay'}
                 </button>
               </div>
             )}
@@ -292,6 +335,15 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
           </button>
         </div>
       </div>
+
+      {showPixabayPicker && (
+        <PixabayPicker
+          lang={lang}
+          videoEnabled={false}
+          onPickImage={handleCoverPixabayPick}
+          onClose={() => setShowPixabayPicker(false)}
+        />
+      )}
     </div>
   )
 }

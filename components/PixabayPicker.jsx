@@ -28,7 +28,7 @@ function formatNextAvailable(iso, lang) {
   }
 }
 
-export default function PixabayPicker({ lang = 'en', videoStatus, onPickImage, onPickVideo, onClose }) {
+export default function PixabayPicker({ lang = 'en', videoStatus, videoEnabled = true, onPickImage, onPickVideo, onClose }) {
   const modalRef = useRef(null)
   useModalA11y(modalRef, onClose)
 
@@ -141,28 +141,30 @@ export default function PixabayPicker({ lang = 'en', videoStatus, onPickImage, o
           </button>
         </div>
 
-        <div className="flex items-center gap-2 mb-4">
-          <button
-            onClick={() => switchTab('image')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-              mediaType === 'image' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
-            }`}
-          >
-            {lang === 'tr' ? 'Görseller' : 'Images'}
-          </button>
-          <button
-            onClick={() => switchTab('video')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${
-              mediaType === 'video' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
-            }`}
-          >
-            {lang === 'tr' ? 'Videolar' : 'Videos'}
-            {isPremium && <Crown size={12} className="text-amber-300" />}
-            {!isPremium && !canPickVideo && <Lock size={12} className="text-slate-500" />}
-          </button>
-        </div>
+        {videoEnabled && (
+          <div className="flex items-center gap-2 mb-4">
+            <button
+              onClick={() => switchTab('image')}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
+                mediaType === 'image' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+              }`}
+            >
+              {lang === 'tr' ? 'Görseller' : 'Images'}
+            </button>
+            <button
+              onClick={() => switchTab('video')}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                mediaType === 'video' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+              }`}
+            >
+              {lang === 'tr' ? 'Videolar' : 'Videos'}
+              {isPremium && <Crown size={12} className="text-amber-300" />}
+              {!isPremium && !canPickVideo && <Lock size={12} className="text-slate-500" />}
+            </button>
+          </div>
+        )}
 
-        {mediaType === 'video' && !isPremium && (
+        {videoEnabled && mediaType === 'video' && !isPremium && (
           <div className={`mb-4 p-3 rounded-xl border text-xs ${canPickVideo ? 'bg-white/5 border-white/10 text-slate-300' : 'bg-amber-500/10 border-amber-500/20 text-amber-200'}`}>
             {canPickVideo ? (
               lang === 'tr'

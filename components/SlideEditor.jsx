@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
+import { X, Plus, Trash2, ArrowUp, ArrowDown, Search as SearchIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
+import PixabayPicker from './PixabayPicker'
 
 const MAX_SLIDES = 20
 
@@ -26,6 +27,7 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [savingId, setSavingId] = useState(null)
+  const [showPixabayPicker, setShowPixabayPicker] = useState(false)
 
   const existingImages = [
     ...(goal.cover_image_url ? [goal.cover_image_url] : []),
@@ -63,6 +65,37 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
       setSlides((prev) => [...prev, json.slide])
     } catch {
       setError('network_error')
+    }
+  }
+
+  async function handlePixabaySlidePick(hit) {
+    if (slides.length >= MAX_SLIDES) {
+      setError(lang === 'tr' ? `En fazla ${MAX_SLIDES} slayt eklenebilir.` : `You can add up to ${MAX_SLIDES} slides.`)
+      return false
+    }
+    const auth = await authBundle()
+    if (!auth) { setError(lang === 'tr' ? 'Giriş yapmalısın.' : 'You need to log in.'); return false }
+    setError('')
+    try {
+      const res = await fetch('/api/pixabay/import-image', {
+        method: 'POST',
+        headers: auth.headers,
+        body: JSON.stringify({
+          pixabayId: hit.id,
+          imageUrl: hit.largeImageURL,
+          tags: hit.tags,
+          pixabayUser: hit.user,
+          width: hit.width,
+          height: hit.height,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error || 'error'); return false }
+      await addSlide(json.url)
+      return true
+    } catch {
+      setError('network_error')
+      return false
     }
   }
 
@@ -293,22 +326,41 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
               </div>
             )}
 
-            <label className="block w-full py-2.5 rounded-xl bg-white/5 text-slate-200 text-xs font-bold uppercase tracking-widest hover:bg-white/10 text-center cursor-pointer">
-              {uploading
-                ? (lang === 'tr' ? 'Yükleniyor...' : 'Uploading...')
-                : (lang === 'tr' ? 'Cihazından Yeni Görsel Yükle' : 'Upload New Image From Device')}
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                disabled={uploading || slides.length >= MAX_SLIDES}
-                onChange={(e) => { handleUploadFiles(e.target.files); e.target.value = '' }}
-              />
-            </label>
+            <div className="flex gap-2">
+              <label className="flex-1 py-2.5 rounded-xl bg-white/5 text-slate-200 text-xs font-bold uppercase tracking-widest hover:bg-white/10 text-center cursor-pointer">
+                {uploading
+                  ? (lang === 'tr' ? 'Yükleniyor...' : 'Uploading...')
+                  : (lang === 'tr' ? 'Cihazdan Yükle' : 'From Device')}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  disabled={uploading || slides.length >= MAX_SLIDES}
+                  onChange={(e) => { handleUploadFiles(e.target.files); e.target.value = '' }}
+                />
+              </label>
+              <button
+                onClick={() => setShowPixabayPicker(true)}
+                disabled={slides.length >= MAX_SLIDES}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 text-slate-200 text-xs font-bold uppercase tracking-widest hover:bg-white/10 disabled:opacity-40 flex items-center justify-center gap-1.5"
+              >
+                <SearchIcon size={14} />
+                {lang === 'tr' ? 'Pixabay\u2019dan Seç' : 'From Pixabay'}
+              </button>
+            </div>
           </>
         )}
       </div>
+
+      {showPixabayPicker && (
+        <PixabayPicker
+          lang={lang}
+          videoEnabled={false}
+          onPickImage={handlePixabaySlidePick}
+          onClose={() => setShowPixabayPicker(false)}
+        />
+      )}
     </div>
   )
 }
