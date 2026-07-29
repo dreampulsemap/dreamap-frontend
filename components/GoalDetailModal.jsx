@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Check, MessageCircle, Trash2, ArrowUp, Image as ImageIcon, Sparkles as SparklesIcon } from 'lucide-react'
+import { X, Check, MessageCircle, Trash2, ArrowUp, Image as ImageIcon, Sparkles as SparklesIcon, Search as SearchIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
 import { getDailyPractice, getPracticeDoneKey } from '@/lib/dailyPractices'
 import SlideEditor from './SlideEditor'
 import SlidesViewer from './SlidesViewer'
+import PixabayPicker from './PixabayPicker'
 
 async function authHeader() {
   const { data: { session } } = await supabase.auth.getSession()
@@ -33,6 +34,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   const [galleryError, setGalleryError] = useState('')
   const [showSlideEditor, setShowSlideEditor] = useState(false)
   const [showSlidesViewer, setShowSlidesViewer] = useState(false)
+  const [showPixabayPicker, setShowPixabayPicker] = useState(false)
 
   const AURA_COST = 2  // generate-cover.js ile aynı maliyet
 
@@ -143,6 +145,47 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
       setGalleryError('network_error')
     } finally {
       setUploadingImages(false)
+    }
+  }
+
+  // Pixabay picker'da bir görsele tıklandığında çağrılır. Gerçek indirme +
+  // kendi storage/DB'mize kaydetme işini sunucu tarafı yapar (bkz.
+  // /api/goals/add-image-from-pixabay). true dönerse picker kapanır.
+  async function handlePixabayPick(hit) {
+    if (!isOwner) return false
+    setGalleryError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setGalleryError(t.loginRequired); return false }
+
+      const res = await fetch('/api/goals/add-image-from-pixabay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          goalId: goal.id,
+          pixabayId: hit.id,
+          imageUrl: hit.largeImageURL,
+          tags: hit.tags,
+          pixabayUser: hit.user,
+          width: hit.width,
+          height: hit.height,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setGalleryError(
+          json.error === 'gallery_limit_reached'
+            ? (lang === 'tr' ? 'Galeri dolu (maks. 20 görsel).' : 'Gallery is full (max 20 images).')
+            : json.error || 'error'
+        )
+        return false
+      }
+      setGalleryImages(json.gallery_image_urls || [])
+      if (json.goal) onChanged?.(json.goal)
+      return true
+    } catch {
+      setGalleryError('network_error')
+      return false
     }
   }
 
@@ -340,19 +383,28 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
 
         {isOwner && goal.status === 'active' && (
           <div className="mb-5">
-            <label className="block w-full py-2.5 rounded-xl bg-white/5 text-slate-200 text-xs font-bold uppercase tracking-widest hover:bg-white/10 text-center cursor-pointer">
-              {uploadingImages
-                ? (lang === 'tr' ? 'Yükleniyor...' : 'Uploading...')
-                : (lang === 'tr' ? 'Cihazından Görsel Ekle' : 'Add Images From Device')}
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                disabled={uploadingImages}
-                onChange={(e) => { handleGalleryFiles(e.target.files); e.target.value = '' }}
-              />
-            </label>
+            <div className="flex gap-2">
+              <label className="flex-1 py-2.5 rounded-xl bg-white/5 text-slate-200 text-xs font-bold uppercase tracking-widest hover:bg-white/10 text-center cursor-pointer">
+                {uploadingImages
+                  ? (lang === 'tr' ? 'Yükleniyor...' : 'Uploading...')
+                  : (lang === 'tr' ? 'Cihazından Ekle' : 'From Device')}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  disabled={uploadingImages}
+                  onChange={(e) => { handleGalleryFiles(e.target.files); e.target.value = '' }}
+                />
+              </label>
+              <button
+                onClick={() => setShowPixabayPicker(true)}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 text-slate-200 text-xs font-bold uppercase tracking-widest hover:bg-white/10 flex items-center justify-center gap-1.5"
+              >
+                <SearchIcon size={14} />
+                {lang === 'tr' ? 'Pixabay\u2019dan Seç' : 'From Pixabay'}
+              </button>
+            </div>
             {galleryError && <p className="text-rose-400 text-xs mt-1.5">{galleryError}</p>}
             <button
               onClick={() => setShowSlideEditor(true)}
@@ -365,6 +417,14 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
 
         {showSlideEditor && (
           <SlideEditor goal={goal} lang={lang} onClose={() => setShowSlideEditor(false)} />
+        )}
+
+        {showPixabayPicker && (
+          <PixabayPicker
+            lang={lang}
+            onPick={handlePixabayPick}
+            onClose={() => setShowPixabayPicker(false)}
+          />
         )}
 
         {/* YOL HARİTASI */}
