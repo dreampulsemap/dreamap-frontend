@@ -1,14 +1,15 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useEffect, useRef, useState } from 'react'
-import { Moon, Target, X, Globe, Sparkles, User, Home, Compass } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { Moon, Target, X, MessageCircle, Plus, Home, Compass } from 'lucide-react'
 
 export default function BottomNav() {
   const router = useRouter()
-  const [avatarUrl, setAvatarUrl] = useState('')
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const menuRef = useRef(null)
+
+  // Not: Profil/avatar buradan kaldırıldı — artık üst navbar'da (Navbar.jsx,
+  // sağ üstte). Bu yüzden burada kullanıcı oturumunu ayrıca izlemeye gerek yok.
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -18,33 +19,30 @@ export default function BottomNav() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [createMenuOpen])
 
-  useEffect(() => {
-    let active = true
-    async function loadAvatar() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user && active) {
-          const { data: profile } = await supabase.from('user_profiles').select('avatar_url').eq('id', user.id).maybeSingle()
-          setAvatarUrl(profile?.avatar_url || user.user_metadata?.avatar_url || '')
-        }
-      } catch (err) {}
-    }
-    loadAvatar()
-  }, [])
-
   const isActive = (path) => router.pathname === path
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/5 bg-void-950/90 backdrop-blur-2xl px-6 py-2.5 pb-safe">
+    <nav
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/5 bg-void-950/90 backdrop-blur-2xl px-6 py-2.5 pb-safe"
+      aria-label="Ana gezinme"
+    >
       <div className="flex items-center justify-between max-w-md mx-auto">
-        
+
         {/* 1. ANA SAYFA */}
-        <Link href="/" className={`p-2 transition-all ${isActive('/') ? 'text-astral-gold scale-110 drop-shadow-[0_0_8px_rgba(230,198,135,0.6)]' : 'text-slate-400 hover:text-white'}`}>
+        <Link
+          href="/"
+          aria-label="Ana Sayfa"
+          className={`p-2 transition-all ${isActive('/') ? 'text-astral-gold scale-110 drop-shadow-[0_0_8px_rgba(230,198,135,0.6)]' : 'text-slate-400 hover:text-white'}`}
+        >
           <Home size={22} />
         </Link>
 
         {/* 2. KEŞFET */}
-        <Link href="/explore" className={`p-2 transition-all ${isActive('/explore') ? 'text-aether-cyan scale-110 drop-shadow-[0_0_8px_rgba(56,189,248,0.6)]' : 'text-slate-400 hover:text-white'}`}>
+        <Link
+          href="/explore"
+          aria-label="Keşfet"
+          className={`p-2 transition-all ${isActive('/explore') ? 'text-aether-cyan scale-110 drop-shadow-[0_0_8px_rgba(56,189,248,0.6)]' : 'text-slate-400 hover:text-white'}`}
+        >
           <Compass size={22} />
         </Link>
 
@@ -75,27 +73,32 @@ export default function BottomNav() {
           <button
             onClick={() => setCreateMenuOpen((o) => !o)}
             aria-label="Oluştur"
+            aria-expanded={createMenuOpen}
             className="group relative p-2 block"
           >
             <div className="absolute inset-0 bg-gradient-to-tr from-astral-gold to-aether-cyan rounded-full blur opacity-70 group-hover:opacity-100 transition-opacity animate-pulse" />
             <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-void-950 border border-astral-gold/40 text-astral-gold shadow-astral-glow">
-              {createMenuOpen ? <X size={20} /> : <Sparkles size={20} />}
+              {createMenuOpen ? <X size={20} /> : <Plus size={22} />}
             </div>
           </button>
         </div>
 
-        {/* 4. KOLEKTİF KÜRE */}
-        <Link href="/globe" className={`p-2 transition-all ${isActive('/globe') ? 'text-aether-indigo scale-110 drop-shadow-[0_0_8px_rgba(129,140,248,0.6)]' : 'text-slate-400 hover:text-white'}`}>
-          <Globe size={22} />
+        {/* 4. VİZYON */}
+        <Link
+          href="/vision-board"
+          aria-label="Vizyon"
+          className={`p-2 transition-all ${isActive('/vision-board') ? 'text-aether-indigo scale-110 drop-shadow-[0_0_8px_rgba(129,140,248,0.6)]' : 'text-slate-400 hover:text-white'}`}
+        >
+          <Target size={22} />
         </Link>
 
-        {/* 5. PROFİL */}
-        <Link href="/profile" className={`p-1 transition-all ${isActive('/profile') ? 'ring-2 ring-astral-gold ring-offset-2 ring-offset-void-950 rounded-full' : 'opacity-70 hover:opacity-100'}`}>
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="Profile" className="w-6 h-6 rounded-full object-cover" />
-          ) : (
-            <User size={20} className="text-slate-400" />
-          )}
+        {/* 5. MESAJ */}
+        <Link
+          href="/messages"
+          aria-label="Mesajlar"
+          className={`p-2 transition-all ${isActive('/messages') ? 'text-aether-violet scale-110 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]' : 'text-slate-400 hover:text-white'}`}
+        >
+          <MessageCircle size={22} />
         </Link>
 
       </div>

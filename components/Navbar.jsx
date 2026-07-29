@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useState, useEffect, useRef } from 'react'
-import { User, LogIn, Bell } from 'lucide-react'
+import { User, LogIn, Bell, Droplet, Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
@@ -11,15 +11,18 @@ import { usePushSubscription } from '@/hooks/usePushSubscription'
 
 const SHOP_URL = 'https://shop.lunosfer.com'
 
+// Not: 'globe' kaldırıldı (mockup'ta yok, /globe sayfası hâlâ duruyor ama
+// artık üst seviye nav'dan bağlı değil), 'message' eklendi (bkz. pages/messages.js
+// — backend'i yok, geçici "yakında" sayfası).
 const NAV_ITEMS = [
   { href: '/', key: 'home' },
   { href: '/explore', key: 'explore' },
-  { href: '/globe', key: 'globe' },
   { href: '/vision-board', key: 'vision' },
+  { href: '/messages', key: 'message' },
 ]
 const NAV_LABELS = {
   home: { tr: 'Ana Sayfa', en: 'Home' }, explore: { tr: 'Keşfet', en: 'Explore' },
-  globe: { tr: 'Küre', en: 'Globe' }, vision: { tr: 'Vizyon', en: 'Vision' },
+  vision: { tr: 'Vizyon', en: 'Vision' }, message: { tr: 'Mesaj', en: 'Messages' },
 }
 
 export default function Navbar() {
@@ -113,42 +116,55 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/5 bg-void-950/80 backdrop-blur-2xl">
-      <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-2 px-3 py-2.5 sm:px-6 sm:py-3">
-        
-        {/* NÖRO-ECLIPSE LOGO & BRAND */}
-        <Link href="/" className="group flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+      <div className="mx-auto grid max-w-[1200px] grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2.5 sm:px-6 sm:py-3">
+
+        {/* SOL: MANA & AURA */}
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2.5 font-sans">
+          {user && (
+            <div
+              className="flex items-center gap-1 sm:gap-1.5 rounded-full border border-aether-cyan/30 bg-aether-cyan/10 px-2 py-1 sm:px-3.5 text-xs font-bold text-aether-cyan shadow-aether-glow"
+              title={currentLang === 'tr' ? 'Mana bakiyen' : 'Your Mana'}
+            >
+              <Droplet size={13} className="shrink-0" />
+              <span>{mana}</span>
+            </div>
+          )}
+
+          {/* AURA */}
+          {user && (
+            <div className="relative" ref={auraDropdownRef}>
+              <button
+                onClick={() => setAuraDropdownOpen(!auraDropdownOpen)}
+                aria-label={currentLang === 'tr' ? 'Aura bakiyen' : 'Your Auras'}
+                className="flex items-center gap-1 sm:gap-1.5 rounded-full border border-astral-gold/30 bg-astral-gold/10 px-2 py-1 sm:px-3.5 text-xs font-bold text-astral-gold shadow-astral-glow hover:border-astral-gold/50 transition-all"
+              >
+                <Sparkles size={13} className="shrink-0" />
+                <span>{auras}</span>
+              </button>
+              {auraDropdownOpen && (
+                <div className="absolute left-0 top-full mt-2 w-56 rounded-card border border-white/10 bg-void-900 p-4 shadow-2xl z-50 animate-fade-in">
+                  <p className="text-xs text-slate-400 mb-1">{currentLang === 'tr' ? 'Mevcut Aura:' : 'Your Auras:'}</p>
+                  <p className="text-lg font-black text-astral-gold mb-3 flex items-center gap-1"><Sparkles size={16} /> {auras}</p>
+                  <a href={SHOP_URL} target="_blank" rel="noopener noreferrer" className="block text-center rounded-xl bg-astral-gold text-void-950 px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition hover:brightness-110 shadow-astral-glow">{t.buyAuraLabel}</a>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ORTA: LOGO & MARKA (sabit merkez) */}
+        <Link href="/" className="group flex items-center justify-center gap-2 sm:gap-3">
           <div className="relative shrink-0 overflow-hidden rounded-xl border border-astral-gold/20 bg-void-900/80 px-2 py-1 shadow-astral-glow transition-all duration-300 group-hover:border-astral-gold/40">
             <img src="/logo.svg" alt="Lunosfer" className="h-6 w-auto object-contain sm:h-8" />
           </div>
-          <div className="flex min-w-0 flex-col leading-none">
-            <span className="text-[0.9rem] font-black font-serif uppercase tracking-[0.18em] gold-gradient-text sm:text-[1.2rem]">
-              LUNOSFER
-            </span>
-            <span className="mt-0.5 hidden text-[8px] font-sans font-medium uppercase tracking-[0.28em] text-aether-cyan/60 md:block">
-              Dream Nexus
-            </span>
-          </div>
+          <span className="text-[0.9rem] font-black font-serif uppercase tracking-[0.18em] gold-gradient-text sm:text-[1.2rem]">
+            LUNOSFER
+          </span>
         </Link>
 
-        {/* MASAÜSTÜ NAVİGASYON */}
-        <nav className="hidden md:flex items-center gap-8 font-sans">
-          {NAV_ITEMS.map(({ href, key }) => (
-            <Link key={key} href={href} className="text-sm font-medium text-slate-300 hover:text-astral-gold transition-colors">
-              {mounted ? NAV_LABELS[key][currentLang === 'tr' ? 'tr' : 'en'] : <TextSkeleton width="w-14" />}
-            </Link>
-          ))}
-        </nav>
-
-        {/* SAĞ KONTROLLER */}
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3 font-sans">
+        {/* SAĞ: DİL, BİLDİRİM, PROFİL */}
+        <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 sm:gap-2.5 font-sans">
           <LanguageSwitcher />
-
-          {/* MANA */}
-          {user && (
-            <div className="flex items-center gap-1 sm:gap-1.5 rounded-full border border-aether-cyan/30 bg-aether-cyan/10 px-2.5 py-1 sm:px-3.5 text-xs font-bold text-aether-cyan shadow-aether-glow" title={currentLang === 'tr' ? 'Mana bakiyen' : 'Your Mana'}>
-              <span className="text-xs">💧</span><span>{mana}</span>
-            </div>
-          )}
 
           {/* BİLDİRİM & GİZLİ AKIŞ TERCİHLERİ */}
           {user && (
@@ -156,6 +172,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => { setNotifDropdownOpen(!notifDropdownOpen); if (!notifDropdownOpen && unreadCount > 0) markAllRead(); subscribeToPush(); }}
+                aria-label={currentLang === 'tr' ? 'Bildirimler' : 'Notifications'}
                 className="relative flex items-center justify-center w-8 h-8 rounded-full text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
               >
                 <Bell size={16} />
@@ -198,25 +215,9 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* AURA */}
-          {user && (
-            <div className="relative" ref={auraDropdownRef}>
-              <button onClick={() => setAuraDropdownOpen(!auraDropdownOpen)} className="flex items-center gap-1 sm:gap-1.5 rounded-full border border-astral-gold/30 bg-astral-gold/10 px-2.5 py-1 sm:px-3.5 text-xs font-bold text-astral-gold shadow-astral-glow hover:border-astral-gold/50 transition-all">
-                <span className="text-xs">✦</span><span>{auras}</span>
-              </button>
-              {auraDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 rounded-card border border-white/10 bg-void-900 p-4 shadow-2xl z-50 animate-fade-in">
-                  <p className="text-xs text-slate-400 mb-1">{currentLang === 'tr' ? 'Mevcut Aura:' : 'Your Auras:'}</p>
-                  <p className="text-lg font-black text-astral-gold mb-3 flex items-center gap-1"><span>✦</span> {auras}</p>
-                  <a href={SHOP_URL} target="_blank" rel="noopener noreferrer" className="block text-center rounded-xl bg-astral-gold text-void-950 px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition hover:brightness-110 shadow-astral-glow">{t.buyAuraLabel}</a>
-                </div>
-              )}
-            </div>
-          )}
-
           {user ? (
-            <Link href="/profile" className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full border border-astral-gold/30 bg-void-900 overflow-hidden hover:border-astral-gold transition-all">
-              {avatarUrl ? <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" /> : <User size={15} className="text-astral-gold" />}
+            <Link href="/profile" aria-label={currentLang === 'tr' ? 'Profilim' : 'My profile'} className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full border border-astral-gold/30 bg-void-900 overflow-hidden hover:border-astral-gold transition-all">
+              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : <User size={15} className="text-astral-gold" />}
             </Link>
           ) : (
             <Link href="/auth" className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-astral-gold/30 bg-astral-gold/10 px-3 text-xs font-bold text-astral-gold transition-all hover:bg-astral-gold/20">
@@ -224,9 +225,17 @@ export default function Navbar() {
               <span className="hidden sm:inline">{mounted ? (currentLang === 'tr' ? 'Giriş' : 'Log In') : <TextSkeleton width="w-8" />}</span>
             </Link>
           )}
-
         </div>
       </div>
+
+      {/* MASAÜSTÜ İKİNCİL SATIR: metin linkleri (mobilde BottomNav ikonları karşılıyor) */}
+      <nav className="hidden md:flex items-center justify-center gap-8 border-t border-white/5 px-6 py-2 font-sans">
+        {NAV_ITEMS.map(({ href, key }) => (
+          <Link key={key} href={href} className={`text-sm font-medium transition-colors ${router.pathname === href ? 'text-astral-gold' : 'text-slate-300 hover:text-astral-gold'}`}>
+            {mounted ? NAV_LABELS[key][currentLang === 'tr' ? 'tr' : 'en'] : <TextSkeleton width="w-14" />}
+          </Link>
+        ))}
+      </nav>
     </header>
   )
     }
