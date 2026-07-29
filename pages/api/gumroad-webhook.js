@@ -11,7 +11,33 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-const ALLOWED_PRODUCT_ID = process.env.GUMROAD_SINGLE_PRODUCT_ID
+// İki ayrı Gumroad ürünü aynı hesap-geneli Ping URL'ine düşüyor, product_id'ye
+// göre ayrıştırıyoruz:
+//   - DEEP_ANALYSIS_PRODUCT_ID: tek seferlik satın alma, premium_analysis_auras'a kredi ekler (eski davranış, değişmedi)
+//   - PREMIUM_PRODUCT_ID: "Lunosfer Premium" üyeliği (aylık/yıllık tekrarlayan), feature_entitlements'a
+//     zaman sınırlı bir yetki yazar (bkz. MIGRATION_NOTES_pixabay_video.md)
+const DEEP_ANALYSIS_PRODUCT_ID = process.env.GUMROAD_SINGLE_PRODUCT_ID
+const PREMIUM_PRODUCT_ID = process.env.GUMROAD_PREMIUM_PRODUCT_ID
+
+const PREMIUM_FEATURE_CODE = 'premium_membership'
+
+// Gumroad'da "cancellation" gibi ayrı bir kayıt olayı için ek bir API kurulumu
+// (access token + resource_subscription) gerekiyor — bunun yerine daha basit
+// bir yöntem kullanıyoruz: her yenileme (recurring charge) ping'i ends_at'i
+// bir sonraki döneme öteler. Kullanıcı iptal ederse yeni ping gelmez, ends_at
+// geçmişte kalır ve premium kendiliğinden düşer. `refunded=true` gelirse de
+// anında düşürüyoruz.
+const GRACE_DAYS_BY_RECURRENCE = {
+  monthly: 35,
+  quarterly: 100,
+  biannually: 190,
+  yearly: 370,
+  every_two_years: 735,
+}
+
+function graceDaysFor(recurrence) {
+  return GRACE_DAYS_BY_RECURRENCE[recurrence] || 35
+}
 
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -30,6 +56,59 @@ function normalizeEmail(email = '') {
   return String(email || '').trim().toLowerCase()
 }
 
+// Premium ürün satışını/yenilemesini feature_entitlements'a işler.
+// Dönüş değeri webhook_events.status'e yazılan kısa bir etiket.
+async function handlePremiumSale({ profileId, payload, saleId, refunded, isTest }) {
+  if (refunded) {
+    await supabase
+      .from('feature_entitlements')
+      .update({ active: false, ends_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('user_id', profileId)
+      .eq('feature_code', PREMIUM_FEATURE_CODE)
+    return isTest ? 'test_premium_refunded' : 'premium_refunded'
+  }
+
+  const recurrence = payload.recurrence || 'monthly'
+  const graceDays = graceDaysFor(recurrence)
+  const saleTimestamp = payload.sale_timestamp ? new Date(payload.sale_timestamp) : new Date()
+  const endsAt = new Date(saleTimestamp.getTime() + graceDays * 24 * 60 * 60 * 1000)
+
+  const { data: existing, error: existingError } = await supabase
+    .from('feature_entitlements')
+    .select('id')
+    .eq('user_id', profileId)
+    .eq('feature_code', PREMIUM_FEATURE_CODE)
+    .maybeSingle()
+
+  if (existingError) throw existingError
+
+  const row = {
+    user_id: profileId,
+    feature_code: PREMIUM_FEATURE_CODE,
+    source_type: 'gumroad',
+    source_ref: payload.subscription_id || saleId,
+    plan_code: recurrence,
+    limit_interval: null,
+    limit_count: null,
+    is_unlimited: true,
+    active: true,
+    starts_at: saleTimestamp.toISOString(),
+    ends_at: endsAt.toISOString(),
+    metadata: { last_sale_id: saleId, recurrence },
+    updated_at: new Date().toISOString(),
+  }
+
+  if (existing) {
+    const { error } = await supabase.from('feature_entitlements').update(row).eq('id', existing.id)
+    if (error) throw error
+  } else {
+    const { error } = await supabase.from('feature_entitlements').insert(row)
+    if (error) throw error
+  }
+
+  return isTest ? 'test_premium_activated' : 'premium_activated'
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -46,38 +125,21 @@ export default async function handler(req, res) {
     const productName = payload.product_name || null
     const permalink = payload.product_permalink || null
     const refunded = payload.refunded === 'true' || payload.refunded === '1'
-    const isTest =
-      payload.test === 'true' ||
-      payload.test === '1'
+    const isTest = payload.test === 'true' || payload.test === '1'
 
-    // DİNAMİK AURA HESAPLAMA (X Dolar Ödeme = X Aura)
-    // Gumroad ödeme miktarını cent bazında gönderir (Örn: $9 = 900 cent, $15 = 1500 cent)
-    const amountInCents = payload.amount 
-      ? Number(payload.amount) 
+    // DİNAMİK AURA HESAPLAMA (X Dolar Ödeme = X Aura) — sadece deep-analysis ürünü için
+    const amountInCents = payload.amount
+      ? Number(payload.amount)
       : (Number(payload.price || 0) * Number(payload.quantity || 1))
-    
-    let calculatedAuras = Math.floor(amountInCents / 100)
 
-    // Eğer test pinglemesi ise ve ücret 0 ise, testlerinizin aksamaması için varsayılan 10 Aura ekleyelim
+    let calculatedAuras = Math.floor(amountInCents / 100)
     if (isTest && calculatedAuras === 0) {
       calculatedAuras = 10
     }
 
     console.log(
       JSON.stringify(
-        {
-          tag: 'gumroad_webhook_received',
-          saleId,
-          email,
-          productId,
-          productName,
-          permalink,
-          refunded,
-          isTest,
-          amountInCents,
-          calculatedAuras,
-          payload,
-        },
+        { tag: 'gumroad_webhook_received', saleId, email, productId, productName, permalink, refunded, isTest, amountInCents, calculatedAuras, payload },
         null,
         2
       )
@@ -91,22 +153,19 @@ export default async function handler(req, res) {
 
     if (existingSaleError) {
       console.error('gumroad existing sale lookup failed', existingSaleError)
-      return res.status(500).json({
-        error: 'existing_sale_lookup_failed',
-        details: existingSaleError.message,
-      })
+      return res.status(500).json({ error: 'existing_sale_lookup_failed', details: existingSaleError.message })
     }
 
     if (existingSale) {
-      return res.status(200).json({
-        ok: true,
-        duplicate: true,
-        saleId,
-        status: existingSale.status,
-      })
+      return res.status(200).json({ ok: true, duplicate: true, saleId, status: existingSale.status })
     }
 
-    if (ALLOWED_PRODUCT_ID && productId !== ALLOWED_PRODUCT_ID) {
+    // Hangi üründen geldiğine göre ayrıştır. İkisiyle de eşleşmeyen her şey
+    // eskisi gibi loglanıp yok sayılıyor.
+    const isDeepAnalysisSale = DEEP_ANALYSIS_PRODUCT_ID && productId === DEEP_ANALYSIS_PRODUCT_ID
+    const isPremiumSale = PREMIUM_PRODUCT_ID && productId === PREMIUM_PRODUCT_ID
+
+    if (!isDeepAnalysisSale && !isPremiumSale) {
       const { error: ignoredInsertError } = await supabase
         .from('gumroad_webhook_events')
         .insert({
@@ -123,25 +182,17 @@ export default async function handler(req, res) {
 
       if (ignoredInsertError) {
         console.error('gumroad ignored sale insert failed', ignoredInsertError)
-        return res.status(500).json({
-          error: 'ignored_sale_insert_failed',
-          details: ignoredInsertError.message,
-        })
+        return res.status(500).json({ error: 'ignored_sale_insert_failed', details: ignoredInsertError.message })
       }
 
-      return res.status(200).json({
-        ok: true,
-        ignored: true,
-        reason: 'product_not_matched',
-        productId,
-      })
+      return res.status(200).json({ ok: true, ignored: true, reason: 'product_not_matched', productId })
     }
 
     let userProfileId = null
     let aurasAdded = 0
     let status = 'received'
 
-    if (email && !refunded) {
+    if (email) {
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('id, email, premium_analysis_auras')
@@ -150,38 +201,41 @@ export default async function handler(req, res) {
 
       if (profileError) {
         console.error('gumroad profile lookup failed', profileError)
-        return res.status(500).json({
-          error: 'profile_lookup_failed',
-          details: profileError.message,
-        })
+        return res.status(500).json({ error: 'profile_lookup_failed', details: profileError.message })
       }
 
       if (profile) {
         userProfileId = profile.id
 
-        const nextAuras =
-          Number(profile.premium_analysis_auras || 0) + calculatedAuras
+        if (isDeepAnalysisSale) {
+          if (!refunded) {
+            const nextAuras = Number(profile.premium_analysis_auras || 0) + calculatedAuras
+            const { error: updateError } = await supabase
+              .from('user_profiles')
+              .update({ premium_analysis_auras: nextAuras })
+              .eq('id', profile.id)
 
-        const { error: updateError } = await supabase
-          .from('user_profiles')
-          .update({ premium_analysis_auras: nextAuras })
-          .eq('id', profile.id)
+            if (updateError) {
+              console.error('gumroad aura bakiye update failed', updateError)
+              return res.status(500).json({ error: 'aura_update_failed', details: updateError.message })
+            }
 
-        if (updateError) {
-          console.error('gumroad aura bakiye update failed', updateError)
-          return res.status(500).json({
-            error: 'aura_update_failed',
-            details: updateError.message,
-          })
+            aurasAdded = calculatedAuras
+            status = isTest ? 'test_aura_added' : 'aura_added'
+          } else {
+            status = isTest ? 'test_refunded_ignored' : 'refunded_ignored'
+          }
+        } else if (isPremiumSale) {
+          try {
+            status = await handlePremiumSale({ profileId: profile.id, payload, saleId, refunded, isTest })
+          } catch (premiumError) {
+            console.error('gumroad premium entitlement update failed', premiumError)
+            return res.status(500).json({ error: 'premium_entitlement_failed', details: premiumError.message })
+          }
         }
-
-        aurasAdded = calculatedAuras
-        status = isTest ? 'test_aura_added' : 'aura_added'
       } else {
         status = isTest ? 'test_no_user_match' : 'pending_user_match'
       }
-    } else if (refunded) {
-      status = isTest ? 'test_refunded_ignored' : 'refunded_ignored'
     }
 
     const { error: insertSaleError } = await supabase
@@ -200,26 +254,12 @@ export default async function handler(req, res) {
 
     if (insertSaleError) {
       console.error('gumroad sale insert failed', insertSaleError)
-      return res.status(500).json({
-        error: 'sale_insert_failed',
-        details: insertSaleError.message,
-      })
+      return res.status(500).json({ error: 'sale_insert_failed', details: insertSaleError.message })
     }
 
-    return res.status(200).json({
-      ok: true,
-      saleId,
-      email,
-      productId,
-      status,
-      aurasAdded,
-      isTest,
-    })
+    return res.status(200).json({ ok: true, saleId, email, productId, status, aurasAdded, isTest })
   } catch (error) {
     console.error('gumroad webhook fatal', error)
-    return res.status(500).json({
-      error: 'internal_server_error',
-      details: error.message || 'Unknown error',
-    })
+    return res.status(500).json({ error: 'internal_server_error', details: error.message || 'Unknown error' })
   }
 }
