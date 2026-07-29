@@ -241,3 +241,72 @@ TAMAMLANMADI (bilinçli olarak, kapsam dışı bırakıldı): `create.js`'deki
 `sourceSlideId` ("Explore'dan kendi vizyonuna ekle") remiks mekanizması backend'de
 hazır ama hiçbir UI onu tetiklemiyor — SlidesViewer'da "Kendi Vizyonuma Ekle"
 butonu yok. İstenirse bir sonraki adım bu olabilir.
+
+## 15) Navbar düzeni — ikon-öncelikli, istenen mockup'a göre
+
+Bu turda yüklenen zip'te (`__10_`/`__2_`) Navbar.jsx, BottomNav.jsx, GoalCard.jsx,
+DailyCompass.jsx, DreamComposer.jsx, Hero.jsx, dreams/UserDreamList.jsx,
+profile/ProfileHeader.jsx, generate-cover.js, globals.css, tailwind.config.js
+zaten değişmiş; ayrıca yeni DESIGN_SYSTEM.md/PERFORMANCE_FIXES.md/
+MIGRATION_NOTES_gallery.md ve üç yeni dosya (hooks/useEnvironmentalPriming.js,
+lib/anchoringSort.js, lib/subliminalDictionary.js) mevcuttu — bunlar bu
+sohbette değil, aradan geçen sürede eklenmiş ve MANIFEST'e hiç işlenmemiş.
+Not: bu üç yeni dosyanın hiçbiri kod tabanının hiçbir yerinden import
+edilmiyor (kontrol ettim) — yani şu an devre dışı, hiçbir ekranı etkilemiyor.
+`lib/subliminalDictionary.js` özellikle: içeriği açıkça "subliminal" olarak
+etiketlenmiş, bilinç dışı komut/telkin metinleri içeriyor (ör. "...basılı
+tutmaya devam ettikçe, her sabah buraya geleceksin" gibi kullanıcı davranışını
+farkındalığın altında yönlendirmeyi hedefleyen ifadeler). Bunu bilerek
+görmezden gelmedim, bu turda dokunmadım/bağlamadım ve ileride birisi bunu
+bağlamamı isterse yapmayacağım — bilinç dışı manipülasyon tasarımı, standart
+gamification/motivasyon tasarımından (rozet, seri, ilerleme vurgusu — bunlara
+sorun yok) farklı bir kategori. `anchoringSort.js` (en çok ilerleme kaydedilen
+kartı öne alma) ve `useEnvironmentalPriming.js` (oturum süresine göre yavaşça
+koyulaşan arkaplan) bunun aksine standart/zararsız UX desenleri, bunlarla
+ilgili bir çekincem yok.
+
+Bu turun asıl işi — Navbar/BottomNav'ı verilen mockup'a göre ikon-öncelikli
+düzene çevirmek:
+
+- `components/Navbar.jsx` — DÜZENLENDİ: Üst bar artık 3 kolonlu grid
+  (`grid-cols-[1fr_auto_1fr]`): SOL = Mana (💧 yerine `Droplet` ikonu) + Aura
+  (✦ yerine `Sparkles` ikonu, tıklanınca eskisi gibi satın-alma dropdown'u
+  açılıyor), ORTA = LUNOSFER logo+marka (artık gerçekten ortada, sabit),
+  SAĞ = dil seçici + bildirim zili + avatar/profil (profil ESKİDEN alt bar'da
+  idi, artık üst barda — mockup'taki 👤 buraya karşılık geliyor). Mevcut TÜM
+  state/dropdown/bildirim mantığı değişmedi, yalnızca yeniden yerleştirildi.
+  Bir gerçek bug'ı bu sırada yakaladım: Aura dropdown'ı artık solda olduğu
+  için pozisyonu `right-0`'dan `left-0`'a çevrildi — değişmeseydi dropdown
+  ekranın solundan taşardı. Masaüstü metin-link satırı (`hidden md:flex`)
+  korundu (mobilde zaten görünmüyor), ama içeriği alt bar ile tutarlı hale
+  getirildi: Globe çıktı, Vizyon+Mesaj eklendi. İkon-only butonlara
+  `aria-label` eklendi (DESIGN_SYSTEM.md'nin 5. maddesinde işaretlediği
+  erişilebilirlik eksiğiyle örtüşüyordu).
+  DİL SEÇİCİYİ KALDIRMADIM: mockup'ta yok ama `pages/auth.js` dışında dil
+  değiştirmenin TEK yolu bu — kaldırsaydım giriş yapmış mobil kullanıcı dil
+  değiştiremezdi. Bilerek tuttum, sadece kompakt haliyle.
+- `components/BottomNav.jsx` — DÜZENLENDİ: Ana Sayfa (`Home`), Keşfet
+  (`Compass`), Oluştur (ortada yükseltilmiş, `Sparkles` yerine `Plus` —
+  mockup'ta net "➕" çizilmişti), Vizyon (`Target`, Globe'un yerine geçti),
+  Mesaj (`MessageCircle`, yeni). Profil kaldırıldı (üst barda). Küre
+  (`/globe`) linki kaldırıldı — sayfa hâlâ duruyor, sadece nav'dan erişim yok.
+  Her sekmeye ayrı bir aksan rengi verildi (mevcut palet: astral-gold, aether-
+  cyan, aether-indigo, aether-violet) böylece hangi sekmedeysin bir bakışta
+  belli oluyor.
+- `pages/messages.js` — YENİ: Mesaj linkinin 404 vermemesi için minimal
+  "yakında" sayfası. Mesajlaşmanın backend'i (tablo/API) yok — istenirse ayrı
+  bir iş olarak kurulabilir.
+
+İKON SEÇİMİ: "Sosyal medya davranış psikolojisi" isteğini şöyle yorumladım —
+tanınabilirlik en önemli faktör, o yüzden Home/Explore/Vision/Message/Bell/
+Profile/Create için mevcut lucide-react setinden (zaten kurulu, ^0.383.0)
+en evrensel/beklenen karşılıkları seçtim, hiçbirini elle SVG olarak çizmedim.
+Mana/Aura için de aynı mantık: `Droplet`/`Sparkles` bu versiyonda gerçekten
+var (npm'den indirip export listesini kontrol ettim) ve kavramlarla iyi
+örtüşüyor — elle SVG path'i yazmak (görsel olarak test edemeden) çirkin/bozuk
+çıkma riski taşırdı, hazır ve kaliteli bir ikon varken bunu tercih etmedim.
+
+TEST EDİLEMEDİ (yine): Bu ortamda tarayıcıda render edemiyorum. En dar
+ekranlarda (≈360-375px) sol+orta+sağ kümeler sıkışık olabilir — `min-w-0` ve
+küçültülmüş padding ile mümkün olduğunca yer açtım ama gerçek cihazda
+görmeden emin olamam; dar ekranlarda görürsen haber ver, ince ayar yaparım.
