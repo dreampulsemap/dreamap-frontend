@@ -2,9 +2,104 @@ import OpenAI from 'openai'
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 import { persistRemoteImage } from '@/lib/persistRemoteImage'
 
+// generate-dream-image.js, analyze-dream.js ve generate-deep-analysis.js'nin
+// hepsinde bu ayar var, bu route'ta hiç yoktu. Sahne çıkarımı + Replicate
+// wait + (gerekirse) poll + DALL-E fallback + Supabase'e kalıcı kopyalama
+// toplamda platformun varsayılan fonksiyon süresini kolayca aşabiliyor —
+// bu route o durumda DALL-E'ye düşmeden ya da poll bitmeden öldürülüyordu.
+export const config = { maxDuration: 60 }
+
 const AURA_COST = 2 // generate-dream-image.js'deki tekli görsel üretim maliyetiyle tutarlı
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
+const REPLICATE_MODEL_URL =
+  'https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions'
+
+// Bağlantı kopmaları / geçici ağ hatalarına karşı retry — generate-dream-image.js
+// ile aynı desen.
+async function fetchWithRetry(url, options = {}, retries = 3, backoff = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, options)
+      if (res.ok || res.status < 500) return res
+      if (i === retries - 1) return res
+    } catch (err) {
+      if (i === retries - 1) throw err
+    }
+    await new Promise((resolve) => setTimeout(resolve, backoff * Math.pow(2, i)))
+  }
+}
+
+// KÖK NEDEN ("çoğu zaman görsel üretilemedi"): flux-schnell soğuk başlarsa
+// (bu route az kullanıldığı için sık soğuyor), `Prefer: wait=N` süresi
+// dolduğunda Replicate prediction'ı henüz "starting"/"processing"
+// durumunda, output'suz döndürüyordu. Kod bunu anında "başarısız" sayıp
+// DALL-E'ye düşüyordu — üretim aslında birkaç saniye içinde tamamlanacak
+// olsa bile. Bu da DALL-E'yi fiilen tek sağlayıcı hâline getiriyordu: onun
+// rate limit'i veya politika reddi TEK BAŞINA tüm isteği başarısız
+// kılabiliyordu. Çözüm: generate-dream-image.js'deki gibi, prediction hâlâ
+// işleniyorsa durum URL'sini bir süre daha poll'luyoruz.
+async function pollPrediction(getUrl, maxWaitMs = 25_000) {
+  const start = Date.now()
+
+  while (Date.now() - start < maxWaitMs) {
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    const poll = await fetchWithRetry(getUrl, {
+      headers: { Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}` }
+    })
+    const data = await poll.json()
+
+    if (data?.status === 'succeeded') {
+      if (Array.isArray(data?.output) && data.output[0]) return data.output[0]
+      if (typeof data?.output === 'string') return data.output
+      throw new Error('Replicate succeeded but returned no output')
+    }
+
+    if (data?.status === 'failed' || data?.status === 'canceled') {
+      throw new Error(data?.error || `Replicate prediction ${data.status}`)
+    }
+  }
+
+  throw new Error('Replicate prediction timed out while polling')
+}
+
+async function generateWithReplicate(prompt, negativePrompt) {
+  const rep = await fetchWithRetry(REPLICATE_MODEL_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+      'Content-Type': 'application/json',
+      Prefer: 'wait=20'
+    },
+    body: JSON.stringify({
+      input: {
+        prompt,
+        aspect_ratio: '3:4',
+        output_format: 'jpg',
+        output_quality: 90,
+        go_fast: true,
+        negative_prompt: negativePrompt
+      }
+    })
+  })
+
+  const data = await rep.json()
+
+  if (!rep.ok) {
+    throw new Error(data?.detail || data?.error || JSON.stringify(data))
+  }
+
+  if (Array.isArray(data?.output) && data.output[0]) return data.output[0]
+  if (typeof data?.output === 'string') return data.output
+
+  if (data?.urls?.get && (data?.status === 'starting' || data?.status === 'processing')) {
+    return pollPrediction(data.urls.get)
+  }
+
+  throw new Error(data?.detail || 'Replicate did not return an image URL')
+}
 
 // Doğrudan "başlık + açıklama" metnini görsel modele vermek çok alakasız
 // sonuçlar üretiyordu (model, jenerik "vision board" klişelerine — gün
@@ -19,7 +114,8 @@ async function extractGoalScene(title, description) {
       {
         role: 'system',
         content: `
-You are a behaviour psychologist and social engineer. You convert a personal goal (title + optional description) into a concrete, image-safe visual scene description for a vision-board cover image.
+You convert a personal goal (title + optional description) into a concrete,
+image-safe visual scene description for a vision-board cover image.
 
 Your job:
 - Identify what this goal is LITERALLY about (a skill, an object, a place, an
@@ -27,7 +123,6 @@ Your job:
 - Describe ONE concrete, specific, photographable moment that represents
   someone actively living or achieving this exact goal — not an abstract
   metaphor for "achievement" in general.
-- Create images which will make people want to see more.
 - Prefer showing the real subject matter of the goal (the actual instrument,
   the actual sport, the actual place, the actual object, the actual activity)
   over generic symbolism.
@@ -38,7 +133,6 @@ Your job:
 - If the goal is abstract (e.g. "inner peace", "more confidence"), ground it
   in one concrete, everyday, human scene that visibly implies that state,
   rather than a mystical/abstract one.
-- Be optimistic 
 - Output strict JSON only.
 
 JSON schema:
@@ -93,8 +187,13 @@ JSON schema:
 }
 
 function buildGoalImagePrompt(scene, fallbackSubject) {
+  const defaultNegative = 'sunrise over mountains, silhouette with raised arms, hands reaching for light, glowing paths, abstract cosmic backgrounds, generic motivational stock imagery'
+
   if (!scene) {
-    return `An inspiring, cinematic vision board image representing this personal goal: ${String(fallbackSubject).slice(0, 200)}. Aspirational, warm light, photorealistic, high-art, no text.`
+    return {
+      prompt: `An inspiring, cinematic vision board image representing this personal goal: ${String(fallbackSubject).slice(0, 200)}. Aspirational, warm light, photorealistic, high-art, no text.`,
+      negativePrompt: defaultNegative
+    }
   }
 
   const elements = Array.isArray(scene.key_visual_elements) && scene.key_visual_elements.length
@@ -103,9 +202,9 @@ function buildGoalImagePrompt(scene, fallbackSubject) {
 
   const negativeElements = Array.isArray(scene.negative_elements) && scene.negative_elements.length
     ? scene.negative_elements.join(', ')
-    : 'sunrise over mountains, silhouette with raised arms, hands reaching for light, glowing paths, abstract cosmic backgrounds, generic motivational stock imagery'
+    : defaultNegative
 
-  return `
+  const prompt = `
 A cinematic, photorealistic image representing this exact personal goal: ${scene.concrete_subject}.
 
 SCENE:
@@ -129,6 +228,8 @@ Warm natural light, photorealistic, high production value, single coherent momen
 AVOID:
 ${negativeElements}
   `.trim()
+
+  return { prompt, negativePrompt: negativeElements }
 }
 
 export default async function handler(req, res) {
@@ -196,36 +297,34 @@ export default async function handler(req, res) {
       // sahne çıkarımı başarısız olursa eski jenerik prompt'a düşüyoruz —
       // görsel üretimi tamamen durmasın diye.
     }
-    const prompt = buildGoalImagePrompt(scene, promptSubject)
+    const { prompt, negativePrompt } = buildGoalImagePrompt(scene, promptSubject)
 
     let imageUrl = null
-    let details = 'Unknown error'
+    let generationError = null
 
-    // PLAN A: Replicate (Flux)
-    try {
-      const rep = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`, 'Content-Type': 'application/json', Prefer: 'wait=15' },
-        body: JSON.stringify({ input: { prompt, aspect_ratio: '3:4' } }),
-      })
-      const data = await rep.json()
-      if (data.output) imageUrl = data.output[0]
-      else details = data.detail || JSON.stringify(data)
-    } catch (e) {
-      details = e.message
+    // PLAN A: Replicate (Flux) — soğuk başlarsa poll'lar, geçici hatalarda retry yapar
+    if (process.env.REPLICATE_API_TOKEN) {
+      try {
+        imageUrl = await generateWithReplicate(prompt, negativePrompt)
+      } catch (e) {
+        generationError = e
+        console.error('goals/generate-cover replicate error:', e.message)
+      }
     }
 
     // PLAN B: OpenAI DALL-E 3 (Fallback)
     if (!imageUrl) {
       try {
         const image = await openai.images.generate({ model: 'dall-e-3', prompt, n: 1, size: '1024x1024' })
-        imageUrl = image.data[0].url
+        imageUrl = image?.data?.[0]?.url
+        if (!imageUrl) throw new Error('OpenAI did not return an image URL')
       } catch (e) {
         // İkisi de başarısız oldu — krediyi GERİ VER, kullanıcı karşılıksız harcamış olmasın.
         await supabaseAdmin
           .from('user_profiles')
           .update({ premium_analysis_auras: spend.remaining + AURA_COST })
           .eq('id', user.id)
+        const details = generationError?.message || e.message || 'unknown_generation_error'
         return res.status(502).json({ error: 'image_generation_failed', details })
       }
     }
