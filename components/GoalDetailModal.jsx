@@ -35,6 +35,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   const [showSlideEditor, setShowSlideEditor] = useState(false)
   const [showSlidesViewer, setShowSlidesViewer] = useState(false)
   const [showPixabayPicker, setShowPixabayPicker] = useState(false)
+  const [videoStatus, setVideoStatus] = useState(null)
 
   const AURA_COST = 2  // generate-cover.js ile aynı maliyet
 
@@ -70,6 +71,23 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
     })
     return () => { active = false }
   }, [goal.id])
+
+  // Pixabay video sekmesinde doğru kilit durumunu gösterebilmek için, picker
+  // hiç açılmasa bile sahip görüntülediğinde premium/haftalık hak durumunu
+  // önceden çekiyoruz.
+  useEffect(() => {
+    if (!isOwner) return
+    let active = true
+    authHeader().then((headers) => {
+      if (!headers) return
+      fetch('/api/user/premium-status', { headers })
+        .then((r) => r.json())
+        .then((json) => { if (active && !json.error) setVideoStatus(json) })
+        .catch(() => {})
+    })
+    return () => { active = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwner])
 
   async function generateCover() {
     setGeneratingCover(true)
@@ -151,7 +169,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   // Pixabay picker'da bir görsele tıklandığında çağrılır. Gerçek indirme +
   // kendi storage/DB'mize kaydetme işini sunucu tarafı yapar (bkz.
   // /api/goals/add-image-from-pixabay). true dönerse picker kapanır.
-  async function handlePixabayPick(hit) {
+  async function handlePixabayImagePick(hit) {
     if (!isOwner) return false
     setGalleryError('')
     try {
@@ -182,6 +200,50 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
       }
       setGalleryImages(json.gallery_image_urls || [])
       if (json.goal) onChanged?.(json.goal)
+      return true
+    } catch {
+      setGalleryError('network_error')
+      return false
+    }
+  }
+
+  // Video seçimi — aynı akış, ama /api/goals/add-video-from-pixabay premium/
+  // haftalık hak kontrolünü de yapıyor. Başarılı ekleme sonrası (ücretsiz
+  // kullanıcıysa) haftalık hakkı düşmüş olur, bu yüzden videoStatus'u tazeliyoruz.
+  async function handlePixabayVideoPick(hit) {
+    if (!isOwner) return false
+    setGalleryError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setGalleryError(t.loginRequired); return false }
+
+      const res = await fetch('/api/goals/add-video-from-pixabay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          goalId: goal.id,
+          pixabayId: hit.id,
+          videoUrl: hit.downloadURL,
+          tags: hit.tags,
+          pixabayUser: hit.user,
+          width: hit.width,
+          height: hit.height,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setGalleryError(
+          json.error === 'gallery_limit_reached'
+            ? (lang === 'tr' ? 'Galeri dolu (maks. 20 görsel).' : 'Gallery is full (max 20 images).')
+            : json.error === 'weekly_video_limit_reached'
+              ? (lang === 'tr' ? 'Haftalık ücretsiz video hakkın doldu.' : 'Weekly free video pick used up.')
+              : json.error || 'error'
+        )
+        return false
+      }
+      setGalleryImages(json.gallery_image_urls || [])
+      if (json.goal) onChanged?.(json.goal)
+      setVideoStatus((prev) => (prev?.isPremium ? prev : { isPremium: false, canPickVideo: false, nextAvailableAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() }))
       return true
     } catch {
       setGalleryError('network_error')
@@ -350,20 +412,27 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
                   <img src={goal.cover_image_url} alt={goal.title} className="w-full h-full object-cover" loading="lazy" />
                 </div>
               )}
-              {galleryImages.map((url) => (
-                <div key={url} className="relative shrink-0 w-[80%] sm:w-[60%] aspect-[4/3] snap-center rounded-xl overflow-hidden bg-black/30">
-                  <img src={url} alt={goal.title} className="w-full h-full object-cover" loading="lazy" />
-                  {isOwner && (
-                    <button
-                      onClick={() => removeGalleryImage(url)}
-                      aria-label={lang === 'tr' ? 'Görseli kaldır' : 'Remove image'}
-                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white hover:bg-black/80 flex items-center justify-center"
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {galleryImages.map((url) => {
+                const isVideo = /\/pixabay-video\//.test(url) || /\.mp4($|\?)/.test(url)
+                return (
+                  <div key={url} className="relative shrink-0 w-[80%] sm:w-[60%] aspect-[4/3] snap-center rounded-xl overflow-hidden bg-black/30">
+                    {isVideo ? (
+                      <video src={url} className="w-full h-full object-cover" muted loop autoPlay playsInline preload="metadata" />
+                    ) : (
+                      <img src={url} alt={goal.title} className="w-full h-full object-cover" loading="lazy" />
+                    )}
+                    {isOwner && (
+                      <button
+                        onClick={() => removeGalleryImage(url)}
+                        aria-label={lang === 'tr' ? 'Kaldır' : 'Remove'}
+                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white hover:bg-black/80 flex items-center justify-center"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
@@ -422,7 +491,9 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
         {showPixabayPicker && (
           <PixabayPicker
             lang={lang}
-            onPick={handlePixabayPick}
+            videoStatus={videoStatus}
+            onPickImage={handlePixabayImagePick}
+            onPickVideo={handlePixabayVideoPick}
             onClose={() => setShowPixabayPicker(false)}
           />
         )}
