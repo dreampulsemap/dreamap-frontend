@@ -33,22 +33,26 @@ export default async function handler(req, res) {
     // bu gecikmeyi katlıyor. Şimdi TEK sorguda, kullanıcının bu sonuç
     // listesindeki herkesle olan tüm arkadaşlık kayıtlarını çekip
     // bellekte eşliyoruz.
+    //
+    // DÜZELTME: Sorgu önceden HER İKİ yönü de (ben->o VE o->ben) tek bir
+    // duruma eşliyordu. Bu yüzden biri seni takip ettiğinde (ama sen onu
+    // henüz takip etmediğinde), arama sonucunda "Takipte/Bekliyor" gibi
+    // yanlış bir durum görünüyor ve buton tıklanamaz hale geliyordu —
+    // kullanıcı o kişiyi hiçbir zaman gerçekten takip edemiyordu.
+    // friendshipStatus, sadece "Takip Et" butonunun durumunu yansıtmalı,
+    // yani yalnızca BENİM bu kişiye doğru olan takibim önemli.
     const resultIds = users.map((u) => u.id)
     let friendshipMap = new Map()
 
     if (resultIds.length > 0) {
-      const orConditions = resultIds
-        .map((id) => `and(user_id.eq.${userId},friend_id.eq.${id}),and(user_id.eq.${id},friend_id.eq.${userId})`)
-        .join(',')
-
       const { data: friendships } = await supabase
         .from('friendships')
-        .select('user_id, friend_id, status')
-        .or(orConditions)
+        .select('friend_id, status')
+        .eq('user_id', userId)
+        .in('friend_id', resultIds)
 
       for (const f of friendships || []) {
-        const otherId = f.user_id === userId ? f.friend_id : f.user_id
-        friendshipMap.set(otherId, f.status)
+        friendshipMap.set(f.friend_id, f.status)
       }
     }
 

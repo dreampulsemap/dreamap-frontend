@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { notifyFollow } from '@/lib/notify'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -60,6 +61,13 @@ export default async function handler(req, res) {
       .select()
 
     if (error) throw error
+
+    // Takip eden kişiye değil, takip EDİLEN kişiye bildirim gider.
+    // await ediyoruz ki serverless fonksiyon yanıtı döner dönmez
+    // yarım kalmış bir bildirim isteği kesilmesin; notifyFollow içindeki
+    // try/catch'ler zaten bir bildirim hatasının takip işlemini
+    // başarısız göstermesini engelliyor.
+    await notifyFollow(supabase, { userId: friendId, actorId: userId, accepted: status === 'accepted' })
 
     return res.status(200).json({ success: true, status, data })
   } catch (error) {

@@ -19,9 +19,13 @@ export default async function handler(req, res) {
   })
 
   try {
+    // requester = takibi başlatan taraf (user_id), target = takip edilen taraf (friend_id).
+    // Her ikisi de user_profiles'a farklı bir FK üzerinden bağlanıyor; aynı alias'sız
+    // isimle (user_profiles) iki kez embed etmek PostgREST'te ya hataya ya da ikinci
+    // embed'in birinciyi sessizce ezmesine yol açıyordu.
     let query = supabase
       .from('friendships')
-      .select('*, user_profiles!friendships_user_id_fkey(id, username, display_name, avatar_url), user_profiles!friendships_friend_id_fkey(id, username, display_name, avatar_url)')
+      .select('*, requester:user_profiles!friendships_user_id_fkey(id, username, display_name, avatar_url), target:user_profiles!friendships_friend_id_fkey(id, username, display_name, avatar_url)')
       .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
 
     if (type === 'accepted') {

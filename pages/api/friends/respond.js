@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { notifyFollowAccepted } from '@/lib/notify'
 
 export default async function handler(req, res) {
   if (req.method !== 'PUT') {
@@ -44,6 +45,12 @@ export default async function handler(req, res) {
       .select()
 
     if (error) throw error
+
+    // İsteği kabul ettiysek, isteği gönderen tarafa haber ver. Red ise sessiz kalıyoruz
+    // (çoğu sosyal uygulamada reddedilme bildirimi gösterilmez).
+    if (action === 'accepted') {
+      await notifyFollowAccepted(supabase, { userId: friendship.user_id, actorId: userId })
+    }
 
     return res.status(200).json({ success: true, data })
   } catch (error) {
