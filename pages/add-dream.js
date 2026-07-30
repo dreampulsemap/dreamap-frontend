@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useRouter } from 'next/router'
 import { supabase } from '@/lib/supabase'
@@ -27,6 +27,8 @@ export default function AddDreamPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef(null)
+  const committedFinalRef = useRef('')
 
   // 12.000 Karakter limiti (Yaklaşık 1500-2000 kelime / Optimize edilmiş token sınırı)
   const CHAR_LIMIT = 12000
@@ -94,7 +96,15 @@ export default function AddDreamPage() {
       return;
     }
 
-    if (isListening) {
+    // Zaten çalışan bir motor varsa gerçekten durdur (sadece state değil).
+    // Eskiden burada sadece setIsListening(false) çağrılıyordu; asıl SpeechRecognition
+    // nesnesi hiç durdurulmadığı için arka planda çalışmaya devam ediyordu. Kullanıcı
+    // mikrofona tekrar bastığında ikinci bir motor daha başlatılıyor, ikisi de aynı
+    // konuşmayı ayrı ayrı "final" olarak algılayıp metne ekliyordu — kelimelerin
+    // 2-3 kez tekrar etmesinin sebebi buydu.
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
       setIsListening(false);
       return;
     }
@@ -104,31 +114,65 @@ export default function AddDreamPage() {
     recognition.continuous = true;
     recognition.interimResults = true;
 
-    recognition.onstart = () => setIsListening(true);
-    
+    recognition.onstart = () => {
+      committedFinalRef.current = '';
+      setIsListening(true);
+    };
+
     recognition.onresult = (event) => {
-      let finalTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
+      // Sadece resultIndex'ten itibaren değil, dizideki TÜM final sonuçları
+      // yeniden birleştirip önceden eklediğimiz kısımla karşılaştırıyoruz.
+      // Bazı mobil tarayıcılarda "continuous" modda motor arka planda sessizce
+      // yeniden başlayıp results dizisini resetleyebiliyor; sadece resultIndex'e
+      // güvenmek bu durumda aynı cümlenin ikinci kez eklenmesine yol açabiliyordu.
+      let fullFinal = '';
+      for (let i = 0; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript + ' ';
+          fullFinal += event.results[i][0].transcript + ' ';
         }
       }
-      if (finalTranscript) {
-        setContent(prev => {
-          const newContent = prev + finalTranscript;
-          return newContent.length > CHAR_LIMIT ? newContent.slice(0, CHAR_LIMIT) : newContent;
-        });
+
+      if (fullFinal && fullFinal !== committedFinalRef.current) {
+        const newPart = fullFinal.startsWith(committedFinalRef.current)
+          ? fullFinal.slice(committedFinalRef.current.length)
+          : fullFinal; // motor sonuç dizisini sıfırladıysa güvenli geri dönüş
+
+        committedFinalRef.current = fullFinal;
+
+        if (newPart.trim()) {
+          setContent(prev => {
+            const newContent = prev + newPart;
+            return newContent.length > CHAR_LIMIT ? newContent.slice(0, CHAR_LIMIT) : newContent;
+          });
+        }
       }
     };
 
     recognition.onerror = (e) => {
       console.error(e);
+      recognitionRef.current = null;
       setIsListening(false);
     };
 
-    recognition.onend = () => setIsListening(false);
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
     recognition.start();
   };
+
+  // Sayfadan ayrılırken mikrofon açık kaldıysa motoru kapat (memory leak / unmount
+  // sonrası setState uyarılarını önler).
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    };
+  }, []);
 
   const toggleEmotion = (val) => {
     setSelectedEmotions(prev => 
