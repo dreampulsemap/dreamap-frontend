@@ -27,6 +27,10 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
   const [generatingCover, setGeneratingCover] = useState(false)
   const [coverError, setCoverError] = useState('')
   const [showPixabayPicker, setShowPixabayPicker] = useState(false)
+  // AI ile üretilirken kapak dışında kalan ekstra görseller — goal
+  // oluşturulduğunda kapakla birlikte otomatik olarak başlangıç slaytı
+  // yapılıyor (bkz. handleSubmit).
+  const [aiSlideImages, setAiSlideImages] = useState([])
   const fileInputRef = useRef(null)
 
   function addRoadmapStep() {
@@ -61,6 +65,7 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
       const { data } = supabase.storage.from('goal-covers').getPublicUrl(filePath)
       setCoverImageUrl(data.publicUrl)
       setCoverImageSource('user_upload')
+      setAiSlideImages([])
     } catch (err) {
       setCoverError(t.coverUploadFailed)
     } finally {
@@ -69,6 +74,10 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
     }
   }
 
+  // AI artık tek bir kapak değil, küçük bir başlangıç SLAYT destesi üretiyor
+  // (bkz. pages/api/goals/generate-cover.js — goalId yokken images[] döner).
+  // İlk görsel kapak olarak kullanılıyor, kalanı goal oluşunca otomatik
+  // slayt olarak ekleniyor (handleSubmit).
   async function handleGenerateCover() {
     const cleanTitle = title.trim()
     if (!cleanTitle) { setCoverError(t.coverNeedsTitle); return }
@@ -86,7 +95,7 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
           Authorization: `Bearer ${session.access_token}`,
         },
         // NOT: goalId göndermiyoruz — hedef henüz yok (form dolduruluyor).
-        // API bunu görünce sadece görseli üretip URL'i döndürüyor, hiçbir
+        // API bunu görünce görselleri üretip URL'lerini döndürüyor, hiçbir
         // hedefe kaydetmiyor (bkz. pages/api/goals/generate-cover.js).
         body: JSON.stringify({ title: cleanTitle, description: description.trim() || null }),
       })
@@ -97,7 +106,10 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
         else setCoverError(json.error || 'error')
         return
       }
-      setCoverImageUrl(json.imageUrl)
+      const images = json.images || []
+      if (images.length === 0) { setCoverError(t.coverGenerationFailed); return }
+      setCoverImageUrl(images[0])
+      setAiSlideImages(images.slice(1))
       setCoverImageSource('ai_generated')
     } catch (err) {
       setCoverError('network_error')
@@ -131,6 +143,7 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
       if (!res.ok) { setCoverError(json.error || 'error'); return false }
       setCoverImageUrl(json.url)
       setCoverImageSource('pixabay')
+      setAiSlideImages([])
       return true
     } catch (err) {
       setCoverError('network_error')
@@ -173,6 +186,27 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
         return
       }
 
+      // VİZYON EKLENDİĞİNDE SLAYTLAR OTOMATİK OLUŞTURULSUN — AI kullanıldıysa
+      // kapak + tüm ekstra üretilen görseller; değilse (yükleme/Pixabay) tek
+      // kapak görseli, başlangıç slaytı olarak ekleniyor. Kullanıcı sonra
+      // Vizyon Slaytları ekranından (SlideEditor) düzenleyebiliyor.
+      const initialSlideUrls = coverImageSource === 'ai_generated' && aiSlideImages.length > 0
+        ? [coverImageUrl, ...aiSlideImages]
+        : (coverImageUrl ? [coverImageUrl] : [])
+
+      for (const url of initialSlideUrls) {
+        try {
+          await fetch('/api/goals/slides/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({ goalId: json.goal.id, imageUrl: url }),
+          })
+        } catch (_) {
+          // Bir slayt oluşturma başarısız olsa bile goal zaten oluşturuldu —
+          // akışı durdurmuyoruz, kullanıcı SlideEditor'dan elle ekleyebilir.
+        }
+      }
+
       onCreated?.(json.goal)
       onClose?.()
     } catch (err) {
@@ -206,15 +240,44 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
             <label className="text-xs uppercase tracking-widest text-slate-400 mb-1.5 block">{t.coverLabel}</label>
 
             {coverImageUrl ? (
-              <div className="relative rounded-xl overflow-hidden aspect-[3/2] mb-2">
-                <img src={coverImageUrl} alt="" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => { setCoverImageUrl(''); setCoverError('') }}
-                  className="absolute top-2 right-2 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/70 text-white text-xs hover:bg-black/90"
-                >
-                  <X size={12} /> {t.removeCoverBtn}
-                </button>
+              <div className="mb-2">
+                <div className="relative rounded-xl overflow-hidden aspect-[3/2]">
+                  <img src={coverImageUrl} alt="" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => { setCoverImageUrl(''); setAiSlideImages([]); setCoverError('') }}
+                    className="absolute top-2 right-2 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/70 text-white text-xs hover:bg-black/90"
+                  >
+                    <X size={12} /> {t.removeCoverBtn}
+                  </button>
+                  {coverImageSource === 'ai_generated' && (
+                    <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-black/70 text-white text-[10px] font-semibold uppercase tracking-widest">
+                      {lang === 'tr' ? 'Kapak' : 'Cover'}
+                    </span>
+                  )}
+                </div>
+                {aiSlideImages.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+                      {lang === 'tr' ? `+${aiSlideImages.length} başlangıç slaytı` : `+${aiSlideImages.length} starter slides`}
+                    </p>
+                    <div className="flex gap-1.5">
+                      {aiSlideImages.map((url, i) => (
+                        <div key={url} className="relative w-14 h-14 rounded-lg overflow-hidden bg-black/30 shrink-0">
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setAiSlideImages((prev) => prev.filter((_, idx) => idx !== i))}
+                            aria-label={lang === 'tr' ? 'Kaldır' : 'Remove'}
+                            className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/70 text-white flex items-center justify-center"
+                          >
+                            <X size={9} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-1.5 mb-1">
@@ -253,6 +316,13 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
                   {lang === 'tr' ? 'Pixabay' : 'Pixabay'}
                 </button>
               </div>
+            )}
+            {!coverImageUrl && (
+              <p className="text-slate-500 text-[10px] mt-1">
+                {lang === 'tr'
+                  ? 'AI ile Oluştur, kapak + birkaç başlangıç slaytı birlikte üretir.'
+                  : 'Generate with AI creates a cover plus a few starter slides.'}
+              </p>
             )}
             {coverError && <p className="text-rose-400 text-xs mt-1">{coverError}</p>}
           </div>
