@@ -55,7 +55,7 @@ export function usePushSubscription() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return false
 
-      await fetch('/api/push/subscribe', {
+      await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ subscription: subscription.toJSON() })
