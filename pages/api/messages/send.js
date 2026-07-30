@@ -34,29 +34,11 @@ export default async function handler(req, res) {
 
     if (insertError) throw insertError
 
-    // Bildirim kirliliğini önlemek için: alıcının bu göndericiden zaten
-    // OKUNMAMIŞ bir "yeni mesaj" bildirimi varsa yenisini eklemiyoruz —
-    // aktif bir sohbette her mesaj için ayrı bir zil girdisi oluşmasın diye.
-    // Mesajın kendisi zaten thread içinde okunmamış olarak görünecek.
-    const { data: existingNotif } = await supabaseAdmin
-      .from('notifications')
-      .select('id')
-      .eq('user_id', recipientId)
-      .eq('actor_id', user.id)
-      .eq('type', 'new_message')
-      .eq('is_read', false)
-      .limit(1)
-      .maybeSingle()
-
-    if (!existingNotif) {
-      try {
-        await supabaseAdmin.from('notifications').insert([
-          { user_id: recipientId, actor_id: user.id, type: 'new_message', is_read: false },
-        ])
-      } catch (err) {
-        console.error('in-app notification insert error (message):', err)
-      }
-    }
+    // Zile ayrıca "yeni mesaj" girdisi EKLEMİYORUZ. Okunmamış mesaj sayısı
+    // zaten messages.is_read üzerinden tek kaynaktan hesaplanıp Mesaj
+    // ikonunun rozetinde gösteriliyor (bkz. /api/messages/unread-count).
+    // Aynı bilgiyi iki farklı ikonda tekrarlamak yerine, her ikonun tek ve
+    // net bir anlamı olması kullanıcının rozetlere güvenini korur.
 
     const isTr = (lang || 'tr') === 'tr'
     const { data: senderProfile } = await supabaseAdmin

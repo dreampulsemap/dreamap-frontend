@@ -53,18 +53,6 @@ export default async function handler(req, res) {
 
     if (markReadError) console.error('messages/thread mark-read error:', markReadError)
 
-    // Bu göndericiden gelen okunmamış "yeni mesaj" bildirimini de temizle ki
-    // zil, zaten okunmuş bir mesaj için ışık yakmaya devam etmesin.
-    const { error: clearNotifError } = await supabaseAdmin
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('user_id', user.id)
-      .eq('actor_id', otherId)
-      .eq('type', 'new_message')
-      .eq('is_read', false)
-
-    if (clearNotifError) console.error('messages/thread clear-notification error:', clearNotifError)
-
     return res.status(200).json({
       messages,
       otherUser,
