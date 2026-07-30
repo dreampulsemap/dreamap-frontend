@@ -37,13 +37,18 @@ export default async function handler(req, res) {
       // + görüntüleyen kişi kabul edilmiş arkadaşsa 'friends' görünürlüğündekiler de
       let visibleStatuses = ['public']
       if (authedUser && authedUser.id !== userId) {
-        const { data: friendship } = await supabaseAdmin
+        // DÜZELTME: .maybeSingle() burada karşılıklı takipleşme durumunda
+        // (iki yön de 'accepted') 2 satır dönüp hata fırlatıyordu; hata
+        // yakalanmadığı için 'friends' görünürlüğü sessizce hiç eklenmiyordu
+        // — yani en yaygın senaryoda (iki herkese-açık profil birbirini
+        // takip ettiğinde) arkadaşa-özel hedefler görünmez oluyordu.
+        const { data: friendships } = await supabaseAdmin
           .from('friendships')
-          .select('status')
+          .select('id')
           .or(`and(user_id.eq.${authedUser.id},friend_id.eq.${userId}),and(user_id.eq.${userId},friend_id.eq.${authedUser.id})`)
           .eq('status', 'accepted')
-          .maybeSingle()
-        if (friendship) visibleStatuses.push('friends')
+          .limit(1)
+        if (friendships && friendships.length > 0) visibleStatuses.push('friends')
       } else if (authedUser && authedUser.id === userId) {
         // Kendi profilini "user" modunda görüntülüyorsan hepsini göster
         visibleStatuses = ['public', 'friends', 'private']
