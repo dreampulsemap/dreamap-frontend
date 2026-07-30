@@ -39,15 +39,33 @@ export default async function handler(req, res) {
 
     // Görüntüleyen kişi bu kullanıcıyı takip ediyor mu? (Follow butonunun
     // doğru durumda başlaması için)
+    //
+    // DÜZELTME: Önceki sorgu iki yönü TEK .or() + .maybeSingle() içinde
+    // birleştiriyordu. Karşılıklı takipleşme durumunda (her iki yön de
+    // kayıtlıyken) bu 2 satır döndürüyor ve .maybeSingle() hata fırlatıyordu
+    // — bu da tüm endpoint'i çökertip profili "bulunamadı" gibi gösteriyordu,
+    // oysa profil gerçekten vardı. Çökmediği durumlarda bile, karşı tarafın
+    // seni takip etmesi, senin "Takip Et" butonunun yanlışlıkla "Takipte"
+    // görünmesine (ve tıklanamaz kalmasına) yol açıyordu. Artık iki yönü tek
+    // bir sorguda ama net bir şekilde ayrı ayrı okuyoruz.
     let friendshipStatus = null
+    let followsViewer = false
     const viewer = await getAuthedUser(req)
     if (viewer && viewer.id !== userId) {
-      const { data: friendship } = await supabaseAdmin
+      const { data: rows } = await supabaseAdmin
         .from('friendships')
-        .select('status')
-        .or(`and(user_id.eq.${viewer.id},friend_id.eq.${userId}),and(user_id.eq.${userId},friend_id.eq.${viewer.id})`)
-        .maybeSingle()
-      friendshipStatus = friendship?.status || null
+        .select('user_id, friend_id, status')
+        .in('user_id', [viewer.id, userId])
+        .in('friend_id', [viewer.id, userId])
+
+      for (const row of rows || []) {
+        if (row.user_id === viewer.id && row.friend_id === userId) {
+          friendshipStatus = row.status
+        }
+        if (row.user_id === userId && row.friend_id === viewer.id && row.status === 'accepted') {
+          followsViewer = true
+        }
+      }
     }
 
     return res.status(200).json({
@@ -55,6 +73,7 @@ export default async function handler(req, res) {
       dreams: dreams || [],
       hasMore: (dreams || []).length === BATCH_SIZE,
       friendshipStatus,
+      followsViewer,
       isSelf: viewer?.id === userId,
     })
   } catch (error) {
