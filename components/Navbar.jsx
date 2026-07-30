@@ -39,11 +39,11 @@ export default function Navbar() {
   const auraDropdownRef = useRef(null)
   const notifDropdownRef = useRef(null)
 
-  const { t, i18n } = useTranslation()
+  const { i18n } = useTranslation()
 
   useEffect(() => { setMounted(true) }, [])
   const currentLang = mounted ? (i18n?.language || 'en').split('-')[0] : 'en'
-  const dreamCardText = getDreamCardText(currentLang)
+  const t = getDreamCardText(currentLang)
 
   useEffect(() => {
     if (!mounted) return
@@ -144,7 +144,7 @@ export default function Navbar() {
                 <div className="absolute left-0 top-full mt-2 w-56 rounded-card border border-white/10 bg-void-900 p-4 shadow-2xl z-50 animate-fade-in">
                   <p className="text-xs text-slate-400 mb-1">{currentLang === 'tr' ? 'Mevcut Aura:' : 'Your Auras:'}</p>
                   <p className="text-lg font-black text-astral-gold mb-3 flex items-center gap-1"><Sparkles size={16} /> {auras}</p>
-                  <a href={SHOP_URL} target="_blank" rel="noopener noreferrer" className="block text-center rounded-xl bg-astral-gold text-void-950 px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition hover:brightness-110 shadow-astral-glow">{dreamCardText.buyAuraLabel}</a>
+                  <a href={SHOP_URL} target="_blank" rel="noopener noreferrer" className="block text-center rounded-xl bg-astral-gold text-void-950 px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition hover:brightness-110 shadow-astral-glow">{t.buyAuraLabel}</a>
                 </div>
               )}
             </div>
@@ -176,8 +176,8 @@ export default function Navbar() {
               {notifDropdownOpen && (
                 <div className="absolute right-0 top-full mt-2 w-72 max-h-96 overflow-y-auto rounded-card border border-white/10 bg-void-900 shadow-2xl z-50 animate-fade-in">
                   <div className="p-3 border-b border-white/5 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">{t('notif.title')}</span>
-                    <span className="text-[9px] text-aether-cyan font-mono">{t('notif.autoAligned')}</span>
+                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Bildirimler</span>
+                    <span className="text-[9px] text-aether-cyan font-mono">Otomatik Hizalı</span>
                   </div>
                   {notifications.length === 0 ? (
                     <p className="text-center text-slate-500 text-sm py-6">{currentLang === 'tr' ? 'Henüz bildirim yok.' : 'No notifications yet.'}</p>
@@ -187,11 +187,25 @@ export default function Navbar() {
                       const messages = {
                         mana_received: currentLang === 'tr' ? `${actorName} vizyonuna mana verdi 💧` : `${actorName} gave mana to your vision 💧`,
                         goal_comment: currentLang === 'tr' ? `${actorName} vizyonuna yorum yaptı 💬` : `${actorName} commented on your vision 💬`,
-                        friend_request: currentLang === 'tr' ? `${actorName} sana arkadaşlık isteği gönderdi 👋` : `${actorName} sent you a friend request 👋`,
+                        friend_request: currentLang === 'tr' ? `${actorName} sana takip isteği gönderdi 👋` : `${actorName} sent you a follow request 👋`,
+                        new_follower: currentLang === 'tr' ? `${actorName} seni takip etmeye başladı 🌙` : `${actorName} started following you 🌙`,
+                        follow_accepted: currentLang === 'tr' ? `${actorName} takip isteğini kabul etti ✅` : `${actorName} accepted your follow request ✅`,
+                        new_message: currentLang === 'tr' ? `${actorName} sana mesaj gönderdi 💬` : `${actorName} sent you a message 💬`,
                         analysis_ready: currentLang === 'tr' ? 'Derinlemesine analiziniz hazır ✨' : 'Your deep analysis is ready ✨',
+                        analysis_failed: currentLang === 'tr' ? 'Analiz oluşturulamadı, auralarınız iade edildi' : 'Analysis could not be generated, your auras were refunded',
                       }
+                      // Bildirim tipine göre nereye gidileceğini belirle. Önceden yalnızca
+                      // dream_id olan bildirimler tıklanabiliyordu; takip/mesaj bildirimleri
+                      // hiçbir yere götürmüyordu.
+                      const destination = n.dream_id
+                        ? `/dream/${n.dream_id}`
+                        : ['friend_request', 'new_follower', 'follow_accepted'].includes(n.type) && n.actor_id
+                        ? `/u/${n.actor_id}`
+                        : n.type === 'new_message' && n.actor_id
+                        ? `/messages?with=${n.actor_id}`
+                        : null
                       return (
-                        <div key={n.id} onClick={() => { if(n.dream_id) router.push(`/dream/${n.dream_id}`) }} className={`px-4 py-3 border-b border-white/5 text-sm ${n.is_read ? 'text-slate-400' : 'text-white bg-aether-indigo/10 cursor-pointer'}`}>
+                        <div key={n.id} onClick={() => { if (destination) router.push(destination) }} className={`px-4 py-3 border-b border-white/5 text-sm ${n.is_read ? 'text-slate-400' : 'text-white bg-aether-indigo/10'} ${destination ? 'cursor-pointer' : ''}`}>
                           {messages[n.type] || n.type}
                           <p className="text-[10px] text-slate-600 mt-0.5">{new Date(n.created_at).toLocaleDateString()}</p>
                         </div>
@@ -222,11 +236,8 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* İKİNCİL SATIR artık gereksiz: mobilde BottomNav.jsx, masaüstünde
-          Sidebar.jsx aynı linkleri karşılıyor. Kod korunuyor (NAV_ITEMS/
-          NAV_LABELS başka yerde kullanılmıyorsa kaldırılabilir) ama render
-          edilmiyor. */}
-      <nav className="hidden items-center justify-center gap-8 border-t border-white/5 px-6 py-2 font-sans">
+      {/* MASAÜSTÜ İKİNCİL SATIR: metin linkleri (mobilde BottomNav ikonları karşılıyor) */}
+      <nav className="hidden md:flex items-center justify-center gap-8 border-t border-white/5 px-6 py-2 font-sans">
         {NAV_ITEMS.map(({ href, key }) => (
           <Link key={key} href={href} className={`text-sm font-medium transition-colors ${router.pathname === href ? 'text-astral-gold' : 'text-slate-300 hover:text-astral-gold'}`}>
             {mounted ? NAV_LABELS[key][currentLang === 'tr' ? 'tr' : 'en'] : <TextSkeleton width="w-14" />}
