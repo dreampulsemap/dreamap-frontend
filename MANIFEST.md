@@ -133,6 +133,8 @@ derleme/runtime testi sizin ortamınızda yapılmalı.
    bakiye düşüşü
 4. **005_atomic_credit_spending.sql** — aura ve image_credits için atomik harcama
    fonksiyonları (spend_auras, spend_image_credits)
+5. **006_messages_schema.sql** — mesajlaşma (DM) özelliği için `messages` tablosu +
+   RLS politikaları (bkz. bölüm 16)
 
 **001_lunosfer_schema.sql ÇALIŞTIRMAYIN** — ilk taslaktı, mevcut canlı tablolarla
 çakışıyordu (bu yüzden "relation already exists" hatası almıştınız), 002 onun
@@ -310,3 +312,127 @@ TEST EDİLEMEDİ (yine): Bu ortamda tarayıcıda render edemiyorum. En dar
 ekranlarda (≈360-375px) sol+orta+sağ kümeler sıkışık olabilir — `min-w-0` ve
 küçültülmüş padding ile mümkün olduğunca yer açtım ama gerçek cihazda
 görmeden emin olamam; dar ekranlarda görürsen haber ver, ince ayar yaparım.
+
+## 16) Arama / profil görüntüleme / takip / takip bildirimi bug'ları + mesajlaşma (YENİ)
+
+Kullanıcının bildirdiği şikayet: "kullanıcı arama, profil görüntüleme, takip
+etme, takip edince bildirim gelmesi ve mesajlar düzgün çalışmıyor ya da eksik."
+Kod tabanını uçtan uca inceledim; her biri için somut, kanıtlanabilir bir bug
+buldum (varsayımla değil, kodu okuyarak).
+
+**A) Takip yönü hataları (arama + profil görüntüleme + takip)**
+
+Kök neden: `friendships` tek yönlü bir tablo (user_id → friend_id), ama birkaç
+sorgu bunu YANLIŞLIKLA iki yönlü kontrol ediyordu — biri seni takip ettiğinde
+(sen onu henüz takip etmemişken) senin "Takip Et" butonun yanlışlıkla
+"Takipte"/"Bekliyor" görünüp tıklanamaz hale geliyordu.
+
+- `pages/api/friends/search.js` — DÜZELTİLDİ: friendshipMap artık yalnızca
+  "ben → aday kullanıcı" yönünü kontrol ediyor.
+- `pages/api/public-profile/[userId].js` — DÜZELTİLDİ (daha ciddi): eski
+  sorgu `.or()` (iki yön) + `.maybeSingle()` kullanıyordu. Karşılıklı
+  takipleşmede (en yaygın senaryo: iki açık profil birbirini takip ettiğinde)
+  bu 2 satır döndürüp **hata fırlatıyordu** — bu da profili "Kullanıcı
+  bulunamadı" gösteriyordu, oysa profil gerçekten vardı. Artık iki yön ayrı
+  ayrı okunuyor, hem crash hem yanlış buton durumu düzeldi. Bonus: yanıta
+  `followsViewer` eklendi (karşı taraf seni takip ediyor mu) — `pages/u/
+  [userId].js`'de "Seni takip ediyor" rozeti olarak kullanılıyor.
+- `pages/api/friends/list.js` — DÜZELTİLDİ: `user_profiles` tablosu iki farklı
+  FK ile (`friendships_user_id_fkey`, `friendships_friend_id_fkey`) alias'sız
+  embed ediliyordu — PostgREST'te aynı adla iki embed ya hataya ya da
+  ikincinin birinciyi ezmesine yol açar. Artık `requester`/`target` diye ayrı
+  alias'landı. `pages/profile.js`'deki "Gelen İstekler" kartı bu yüzden yanlış
+  (veya boş) isim gösteriyordu — düzeltildi. Ayrıca profile.js'de kabul
+  edilmiş takipleşmelerin (bağlantılar) kendisi hiç render edilmiyordu, yalnız
+  sayısı gösteriliyordu — şimdi liste de görünüyor (avatar + isim + mesaj
+  kısayolu, `/u/[id]`'ye link).
+- `lib/supabaseAdmin.js` (`canViewGoal`) ve `pages/api/goals/list.js`
+  (mode=user) — DÜZELTİLDİ: aynı `.or()+.maybeSingle()` hatası burada da
+  vardı. Etkisi: karşılıklı takip eden iki kullanıcı birbirinin profiline
+  gittiğinde "sadece arkadaşlara açık" (`visibility: friends`) hedefler
+  görünmüyordu (sorgu sessizce hata veriyor, hata yakalanmadığı için
+  "arkadaş değilsiniz" gibi davranıyordu). Bu da "profil görüntüleme"
+  şikayetinin bir parçasıydı.
+- `lib/list.js`, `lib/comment.js`, `lib/give-mana.js`, `components/friends/
+  FriendsPanel.jsx`, `services/friendService.js`, `components/profile/
+  ProfileHeader.jsx`, `hooks/useCurrentUser.js` — kontrol ettim, hiçbiri
+  hiçbir yerden import edilmiyor (ölü kod). Bunlara dokunmadım.
+
+**B) Takip bildirimi hiç yoktu**
+
+`components/Navbar.jsx`'in bildirim zili zaten `friend_request` tipini
+göstermeye hazırdı (muhtemelen önceki bir turda eklenmiş), ama onu
+TETİKLEYEN kod hiçbir yerde yoktu — `friends/request.js` `friendships`
+tablosuna satır ekliyordu ama `notifications` tablosuna hiç dokunmuyordu.
+
+- `lib/notify.js` — `notifyFollow` ve `notifyFollowAccepted` eklendi
+  (`notifyAnalysisOutcome` ile aynı desen: hem `notifications` satırı hem
+  gerçek push bildirimi, ikisi de try/catch içinde — bir bildirim hatası asla
+  takip işlemini başarısız göstermiyor).
+- `pages/api/friends/request.js` — takip edilen kişiye artık bildirim
+  gidiyor (açık profil → "yeni takipçi", gizli profil → "takip isteği").
+- `pages/api/friends/respond.js` — istek kabul edilince, isteği gönderen
+  tarafa "isteğin kabul edildi" bildirimi gidiyor (red'de sessiz kalıyor).
+- `components/Navbar.jsx` — `new_follower`, `follow_accepted`, `new_message`
+  mesaj şablonları eklendi; ayrıca fark ettiğim küçük bir eksik: `analysis_
+  failed` tipi hiç map'te yoktu, tıklamada ham "analysis_failed" metni
+  görünüyordu — o da eklendi. Bildirime tıklama artık türüne göre doğru yere
+  götürüyor (takip → `/u/[id]`, mesaj → `/messages?with=[id]`).
+
+**C) Mesajlar — sıfırdan kuruldu**
+
+`pages/messages.js` yalnızca "Yakında" yazan bir bekleme sayfasıydı; hiç
+tablo/API yoktu. Şimdi gerçek, çalışan bir DM özelliği var:
+
+- `006_messages_schema.sql` — YENİ: `messages` tablosu (sender_id,
+  recipient_id, content, is_read, created_at) + RLS AÇIK ve politikalı
+  (yalnızca kendi gönderdiğin/aldığın mesajları görebilirsin/yazabilirsin —
+  RLS eklenmezse tablo anon anahtarla erişilebilir kalırdı, bu ciddi bir
+  gizlilik açığı olurdu). **Bu dosyayı Supabase SQL Editor'de çalıştırmanız
+  gerekiyor, aksi halde /messages 500 hatası verir.**
+- `pages/api/messages/send.js` — YENİ: mesaj gönderme (auth zorunlu, kendine
+  mesaj engeli, 4000 karakter sınırı, alıcı bildirimi + push, aynı
+  göndericiden zaten okunmamış bildirim varsa yenisini eklemiyor ki aktif
+  sohbette zil spam olmasın).
+- `pages/api/messages/conversations.js` — YENİ: gelen kutusu listesi (son
+  mesaj önizlemesi + kişi başı okunmamış sayısı). Gerçek bir "conversations"
+  tablosu yok — son 500 mesajı çekip bellekte kişi bazında grupluyor (arama
+  endpoint'indeki 2-adımlı fetch-then-map deseniyle aynı yaklaşım). Çok
+  yüksek mesaj hacminde (500'den eski) bir konuşma listede görünmeyebilir —
+  bilinen bir v1 sınırlaması.
+- `pages/api/messages/thread.js` — YENİ: iki kişi arası mesaj geçmişi
+  (`before`/`after` cursor'larıyla sayfalama + polling desteği), açılınca
+  karşı taraftan gelen mesajları ve ilgili bildirimi otomatik okundu
+  işaretliyor.
+- `pages/messages.js` — YENİDEN YAZILDI: gerçek gelen-kutusu + sohbet arayüzü
+  (mobilde tek panel geçişli, masaüstünde iki panel yan yana). Gerçek zamanlı
+  websocket/Supabase Realtime KURULMADI — bu kod tabanında hiçbir yerde
+  realtime kullanılmıyordu, o yüzden açık sohbette 5 saniyede bir polling
+  ile yeni mesaj kontrolü yapılıyor. İstenirse ileride Realtime'a geçirilebilir.
+- `pages/u/[userId].js` — Takip butonunun yanına "Mesaj" butonu eklendi
+  (`/messages?with=[id]`'ye götürüyor).
+
+TASARIM KARARI: Mesajlaşmayı Instagram'ın açık-DM davranışı gibi kurdum —
+herkes herkese mesaj atabilir, takip şartı yok. İstenirse ileride "yalnızca
+takip ettiklerin" kısıtı ya da takip-etmeyenlerden gelen mesajlar için ayrı
+bir "istekler" kutusu eklenebilir; bu bir sonraki adım, bu turda yapmadım.
+
+TEST EDİLEMEDİ: Bu ortamda ne `npm install`/`next build` ne de gerçek bir
+Supabase bağlantısı çalıştırabiliyorum (ağ kapalı). Tüm değiştirilen/yeni
+dosyaları TypeScript derleyicisiyle (JSX syntax modunda, tip kontrolü kapalı)
+söz dizimi hatası için taradım — hepsi temiz geçti. Ama gerçek DB'ye karşı
+çalıştırıp uçtan uca doğrulayamadım; SQL'i çalıştırıp özellikleri denedikten
+sonra bir şey ters giderse haber verin.
+
+DOKUNULMADI (bilerek, kapsam dışı — bulundu ama bu turun konusu değildi):
+`hooks/usePushSubscription.js`'in çağırdığı `/api/push/subscribe` route'u
+hiç yok (push aboneliği hiç kaydolmuyor, sessizce başarısız oluyor); birçok
+yerde kullanılan `gradient-text` CSS class'ı `globals.css`'de tanımlı değil
+(başlıklardaki gradyan efekti çalışmıyor); `EmptyState.jsx`/`ErrorState.jsx`
+`text-h3`/`text-body-sm`/`text-label`/`brand-primary` gibi `tailwind.config.js`'de
+olmayan class'lar kullanıyor (yazı boyutu varsayılana düşüyor); birkaç
+`pages/api/friends/*` ve `comment.js`/`like.js` gibi eski route'lar,
+client'ın gönderdiği `userId`'yi doğrulamadan güveniyor (yeni `goals/*` ve
+`messages/*` route'ları gibi `Authorization: Bearer` + sunucu tarafı
+doğrulama kullanmıyorlar). Hepsi gerçek ama ayrı işler — istenirse ayrıca
+ele alınabilir.
