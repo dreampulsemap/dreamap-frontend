@@ -1,0 +1,77 @@
+import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+
+const PAGE_SIZE = 50
+
+export default async function handler(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'method_not_allowed' })
+
+  try {
+    const user = await getAuthedUser(req)
+    if (!user) return res.status(401).json({ error: 'unauthorized' })
+
+    const { with: otherId, before, after } = req.query
+    if (!otherId) return res.status(400).json({ error: 'with_required' })
+    if (otherId === user.id) return res.status(400).json({ error: 'cannot_message_self' })
+
+    const { data: otherUser, error: otherUserError } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id, username, display_name, avatar_url')
+      .eq('id', otherId)
+      .maybeSingle()
+
+    if (otherUserError || !otherUser) return res.status(404).json({ error: 'user_not_found' })
+
+    let query = supabaseAdmin
+      .from('messages')
+      .select('id, sender_id, recipient_id, content, is_read, created_at')
+      .or(`and(sender_id.eq.${user.id},recipient_id.eq.${otherId}),and(sender_id.eq.${otherId},recipient_id.eq.${user.id})`)
+
+    if (after) {
+      // Polling: bu zamandan SONRAKİ mesajları getir.
+      query = query.gt('created_at', after).order('created_at', { ascending: true }).limit(PAGE_SIZE)
+    } else if (before) {
+      // "Daha eski mesajları yükle": bu zamandan ÖNCEKİ mesajları getir.
+      query = query.lt('created_at', before).order('created_at', { ascending: false }).limit(PAGE_SIZE)
+    } else {
+      // İlk yükleme: en son mesajlar.
+      query = query.order('created_at', { ascending: false }).limit(PAGE_SIZE)
+    }
+
+    const { data: rows, error } = await query
+    if (error) throw error
+
+    // before/ilk-yükleme DESC geldiği için ekranda eskiden-yeniye göstermek üzere ters çeviriyoruz.
+    const messages = after ? (rows || []) : (rows || []).slice().reverse()
+
+    // Bu thread'i açan kişi, karşı taraftan gelen okunmamış mesajları görmüş sayılır.
+    const { error: markReadError } = await supabaseAdmin
+      .from('messages')
+      .update({ is_read: true })
+      .eq('sender_id', otherId)
+      .eq('recipient_id', user.id)
+      .eq('is_read', false)
+
+    if (markReadError) console.error('messages/thread mark-read error:', markReadError)
+
+    // Bu göndericiden gelen okunmamış "yeni mesaj" bildirimini de temizle ki
+    // zil, zaten okunmuş bir mesaj için ışık yakmaya devam etmesin.
+    const { error: clearNotifError } = await supabaseAdmin
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', user.id)
+      .eq('actor_id', otherId)
+      .eq('type', 'new_message')
+      .eq('is_read', false)
+
+    if (clearNotifError) console.error('messages/thread clear-notification error:', clearNotifError)
+
+    return res.status(200).json({
+      messages,
+      otherUser,
+      hasMore: !after && messages.length === PAGE_SIZE,
+    })
+  } catch (error) {
+    console.error('messages/thread error:', error)
+    return res.status(500).json({ error: error.message || 'internal_error' })
+  }
+}
