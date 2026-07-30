@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import Image from 'next/image'
+import Link from 'next/link'
+import { MessageCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
@@ -26,6 +28,7 @@ export default function PublicProfilePage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [friendshipStatus, setFriendshipStatus] = useState(null)
+  const [followsViewer, setFollowsViewer] = useState(false)
   const [followBusy, setFollowBusy] = useState(false)
   const [activeDream, setActiveDream] = useState(null)
   const [activeGoal, setActiveGoal] = useState(null)
@@ -56,6 +59,7 @@ export default function PublicProfilePage() {
       setProfile(profileJson.profile)
       setDreams(profileJson.dreams || [])
       setFriendshipStatus(profileJson.friendshipStatus)
+      setFollowsViewer(!!profileJson.followsViewer)
 
       // Kendi profiline gelindiyse asıl (düzenlenebilir) profile.js'e yönlendir
       if (profileJson.isSelf) {
@@ -125,25 +129,39 @@ export default function PublicProfilePage() {
               <div className="flex-1 text-center sm:text-left">
                 <h1 className="text-2xl font-bold text-white">{profile.display_name || profile.username}</h1>
                 {profile.username && <p className="text-slate-500 text-sm">@{profile.username}</p>}
+                {followsViewer && (
+                  <span className="inline-block mt-1 rounded-full bg-white/5 px-2.5 py-0.5 text-[10px] text-slate-400 uppercase tracking-widest">
+                    {lang === 'tr' ? 'Seni takip ediyor' : 'Follows you'}
+                  </span>
+                )}
                 {profile.bio && <p className="text-slate-300 text-sm mt-2 max-w-md">{profile.bio}</p>}
 
-                <button
-                  onClick={handleFollow}
-                  disabled={followBusy || friendshipStatus === 'accepted' || friendshipStatus === 'pending'}
-                  className={`mt-4 px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-                    friendshipStatus === 'accepted'
-                      ? 'bg-white/5 text-slate-400 cursor-default'
+                <div className="flex items-center justify-center sm:justify-start gap-2 mt-4">
+                  <button
+                    onClick={handleFollow}
+                    disabled={followBusy || friendshipStatus === 'accepted' || friendshipStatus === 'pending'}
+                    className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
+                      friendshipStatus === 'accepted'
+                        ? 'bg-white/5 text-slate-400 cursor-default'
+                        : friendshipStatus === 'pending'
+                        ? 'bg-white/5 text-amber-400 cursor-default'
+                        : 'bg-cyan-500 text-black hover:bg-cyan-400 disabled:opacity-50'
+                    }`}
+                  >
+                    {friendshipStatus === 'accepted'
+                      ? (lang === 'tr' ? 'Takipte' : 'Following')
                       : friendshipStatus === 'pending'
-                      ? 'bg-white/5 text-amber-400 cursor-default'
-                      : 'bg-cyan-500 text-black hover:bg-cyan-400 disabled:opacity-50'
-                  }`}
-                >
-                  {friendshipStatus === 'accepted'
-                    ? (lang === 'tr' ? 'Takipte' : 'Following')
-                    : friendshipStatus === 'pending'
-                    ? (lang === 'tr' ? 'Bekliyor' : 'Pending')
-                    : (lang === 'tr' ? 'Takip Et' : 'Follow')}
-                </button>
+                      ? (lang === 'tr' ? 'Bekliyor' : 'Pending')
+                      : (lang === 'tr' ? 'Takip Et' : 'Follow')}
+                  </button>
+                  <Link
+                    href={`/messages?with=${userId}`}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest bg-white/5 text-white hover:bg-white/10 transition-all"
+                  >
+                    <MessageCircle size={13} />
+                    {lang === 'tr' ? 'Mesaj' : 'Message'}
+                  </Link>
+                </div>
               </div>
             </div>
 
