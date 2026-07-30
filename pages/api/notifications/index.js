@@ -6,10 +6,17 @@ export default async function handler(req, res) {
     if (!user) return res.status(401).json({ error: 'unauthorized' })
 
     if (req.method === 'GET') {
+      // 'new_message' zilin dışında tutulur: bu sinyal artık Mesaj ikonunun
+      // üzerindeki rozette yaşıyor (bkz. /api/messages/unread-count). Aynı
+      // "biri sana yazdı" bilgisini hem zilde hem mesaj ikonunda tekrar
+      // etmek, kullanıcının rozetlere olan güvenini ve dikkatini zamanla
+      // azaltan bir bildirim yorgunluğu (notification fatigue) yaratır —
+      // her ikon net, tek bir anlam taşımalı.
       const { data, error } = await supabaseAdmin
         .from('notifications')
         .select('*, actor:actor_id(id, username, display_name, avatar_url)')
         .eq('user_id', user.id)
+        .neq('type', 'new_message')
         .order('created_at', { ascending: false })
         .limit(30)
 
@@ -20,6 +27,7 @@ export default async function handler(req, res) {
         .select('id', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .eq('is_read', false)
+        .neq('type', 'new_message')
 
       return res.status(200).json({ notifications: data || [], unreadCount: unreadCount || 0 })
     }
