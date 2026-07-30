@@ -4,11 +4,13 @@ import { extractGoalScene, buildGoalImagePrompt, generateOneImage } from '@/lib/
 
 export const config = { maxDuration: 60 }
 
-const AURA_COST = 2 // generate-dream-image.js'deki tekli görsel üretim maliyetiyle tutarlı
+const AURA_COST = 2
 
-// SADECE var olan bir hedefin kapağını (yeniden) üretir — GoalDetailModal'dan
-// çağrılıyor. Yeni vizyon oluştururken AI artık kapak değil, SLAYT görseli
-// üretiyor (bkz. pages/api/goals/generate-slide-image.js), o akış burada yok.
+// SlideEditor'dan çağrılıyor: her tıklamada TEK bir görsel üretir, goal'un
+// cover_image_url'ine DOKUNMAZ — sadece üretilen görselin URL'ini döner,
+// istemci onu addSlide() ile slayt olarak ekliyor. Tekrar tekrar
+// çağrılabilir, her seferinde yeni ve farklı bir görsel üretir (Flux/DALL-E
+// stokastik olduğu için aynı hedef için bile her çağrı farklı sonuç verir).
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
 
@@ -28,8 +30,6 @@ export default async function handler(req, res) {
     if (goalError || !goal) return res.status(404).json({ error: 'goal_not_found' })
     if (goal.user_id !== user.id) return res.status(403).json({ error: 'not_owner' })
 
-    // ATOMİK aura düşüşü — image_credits yerine Aura kullanıyoruz (bkz.
-    // migration 005'teki spend_auras RPC'si, TOCTOU'yu önlemek için).
     const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
       p_user_id: user.id,
       p_amount: AURA_COST,
@@ -44,14 +44,13 @@ export default async function handler(req, res) {
     try {
       scene = await extractGoalScene(goal.title, goal.description)
     } catch (e) {
-      console.error('goals/generate-cover scene extraction error:', e)
+      console.error('goals/generate-slide-image scene extraction error:', e)
     }
     const prompt = buildGoalImagePrompt(scene, goal.title)
 
     const { imageUrl: rawImageUrl, details } = await generateOneImage(prompt)
 
     if (!rawImageUrl) {
-      // Krediyi GERİ VER, kullanıcı karşılıksız harcamış olmasın.
       await supabaseAdmin
         .from('user_profiles')
         .update({ premium_analysis_auras: spend.remaining + AURA_COST })
@@ -59,25 +58,14 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'image_generation_failed', details })
     }
 
-    // Sağlayıcı URL'si (Replicate/DALL-E) geçicidir — kullanıcının kendi
-    // yüklediği kapaklarla aynı bucket'a (goal-covers) kalıcı olarak
-    // kopyalıyoruz.
     const imageUrl = await persistRemoteImage(rawImageUrl, {
       bucket: 'goal-covers',
       path: `${user.id}/${Date.now()}.jpg`,
     })
 
-    const { data: updatedGoal, error: updateError } = await supabaseAdmin
-      .from('goals')
-      .update({ cover_image_url: imageUrl, cover_image_source: 'ai_generated' })
-      .eq('id', goalId)
-      .select('*')
-      .single()
-
-    if (updateError) throw updateError
-    return res.status(200).json({ goal: updatedGoal, imageUrl, aurasLeft: spend.remaining })
+    return res.status(200).json({ imageUrl, aurasLeft: spend.remaining })
   } catch (error) {
-    console.error('goals/generate-cover error:', error)
+    console.error('goals/generate-slide-image error:', error)
     return res.status(500).json({ error: error.message || 'internal_error' })
   }
 }
