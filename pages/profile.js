@@ -457,13 +457,48 @@ export default function ProfilePage() {
                 <div className="space-y-2">
                   {pendingRequests.map((req) => (
                     <div key={req.id} className="glass-card p-3 flex items-center justify-between gap-3">
-                      <div className="truncate text-xs font-semibold">{req.user_profiles?.username}</div>
+                      <div className="truncate text-xs font-semibold">{req.requester?.display_name || req.requester?.username}</div>
                       <div className="flex gap-2">
                         <button onClick={() => handleRespondRequest(req.id, 'accepted')} className="glass-card px-3 py-1 text-xs bg-green-500/20 hover:bg-green-500/30">Kabul</button>
                         <button onClick={() => handleRespondRequest(req.id, 'rejected')} className="glass-card px-3 py-1 text-xs bg-red-500/20 hover:bg-red-500/30">Red</button>
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Bağlantılar (kabul edilmiş takipleşmeler) — önceden yalnızca sayı
+                gösteriliyordu, listenin kendisi hiçbir yerde render edilmiyordu. */}
+            {friends.length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3">
+                  {tCard.followingLabel} ({friends.length})
+                </h3>
+                <div className="space-y-2">
+                  {friends.map((f) => {
+                    const other = f.user_id === user?.id ? f.target : f.requester
+                    if (!other) return null
+                    return (
+                      <div key={f.id} className="glass-card p-3 flex items-center justify-between gap-3">
+                        <Link href={`/u/${other.id}`} className="flex items-center gap-2 truncate hover:opacity-80">
+                          {other.avatar_url ? (
+                            <img src={other.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-slate-800 flex-shrink-0" />
+                          )}
+                          <span className="truncate text-xs font-semibold">{other.display_name || other.username}</span>
+                        </Link>
+                        <Link
+                          href={`/messages?with=${other.id}`}
+                          aria-label={lang === 'tr' ? 'Mesaj gönder' : 'Send message'}
+                          className="glass-card p-1.5 hover:bg-purple-500/20 flex-shrink-0"
+                        >
+                          <MessageCircle size={14} />
+                        </Link>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
