@@ -78,6 +78,10 @@ export default function MessagesPage() {
         setHasMore(!!json.hasMore)
         // Thread boşsa bile "şu andan itibaren" polling yapabilmek için zamanı işaretliyoruz.
         cursorRef.current = msgs.length > 0 ? msgs[msgs.length - 1].created_at : new Date().toISOString()
+        // Sunucu bu thread'deki mesajları okundu işaretledi (bkz. thread.js);
+        // Mesaj ikonundaki rozetin bir sonraki poll'u (20sn) beklemeden hemen
+        // düşmesi için Navbar/BottomNav'a haber ver.
+        window.dispatchEvent(new Event('messages-read-updated'))
       }
     } catch (err) {
       console.error('loadThread error:', err)
