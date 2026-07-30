@@ -2,11 +2,17 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useEffect, useRef, useState } from 'react'
 import { Moon, Target, X, MessageCircle, Plus, Home, Compass } from 'lucide-react'
+import { useUnreadMessages } from '@/hooks/useUnreadMessages'
 
 export default function BottomNav() {
   const router = useRouter()
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const menuRef = useRef(null)
+  const { unreadCount: unreadMessages } = useUnreadMessages()
+  // Kullanıcı zaten Mesajlar ekranındayken rozeti gösterme — "okunmamış"
+  // sayacı, o an baktığın ekran için gösterilirse bayat/yanlış hissettirir
+  // ve rozete olan güveni zedeler.
+  const showMessageBadge = unreadMessages > 0 && router.pathname !== '/messages'
 
   // Not: Profil/avatar buradan kaldırıldı — artık üst navbar'da (Navbar.jsx,
   // sağ üstte). Bu yüzden burada kullanıcı oturumunu ayrıca izlemeye gerek yok.
@@ -95,10 +101,15 @@ export default function BottomNav() {
         {/* 5. MESAJ */}
         <Link
           href="/messages"
-          aria-label="Mesajlar"
-          className={`p-2 transition-all ${isActive('/messages') ? 'text-aether-violet scale-110 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]' : 'text-slate-400 hover:text-white'}`}
+          aria-label={showMessageBadge ? `Mesajlar (${unreadMessages} okunmamış)` : 'Mesajlar'}
+          className={`relative p-2 transition-all ${isActive('/messages') ? 'text-aether-violet scale-110 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]' : 'text-slate-400 hover:text-white'}`}
         >
           <MessageCircle size={22} />
+          {showMessageBadge && (
+            <span className="absolute top-0.5 right-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-shadowWork-rose px-1 text-[9px] font-bold text-white">
+              {unreadMessages > 9 ? '9+' : unreadMessages}
+            </span>
+          )}
         </Link>
 
       </div>

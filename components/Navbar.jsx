@@ -7,12 +7,13 @@ import { useTranslation } from 'react-i18next'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 import TextSkeleton from '@/components/TextSkeleton'
 import { usePushSubscription } from '@/hooks/usePushSubscription'
+import { useUnreadMessages } from '@/hooks/useUnreadMessages'
 
 const SHOP_URL = 'https://shop.lunosfer.com'
 
 // Not: 'globe' kaldırıldı (mockup'ta yok, /globe sayfası hâlâ duruyor ama
 // artık üst seviye nav'dan bağlı değil), 'message' eklendi (bkz. pages/messages.js
-// — backend'i yok, geçici "yakında" sayfası).
+// — tam çalışan bir mesajlaşma backend'i var, bkz. pages/api/messages/*).
 const NAV_ITEMS = [
   { href: '/', key: 'home' },
   { href: '/explore', key: 'explore' },
@@ -27,6 +28,7 @@ const NAV_LABELS = {
 export default function Navbar() {
   const router = useRouter()
   const { subscribe: subscribeToPush } = usePushSubscription()
+  const { unreadCount: unreadMessages } = useUnreadMessages()
   const [user, setUser] = useState(null)
   const [auras, setAuras] = useState(0)
   const [mana, setMana] = useState(0)
@@ -190,19 +192,19 @@ export default function Navbar() {
                         friend_request: currentLang === 'tr' ? `${actorName} sana takip isteği gönderdi 👋` : `${actorName} sent you a follow request 👋`,
                         new_follower: currentLang === 'tr' ? `${actorName} seni takip etmeye başladı 🌙` : `${actorName} started following you 🌙`,
                         follow_accepted: currentLang === 'tr' ? `${actorName} takip isteğini kabul etti ✅` : `${actorName} accepted your follow request ✅`,
-                        new_message: currentLang === 'tr' ? `${actorName} sana mesaj gönderdi 💬` : `${actorName} sent you a message 💬`,
                         analysis_ready: currentLang === 'tr' ? 'Derinlemesine analiziniz hazır ✨' : 'Your deep analysis is ready ✨',
                         analysis_failed: currentLang === 'tr' ? 'Analiz oluşturulamadı, auralarınız iade edildi' : 'Analysis could not be generated, your auras were refunded',
                       }
+                      // Not: 'new_message' burada YOK — o sinyal artık Mesaj
+                      // ikonunun rozetinde yaşıyor (bkz. useUnreadMessages),
+                      // zil ise "biriyle olan etkileşim" bildirimlerine ayrıldı.
                       // Bildirim tipine göre nereye gidileceğini belirle. Önceden yalnızca
-                      // dream_id olan bildirimler tıklanabiliyordu; takip/mesaj bildirimleri
+                      // dream_id olan bildirimler tıklanabiliyordu; takip bildirimleri
                       // hiçbir yere götürmüyordu.
                       const destination = n.dream_id
                         ? `/dream/${n.dream_id}`
                         : ['friend_request', 'new_follower', 'follow_accepted'].includes(n.type) && n.actor_id
                         ? `/u/${n.actor_id}`
-                        : n.type === 'new_message' && n.actor_id
-                        ? `/messages?with=${n.actor_id}`
                         : null
                       return (
                         <div key={n.id} onClick={() => { if (destination) router.push(destination) }} className={`px-4 py-3 border-b border-white/5 text-sm ${n.is_read ? 'text-slate-400' : 'text-white bg-aether-indigo/10'} ${destination ? 'cursor-pointer' : ''}`}>
@@ -239,8 +241,13 @@ export default function Navbar() {
       {/* MASAÜSTÜ İKİNCİL SATIR: metin linkleri (mobilde BottomNav ikonları karşılıyor) */}
       <nav className="hidden md:flex items-center justify-center gap-8 border-t border-white/5 px-6 py-2 font-sans">
         {NAV_ITEMS.map(({ href, key }) => (
-          <Link key={key} href={href} className={`text-sm font-medium transition-colors ${router.pathname === href ? 'text-astral-gold' : 'text-slate-300 hover:text-astral-gold'}`}>
+          <Link key={key} href={href} className={`relative text-sm font-medium transition-colors ${router.pathname === href ? 'text-astral-gold' : 'text-slate-300 hover:text-astral-gold'}`}>
             {mounted ? NAV_LABELS[key][currentLang === 'tr' ? 'tr' : 'en'] : <TextSkeleton width="w-14" />}
+            {key === 'message' && mounted && unreadMessages > 0 && router.pathname !== '/messages' && (
+              <span className="absolute -top-1.5 -right-3.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-shadowWork-rose px-1 text-[9px] font-bold text-white">
+                {unreadMessages > 9 ? '9+' : unreadMessages}
+              </span>
+            )}
           </Link>
         ))}
       </nav>
