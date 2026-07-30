@@ -43,7 +43,7 @@ export default function Navbar() {
 
   useEffect(() => { setMounted(true) }, [])
   const currentLang = mounted ? (i18n?.language || 'en').split('-')[0] : 'en'
-  const t = getDreamCardText(currentLang)
+  const dreamCardText = getDreamCardText(currentLang)
 
   useEffect(() => {
     if (!mounted) return
@@ -144,7 +144,7 @@ export default function Navbar() {
                 <div className="absolute left-0 top-full mt-2 w-56 rounded-card border border-white/10 bg-void-900 p-4 shadow-2xl z-50 animate-fade-in">
                   <p className="text-xs text-slate-400 mb-1">{currentLang === 'tr' ? 'Mevcut Aura:' : 'Your Auras:'}</p>
                   <p className="text-lg font-black text-astral-gold mb-3 flex items-center gap-1"><Sparkles size={16} /> {auras}</p>
-                  <a href={SHOP_URL} target="_blank" rel="noopener noreferrer" className="block text-center rounded-xl bg-astral-gold text-void-950 px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition hover:brightness-110 shadow-astral-glow">{t.buyAuraLabel}</a>
+                  <a href={SHOP_URL} target="_blank" rel="noopener noreferrer" className="block text-center rounded-xl bg-astral-gold text-void-950 px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition hover:brightness-110 shadow-astral-glow">{dreamCardText.buyAuraLabel}</a>
                 </div>
               )}
             </div>
