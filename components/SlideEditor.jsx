@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Plus, Trash2, ArrowUp, ArrowDown, Search as SearchIcon } from 'lucide-react'
+import { X, Plus, Trash2, ArrowUp, ArrowDown, Search as SearchIcon, Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
 import PixabayPicker from './PixabayPicker'
@@ -28,6 +28,7 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
   const [error, setError] = useState('')
   const [savingId, setSavingId] = useState(null)
   const [showPixabayPicker, setShowPixabayPicker] = useState(false)
+  const [generatingAi, setGeneratingAi] = useState(false)
 
   const existingImages = [
     ...(goal.cover_image_url ? [goal.cover_image_url] : []),
@@ -96,6 +97,44 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
     } catch {
       setError('network_error')
       return false
+    }
+  }
+
+  // Her tıklamada TEK bir görsel üretir ve doğrudan slayt olarak ekler
+  // (bkz. /api/goals/generate-slide-image.js — kapak alanına dokunmuyor).
+  // Tekrar tekrar çağrılabilir, her seferinde farklı bir görsel üretir.
+  async function handleGenerateAiSlide() {
+    if (slides.length >= MAX_SLIDES) {
+      setError(lang === 'tr' ? `En fazla ${MAX_SLIDES} slayt eklenebilir.` : `You can add up to ${MAX_SLIDES} slides.`)
+      return
+    }
+    const auth = await authBundle()
+    if (!auth) { setError(lang === 'tr' ? 'Giriş yapmalısın.' : 'You need to log in.'); return }
+
+    setGeneratingAi(true)
+    setError('')
+    try {
+      const res = await fetch('/api/goals/generate-slide-image', {
+        method: 'POST',
+        headers: auth.headers,
+        body: JSON.stringify({ goalId: goal.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        if (json.error === 'insufficient_auras') {
+          setError(lang === 'tr' ? 'Yetersiz Aura (2 gerekiyor).' : 'Not enough Auras (need 2).')
+        } else if (json.error === 'image_generation_failed') {
+          setError(lang === 'tr' ? 'Görsel üretilemedi, kredi iade edildi.' : 'Image generation failed, credit refunded.')
+        } else {
+          setError(json.error || 'error')
+        }
+        return
+      }
+      await addSlide(json.imageUrl)
+    } catch {
+      setError('network_error')
+    } finally {
+      setGeneratingAi(false)
     }
   }
 
@@ -327,7 +366,7 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
             )}
 
             <div className="flex gap-2">
-              <label className="flex-1 py-2.5 rounded-xl bg-white/5 text-slate-200 text-xs font-bold uppercase tracking-widest hover:bg-white/10 text-center cursor-pointer">
+              <label className="flex-1 py-2.5 rounded-xl bg-white/5 text-slate-200 text-[11px] font-bold uppercase tracking-widest hover:bg-white/10 text-center cursor-pointer">
                 {uploading
                   ? (lang === 'tr' ? 'Yükleniyor...' : 'Uploading...')
                   : (lang === 'tr' ? 'Cihazdan Yükle' : 'From Device')}
@@ -343,10 +382,18 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
               <button
                 onClick={() => setShowPixabayPicker(true)}
                 disabled={slides.length >= MAX_SLIDES}
-                className="flex-1 py-2.5 rounded-xl bg-white/5 text-slate-200 text-xs font-bold uppercase tracking-widest hover:bg-white/10 disabled:opacity-40 flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-white/5 text-slate-200 text-[11px] font-bold uppercase tracking-widest hover:bg-white/10 disabled:opacity-40 flex items-center justify-center gap-1.5"
               >
                 <SearchIcon size={14} />
-                {lang === 'tr' ? 'Pixabay\u2019dan Seç' : 'From Pixabay'}
+                {lang === 'tr' ? 'Pixabay' : 'Pixabay'}
+              </button>
+              <button
+                onClick={handleGenerateAiSlide}
+                disabled={generatingAi || slides.length >= MAX_SLIDES}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 text-cyan-300 text-[11px] font-bold uppercase tracking-widest hover:bg-white/10 disabled:opacity-40 flex items-center justify-center gap-1.5"
+              >
+                <Sparkles size={14} />
+                {generatingAi ? (lang === 'tr' ? 'Üretiliyor...' : 'Generating...') : 'AI'}
               </button>
             </div>
           </>
