@@ -52,6 +52,8 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   const [analysisOverride, setAnalysisOverride] = useState(null)
   const [toastMessage, setToastMessage] = useState('')
   const [showToast, setShowToast] = useState(false)
+  const [imgErrorCount, setImgErrorCount] = useState(0)
+  const [imgReported, setImgReported] = useState(false)
 
   const effectiveDream = useMemo(() => (analysisOverride ? { ...dream, ...analysisOverride } : dream), [dream, analysisOverride])
   const isAnalysisPreparing = useMemo(() => {
@@ -133,6 +135,26 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   }, [])
 
   const triggerToast = (msg) => { setToastMessage(msg); setShowToast(true); setTimeout(() => setShowToast(false), 2800) }
+
+  // Bkz. lib/repairDreamImage.js kök neden notu: bu genelde hiç tetiklenmez
+  // (Explore artık bozuk görselleri sunucu tarafında zaten eliyor), ama bir
+  // görsel gerçekten burada kırılırsa çıplak "broken image" ikonu yerine
+  // sessizce bir kez dener, sonra görseli nazikçe gizler ve arka planda
+  // otomatik onarımı tetikler.
+  const handleImageError = useCallback(() => {
+    setImgErrorCount((c) => {
+      const next = c + 1
+      if (next >= 2 && !imgReported) {
+        setImgReported(true)
+        fetch('/api/dreams/report-broken-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dreamId: dream.id }),
+        }).catch(() => {})
+      }
+      return next
+    })
+  }, [dream.id, imgReported])
 
   const translateArchetype = useCallback((arch) => {
     const cleanArch = String(arch).trim()
@@ -226,18 +248,34 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   return (
     <>
       <article className="glass-card p-6 rounded-3xl border border-white/10 bg-slate-900/40">
-        {effectiveDream.ai_image_url && (
+        {effectiveDream.ai_image_url && imgErrorCount < 2 && (
           <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-4">
             <Image
-              src={effectiveDream.ai_image_url}
+              src={imgErrorCount === 1
+                ? `${effectiveDream.ai_image_url}${effectiveDream.ai_image_url.includes('?') ? '&' : '?'}retry=${dream.id}`
+                : effectiveDream.ai_image_url}
               alt=""
               fill
               sizes="(max-width: 640px) 100vw, 600px"
               className="object-cover"
+              onError={handleImageError}
             />
           </div>
         )}
         <p className="mb-6">{translated ? translatedContent : dream.content}</p>
+
+        {Array.isArray(effectiveDream.tags) && effectiveDream.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-5 -mt-3">
+            {effectiveDream.tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-block rounded-full bg-white/5 border border-white/10 px-2.5 py-0.5 text-[10px] text-slate-400"
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
 
         {(() => {
           const summary = effectiveDream?.[`ai_summary_${currentLang}`] || effectiveDream?.ai_summary || effectiveDream?.ai_summary_en
