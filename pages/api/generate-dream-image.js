@@ -409,15 +409,26 @@ export default async function handler(req, res) {
 
     // Sağlayıcı URL'si (Replicate/DALL-E) geçicidir ve saatler/günler içinde
     // expire olur — DB'ye kaydetmeden önce kalıcı depolamaya kopyalıyoruz.
+    const rawProviderUrl = imageUrl;
     imageUrl = await persistRemoteImage(imageUrl, {
       bucket: 'dream-images',
       path: `${user.id}/${dreamId}-${Date.now()}.jpg`,
     });
+    // persistRemoteImage yükleme başarısız olursa sessizce orijinal geçici
+    // URL'e geri döner (analiz akışını kırmamak için) — biz bunu burada
+    // yakalayıp dream'i 'needs_persist' olarak işaretliyoruz ki otomatik
+    // onarım (report-broken-image / repair-broken-images cron'u) bu görseli
+    // sonradan kalıcı hale getirsin, aksi halde birkaç saat/gün içinde
+    // sessizce kırılırdı.
+    const persisted = imageUrl !== rawProviderUrl;
 
     const { error: updateDreamError } = await supabaseAdmin
       .from('dreams')
       .update({
-        ai_image_url: imageUrl
+        ai_image_url: imageUrl,
+        image_source: 'ai',
+        image_status: persisted ? 'ok' : 'needs_persist',
+        image_checked_at: new Date().toISOString(),
       })
       .eq('id', dreamId);
 

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { persistRemoteImage } from '@/lib/persistRemoteImage'
 
 const MODEL = 'llama-3.3-70b-versatile'
 const ANALYSIS_VERSION = 'jung-v4-deep'
@@ -262,7 +263,7 @@ Interpretation rules:
   }
 }
 
-function buildDreamUpdate({ dreamId, content, language, analysis }) {
+async function buildDreamUpdate({ dreamId, content, language, analysis, existingImageUrl }) {
   const imagePrompt = buildImagePrompt({
     archetypes: analysis.archetypes,
     dominantEmotion: analysis.sentiment,
@@ -270,9 +271,45 @@ function buildDreamUpdate({ dreamId, content, language, analysis }) {
     content,
   })
 
-  const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
-    imagePrompt
-  )}?width=1200&height=630&nologo=true&seed=${dreamId}`
+  // Kullanıcı rüyayı oluştururken zaten bir görsel seçtiyse (Pixabay'den —
+  // bkz. pages/add-dream.js) burada ÜZERİNE YAZMIYORUZ. Önceden bu fonksiyon
+  // koşulsuz her "pending" rüya için yeni bir görsel üretip ai_image_url'i
+  // eziyordu; kullanıcının bilinçli seçimi teaser analizi bittiği anda sessizce
+  // kayboluyordu.
+  let imageFields = {}
+  if (existingImageUrl) {
+    imageFields = { ai_image_prompt: imagePrompt }
+  } else {
+    const liveImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
+      imagePrompt
+    )}?width=1200&height=630&nologo=true&seed=${dreamId}`
+
+    // KÖK NEDEN DÜZELTMESİ: Pollinations statik bir dosya değil, HER istekte
+    // YENİDEN render eden canlı bir servis — bu URL'i doğrudan DB'ye yazmak
+    // "Kesif ızgarasında kırık, DreamCard'da tıklayınca sağlam" raporunun asıl
+    // sebebiydi (ızgara 15-20 görseli paralel isterken Pollinations bazılarında
+    // zaman aşımına uğruyor; tek bir kart açıldığında rekabet olmadığı için
+    // aynı istek genelde sorun çıkarmıyor). Burada üretilen görseli DERHAL
+    // indirip kendi kalıcı depomuza (dream-images bucket) kopyalıyoruz —
+    // böylece ai_image_url her zaman kalıcı, statik bir dosyayı gösteriyor.
+    const imageUrl = await persistRemoteImage(liveImageUrl, {
+      bucket: 'dream-images',
+      path: `${dreamId}-${Date.now()}.jpg`,
+    })
+    const persisted = imageUrl !== liveImageUrl
+
+    imageFields = {
+      ai_image_prompt: imagePrompt,
+      ai_image_url: imageUrl,
+      image_source: 'pollinations',
+      // persist başarısız olduysa (nadir — indirme/yükleme hatası) canlı URL
+      // geçici olarak kaydediliyor ama 'needs_persist' ile işaretleniyor, böylece
+      // hem Explore kalite filtresi bunu gizler hem de onarım cron'u/anında
+      // rapor akışı bunu otomatik olarak kalıcı hale getirir.
+      image_status: persisted ? 'ok' : 'needs_persist',
+      image_checked_at: new Date().toISOString(),
+    }
+  }
 
   return {
     ai_title: pickLocalized(analysis.title, language, 'en'),
@@ -317,8 +354,7 @@ function buildDreamUpdate({ dreamId, content, language, analysis }) {
       symbolic_reading: analysis.symbolic_reading,
     },
 
-    ai_image_prompt: imagePrompt,
-    ai_image_url: imageUrl,
+    ...imageFields,
 
     analysis_model: MODEL,
     analysis_version: ANALYSIS_VERSION,
@@ -377,7 +413,7 @@ export default async function handler(req, res) {
   try {
     const { data: dreams, error } = await supabase
       .from('dreams')
-      .select('id, content, original_language, analysis_status, created_at')
+      .select('id, content, original_language, analysis_status, created_at, ai_image_url')
       .eq('analysis_status', 'pending')
       .order('created_at', { ascending: true })
       .limit(limit)
@@ -416,11 +452,12 @@ export default async function handler(req, res) {
           groqKey: GROQ_KEY,
         })
 
-        const updates = buildDreamUpdate({
+        const updates = await buildDreamUpdate({
           dreamId: dream.id,
           content: dream.content,
           language: dream.original_language || 'en',
           analysis,
+          existingImageUrl: dream.ai_image_url,
         })
 
         const { error: updateError } = await supabase

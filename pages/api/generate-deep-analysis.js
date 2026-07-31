@@ -8,6 +8,7 @@ import {
   isSupportedLang
 } from '@/lib/deepAnalysisEngine'
 import { notifyAnalysisOutcome } from '@/lib/notify'
+import { isPersistedImageUrl } from '@/lib/imageUrlUtils'
 
 // =====================================================================
 // SADECE OpenAI, TAMAMEN SENKRON — kuyruk yok, cron yok, dış worker yok.
@@ -156,7 +157,15 @@ export default async function handler(req, res) {
           dreamId,
         })
         if (imageUrl) {
-          await supabaseAdmin.from('dreams').update({ ai_image_url: imageUrl }).eq('id', dreamId)
+          await supabaseAdmin.from('dreams').update({
+            ai_image_url: imageUrl,
+            image_source: 'ai',
+            // isPersistedImageUrl false ise generateImageIfPossible geçici Replicate
+            // linkine geri düşmüş demektir — onarım kuyruğuna işaretle (bkz.
+            // lib/repairDreamImage.js kök neden notu).
+            image_status: isPersistedImageUrl(imageUrl) ? 'ok' : 'needs_persist',
+            image_checked_at: new Date().toISOString(),
+          }).eq('id', dreamId)
         }
       } catch (imageError) {
         console.error('image gen error:', imageError.message)
