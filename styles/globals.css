@@ -143,6 +143,22 @@ h1, h2, h3, h4, .font-serif {
   -webkit-text-fill-color: transparent;
 }
 
+/* Saten Yansıması — dokunsal/duyusal yanılsama için kartın üst köşesinde
+   hafif bir ışık huzmesi. Sahiplenme hissini güçlendirmek amaçlı ince bir
+   detay, dikkat çekmemeli. */
+.satin-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.satin-sheen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 22%, rgba(255,255,255,0) 78%, rgba(255,255,255,0.05) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
 /* 3D Flip Kart Stilleri */
 .flip-perspective { perspective: 1500px; }
 .flip-card-inner {
