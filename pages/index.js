@@ -10,8 +10,10 @@ import DreamFeedCard from '@/components/DreamFeedCard'
 import VisionFeedCard from '@/components/VisionFeedCard'
 import HomeFeedFilter from '@/components/HomeFeedFilter'
 import GoalDetailModal from '@/components/GoalDetailModal'
+import VisionReelsFeed from '@/components/VisionReelsFeed'
 import CreateGoalModal from '@/components/CreateGoalModal'
 import TextSkeleton from '@/components/TextSkeleton'
+import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 
 export default function HomePage() {
   const { i18n } = useTranslation()
@@ -25,6 +27,7 @@ export default function HomePage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [activeDream, setActiveDream] = useState(null)
   const [activeGoal, setActiveGoal] = useState(null)
+  const [reelsGoalId, setReelsGoalId] = useState(null)
   const [showCreateGoal, setShowCreateGoal] = useState(false)
   const [showCreateMenu, setShowCreateMenu] = useState(false)
 
@@ -45,6 +48,7 @@ export default function HomePage() {
 
   const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
   const lang = currentLang
+  const tVision = getVisionBoardText(lang)
 
   useEffect(() => {
     async function checkUser() {
@@ -137,7 +141,7 @@ export default function HomePage() {
                   {item.feed_type === 'dream' ? (
                     <DreamFeedCard dream={item} lang={lang} onOpen={setActiveDream} />
                   ) : (
-                    <VisionFeedCard goal={item} lang={lang} onOpen={setActiveGoal} />
+                    <VisionFeedCard goal={item} lang={lang} onOpen={(g) => setReelsGoalId(g.id)} />
                   )}
                 </div>
               ))
@@ -178,13 +182,35 @@ export default function HomePage() {
 
       {showCreateGoal && (
         <CreateGoalModal
+          lang={lang}
           onClose={() => setShowCreateGoal(false)}
-          onSuccess={() => { setShowCreateGoal(false); refreshFeed() }}
+          onCreated={() => { setShowCreateGoal(false); refreshFeed() }}
         />
       )}
 
       {activeGoal && (
-        <GoalDetailModal goal={activeGoal} onClose={() => setActiveGoal(null)} />
+        <GoalDetailModal
+          goal={activeGoal}
+          lang={lang}
+          currentUserId={user?.id}
+          onClose={() => setActiveGoal(null)}
+          onChanged={(updated) => setItems((prev) => prev.map((it) => (it.id === updated.id && it.feed_type === 'vision' ? { ...it, ...updated } : it)))}
+        />
+      )}
+
+      {reelsGoalId && (
+        <VisionReelsFeed
+          goals={items.filter((it) => it.feed_type === 'vision')}
+          lang={lang}
+          t={tVision}
+          currentUserId={user?.id}
+          initialGoalId={reelsGoalId}
+          hasMore={false}
+          loading={false}
+          onClose={() => setReelsGoalId(null)}
+          onOpenGoal={(g) => { setReelsGoalId(null); setActiveGoal(g) }}
+          onOpenSlides={(g) => { setReelsGoalId(null); setActiveGoal(g) }}
+        />
       )}
 
       {activeDream && (

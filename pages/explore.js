@@ -5,11 +5,13 @@ import { Bird, Heart, MessageCircle, Moon, Search, Target, Trophy, X } from 'luc
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
+import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import DreamCard from '@/components/DreamCard'
 import ExploreImageTile from '@/components/ExploreImageTile'
 import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import SlidesViewer from '@/components/SlidesViewer'
+import VisionReelsFeed from '@/components/VisionReelsFeed'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 
@@ -56,17 +58,16 @@ export default function ExplorePage() {
   const [hubLoaded, setHubLoaded] = useState({ vision: false, victory: false, phoenix: false })
   const [activeGoal, setActiveGoal] = useState(null)
   const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
+  const [reelsGoalId, setReelsGoalId] = useState(null)
 
-  // Instagram Explore'da bir Reel/karusel karosuna dokunmak doğrudan o
-  // içerik türünün oynatıcısını açar. Aynı mantık: slaytı olan bir hedefe
-  // dokununca GoalDetailModal yerine doğrudan SlidesViewer açılıyor; slaytı
-  // olmayan hedefler eskisi gibi detay modalına gidiyor.
+  // Instagram Explore'da bir karoya dokunmak tam ekran, kaydırılabilir bir
+  // görüntüleyici açar — burada da aynı: hangi hedefe dokunulursa dokunulsun
+  // tam ekran Reels beslemesi o hedefte açılıyor, aşağı kaydırınca aynı
+  // hub'daki bir sonraki vizyona geçiliyor. Slaytı olan bir hedefin başlığına
+  // dokununca (VisionReelsFeed içinde) o vizyonun kendi slayt destesine
+  // (SlidesViewer, kendi içinde de kaydırmalı) giriliyor.
   function handleOpenGoal(goal) {
-    if ((goal.slide_count || 0) > 0) {
-      setActiveSlidesGoal(goal)
-    } else {
-      setActiveGoal(goal)
-    }
+    setReelsGoalId(goal.id)
   }
 
   const HUB_STATUS = { vision: 'active', victory: 'completed', phoenix: 'abandoned' }
@@ -122,6 +123,7 @@ export default function ExplorePage() {
   }, [])
 
   const lang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
+  const tVision = getVisionBoardText(lang)
 
   // Aramayı debounce ediyoruz — her tuş vuruşunda değil, kullanıcı yazmayı
   // bıraktıktan ~350ms sonra istek atıyoruz.
@@ -535,12 +537,42 @@ export default function ExplorePage() {
           }}
         />
       )}
+      {reelsGoalId && (
+        <VisionReelsFeed
+          goals={hubGoals[activeHub] || []}
+          lang={lang}
+          t={tVision}
+          currentUserId={user?.id}
+          initialGoalId={reelsGoalId}
+          hasMore={false}
+          loading={false}
+          onClose={() => setReelsGoalId(null)}
+          onOpenGoal={(g) => { setReelsGoalId(null); setActiveGoal(g) }}
+          onOpenSlides={(g) => { setReelsGoalId(null); setActiveSlidesGoal(g) }}
+        />
+      )}
       {activeSlidesGoal && (
         <SlidesViewer
           goal={activeSlidesGoal}
           lang={lang}
+          currentUserId={user?.id}
           onClose={() => setActiveSlidesGoal(null)}
+          onChanged={(updated) => {
+            setActiveSlidesGoal((g) => (g ? { ...g, ...updated } : g))
+            setHubGoals((g) => {
+              const next = { ...g }
+              for (const hub of ['vision', 'victory', 'phoenix']) {
+                next[hub] = next[hub].map((goal) => (goal.id === updated.id ? { ...goal, ...updated } : goal))
+              }
+              return next
+            })
+          }}
           onOpenDetails={() => {
+            const goal = activeSlidesGoal
+            setActiveSlidesGoal(null)
+            setActiveGoal(goal)
+          }}
+          onEditSlides={() => {
             const goal = activeSlidesGoal
             setActiveSlidesGoal(null)
             setActiveGoal(goal)
