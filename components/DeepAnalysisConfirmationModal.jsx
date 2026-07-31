@@ -27,7 +27,7 @@ export default function DeepAnalysisConfirmationModal({
     >
       <div
         ref={modalRef}
-        className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/10 bg-[#070b14] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.65)] sm:p-8"
+        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-[#070b14] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.65)] sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         {/* KAPATMA BUTONU */}
