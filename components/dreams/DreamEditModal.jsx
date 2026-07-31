@@ -61,7 +61,7 @@ export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md">
-      <div className="relative w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#060912]/95 p-6 shadow-[0_0_80px_rgba(139,92,246,0.18)]">
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#060912]/95 p-6 shadow-[0_0_80px_rgba(139,92,246,0.18)]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.18),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(6,182,212,0.12),transparent_28%)]" />
 
         <div className="relative">
