@@ -30,6 +30,27 @@ const LIKE_WEIGHT = 3     // Beğenilen bir rüyanın arketipleri
 const COMMENT_WEIGHT = 5  // Yorum yapılan bir rüyanın arketipleri (daha güçlü sinyal)
 const OWN_DREAM_WEIGHT = 1 // Kullanıcının kendi rüyalarındaki arketipler (soğuk başlangıç yardımı)
 
+// KESİF KALİTE FİLTRESİ: görseli olmayan ya da bozuk/onarım bekleyen
+// ('needs_persist' | 'broken') rüyalar Explore'da HİÇ görünmesin. Instagram
+// Explore mantığı: ızgaradaki tutarlılık = güven; bir kez bozuk/görselsiz
+// içerikle karşılaşan kullanıcının taramaya devam etme isteği düşer. Bu
+// yüzden filtre DB sorgusunda uygulanıyor (istemciye hiç gönderilmiyor),
+// "görseli olmayanları göster ama kartı farklı tasarımla göster" yaklaşımı
+// artık sadece ana akış (index.js/profile.js) için geçerli, Explore için değil.
+const MIN_IMAGE_DIMENSION = 300 // yalnızca boyutu BİLİNEN (ör. Pixabay) görsellere uygulanır
+
+function applyImageQualityFilter(query) {
+  return query.not('ai_image_url', 'is', null).eq('image_status', 'ok')
+}
+
+function passesImageQuality(dream) {
+  // width/height bilinmiyorsa (çoğu AI-üretilen eski kayıt) filtreleme
+  // yapmıyoruz — yalnızca BİLDİĞİMİZ düşük çözünürlüklü görselleri eleriz.
+  if (dream.image_width && dream.image_width < MIN_IMAGE_DIMENSION) return false
+  if (dream.image_height && dream.image_height < MIN_IMAGE_DIMENSION) return false
+  return true
+}
+
 function encodeRankToken(affinity) {
   return Buffer.from(JSON.stringify({ v: 1, aff: affinity })).toString('base64')
 }
@@ -195,11 +216,12 @@ export default async function handler(req, res) {
         .order('created_at', { ascending: false })
         .range(from, to)
       if (asOfDate) tailQuery = tailQuery.lte('created_at', asOfDate)
+      tailQuery = applyImageQualityFilter(tailQuery)
 
       const { data, error } = await tailQuery
       if (error) throw error
 
-      const fetched = data || []
+      const fetched = (data || []).filter(passesImageQuality)
       return res.status(200).json({
         dreams: fetched,
         page: pageNum,
@@ -228,12 +250,14 @@ export default async function handler(req, res) {
       .order('created_at', { ascending: false })
       .limit(RANK_POOL_SIZE)
     if (asOfDate) poolQuery = poolQuery.lte('created_at', asOfDate)
+    poolQuery = applyImageQualityFilter(poolQuery)
 
     const { data: pool, error: poolError } = await poolQuery
     if (poolError) throw poolError
 
     const now = Date.now()
     const ranked = (pool || [])
+      .filter(passesImageQuality)
       .map((dream) => ({ dream, score: scoreDream(dream, affinity, maxAffinity, now) }))
       .sort((a, b) => b.score - a.score || new Date(b.dream.created_at) - new Date(a.dream.created_at))
       .map((entry) => entry.dream)
