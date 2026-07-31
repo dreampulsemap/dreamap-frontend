@@ -23,7 +23,7 @@ export default async function handler(req, res) {
 
     let query = supabaseAdmin
       .from('messages')
-      .select('id, sender_id, recipient_id, content, is_read, created_at')
+      .select('id, sender_id, recipient_id, content, is_read, created_at, attachment_url, attachment_type, attachment_name, attachment_mime, attachment_size')
       .or(`and(sender_id.eq.${user.id},recipient_id.eq.${otherId}),and(sender_id.eq.${otherId},recipient_id.eq.${user.id})`)
 
     if (after) {

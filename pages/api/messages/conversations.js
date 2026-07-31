@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
     const { data: rows, error } = await supabaseAdmin
       .from('messages')
-      .select('id, sender_id, recipient_id, content, is_read, created_at')
+      .select('id, sender_id, recipient_id, content, is_read, created_at, attachment_type')
       .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
       .order('created_at', { ascending: false })
       .limit(SCAN_LIMIT)
