@@ -13,6 +13,7 @@ import GoalDetailModal from '@/components/GoalDetailModal'
 import CreateGoalModal from '@/components/CreateGoalModal'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import TextSkeleton from '@/components/TextSkeleton'
+import LanguageSwitcher from '@/components/LanguageSwitcher'
 
 const BATCH_SIZE = 12;
 
@@ -45,6 +46,8 @@ export default function ProfilePage() {
   const [profileDisplayName, setProfileDisplayName] = useState('')
   const [profileAvatarUrl, setProfileAvatarUrl] = useState('')
   const [profileIsPrivate, setProfileIsPrivate] = useState(false)
+  const [profileGender, setProfileGender] = useState('') // YENİ
+  const [profileLanguage, setProfileLanguage] = useState('en') // YENİ
   const [profileSaving, setProfileSaving] = useState(false)
 
   const [avatarFile, setAvatarFile] = useState(null)
@@ -203,6 +206,8 @@ export default function ProfilePage() {
         setProfileDisplayName(fetchedProfile?.display_name || '')
         setProfileAvatarUrl(fetchedProfile?.avatar_url || '')
         setProfileIsPrivate(fetchedProfile?.is_private === true)
+        setProfileGender(fetchedProfile?.gender || '') // YENİ
+        setProfileLanguage(fetchedProfile?.language || i18n.language || 'en') // YENİ
 
         await Promise.all([
           loadDreams(currentUser.id, 0, false),
@@ -291,11 +296,17 @@ export default function ProfilePage() {
           username: profileUsername,
           display_name: profileDisplayName,
           avatar_url: uploadedAvatarUrl || profileAvatarUrl,
-          is_private: profileIsPrivate
+          is_private: profileIsPrivate,
+          language: profileLanguage, // YENİ
+          gender: profileGender, // YENİ
         }),
       })
 
       if (!res.ok) throw new Error('Profil güncellenemedi')
+
+      if (profileLanguage && profileLanguage !== i18n.language) { // YENİ
+        i18n.changeLanguage(profileLanguage)
+      }
 
       setShowProfileEditor(false)
       router.reload()
@@ -628,6 +639,27 @@ export default function ProfilePage() {
                   <span className="text-[10px] text-slate-400 block mt-0.5">{lang === 'tr' ? 'Aktif olduğunda sadece onay verdiğiniz dostlar rüyalarınızı okuyabilir.' : 'When active, only approved friends can see your dream gallery.'}</span>
                 </div>
               </label>
+            </div>
+
+            {/* YENİ: DİL SEÇİMİ */}
+            <div className="mb-4">
+              <label className="text-xs text-white/50 block mb-2 uppercase tracking-widest">{getTranslation('profile.language', lang)}</label>
+              <LanguageSwitcher onLanguageChange={(code) => setProfileLanguage(code)} />
+            </div>
+
+            {/* YENİ: CİNSİYET SEÇİMİ */}
+            <div className="mb-4">
+              <label className="text-xs text-white/50 block mb-2 uppercase tracking-widest">{getTranslation('gender.label', lang)}</label>
+              <select
+                value={profileGender}
+                onChange={(e) => setProfileGender(e.target.value)}
+                className="w-full bg-black/40 border border-white/20 rounded p-3 text-white text-sm"
+              >
+                <option value="">{getTranslation('gender.select', lang)}</option>
+                <option value="female">{getTranslation('gender.female', lang)}</option>
+                <option value="male">{getTranslation('gender.male', lang)}</option>
+                <option value="unspecified">{getTranslation('gender.unspecified', lang)}</option>
+              </select>
             </div>
 
             <div className="mb-6">
