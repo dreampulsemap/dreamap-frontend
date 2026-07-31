@@ -13,7 +13,7 @@ const languages = [
   { code: 'ja', flag: '🇯🇵', name: '日本語' },
 ]
 
-export default function LanguageSwitcher() {
+export default function LanguageSwitcher({ onLanguageChange }) {
   const { i18n } = useTranslation()
   const [mounted, setMounted] = useState(false)
 
@@ -44,7 +44,10 @@ export default function LanguageSwitcher() {
             <button
               key={lang.code}
               type="button"
-              onClick={() => i18n?.changeLanguage(lang.code)}
+              onClick={() => {
+                i18n?.changeLanguage(lang.code)
+                onLanguageChange?.(lang.code) // YENİ
+              }}
               className={`w-full px-4 py-3 flex items-center gap-3 rounded-lg transition-all ${
                 currentCode === lang.code
                   ? 'bg-purple-500/30 text-white'
