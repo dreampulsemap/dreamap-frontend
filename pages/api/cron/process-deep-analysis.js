@@ -9,6 +9,7 @@ import {
   REQUEST_DEADLINE_MS
 } from '@/lib/deepAnalysisEngine'
 import { notifyAnalysisOutcome } from '@/lib/notify'
+import { isPersistedImageUrl } from '@/lib/imageUrlUtils'
 
 // =====================================================================
 // DERİN ANALİZ WORKER'I — asıl LLM işini burada, istek/yanıt döngüsünün
@@ -158,7 +159,12 @@ async function processDream(dream) {
       if (imageUrl) {
         await supabaseAdmin
           .from('dreams')
-          .update({ ai_image_url: imageUrl })
+          .update({
+            ai_image_url: imageUrl,
+            image_source: 'ai',
+            image_status: isPersistedImageUrl(imageUrl) ? 'ok' : 'needs_persist',
+            image_checked_at: new Date().toISOString(),
+          })
           .eq('id', dream.id)
       }
     } catch (imageError) {
