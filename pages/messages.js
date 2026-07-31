@@ -3,10 +3,36 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { ArrowLeft, MessageCircle, Send } from 'lucide-react'
+import { ArrowLeft, MessageCircle, Send, Paperclip, X, FileText, Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 const POLL_INTERVAL_MS = 5000
+
+// Sunucudaki (007_message_attachments.sql) bucket sınırlarıyla AYNI olmalı —
+// burada kontrol etmek yalnızca hızlı geri bildirim için; asıl sınır Storage'da.
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024 // 20 MB
+const ACCEPTED_ATTACHMENT_TYPES =
+  'image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,application/pdf,application/zip,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+function attachmentKindFor(mimeType) {
+  if (mimeType?.startsWith('image/')) return 'image'
+  if (mimeType?.startsWith('video/')) return 'video'
+  return 'file'
+}
+
+function formatBytes(bytes) {
+  if (!bytes && bytes !== 0) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function attachmentPreviewLabel(type, lang) {
+  if (type === 'image') return lang === 'tr' ? '📷 Fotoğraf' : '📷 Photo'
+  if (type === 'video') return lang === 'tr' ? '🎥 Video' : '🎥 Video'
+  if (type === 'file') return lang === 'tr' ? '📎 Dosya' : '📎 File'
+  return ''
+}
 
 export default function MessagesPage() {
   const router = useRouter()
@@ -30,10 +56,15 @@ export default function MessagesPage() {
 
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  const [attachedFile, setAttachedFile] = useState(null)
+  const [attachedPreviewUrl, setAttachedPreviewUrl] = useState('')
+  const [attachmentError, setAttachmentError] = useState('')
+  const [uploading, setUploading] = useState(false)
 
   const pollRef = useRef(null)
   const scrollRef = useRef(null)
   const cursorRef = useRef(null) // polling için "en son gördüğüm mesaj zamanı"
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -98,6 +129,8 @@ export default function MessagesPage() {
     if (withId && withId !== activeOtherId) {
       setActiveOtherId(withId)
       setMessages([])
+      setDraft('')
+      removeAttachment()
       loadThread(withId)
     } else if (!withId && activeOtherId) {
       setActiveOtherId(null)
@@ -173,28 +206,97 @@ export default function MessagesPage() {
     }
   }
 
+  function handleFileSelect(e) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // aynı dosyayı art arda seçebilmek için input'u sıfırla
+    if (!file) return
+    setAttachmentError('')
+
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      setAttachmentError(lang === 'tr' ? 'Dosya çok büyük (maks. 20 MB).' : 'File is too large (max 20 MB).')
+      return
+    }
+    if (!ACCEPTED_ATTACHMENT_TYPES.split(',').includes(file.type)) {
+      setAttachmentError(lang === 'tr' ? 'Bu dosya türü desteklenmiyor.' : 'This file type is not supported.')
+      return
+    }
+
+    if (attachedPreviewUrl) URL.revokeObjectURL(attachedPreviewUrl)
+    setAttachedFile(file)
+    setAttachedPreviewUrl(attachmentKindFor(file.type) === 'image' ? URL.createObjectURL(file) : '')
+  }
+
+  function removeAttachment() {
+    if (attachedPreviewUrl) URL.revokeObjectURL(attachedPreviewUrl)
+    setAttachedFile(null)
+    setAttachedPreviewUrl('')
+    setAttachmentError('')
+  }
+
+  // Dosyayı doğrudan Supabase Storage'a (avatars/goal-covers ile aynı desen)
+  // yükler ve herkese-açık URL'ini döner. Vercel'in API route body limitini
+  // (birkaç MB) atlamak için bu yükleme /api/messages/send'den GEÇMİYOR —
+  // istemci doğrudan Storage'a yazıyor, sunucuya yalnızca sonuçtaki URL gidiyor.
+  async function uploadAttachment(file) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100)
+    const path = `${viewer.id}/${crypto.randomUUID()}-${safeName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('message-attachments')
+      .upload(path, file, { cacheControl: '31536000', upsert: false, contentType: file.type })
+
+    if (uploadError) throw uploadError
+
+    const { data } = supabase.storage.from('message-attachments').getPublicUrl(path)
+    if (!data?.publicUrl) throw new Error('public_url_missing')
+
+    return {
+      attachmentUrl: data.publicUrl,
+      attachmentType: attachmentKindFor(file.type),
+      attachmentName: file.name,
+      attachmentMime: file.type,
+      attachmentSize: file.size,
+    }
+  }
+
   async function handleSend() {
     const content = draft.trim()
-    if (!content || !activeOtherId || sending) return
+    if ((!content && !attachedFile) || !activeOtherId || sending || uploading) return
+
+    let attachmentPayload = {}
+    if (attachedFile) {
+      setUploading(true)
+      try {
+        attachmentPayload = await uploadAttachment(attachedFile)
+      } catch (err) {
+        console.error('uploadAttachment error:', err)
+        setAttachmentError(lang === 'tr' ? 'Dosya yüklenemedi, tekrar dener misin?' : 'Upload failed, please try again.')
+        setUploading(false)
+        return
+      }
+      setUploading(false)
+    }
+
     setSending(true)
-    setDraft('')
     const headers = await authHeaders()
     try {
       const res = await fetch('/api/messages/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify({ recipientId: activeOtherId, content, lang }),
+        body: JSON.stringify({ recipientId: activeOtherId, content, lang, ...attachmentPayload }),
       })
       const json = await res.json()
       if (res.ok && json.message) {
         setMessages((prev) => [...prev, json.message])
         cursorRef.current = json.message.created_at
         loadConversations()
-      } else {
-        setDraft(content) // başarısızsa taslağı geri koy, kullanıcı kaybetmesin
+        // Yalnızca BAŞARILI gönderimde taslağı/eki temizliyoruz — başarısız
+        // olursa kullanıcı hiçbir şey kaybetmeden tekrar deneyebilsin.
+        setDraft('')
+        removeAttachment()
       }
     } catch (err) {
-      setDraft(content)
+      // sessiz — draft ve ek olduğu gibi kalır, tekrar denenebilir
     } finally {
       setSending(false)
     }
@@ -274,7 +376,7 @@ export default function MessagesPage() {
                         {c.unreadCount > 0 && <span className="flex-shrink-0 w-2 h-2 rounded-full bg-cyan-400" />}
                       </div>
                       <p className={`truncate text-xs ${c.unreadCount > 0 ? 'text-slate-300' : 'text-slate-500'}`}>
-                        {c.lastMessage?.content}
+                        {c.lastMessage?.content || attachmentPreviewLabel(c.lastMessage?.attachment_type, lang)}
                       </p>
                     </div>
                   </button>
@@ -333,13 +435,42 @@ export default function MessagesPage() {
                         ) : (
                           messages.map((m) => {
                             const mine = m.sender_id === viewer?.id
+                            const hasAttachment = !!m.attachment_type
                             return (
                               <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${mine ? 'bg-cyan-500 text-black' : 'bg-white/10 text-white'}`}>
-                                  <p className="whitespace-pre-wrap break-words">{m.content}</p>
-                                  <p className={`text-[10px] mt-1 ${mine ? 'text-black/50' : 'text-white/40'}`}>
-                                    {new Date(m.created_at).toLocaleTimeString(lang === 'tr' ? 'tr-TR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                                  </p>
+                                <div className={`max-w-[75%] rounded-2xl text-sm overflow-hidden ${mine ? 'bg-cyan-500 text-black' : 'bg-white/10 text-white'}`}>
+                                  {m.attachment_type === 'image' && (
+                                    <a href={m.attachment_url} target="_blank" rel="noopener noreferrer" className="block">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={m.attachment_url} alt={m.attachment_name || ''} className="max-h-72 w-full object-cover" />
+                                    </a>
+                                  )}
+                                  {m.attachment_type === 'video' && (
+                                    <video src={m.attachment_url} controls className="block max-h-72 w-full bg-black" />
+                                  )}
+                                  {m.attachment_type === 'file' && (
+                                    <a
+                                      href={m.attachment_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`flex items-center gap-2 px-3.5 py-2.5 transition-colors ${mine ? 'hover:bg-black/10' : 'hover:bg-white/5'}`}
+                                    >
+                                      <FileText size={22} className="flex-shrink-0" />
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block truncate font-medium">{m.attachment_name || (lang === 'tr' ? 'Dosya' : 'File')}</span>
+                                        {m.attachment_size ? (
+                                          <span className={`block text-[10px] ${mine ? 'text-black/60' : 'text-white/50'}`}>{formatBytes(m.attachment_size)}</span>
+                                        ) : null}
+                                      </span>
+                                      <Download size={16} className="flex-shrink-0" />
+                                    </a>
+                                  )}
+                                  <div className={hasAttachment ? 'px-3.5 pt-1.5 pb-2' : 'px-3.5 py-2'}>
+                                    {m.content && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
+                                    <p className={`text-[10px] ${m.content ? 'mt-1' : ''} ${mine ? 'text-black/50' : 'text-white/40'}`}>
+                                      {new Date(m.created_at).toLocaleTimeString(lang === 'tr' ? 'tr-TR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
                             )
@@ -349,7 +480,48 @@ export default function MessagesPage() {
                     )}
                   </div>
 
+                  {(attachedFile || attachmentError) && (
+                    <div className="px-3 pt-2 flex-shrink-0">
+                      {attachedFile && (
+                        <div className="inline-flex items-center gap-2 rounded-xl bg-white/5 border border-white/10 px-2.5 py-1.5 max-w-full">
+                          {attachedPreviewUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={attachedPreviewUrl} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                              <FileText size={16} className="text-white/60" />
+                            </div>
+                          )}
+                          <span className="min-w-0 text-xs text-white/70 truncate max-w-[160px]">{attachedFile.name}</span>
+                          <button
+                            onClick={removeAttachment}
+                            aria-label={lang === 'tr' ? 'Eki kaldır' : 'Remove attachment'}
+                            className="flex-shrink-0 text-white/40 hover:text-white"
+                          >
+                            <X size={15} />
+                          </button>
+                        </div>
+                      )}
+                      {attachmentError && <p className="text-[11px] text-rose-400 mt-1">{attachmentError}</p>}
+                    </div>
+                  )}
+
                   <div className="flex items-end gap-2 p-3 border-t border-white/10 flex-shrink-0">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={ACCEPTED_ATTACHMENT_TYPES}
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={sending || uploading}
+                      aria-label={lang === 'tr' ? 'Dosya ekle' : 'Attach file'}
+                      className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full text-slate-300 hover:bg-white/10 disabled:opacity-40 transition-colors"
+                    >
+                      <Paperclip size={18} />
+                    </button>
                     <textarea
                       value={draft}
                       onChange={(e) => setDraft(e.target.value)}
@@ -361,11 +533,15 @@ export default function MessagesPage() {
                     />
                     <button
                       onClick={handleSend}
-                      disabled={!draft.trim() || sending}
+                      disabled={(!draft.trim() && !attachedFile) || sending || uploading}
                       aria-label={lang === 'tr' ? 'Gönder' : 'Send'}
                       className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-cyan-500 text-black disabled:opacity-40 hover:bg-cyan-400 transition-colors"
                     >
-                      <Send size={16} />
+                      {uploading || sending ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-black/40 border-t-transparent" />
+                      ) : (
+                        <Send size={16} />
+                      )}
                     </button>
                   </div>
                 </>
