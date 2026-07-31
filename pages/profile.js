@@ -688,7 +688,7 @@ export default function ProfilePage() {
           onClick={() => setActiveDream(null)}
         >
           <div 
-            className="w-full max-w-2xl max-h-[90vh]" 
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto" 
             onClick={(e) => e.stopPropagation()}
           >
             <DreamCard 
