@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { Heart, MessageCircle, Moon, Sparkles, Users } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
@@ -8,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 import DreamCard from '@/components/DreamCard'
+import ProfileDreamTile from '@/components/ProfileDreamTile'
 import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import CreateGoalModal from '@/components/CreateGoalModal'
@@ -569,43 +569,20 @@ export default function ProfilePage() {
           <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
             {dreams.map((dream, index) => {
               const isLast = index === dreams.length - 1
-              const hasImg = !!dream.ai_image_url
+              const isHighlighted = highlightDreamId && String(dream.id) === String(highlightDreamId)
 
               return (
-                <div
+                <ProfileDreamTile
                   key={dream.id}
-                  ref={(node) => {
-                    if (isLast) lastElementRef(node)
-                    if (highlightDreamId && String(dream.id) === String(highlightDreamId)) highlightRef.current = node
-                  }}
+                  dream={dream}
+                  lang={lang}
+                  isHighlighted={isHighlighted}
                   onClick={() => setActiveDream(dream)}
-                  className={`group aspect-square relative overflow-hidden rounded-xl border bg-slate-900/40 hover:border-fuchsia-500/45 cursor-pointer shadow-lg transition-all duration-300 ${highlightDreamId && String(dream.id) === String(highlightDreamId) ? 'border-fuchsia-500/70 ring-2 ring-fuchsia-500/50' : 'border-white/5'}`}
-                >
-                  {hasImg ? (
-                    <Image
-                      src={dream.ai_image_url}
-                      alt="Dream Visual"
-                      fill
-                      sizes="(max-width: 640px) 33vw, 300px"
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    // Görseli olmayan rüyalar için estetik bakiye kartı (Aura harcama dürtüsünü tetikler!)
-                    <div className="w-full h-full flex flex-col justify-between p-3 sm:p-5 bg-gradient-to-br from-purple-950/20 to-black select-none">
-                      <span className="text-base sm:text-xl">🌌</span>
-                      <p className="text-[9px] sm:text-[11px] text-white/70 leading-relaxed font-light line-clamp-3">"{dream.content}"</p>
-                      <button className="self-start rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2 py-0.5 text-[8px] sm:text-[9px] font-bold text-cyan-300 hover:bg-cyan-500/25">
-                        <Sparkles size={10} className="inline -mt-0.5" /> {lang === 'tr' ? 'Görsel Üret' : 'Create Visual'}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* HOVER EFEKTİ */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-all duration-300">
-                    <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white"><Heart size={13} /> {dream.likes_count || 0}</span>
-                    <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white"><MessageCircle size={13} /> {dream.comments_count || 0}</span>
-                  </div>
-                </div>
+                  tileRef={(node) => {
+                    if (isLast) lastElementRef(node)
+                    if (isHighlighted) highlightRef.current = node
+                  }}
+                />
               )
             })}
           </div>

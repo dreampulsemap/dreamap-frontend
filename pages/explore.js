@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
 import DreamCard from '@/components/DreamCard'
+import ExploreImageTile from '@/components/ExploreImageTile'
 import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import SlidesViewer from '@/components/SlidesViewer'
@@ -400,39 +401,14 @@ export default function ExplorePage() {
           <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
             {dreams.map((dream, index) => {
               const isLast = index === dreams.length - 1
-              const hasImg = !!dream.ai_image_url
-
               return (
-                <div
-                  key={dream.id}
-                  ref={isLast ? lastElementRef : null}
-                  onClick={() => setActiveDreamIndex(index)}
-                  className="group aspect-square relative overflow-hidden rounded-xl border border-white/5 bg-slate-900/40 hover:border-fuchsia-500/40 shadow-lg cursor-pointer transition-all duration-300"
-                >
-                  {hasImg ? (
-                    <Image
-                      src={dream.ai_image_url}
-                      alt="Explore Card"
-                      fill
-                      sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 20vw"
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col justify-between p-3 sm:p-5 bg-gradient-to-br from-purple-950/20 to-black select-none">
-                      <span className="text-lg sm:text-2xl">{getSentimentEmoji(dream.ai_sentiment)}</span>
-                      <p className="text-[10px] sm:text-xs text-white/70 leading-relaxed font-light line-clamp-3">"{dream.content}"</p>
-                      <span className="text-[8px] sm:text-[10px] tracking-wider text-slate-500 uppercase">✦ {dream.location_name || 'Mystic Node'}</span>
-                    </div>
-                  )}
-
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-all duration-300">
-                    <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white">
-                      <Heart size={13} /> {dream.likes_count || 0}
-                    </span>
-                    <span className="text-xs sm:text-sm font-semibold flex items-center gap-1 text-white">
-                      <MessageCircle size={13} /> {dream.comments_count || 0}
-                    </span>
-                  </div>
+                <div key={dream.id} ref={isLast ? lastElementRef : null}>
+                  <ExploreImageTile
+                    dream={dream}
+                    sentimentEmoji={getSentimentEmoji(dream.ai_sentiment)}
+                    lang={lang}
+                    onClick={() => setActiveDreamIndex(index)}
+                  />
                 </div>
               )
             })}

@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Image as ImageIcon, X } from 'lucide-react'
 import { useRouter } from 'next/router'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { tAddDream, normalizeAddDreamLang } from '@/lib/addDreamTranslations'
+import TagInput from '@/components/TagInput'
+import PixabayPicker from '@/components/PixabayPicker'
 
 export default function AddDreamPage() {
   const { i18n } = useTranslation()
@@ -24,6 +26,10 @@ export default function AddDreamPage() {
   const [inFeed, setInFeed] = useState(true)
   const [visibility, setVisibility] = useState('public')
   const [selectedEmotions, setSelectedEmotions] = useState([])
+  const [tags, setTags] = useState([])
+  const [pixabayImage, setPixabayImage] = useState(null) // { url, width, height }
+  const [showPixabayPicker, setShowPixabayPicker] = useState(false)
+  const [pixabayError, setPixabayError] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [isListening, setIsListening] = useState(false)
@@ -174,6 +180,38 @@ export default function AddDreamPage() {
     };
   }, []);
 
+  async function handlePickPixabayImage(hit) {
+    setPixabayError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/dreams/pixabay-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          pixabayId: hit.id,
+          imageUrl: hit.largeImageURL || hit.webformatURL,
+          tags: hit.tags,
+          pixabayUser: hit.user,
+          width: hit.width,
+          height: hit.height,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setPixabayError(json.error || 'error')
+        return false
+      }
+      setPixabayImage({ url: json.url, width: json.width, height: json.height })
+      return true
+    } catch (err) {
+      setPixabayError('network_error')
+      return false
+    }
+  }
+
   const toggleEmotion = (val) => {
     setSelectedEmotions(prev => 
       prev.includes(val) ? prev.filter(e => e !== val) : [...prev, val]
@@ -213,6 +251,19 @@ export default function AddDreamPage() {
             user_selected_sentiment: selectedEmotions.join(', '), // Çoklu Duygular Virgülle Ayrılır
             dream_date: new Date().toISOString().split('T')[0],
             original_language: lang,
+            tags,
+            ...(pixabayImage ? {
+              ai_image_url: pixabayImage.url,
+              image_source: 'pixabay',
+              image_width: pixabayImage.width || null,
+              image_height: pixabayImage.height || null,
+              // Pixabay import her zaman kalıcı depoya (image-library bucket)
+              // indirir, bu yüzden doğrudan 'ok'. reanalyze-dreams.js (teaser
+              // analiz) artık zaten dolu olan ai_image_url'in üzerine
+              // yazmıyor — kullanıcının seçtiği görsel korunuyor.
+              image_status: 'ok',
+              image_checked_at: new Date().toISOString(),
+            } : {}),
         }])
         .select()
         .single()
@@ -316,6 +367,50 @@ export default function AddDreamPage() {
               </div>
             </div>
 
+            {/* ETİKETLER (MAX 10) */}
+            <div className="bg-white/[0.02] border border-white/5 p-5 rounded-3xl">
+              <TagInput tags={tags} onChange={setTags} lang={lang} />
+            </div>
+
+            {/* KAPAK GÖRSELİ (PIXABAY'DEN SEÇ) */}
+            <div className="bg-white/[0.02] border border-white/5 p-5 rounded-3xl">
+              <label className="text-xs uppercase tracking-widest text-slate-400 font-bold block mb-3">
+                {lang === 'tr' ? 'Kapak Görseli (opsiyonel)' : 'Cover Image (optional)'}
+              </label>
+              {pixabayImage ? (
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden">
+                  <img src={pixabayImage.url} alt="" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setPixabayImage(null)}
+                    aria-label={lang === 'tr' ? 'Görseli kaldır' : 'Remove image'}
+                    className="absolute top-2 right-2 h-8 w-8 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowPixabayPicker(true)}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 py-6 text-sm text-slate-400 hover:border-fuchsia-400/40 hover:text-fuchsia-200 transition-all"
+                >
+                  <ImageIcon size={16} />
+                  {lang === 'tr' ? "Pixabay'dan Görsel Seç" : 'Choose Image From Pixabay'}
+                </button>
+              )}
+              {pixabayError && (
+                <p className="mt-2 text-[10px] text-rose-400">
+                  {lang === 'tr' ? 'Görsel eklenemedi, tekrar dene.' : 'Could not add the image, please try again.'}
+                </p>
+              )}
+              <p className="mt-2 text-[10px] text-slate-600">
+                {lang === 'tr'
+                  ? 'Seçmezsen rüyan analiz edildiğinde otomatik bir görsel üretilir.'
+                  : "If you skip this, an image will be generated automatically once your dream is analyzed."}
+              </p>
+            </div>
+
             {/* KONUM VE GÖRÜNÜRLÜK */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-white/[0.02] border border-white/5 p-5 rounded-3xl">
@@ -378,6 +473,15 @@ export default function AddDreamPage() {
           </form>
         </div>
       </div>
+
+      {showPixabayPicker && (
+        <PixabayPicker
+          lang={lang}
+          videoEnabled={false}
+          onPickImage={handlePickPixabayImage}
+          onClose={() => setShowPixabayPicker(false)}
+        />
+      )}
     </div>
   )
 }
