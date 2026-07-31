@@ -265,11 +265,15 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
               )}
               {slides.map((slide, index) => (
                 <div key={slide.id} className="flex gap-3 p-2 rounded-xl bg-white/5 border border-white/10">
-                  <img
-                    src={slide.image_url}
-                    alt=""
-                    className="w-16 h-16 rounded-lg object-cover shrink-0 bg-black/30"
-                  />
+                  {/\/pixabay-video\//.test(slide.image_url) || /\.mp4($|\?)/.test(slide.image_url) ? (
+                    <video src={slide.image_url} className="w-16 h-16 rounded-lg object-cover shrink-0 bg-black/30" muted />
+                  ) : (
+                    <img
+                      src={slide.image_url}
+                      alt=""
+                      className="w-16 h-16 rounded-lg object-cover shrink-0 bg-black/30"
+                    />
+                  )}
                   <div className="flex-1 min-w-0">
                     <input
                       type="text"
@@ -306,6 +310,58 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
                           {lang === 'tr' ? 'kaydediliyor...' : 'saving...'}
                         </span>
                       )}
+                    </div>
+
+                    {/* Reels overlay stili: font / renk / konum */}
+                    <div className="flex items-center gap-3 mt-2">
+                      <div className="flex gap-1">
+                        {[
+                          { key: 'sans', cls: 'font-sans' },
+                          { key: 'serif', cls: 'font-serif' },
+                          { key: 'mono', cls: 'font-mono' },
+                        ].map((f) => (
+                          <button
+                            key={f.key}
+                            onClick={() => updateSlide(slide.id, { captionFont: f.key })}
+                            aria-label={f.key}
+                            className={`${f.cls} w-6 h-6 rounded-md text-[11px] flex items-center justify-center border ${
+                              (slide.caption_font || 'sans') === f.key ? 'border-fuchsia-400 text-fuchsia-300' : 'border-white/10 text-slate-400'
+                            }`}
+                          >
+                            Aa
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex gap-1">
+                        {['#ffffff', '#0a0a0f', '#f5c451', '#e879f9', '#22d3ee', '#fb7185'].map((color) => (
+                          <button
+                            key={color}
+                            onClick={() => updateSlide(slide.id, { captionColor: color })}
+                            aria-label={color}
+                            style={{ backgroundColor: color }}
+                            className={`w-5 h-5 rounded-full border-2 ${
+                              (slide.caption_color || '#ffffff').toLowerCase() === color ? 'border-fuchsia-400' : 'border-white/20'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex gap-1">
+                        {[
+                          { key: 'top', label: lang === 'tr' ? 'Üst' : 'Top' },
+                          { key: 'center', label: lang === 'tr' ? 'Orta' : 'Mid' },
+                          { key: 'bottom', label: lang === 'tr' ? 'Alt' : 'Bot' },
+                        ].map((p) => (
+                          <button
+                            key={p.key}
+                            onClick={() => updateSlide(slide.id, { captionPosition: p.key })}
+                            className={`px-1.5 h-6 rounded-md text-[9px] uppercase font-bold border ${
+                              (slide.caption_position || 'bottom') === p.key ? 'border-fuchsia-400 text-fuchsia-300' : 'border-white/10 text-slate-400'
+                            }`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <div className="flex flex-col items-center justify-between shrink-0">

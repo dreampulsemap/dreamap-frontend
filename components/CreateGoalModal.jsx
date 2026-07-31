@@ -3,6 +3,7 @@ import { Upload, X, Search as SearchIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
+import { hasFutureTenseLanguage, affirmationExamples } from '@/lib/affirmationLanguage'
 import PixabayPicker from './PixabayPicker'
 
 export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
@@ -10,6 +11,7 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
   const modalRef = useRef(null)
   useModalA11y(modalRef, onClose)
   const [title, setTitle] = useState('')
+  const [dismissedTenseHint, setDismissedTenseHint] = useState(false)
   const [description, setDescription] = useState('')
   const [targetDate, setTargetDate] = useState('')
   const [visibility, setVisibility] = useState('public')
@@ -179,6 +181,19 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
               maxLength={120}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500/50"
             />
+            {!dismissedTenseHint && hasFutureTenseLanguage(title, lang) && (
+              <div className="mt-1.5 flex items-start gap-2 bg-fuchsia-500/5 border border-fuchsia-500/15 rounded-lg px-3 py-2">
+                <p className="flex-1 text-[11px] text-fuchsia-200/90 leading-snug">
+                  {t.titleTenseHint}{' '}
+                  <span className="text-slate-400">
+                    {(affirmationExamples[lang] || affirmationExamples.en)[0].future} → <span className="text-fuchsia-300">{(affirmationExamples[lang] || affirmationExamples.en)[0].present}</span>
+                  </span>
+                </p>
+                <button type="button" onClick={() => setDismissedTenseHint(true)} className="text-fuchsia-300/60 hover:text-fuchsia-200 shrink-0">
+                  <X size={12} />
+                </button>
+              </div>
+            )}
           </div>
 
           <div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Check, MessageCircle, Trash2, ArrowUp, Image as ImageIcon, Sparkles as SparklesIcon, Search as SearchIcon } from 'lucide-react'
+import { X, Check, MessageCircle, Trash2, ArrowUp, Image as ImageIcon, Sparkles as SparklesIcon, Search as SearchIcon, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
@@ -27,6 +27,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   const [story, setStory] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [shareCopied, setShareCopied] = useState(false)
   const [generatingCover, setGeneratingCover] = useState(false)
   const [coverError, setCoverError] = useState('')
   const [galleryImages, setGalleryImages] = useState(initialGoal.gallery_image_urls || [])
@@ -251,6 +252,22 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
     }
   }
 
+  // MİKRO-TAAHHÜT: bir vizyonu paylaşmak, ona olan bağlılığı sosyal olarak
+  // görünür (ve dolayısıyla daha güçlü) kılar — davranış psikolojisinde
+  // "public commitment" ilkesi.
+  async function handleShare() {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lunosfer.com'
+    const text = t.shareText(goal.title)
+    if (navigator.share) {
+      try { await navigator.share({ title: goal.title, text, url: appUrl }); return } catch (_) { return }
+    }
+    try {
+      await navigator.clipboard.writeText(`${text} ${appUrl}`)
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    } catch (_) {}
+  }
+
   async function removeGalleryImage(imageUrl) {
     if (!isOwner) return
     const headers = await authHeader()
@@ -389,6 +406,20 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
           <button onClick={onClose} aria-label={lang === 'tr' ? 'Kapat' : 'Close'} className="text-slate-400 hover:text-white"><X size={20} /></button>
         </div>
 
+        {goal.status === 'active' && (
+          <button
+            onClick={handleShare}
+            className="w-full flex items-center gap-2.5 mb-4 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500/10 to-cyan-500/10 border border-fuchsia-500/20 hover:border-fuchsia-500/40 transition-colors text-left"
+          >
+            <Share2 size={15} className="text-fuchsia-300 shrink-0" />
+            <span className="flex-1 min-w-0">
+              <span className="block text-white text-xs font-semibold">{t.shareCommitmentTitle}</span>
+              <span className="block text-slate-400 text-[11px] truncate">{shareCopied ? t.shareLinkCopied : t.shareCommitmentDesc}</span>
+            </span>
+            <span className="text-fuchsia-300 text-[10px] font-bold uppercase tracking-widest shrink-0">{t.shareBtn}</span>
+          </button>
+        )}
+
         {goal.status === 'completed' && goal.victory_story && (
           <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
             <p className="text-emerald-300 text-xs font-bold uppercase tracking-widest mb-1">{t.victoryWallTitle}</p>
@@ -447,7 +478,14 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
         </div>
 
         {showSlidesViewer && (
-          <SlidesViewer goal={goal} lang={lang} onClose={() => setShowSlidesViewer(false)} />
+          <SlidesViewer
+            goal={goal}
+            lang={lang}
+            currentUserId={currentUserId}
+            onClose={() => setShowSlidesViewer(false)}
+            onChanged={onChanged}
+            onEditSlides={() => { setShowSlidesViewer(false); setShowSlideEditor(true) }}
+          />
         )}
 
         {isOwner && goal.status === 'active' && (
