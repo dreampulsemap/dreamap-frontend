@@ -1,21 +1,21 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Heart, MessageCircle, Bookmark, MoreHorizontal, Send, Trash2, Pencil, Volume2, VolumeX, Sparkles } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, MessageCircle, Bookmark, MoreHorizontal, Send, Trash2, Pencil, Volume2, VolumeX, Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
 
-// Tam ekran "Vizyon Slaytları" oynatıcısı — Instagram Reels tarzı: sağda
-// dikey aksiyon şeridi (profil/beğen/yorum/kaydet/⋯), altta sahip bilgisi +
-// stilize edilebilir metin overlay'i. Üstteki segment çubuğu Stories'ten
-// kalma — bu tek bir vizyonun slayt destesi içinde nerede olduğunu gösteriyor,
-// Reels'in aksine hiçbir şey 24 saatte kaybolmuyor.
+// Tam ekran "Vizyon Slaytları" oynatıcısı — GERÇEK Reels mekaniği: dikey
+// scroll-snap ile kaydırarak ilerleniyor. Hikaye tarzı otomatik zamanlayıcı,
+// ilerleme çubuğu ve dokunma bölgeleri YOK — kullanıcı kendi hızında,
+// parmağıyla kaydırarak geziniyor (tıpkı Instagram/TikTok Reels gibi).
+// Sağdaki aksiyon şeridi ve sahip bilgisi sabit kalıyor, içerik arkasında
+// kayıyor — gerçek Reels'te de böyle çalışır.
 
 const FONT_CLASS = { sans: 'font-sans', serif: 'font-serif', mono: 'font-mono' }
-const POSITION_CLASS = { top: 'top-16 items-start', center: 'top-1/2 -translate-y-1/2 items-center', bottom: 'bottom-24 items-end' }
+const POSITION_CLASS = { top: 'top-20 items-start', center: 'top-1/2 -translate-y-1/2 items-center', bottom: 'bottom-28 items-end' }
 
 function isVideoUrl(url) {
   return /\/pixabay-video\//.test(url || '') || /\.mp4($|\?)/.test(url || '')
 }
-
 function initialsOf(name) {
   return (name || '?').trim().slice(0, 1).toUpperCase()
 }
@@ -27,13 +27,11 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
   const [slides, setSlides] = useState([])
   const [owner, setOwner] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [index, setIndex] = useState(0)
-  const [progress, setProgress] = useState(0)
-  const [paused, setPaused] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(0)
   const [muted, setMuted] = useState(true)
-  const rafRef = useRef(null)
-  const startRef = useRef(null)
-  const pausedAtRef = useRef(0)
+
+  const containerRef = useRef(null)
+  const itemRefs = useRef([])
 
   const [liked, setLiked] = useState(!!goal.has_reacted)
   const [believersCount, setBelieversCount] = useState(goal.believers_count || 0)
@@ -71,45 +69,26 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
     return () => { active = false }
   }, [goal.id])
 
-  const goTo = useCallback((next) => {
-    if (next < 0) { setIndex(0); setProgress(0); return }
-    if (next >= slides.length) { onClose(); return }
-    pausedAtRef.current = 0
-    setIndex(next)
-    setProgress(0)
-    setShowComments(false)
-    setShowMenu(false)
-  }, [slides.length, onClose])
-
-  const isPlaybackPaused = paused || showComments || showMenu
-
+  // Hangi slaytın ekranda olduğunu takip et — Reels'in kendisi de böyle
+  // çalışır (zamanlayıcı değil, gerçek scroll pozisyonu).
   useEffect(() => {
-    if (loading || isPlaybackPaused || slides.length === 0) return
-    const durationMs = (slides[index]?.duration_seconds || 4) * 1000
-    startRef.current = performance.now() - pausedAtRef.current
-
-    function tick(now) {
-      const elapsed = now - startRef.current
-      const pct = Math.min(elapsed / durationMs, 1)
-      setProgress(pct)
-      if (pct >= 1) {
-        goTo(index + 1)
-        return
-      }
-      rafRef.current = requestAnimationFrame(tick)
-    }
-    rafRef.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafRef.current)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, loading, isPlaybackPaused, slides])
-
-  function handlePress() {
-    setPaused(true)
-    pausedAtRef.current = progress * ((slides[index]?.duration_seconds || 4) * 1000)
-  }
-  function handleRelease() {
-    setPaused(false)
-  }
+    const container = containerRef.current
+    if (!container || slides.length === 0) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
+            setActiveIndex(Number(entry.target.dataset.index))
+            setShowMenu(false)
+            setConfirmDelete(false)
+          }
+        })
+      },
+      { root: container, threshold: [0.6] }
+    )
+    itemRefs.current.forEach((el) => el && observer.observe(el))
+    return () => observer.disconnect()
+  }, [slides.length])
 
   async function authHeaders() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -117,8 +96,7 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
     return { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }
   }
 
-  // BEĞEN — goal seviyesinde (mevcut "mana ver" sistemiyle aynı), Reels'teki
-  // kalp butonuyla aynı yerde ama slayt değil vizyon geneli için.
+  // BEĞEN — goal seviyesinde (mevcut "mana ver" sistemiyle aynı)
   async function handleLike() {
     if (isOwner || liked || reacting) return
     setReacting(true)
@@ -138,10 +116,9 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
     } catch (_) {} finally { setReacting(false) }
   }
 
-  // KAYDET — bu slaytı kullanıcının kendi kaydettiklerine ekler/çıkarır
   async function handleSaveSlide() {
     if (savingSlide) return
-    const current = slides[index]
+    const current = slides[activeIndex]
     if (!current) return
     setSavingSlide(true)
     try {
@@ -152,7 +129,7 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
       })
       const json = await res.json()
       if (res.ok) {
-        setSlides((prev) => prev.map((s, i) => (i === index ? { ...s, has_saved: json.saved, saves_count: (s.saves_count || 0) + (json.saved ? 1 : -1) } : s)))
+        setSlides((prev) => prev.map((s, i) => (i === activeIndex ? { ...s, has_saved: json.saved, saves_count: (s.saves_count || 0) + (json.saved ? 1 : -1) } : s)))
       }
     } catch (_) {} finally { setSavingSlide(false) }
   }
@@ -193,7 +170,7 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
   }
 
   async function handleDeleteSlide() {
-    const current = slides[index]
+    const current = slides[activeIndex]
     if (!current || deletingSlide) return
     setDeletingSlide(true)
     try {
@@ -203,12 +180,15 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
         method: 'POST', headers, body: JSON.stringify({ slideId: current.id }),
       })
       if (res.ok) {
-        const remaining = slides.filter((_, i) => i !== index)
+        const remaining = slides.filter((_, i) => i !== activeIndex)
         setSlides(remaining)
         setShowMenu(false)
         setConfirmDelete(false)
         if (remaining.length === 0) { onClose(); return }
-        goTo(Math.min(index, remaining.length - 1))
+        setActiveIndex((idx) => Math.min(idx, remaining.length - 1))
+        requestAnimationFrame(() => {
+          itemRefs.current[Math.min(activeIndex, remaining.length - 1)]?.scrollIntoView({ block: 'start' })
+        })
       }
     } catch (_) {} finally { setDeletingSlide(false) }
   }
@@ -234,29 +214,54 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
     )
   }
 
-  const current = slides[index]
+  const current = slides[activeIndex]
   const isVideo = isVideoUrl(current.image_url)
-  const fontClass = FONT_CLASS[current.caption_font] || FONT_CLASS.sans
-  const positionClass = POSITION_CLASS[current.caption_position] || POSITION_CLASS.bottom
   const ownerName = owner?.display_name || owner?.username || (lang === 'tr' ? 'Bilinmeyen' : 'Unknown')
 
   return (
     <div ref={modalRef} role="dialog" aria-modal="true" className="fixed inset-0 z-[60] bg-black select-none overflow-hidden">
-      {/* Segment ilerleme çubuğu */}
-      <div className="absolute top-3 left-3 right-3 flex gap-1 z-20">
-        {slides.map((s, i) => (
-          <div key={s.id} className="flex-1 h-0.5 rounded-full bg-white/25 overflow-hidden">
+      {/* Kaydırılabilir slayt akışı */}
+      <div ref={containerRef} className="h-full w-full overflow-y-scroll snap-y snap-mandatory [&::-webkit-scrollbar]:hidden">
+        {slides.map((slide, i) => {
+          const slideIsVideo = isVideoUrl(slide.image_url)
+          const fontClass = FONT_CLASS[slide.caption_font] || FONT_CLASS.sans
+          const positionClass = POSITION_CLASS[slide.caption_position] || POSITION_CLASS.bottom
+          return (
             <div
-              className="h-full bg-white"
-              style={{
-                width: i < index ? '100%' : i === index ? `${progress * 100}%` : '0%',
-                transition: i === index ? 'none' : 'width 150ms linear',
-              }}
-            />
-          </div>
-        ))}
+              key={slide.id}
+              ref={(el) => (itemRefs.current[i] = el)}
+              data-index={i}
+              className="relative h-full w-full snap-start snap-always"
+            >
+              {slideIsVideo ? (
+                <video
+                  src={slide.image_url}
+                  className="w-full h-full object-cover"
+                  muted={muted}
+                  loop
+                  autoPlay={i === activeIndex}
+                  playsInline
+                />
+              ) : (
+                <img src={slide.image_url} alt="" className="w-full h-full object-cover" loading={i < 2 ? 'eager' : 'lazy'} />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/25 pointer-events-none" />
+              {slide.caption && (
+                <div className={`absolute left-4 right-20 flex flex-col z-10 ${positionClass}`}>
+                  <p
+                    className={`${fontClass} text-base leading-snug drop-shadow-md whitespace-pre-wrap`}
+                    style={{ color: slide.caption_color || '#ffffff' }}
+                  >
+                    {slide.caption}
+                  </p>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
 
+      {/* Sabit üst kontrol */}
       <button
         onClick={onClose}
         aria-label={lang === 'tr' ? 'Kapat' : 'Close'}
@@ -264,7 +269,6 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
       >
         <X size={16} />
       </button>
-
       {isVideo && (
         <button
           onClick={() => setMuted((m) => !m)}
@@ -274,7 +278,6 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
           {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
         </button>
       )}
-
       {onOpenDetails && (
         <button
           onClick={(e) => { e.stopPropagation(); onOpenDetails() }}
@@ -284,37 +287,18 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
         </button>
       )}
 
-      {/* Medya */}
-      {isVideo ? (
-        <video src={current.image_url} className="w-full h-full object-contain" muted={muted} loop autoPlay playsInline />
-      ) : (
-        <img src={current.image_url} alt="" className="w-full h-full object-contain" />
-      )}
+      {/* Sabit sahip çipi (Reels'teki gibi — içerik kayarken hesap bilgisi yerinde kalır) */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onOpenDetails?.() }}
+        className="absolute left-4 bottom-40 z-10 flex items-center gap-2"
+      >
+        <span className="w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold overflow-hidden shrink-0 ring-2 ring-white/20">
+          {owner?.avatar_url ? <img src={owner.avatar_url} alt="" className="w-full h-full object-cover" /> : initialsOf(ownerName)}
+        </span>
+        <span className="text-white text-sm font-semibold drop-shadow-md">{ownerName}</span>
+      </button>
 
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20 pointer-events-none" />
-
-      {/* Sahip + stilize edilmiş metin overlay'i */}
-      <div className={`absolute left-4 right-20 flex flex-col gap-2 z-10 ${positionClass}`}>
-        <button
-          onClick={(e) => { e.stopPropagation(); onOpenDetails?.() }}
-          className="flex items-center gap-2 self-start"
-        >
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold overflow-hidden shrink-0 ring-2 ring-white/20">
-            {owner?.avatar_url ? <img src={owner.avatar_url} alt="" className="w-full h-full object-cover" /> : initialsOf(ownerName)}
-          </div>
-          <span className="text-white text-sm font-semibold drop-shadow-md">{ownerName}</span>
-        </button>
-        {current.caption && (
-          <p
-            className={`${fontClass} text-base leading-snug drop-shadow-md whitespace-pre-wrap`}
-            style={{ color: current.caption_color || '#ffffff' }}
-          >
-            {current.caption}
-          </p>
-        )}
-      </div>
-
-      {/* Reels aksiyon şeridi */}
+      {/* Sabit aksiyon şeridi */}
       <div className="absolute right-3 bottom-24 z-10 flex flex-col items-center gap-5">
         <button onClick={handleLike} disabled={isOwner || liked || reacting} className="flex flex-col items-center gap-1 disabled:opacity-70">
           <span className={`w-10 h-10 rounded-full flex items-center justify-center ${liked ? 'text-astral-gold' : 'text-white'}`}>
@@ -373,28 +357,6 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
             )}
           </div>
         )}
-      </div>
-
-      {/* Dokunma bölgeleri (önceki/sonraki) */}
-      <div className="absolute inset-0 flex">
-        <button
-          className="w-[30%] h-full"
-          aria-label={lang === 'tr' ? 'Önceki' : 'Previous'}
-          onClick={() => goTo(index - 1)}
-          onMouseDown={handlePress}
-          onMouseUp={handleRelease}
-          onTouchStart={handlePress}
-          onTouchEnd={handleRelease}
-        />
-        <button
-          className="w-[70%] h-full"
-          aria-label={lang === 'tr' ? 'Sonraki' : 'Next'}
-          onClick={() => goTo(index + 1)}
-          onMouseDown={handlePress}
-          onMouseUp={handleRelease}
-          onTouchStart={handlePress}
-          onTouchEnd={handleRelease}
-        />
       </div>
 
       {/* Yorum sheet'i */}
