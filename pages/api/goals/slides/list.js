@@ -24,9 +24,30 @@ export default async function handler(req, res) {
 
     if (error) throw error
 
-    return res.status(200).json({ slides: slides || [] })
+    // Reels tarzı üst bilgi çubuğu için hedef sahibinin profili — SlidesViewer
+    // ayrıca bir istek atmasın diye burada birlikte dönüyoruz.
+    const { data: owner } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id, username, display_name, avatar_url')
+      .eq('id', goal.user_id)
+      .maybeSingle()
+
+    let savedSlideIds = []
+    if (user && slides?.length) {
+      const { data: saves } = await supabaseAdmin
+        .from('goal_slide_saves')
+        .select('goal_slide_id')
+        .eq('user_id', user.id)
+        .in('goal_slide_id', slides.map((s) => s.id))
+      savedSlideIds = (saves || []).map((s) => s.goal_slide_id)
+    }
+
+    const enrichedSlides = (slides || []).map((s) => ({ ...s, has_saved: savedSlideIds.includes(s.id) }))
+
+    return res.status(200).json({ slides: enrichedSlides, owner })
   } catch (error) {
     console.error('goals/slides/list error:', error)
     return res.status(500).json({ error: error.message || 'internal_error' })
   }
 }
+
