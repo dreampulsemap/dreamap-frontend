@@ -13,9 +13,11 @@ import { Heart, MessageCircle } from 'lucide-react'
 export default function ExploreImageTile({ dream, sentimentEmoji, lang, onClick }) {
   const [errorCount, setErrorCount] = useState(0)
   const [reported, setReported] = useState(false)
+  const [overrideUrl, setOverrideUrl] = useState(null)
   const cacheBustRef = useRef(Date.now())
 
-  const hasImg = !!dream.ai_image_url
+  const baseUrl = overrideUrl || dream.ai_image_url
+  const hasImg = !!baseUrl
   const showFallback = !hasImg || errorCount >= 2
 
   const handleError = useCallback(() => {
@@ -27,15 +29,25 @@ export default function ExploreImageTile({ dream, sentimentEmoji, lang, onClick 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ dreamId: dream.id }),
-        }).catch(() => {})
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            // Onarım anında taze bir URL döndürdüyse ızgarada da doğrudan
+            // gösterelim — metin kartına düşmeden önce son bir şans.
+            if (data?.imageUrl) {
+              setOverrideUrl(data.imageUrl)
+              setErrorCount(0)
+            }
+          })
+          .catch(() => {})
       }
       return next
     })
   }, [dream.id, reported])
 
   const src = errorCount === 1
-    ? `${dream.ai_image_url}${dream.ai_image_url.includes('?') ? '&' : '?'}retry=${cacheBustRef.current}`
-    : dream.ai_image_url
+    ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}retry=${cacheBustRef.current}`
+    : baseUrl
 
   return (
     <div

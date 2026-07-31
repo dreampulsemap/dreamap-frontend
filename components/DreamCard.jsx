@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { usePushSubscription } from '@/hooks/usePushSubscription'
 import Image from 'next/image'
 import { useTranslation } from 'react-i18next'
@@ -52,10 +52,25 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   const [analysisOverride, setAnalysisOverride] = useState(null)
   const [toastMessage, setToastMessage] = useState('')
   const [showToast, setShowToast] = useState(false)
-  const [imgErrorCount, setImgErrorCount] = useState(0)
-  const [imgReported, setImgReported] = useState(false)
+  // 'idle' -> normal gösterim | 'retry' -> bir kez cache-bypass ile yeniden dene
+  // 'repairing' -> arka planda onarım isteniyor (kısa an) | 'broken' -> onarım da
+  // başarısız oldu, zarif bir yer tutucu göster (asla sessizce KAYBOLMASIN).
+  const [imgState, setImgState] = useState('idle')
+  const [imgOverrideUrl, setImgOverrideUrl] = useState(null) // onarımdan dönen taze URL
+  const repairAttemptedRef = useRef(false)
 
   const effectiveDream = useMemo(() => (analysisOverride ? { ...dream, ...analysisOverride } : dream), [dream, analysisOverride])
+
+  // Modal başka bir rüya için yeniden açıldığında (aynı component instance
+  // farklı bir dream prop'uyla yeniden kullanılabiliyor) görsel deneme
+  // durumunu sıfırla — aksi halde önceki rüyadan kalan 'broken' durumu
+  // yenisine sızabilir.
+  useEffect(() => {
+    setImgState('idle')
+    setImgOverrideUrl(null)
+    repairAttemptedRef.current = false
+  }, [dream.id])
+
   const isAnalysisPreparing = useMemo(() => {
     if (premiumAnalysis || effectiveDream?.premium_deep_analysis) return false
     if (premiumQueued) return true
@@ -138,23 +153,49 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
 
   // Bkz. lib/repairDreamImage.js kök neden notu: bu genelde hiç tetiklenmez
   // (Explore artık bozuk görselleri sunucu tarafında zaten eliyor), ama bir
-  // görsel gerçekten burada kırılırsa çıplak "broken image" ikonu yerine
-  // sessizce bir kez dener, sonra görseli nazikçe gizler ve arka planda
-  // otomatik onarımı tetikler.
-  const handleImageError = useCallback(() => {
-    setImgErrorCount((c) => {
-      const next = c + 1
-      if (next >= 2 && !imgReported) {
-        setImgReported(true)
-        fetch('/api/dreams/report-broken-image', {
+  // görsel gerçekten burada kırılırsa: 1) bir kez cache-bypass ile yeniden
+  // dener, 2) hâlâ olmazsa ANINDA onarım isteği atar ve dönen taze URL'i
+  // gösterir, 3) onarım da görsel bulamazsa (ör. sağlayıcı geçici olarak
+  // erişilemez) zarif bir yer tutucuya düşer — ama görsel ASLA sessizce
+  // kaybolmaz, kullanıcı her zaman bir şey görür.
+  const handleImageError = useCallback(async () => {
+    if (imgState === 'idle') {
+      setImgState('retry')
+      return
+    }
+    if (imgState === 'retry') {
+      if (repairAttemptedRef.current) {
+        // Onarım zaten bu açılışta bir kez denendi ve döndürdüğü taze URL de
+        // yüklenemedi — tekrar tekrar denemek yerine zarif yer tutucuya düş.
+        setImgState('broken')
+        return
+      }
+      repairAttemptedRef.current = true
+      setImgState('repairing')
+      try {
+        const res = await fetch('/api/dreams/report-broken-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ dreamId: dream.id }),
-        }).catch(() => {})
+        })
+        const data = await res.json().catch(() => null)
+        if (data?.imageUrl) {
+          setImgOverrideUrl(data.imageUrl)
+          setImgState('idle')
+        } else {
+          setImgState('broken')
+        }
+      } catch {
+        setImgState('broken')
       }
-      return next
-    })
-  }, [dream.id, imgReported])
+    }
+  }, [dream.id, imgState])
+
+  const displayImageUrl = imgOverrideUrl || effectiveDream.ai_image_url
+  const showImage = !!displayImageUrl && imgState !== 'broken' && imgState !== 'repairing'
+  const imageSrc = imgState === 'retry'
+    ? `${displayImageUrl}${displayImageUrl.includes('?') ? '&' : '?'}retry=${dream.id}`
+    : displayImageUrl
 
   const translateArchetype = useCallback((arch) => {
     const cleanArch = String(arch).trim()
@@ -180,6 +221,9 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       if (!res.ok) throw new Error(data.details || data.error || 'Failed to generate')
       
       setAnalysisOverride({ ...effectiveDream, ai_image_url: data.imageUrl })
+      setImgOverrideUrl(null)
+      setImgState('idle')
+      repairAttemptedRef.current = false
       setPremiumAuras(data.aurasLeft)
       triggerToast(isOwner ? t.imageSuccess : t.imageGiftSuccess)
     } catch (err) {
@@ -248,18 +292,34 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   return (
     <>
       <article className="glass-card p-6 rounded-3xl border border-white/10 bg-slate-900/40">
-        {effectiveDream.ai_image_url && imgErrorCount < 2 && (
+        {showImage && (
           <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-4">
             <Image
-              src={imgErrorCount === 1
-                ? `${effectiveDream.ai_image_url}${effectiveDream.ai_image_url.includes('?') ? '&' : '?'}retry=${dream.id}`
-                : effectiveDream.ai_image_url}
+              src={imageSrc}
               alt=""
               fill
               sizes="(max-width: 640px) 100vw, 600px"
               className="object-cover"
               onError={handleImageError}
             />
+          </div>
+        )}
+        {imgState === 'repairing' && (
+          <div className="w-full aspect-square rounded-2xl overflow-hidden mb-4 flex flex-col items-center justify-center gap-2 bg-white/[0.03] border border-white/10">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+            <span className="text-[11px] text-slate-400">
+              {lang === 'tr' ? 'Görsel onarılıyor...' : 'Repairing image...'}
+            </span>
+          </div>
+        )}
+        {imgState === 'broken' && effectiveDream.ai_image_url && (
+          <div className="w-full aspect-square rounded-2xl overflow-hidden mb-4 flex flex-col items-center justify-center gap-1.5 bg-white/[0.03] border border-white/10 px-6 text-center">
+            <span className="text-xl">🌫️</span>
+            <span className="text-[11px] text-slate-400">
+              {lang === 'tr'
+                ? 'Görsel şu anda hazırlanıyor, birazdan tekrar dene.'
+                : 'Image is being prepared — check back shortly.'}
+            </span>
           </div>
         )}
         <p className="mb-6">{translated ? translatedContent : dream.content}</p>
