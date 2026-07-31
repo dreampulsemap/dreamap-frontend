@@ -2,6 +2,23 @@ import { useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { Heart, MessageCircle, Sparkles } from 'lucide-react'
 
+// YENİ: 8 dile genişletildi (önceden sadece tr/en vardı)
+const CREATE_VISUAL_TEXT = {
+  en: 'Create Visual',
+  tr: 'Görsel Üret',
+  es: 'Crear Imagen',
+  fr: 'Créer une Image',
+  de: 'Bild erstellen',
+  pt: 'Criar Imagem',
+  ru: 'Создать Изображение',
+  ja: '画像を作成',
+}
+
+function getCreateVisualText(lang) {
+  const base = String(lang || 'en').toLowerCase().split('-')[0]
+  return CREATE_VISUAL_TEXT[base] || CREATE_VISUAL_TEXT.en
+}
+
 // pages/explore.js'deki ExploreImageTile ile aynı dayanıklılık deseni —
 // profil ızgarasının kendi "Create Visual" CTA tasarımını koruyoruz, öncesinde
 // bu ızgarada onError HİÇ yoktu (çıplak next/image hata ikonu kalıcı kalırdı).
@@ -64,7 +81,7 @@ export default function ProfileDreamTile({ dream, lang, isHighlighted, onClick, 
           <p className="text-[9px] sm:text-[11px] text-white/70 leading-relaxed font-light line-clamp-3">"{dream.content}"</p>
           {!hasImg && (
             <button className="self-start rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2 py-0.5 text-[8px] sm:text-[9px] font-bold text-cyan-300 hover:bg-cyan-500/25">
-              <Sparkles size={10} className="inline -mt-0.5" /> {lang === 'tr' ? 'Görsel Üret' : 'Create Visual'}
+              <Sparkles size={10} className="inline -mt-0.5" /> {getCreateVisualText(lang)}
             </button>
           )}
         </div>
