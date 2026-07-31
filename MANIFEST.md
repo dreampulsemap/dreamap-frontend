@@ -436,3 +436,53 @@ client'ın gönderdiği `userId`'yi doğrulamadan güveniyor (yeni `goals/*` ve
 `messages/*` route'ları gibi `Authorization: Bearer` + sunucu tarafı
 doğrulama kullanmıyorlar). Hepsi gerçek ama ayrı işler — istenirse ayrıca
 ele alınabilir.
+
+## 17) Mesajlara fotoğraf/video/dosya eki (YENİ)
+
+`pages/api/messages/send.js`, `thread.js`, `unread-count.js` ile
+`hooks/useUnreadMessages.js`'in (bölüm 16'dan sonra, bu konuşmanın dışında
+başka bir turda eklenmiş olan zil-yerine-rozet mimarisi) yerinde durduğunu
+doğruladım ve onun üzerine inşa ettim — mesaj bildirimini tekrar
+`notifications` tablosuna eklemedim, mevcut `messages.is_read`
+tabanlı rozet deseniyle tutarlı kaldı.
+
+- `007_message_attachments.sql` — YENİ: `messages` tablosuna `attachment_url/
+  type/name/mime/size` kolonları + "içerik boş olamaz" kısıtının "içerik YA DA
+  ek olmalı" şeklinde gevşetilmesi + `message-attachments` adında herkese-açık
+  bir Storage bucket (avatars/goal-covers ile AYNI desen: public URL, ama yol
+  kullanıcı id'si + rastgele isim içerdiği için tahmin edilemez) + RLS
+  (yalnızca kendi klasörüne yükleyebilir/silebilir). 20 MB sınır, resim/video/
+  pdf/zip/office belgesi izinli tip listesi — genişletmek istersen bu dosyadaki
+  `allowed_mime_types` dizisini düzenleyip tekrar çalıştırman yeterli
+  (idempotent). **Bunu da SQL Editor'de çalıştırman gerekiyor.**
+- `pages/api/messages/send.js` — DÜZENLENDİ: `attachmentUrl/Type/Name/Mime/
+  Size` alanlarını kabul ediyor, en az biri (metin veya ek) zorunlu, ek
+  varsa gerçekten gönderenin kendi klasöründen geldiğini doğruluyor (URL
+  spoofing'e karşı ucuz bir sağlık kontrolü — bucket zaten herkese-açık
+  olduğu için bu sert bir güvenlik sınırı değil, veri tutarlılığı için).
+  Push bildirimi artık ek-tipine göre "📷 Fotoğraf" gibi bir metin gösteriyor
+  (metinsiz ek gönderiminde push body'si boş kalmasın diye).
+- `pages/api/messages/thread.js`, `conversations.js` — DÜZENLENDİ: attachment
+  kolonlarını da SELECT ediyor.
+- `pages/messages.js` — DÜZENLENDİ: ataç (Paperclip) butonu → gizli dosya
+  input'u → seçilen dosya önizlemesi (resimse thumbnail, değilse dosya
+  ikonu+adı, kaldırma butonuyla) → gönderirken ÖNCE dosya doğrudan
+  istemciden Supabase Storage'a yükleniyor (Vercel API route body limitini
+  atlamak için `/api/messages/send`'e dosyanın kendisi DEĞİL, yalnızca
+  sonuçtaki URL gidiyor) → mesaj balonlarında resim satır-içi gösteriliyor
+  (tıklayınca orijinali yeni sekmede açılıyor), video `<video controls>`
+  ile oynatılıyor, dosyalar indirilebilir bir kart olarak görünüyor.
+  Konuşma listesindeki son-mesaj önizlemesi, metin yoksa "📷 Fotoğraf" gibi
+  bir etiket gösteriyor (önceden boş satır kalırdı).
+
+TASARIM KARARI: Basit tutmak için gerçek bir lightbox/galeri kurmadım —
+resme tıklayınca orijinali yeni sekmede açıyor. İstersen sonraki turda
+tam ekran önizleme (modal, `useModalA11y` ile) ekleyebilirim.
+
+TEST EDİLEMEDİ: Yine ağ/Supabase erişimim yok; tüm dosyaları sözdizimi
+için taradım (temiz), ama gerçek bir dosya yükleyip uçtan uca deneyemedim.
+En çok dikkat edeceğin nokta: `message-attachments` bucket'ının SQL'de
+`public: true` ile oluşturulduğunu, projende Storage'ın genel olarak
+aktif olduğunu varsayıyorum — ilk denemede "bucket not found" gibi bir
+hata alırsan SQL'in gerçekten çalıştığını (Supabase Dashboard > Storage'da
+bucket'ı görerek) doğrula.
