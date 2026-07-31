@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { ArrowLeft, MessageCircle, Send, Paperclip, X, FileText, Download } from 'lucide-react'
+import { ArrowLeft, MessageCircle, Send, Paperclip, X, FileText, Download, Home } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 const POLL_INTERVAL_MS = 5000
@@ -313,7 +313,11 @@ export default function MessagesPage() {
     return (
       <>
         <Head><title>{lang === 'tr' ? 'Mesajlar — Lunosfer' : 'Messages — Lunosfer'}</title></Head>
-        <main className="min-h-[70vh] flex items-center justify-center px-6 py-16">
+        <main className="relative h-[100dvh] flex flex-col items-center justify-center px-6 py-16 bg-black">
+          <Link href="/" className="absolute top-4 left-4 flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors">
+            <ArrowLeft size={14} />
+            {lang === 'tr' ? 'Lunosfer\u2019e dön' : 'Back to Lunosfer'}
+          </Link>
           <div className="glass-card max-w-sm w-full p-8 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-aether-violet/30 bg-aether-violet/10 text-aether-violet">
               <MessageCircle size={24} />
@@ -333,37 +337,47 @@ export default function MessagesPage() {
   return (
     <>
       <Head><title>{lang === 'tr' ? 'Mesajlar — Lunosfer' : 'Messages — Lunosfer'}</title></Head>
-      <main className="min-h-screen bg-black">
-        <div className="max-w-5xl mx-auto sm:px-4 sm:py-8">
-          <div className="flex h-[calc(100vh-8.5rem)] sm:h-[640px] glass-card overflow-hidden sm:rounded-card">
+      {/* Navbar/Sidebar/BottomNav _app.js'de bu route için tamamen gizleniyor
+          (WhatsApp benzeri tam ekran deneyim) — bu yüzden burada kendi geri/
+          ana-sayfa yollarımızı sağlıyoruz. 100dvh: mobil tarayıcı adres
+          çubuğu açılıp kapandığında 100vh gibi zıplamaz. */}
+      <main className="h-[100dvh] bg-black overflow-hidden">
+        <div className="flex h-full">
 
-            {/* KONUŞMA LİSTESİ */}
-            <div className={`w-full sm:w-80 border-r border-white/10 flex-col overflow-y-auto ${activeOtherId ? 'hidden sm:flex' : 'flex'}`}>
-              <div className="p-4 border-b border-white/10 flex-shrink-0">
-                <h1 className="text-sm font-bold uppercase tracking-widest text-slate-300">
-                  {lang === 'tr' ? 'Mesajlar' : 'Messages'}
-                </h1>
+          {/* KONUŞMA LİSTESİ */}
+          <div className={`w-full sm:w-80 border-r border-white/10 flex-col overflow-y-auto flex-shrink-0 ${activeOtherId ? 'hidden sm:flex' : 'flex'}`}>
+            <div className="p-4 border-b border-white/10 flex-shrink-0 flex items-center gap-3">
+              <Link
+                href="/"
+                aria-label={lang === 'tr' ? 'Lunosfer\u2019e dön' : 'Back to Lunosfer'}
+                className="flex items-center justify-center w-8 h-8 rounded-full text-slate-300 hover:bg-white/10 transition-colors flex-shrink-0"
+              >
+                <Home size={16} />
+              </Link>
+              <h1 className="text-sm font-bold uppercase tracking-widest text-slate-300">
+                {lang === 'tr' ? 'Mesajlar' : 'Messages'}
+              </h1>
+            </div>
+            {loadingConversations ? (
+              <div className="flex justify-center py-10">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
               </div>
-              {loadingConversations ? (
-                <div className="flex justify-center py-10">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
-                </div>
-              ) : conversations.length === 0 ? (
-                <div className="text-center py-16 px-6 text-white/40 text-sm">
-                  {lang === 'tr'
-                    ? 'Henüz bir konuşman yok. Bir profile gidip "Mesaj" butonuna dokunarak başlayabilirsin.'
-                    : 'No conversations yet. Visit a profile and tap "Message" to start one.'}
-                </div>
-              ) : (
-                conversations.map((c) => (
-                  <button
-                    key={c.otherUser.id}
-                    onClick={() => openThread(c.otherUser.id)}
-                    className={`w-full text-left flex items-center gap-3 px-4 py-3 border-b border-white/5 hover:bg-white/5 transition-colors ${activeOtherId === c.otherUser.id ? 'bg-white/5' : ''}`}
-                  >
-                    {c.otherUser.avatar_url ? (
-                      <img src={c.otherUser.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                    ) : (
+            ) : conversations.length === 0 ? (
+              <div className="text-center py-16 px-6 text-white/40 text-sm">
+                {lang === 'tr'
+                  ? 'Henüz bir konuşman yok. Bir profile gidip "Mesaj" butonuna dokunarak başlayabilirsin.'
+                  : 'No conversations yet. Visit a profile and tap "Message" to start one.'}
+              </div>
+            ) : (
+              conversations.map((c) => (
+                <button
+                  key={c.otherUser.id}
+                  onClick={() => openThread(c.otherUser.id)}
+                  className={`w-full text-left flex items-center gap-3 px-4 py-3 border-b border-white/5 hover:bg-white/5 transition-colors ${activeOtherId === c.otherUser.id ? 'bg-white/5' : ''}`}
+                >
+                  {c.otherUser.avatar_url ? (
+                    <img src={c.otherUser.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                  ) : (
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-fuchsia-600 to-purple-800 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                         {(c.otherUser.display_name || c.otherUser.username || '?').charAt(0).toUpperCase()}
                       </div>
@@ -548,8 +562,7 @@ export default function MessagesPage() {
               )}
             </div>
           </div>
-        </div>
-      </main>
+        </main>
     </>
   )
 }

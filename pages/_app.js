@@ -8,8 +8,9 @@ import { useRouter } from 'next/router'
 export default function App({ Component, pageProps }) {
   const router = useRouter()
   
-  // Tam ekran olan Küre veya hata sayfalarında menüleri gizle
-  const hideNavbarPaths = ['/globe', '/auth/callback', '/analizetgulum']
+  // Tam ekran olan Küre, hata sayfaları veya WhatsApp-tarzı tam ekran
+  // mesajlaşma sayfasında menüleri gizle
+  const hideNavbarPaths = ['/globe', '/auth/callback', '/analizetgulum', '/messages']
   const shouldHideNavbar = hideNavbarPaths.includes(router.pathname)
 
   return (
