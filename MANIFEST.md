@@ -486,3 +486,44 @@ En çok dikkat edeceğin nokta: `message-attachments` bucket'ının SQL'de
 aktif olduğunu varsayıyorum — ilk denemede "bucket not found" gibi bir
 hata alırsan SQL'in gerçekten çalıştığını (Supabase Dashboard > Storage'da
 bucket'ı görerek) doğrula.
+
+## 18) ACİL DÜZELTME: mesaj gönderilemiyordu + "eski mesajlar silindi" görünüyordu + tam ekran mesajlaşma
+
+**Ne oldu:** 17. bölümdeki `007_message_attachments.sql` iki kez hata verdi
+(önce "onay alınamadı", sonra `storage.objects` üzerinde "must be owner of
+table objects" — bu tablo Supabase'in kendi iç rolüne ait, benim bağlandığım
+rol üzerinde ALTER TABLE hakkı yok). Ama bu sırada `pages/messages.js`,
+`send.js`, `thread.js` kodları (17. bölümde teslim edilen) zaten yeni
+`attachment_*` kolonlarını sorguluyordu — kolonlar veritabanında YOKKEN.
+Sonuç: her mesaj sorgusu arka planda "column does not exist" hatası
+veriyordu → gönderim başarısız oluyordu VE thread sorgusu tamamen
+patladığı için var olan mesajlar hiç yüklenmiyor, ekranda "silinmiş" gibi
+görünüyordu. **Gerçekte hiçbir mesaj silinmedi** — veritabanını kontrol
+ettim, 6 mesaj hep oradaydı, sorun yalnızca kod/şema uyuşmazlığıydı.
+
+**Düzeltme (Supabase MCP bağlantısı üzerinden bizzat uyguladım):**
+- `public.messages`'a `attachment_url/type/name/mime/size` kolonlarını ve
+  ilgili kısıtları ekledim (`storage.objects` satırını çıkararak, sorunun
+  asıl kaynağı oydu — o satır zaten gereksizdi, RLS Supabase projelerinde
+  varsayılan olarak açık geliyor).
+- `message-attachments` bucket'ını ve yükleme/silme RLS politikalarını
+  oluşturdum.
+- İkisini de sorguyla doğruladım: kolonlar var, bucket var, mesaj sayısı
+  hâlâ 6 (veri kaybı yok).
+
+Artık `007_message_attachments.sql`'i SEN çalıştırman GEREKMİYOR — canlı
+veritabanına zaten uygulandı.
+
+**Tam ekran WhatsApp-tarzı mesajlaşma:**
+- `pages/_app.js` — `/messages` artık `hideNavbarPaths` içinde: bu sayfada
+  Navbar/Sidebar/BottomNav hiç render edilmiyor.
+- `pages/messages.js` — düzen `h-[100dvh]` ile gerçek tam ekran (kenardan
+  kenara, yuvarlatılmış kart/max-width kaldırıldı). Navbar gitmediği için
+  kendi dönüş yollarını ekledim: konuşma listesi başlığında bir **Ana Sayfa**
+  (ev ikonu, `/`'e gider) butonu; açık bir sohbette (yalnızca mobilde,
+  masaüstünde liste zaten yanda görünür durumda) bir **Geri** butonu
+  (konuşma listesine döner). Tam istediğin gibi: yalnızca bu iki buton.
+
+TEST EDİLEMEDİ: Yine tarayıcıda render edemiyorum; JSX'i sözdizimi için
+taradım (temiz). SQL tarafını ise gerçekten Supabase'e karşı ÇALIŞTIRDIM
+ve sorgularla doğruladım — o kısım "tahmin" değil, doğrulanmış durum.
