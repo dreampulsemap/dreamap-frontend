@@ -30,17 +30,19 @@ const LIKE_WEIGHT = 3     // Beğenilen bir rüyanın arketipleri
 const COMMENT_WEIGHT = 5  // Yorum yapılan bir rüyanın arketipleri (daha güçlü sinyal)
 const OWN_DREAM_WEIGHT = 1 // Kullanıcının kendi rüyalarındaki arketipler (soğuk başlangıç yardımı)
 
-// KESİF KALİTE FİLTRESİ: görseli olmayan ya da bozuk/onarım bekleyen
-// ('needs_persist' | 'broken') rüyalar Explore'da HİÇ görünmesin. Instagram
-// Explore mantığı: ızgaradaki tutarlılık = güven; bir kez bozuk/görselsiz
-// içerikle karşılaşan kullanıcının taramaya devam etme isteği düşer. Bu
-// yüzden filtre DB sorgusunda uygulanıyor (istemciye hiç gönderilmiyor),
-// "görseli olmayanları göster ama kartı farklı tasarımla göster" yaklaşımı
-// artık sadece ana akış (index.js/profile.js) için geçerli, Explore için değil.
+// KESİF KALİTE FİLTRESİ (DÜZELTİLMİŞ): görseli olmayan ya da ONAYLANMIŞ
+// biçimde kırık ('broken') rüyalar Explore'da görünmez. 'needs_persist' —
+// yani "henüz kalıcı depoya taşınmadı ama URL muhtemelen hâlâ çalışıyor" —
+// ARTIK GİZLENMİYOR. İlk sürümde 'needs_persist' de gizleniyordu; migration'daki
+// geriye dönük tarama neredeyse TÜM eski rüyaları bu durumla işaretlediği için
+// (henüz hiçbiri kalıcı depoya taşınmamıştı) Kesif'in tamamen boşalmasına
+// sebep oldu. Artık yalnızca onarım denemeleri TÜKENİP kesin olarak "broken"
+// işaretlenmiş rüyalar (bkz. lib/repairDreamImage.js MAX_REPAIR_ATTEMPTS)
+// gizleniyor — bu da gerçekten kurtarılamayan görseller demek.
 const MIN_IMAGE_DIMENSION = 300 // yalnızca boyutu BİLİNEN (ör. Pixabay) görsellere uygulanır
 
 function applyImageQualityFilter(query) {
-  return query.not('ai_image_url', 'is', null).eq('image_status', 'ok')
+  return query.not('ai_image_url', 'is', null).neq('image_status', 'broken')
 }
 
 function passesImageQuality(dream) {
