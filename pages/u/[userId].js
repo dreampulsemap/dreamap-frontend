@@ -238,7 +238,7 @@ export default function PublicProfilePage() {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
           onClick={() => setActiveDream(null)}
         >
-          <div className="w-full max-w-2xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <DreamCard dream={activeDream} lang={lang} currentUserId={viewer?.id} onTranslate={() => {}} translating={false} translated={false} />
           </div>
         </div>
