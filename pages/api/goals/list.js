@@ -102,6 +102,20 @@ export default async function handler(req, res) {
       goals = goals.map((g) => ({ ...g, slide_count: slideCounts[g.id] || 0 }))
     }
 
+    // Reels görünümünde sahibin profil çipini (avatar + isim) göstermek için
+    // — aynı toplu-sorgu deseni, sayfa başına en fazla 15 hedef olduğu için ucuz.
+    if (goals.length > 0) {
+      const ownerIds = [...new Set(goals.map((g) => g.user_id))]
+      const { data: owners } = await supabaseAdmin
+        .from('user_profiles')
+        .select('id, username, display_name, avatar_url')
+        .in('id', ownerIds)
+
+      const ownerMap = {}
+      for (const o of owners || []) ownerMap[o.id] = o
+      goals = goals.map((g) => ({ ...g, owner: ownerMap[g.user_id] || null }))
+    }
+
     return res.status(200).json({
       goals,
       page: pageNum,
