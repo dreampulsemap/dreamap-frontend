@@ -113,13 +113,13 @@ export default function PublicProfilePage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         {loading || !profile ? (
           <div className="flex justify-center py-20">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-primary-400 border-t-transparent" />
           </div>
         ) : (
           <>
             {/* PROFİL BAŞLIĞI */}
             <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-10 border-b border-white/10 pb-8 mb-6">
-              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-fuchsia-600 to-purple-800 flex items-center justify-center text-white font-bold text-3xl overflow-hidden shrink-0">
+              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-brand-primary-600 to-brand-accent-800 flex items-center justify-center text-white font-bold text-3xl overflow-hidden shrink-0">
                 {profile.avatar_url ? (
                   <img src={profile.avatar_url} alt={profile.username} className="w-full h-full object-cover" />
                 ) : (
@@ -145,7 +145,7 @@ export default function PublicProfilePage() {
                         ? 'bg-white/5 text-slate-400 cursor-default'
                         : friendshipStatus === 'pending'
                         ? 'bg-white/5 text-amber-400 cursor-default'
-                        : 'bg-cyan-500 text-black hover:bg-cyan-400 disabled:opacity-50'
+                        : 'bg-brand-secondary-500 text-black hover:bg-brand-secondary-400 disabled:opacity-50'
                     }`}
                   >
                     {friendshipStatus === 'accepted'
@@ -170,7 +170,7 @@ export default function PublicProfilePage() {
               <button
                 onClick={() => setTab('vision')}
                 className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
-                  tab === 'vision' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
+                  tab === 'vision' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
                 }`}
               >
                 ✦ {mounted ? (lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board') : <TextSkeleton width="w-20" />}
@@ -178,7 +178,7 @@ export default function PublicProfilePage() {
               <button
                 onClick={() => setTab('dreams')}
                 className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
-                  tab === 'dreams' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
+                  tab === 'dreams' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
                 }`}
               >
                 🌙 {mounted ? (lang === 'tr' ? 'Rüyalar' : 'Dreams') : <TextSkeleton width="w-14" />}
@@ -205,12 +205,12 @@ export default function PublicProfilePage() {
                   <div
                     key={dream.id}
                     onClick={() => setActiveDream(dream)}
-                    className="group aspect-square relative overflow-hidden rounded-xl border border-white/5 bg-slate-900/40 hover:border-fuchsia-500/45 cursor-pointer"
+                    className="group aspect-square relative overflow-hidden rounded-xl border border-white/5 bg-slate-900/40 hover:border-brand-primary-500/45 cursor-pointer"
                   >
                     {dream.ai_image_url ? (
                       <Image src={dream.ai_image_url} alt="" fill sizes="(max-width: 640px) 33vw, 300px" className="object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center p-3 bg-gradient-to-br from-purple-950/20 to-black">
+                      <div className="w-full h-full flex items-center p-3 bg-gradient-to-br from-brand-accent-950/20 to-black">
                         <p className="text-[10px] text-white/70 line-clamp-4">"{dream.content}"</p>
                       </div>
                     )}
