@@ -2,7 +2,7 @@ import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
 const MAX_TITLE_LENGTH = 120
 const MAX_DESCRIPTION_LENGTH = 2000
-const VALID_COVER_SOURCES = ['user_upload', 'ai_generated', 'pinterest']
+const VALID_COVER_SOURCES = ['user_upload', 'ai_generated', 'pinterest', 'pixabay']
 const VALID_VISIBILITY = ['public', 'friends', 'private']
 
 function normalizeText(value) {
