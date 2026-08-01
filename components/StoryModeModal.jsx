@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
 
@@ -23,6 +23,108 @@ export default function StoryModeModal({
   const modalRef = useRef(null)
   useModalA11y(modalRef, isOpen ? onClose : null)
 
+  // Rüya görselini 4:5 çerçeve içinde sürükleyerek konumlandırma + yakınlaştırma.
+  // Instagram'a paylaşılan görsel de (aşağıdaki exportFramedImage) bu
+  // kadrajı yansıtıyor — önizlemede ne görürsen o paylaşılıyor.
+  const frameRef = useRef(null)
+  const imgElRef = useRef(null)
+  const dragRef = useRef(null)
+  const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 })
+  const [frameSize, setFrameSize] = useState({ w: 0, h: 0 })
+  const [imgZoom, setImgZoom] = useState(1)
+  const [imgPos, setImgPos] = useState({ x: 0, y: 0 })
+
+  const baseScale = imgNatural.w && frameSize.w
+    ? Math.max(frameSize.w / imgNatural.w, frameSize.h / imgNatural.h)
+    : 1
+  const displayScale = baseScale * imgZoom
+  const renderedW = imgNatural.w * displayScale
+  const renderedH = imgNatural.h * displayScale
+
+  function clampImgPos(x, y, zoom = imgZoom) {
+    if (!imgNatural.w || !frameSize.w) return { x, y }
+    const scale = baseScale * zoom
+    const rw = imgNatural.w * scale
+    const rh = imgNatural.h * scale
+    const minX = frameSize.w - rw
+    const minY = frameSize.h - rh
+    return { x: Math.min(0, Math.max(minX, x)), y: Math.min(0, Math.max(minY, y)) }
+  }
+
+  function centerImgPos(zoom = imgZoom) {
+    if (!imgNatural.w || !frameSize.w) return { x: 0, y: 0 }
+    const scale = baseScale * zoom
+    const rw = imgNatural.w * scale
+    const rh = imgNatural.h * scale
+    return { x: (frameSize.w - rw) / 2, y: (frameSize.h - rh) / 2 }
+  }
+
+  useEffect(() => {
+    function measure() {
+      if (frameRef.current) {
+        const r = frameRef.current.getBoundingClientRect()
+        setFrameSize({ w: r.width, h: r.height })
+      }
+    }
+    if (isOpen) {
+      measure()
+      window.addEventListener('resize', measure)
+    }
+    return () => window.removeEventListener('resize', measure)
+  }, [isOpen])
+
+  useEffect(() => {
+    if (imgNatural.w && frameSize.w) setImgPos(centerImgPos(1))
+    setImgZoom(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imgNatural.w, imgNatural.h, frameSize.w, frameSize.h])
+
+  function handleImgLoad(e) {
+    setImgNatural({ w: e.target.naturalWidth, h: e.target.naturalHeight })
+  }
+
+  function handleFramePointerDown(e) {
+    e.stopPropagation()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: imgPos.x, origY: imgPos.y }
+  }
+  function handleFramePointerMove(e) {
+    if (!dragRef.current) return
+    const dx = e.clientX - dragRef.current.startX
+    const dy = e.clientY - dragRef.current.startY
+    setImgPos(clampImgPos(dragRef.current.origX + dx, dragRef.current.origY + dy))
+  }
+  function handleFramePointerUp() {
+    dragRef.current = null
+  }
+  function handleZoomChange(newZoom) {
+    setImgZoom(newZoom)
+    setImgPos((prev) => clampImgPos(prev.x, prev.y, newZoom))
+  }
+
+  // Kullanıcının seçtiği kadrajı (pan+zoom) gerçek bir görsele işleyip
+  // paylaşım/indirme için onu döner — önizlemede görünenle paylaşılan birebir
+  // aynı olsun diye.
+  async function exportFramedImage() {
+    const img = imgElRef.current
+    if (!img || !imgNatural.w || !frameSize.w) return null
+    const OUT_W = 1080
+    const OUT_H = 1350 // 4:5
+
+    const canvas = document.createElement('canvas')
+    canvas.width = OUT_W
+    canvas.height = OUT_H
+    const ctx = canvas.getContext('2d')
+
+    const sx = -imgPos.x / displayScale
+    const sy = -imgPos.y / displayScale
+    const sw = frameSize.w / displayScale
+    const sh = frameSize.h / displayScale
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, OUT_W, OUT_H)
+
+    return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.95))
+  }
+
   if (!isOpen || !premiumAnalysis) return null
   const t = getDreamCardText(lang)
 
@@ -39,12 +141,16 @@ export default function StoryModeModal({
     const isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
     try {
-      const res = await fetch(dreamImage, { mode: 'cors' })
-      const blob = await res.blob()
+      // Önizlemede seçtiğin kadrajı (sürükleme + yakınlaştırma) gerçek bir
+      // görsele işliyoruz — paylaşılan/indirilen dosya önizlemedekiyle birebir
+      // aynı olsun diye. Herhangi bir sebeple başarısız olursa (örn. CORS)
+      // orijinal görsele düşüyoruz, paylaşım tamamen durmasın.
+      const framedBlob = await exportFramedImage().catch(() => null)
+      const blob = framedBlob || (await (await fetch(dreamImage, { mode: 'cors' })).blob())
 
       // Android / destekleyen tarayıcılar: dosyayı native paylaşım sayfasına ver.
       // Instagram bu listede gerçek bir hedef olarak çıkar ("Story'ye Ekle" dahil).
-      const file = new File([blob], 'dream-story.png', { type: blob.type || 'image/png' })
+      const file = new File([blob], 'dream-story.jpg', { type: blob.type || 'image/jpeg' })
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: dreamTitle || 'Lunosfer Rüya' })
         setSharing(false)
@@ -55,7 +161,7 @@ export default function StoryModeModal({
       // Instagram, panodaki görseli story arka planı olarak otomatik alır.
       if (isIOS && navigator.clipboard?.write && window.ClipboardItem) {
         await navigator.clipboard.write([
-          new window.ClipboardItem({ [blob.type || 'image/png']: blob }),
+          new window.ClipboardItem({ [blob.type || 'image/jpeg']: blob }),
         ])
         window.location.href = `instagram-stories://share?source_application=${FACEBOOK_APP_ID}`
         setSharing(false)
@@ -67,9 +173,10 @@ export default function StoryModeModal({
       console.error('Instagram story share failed:', err)
       // Son çare: görseli indir, kullanıcı elle Instagram'a eklesin.
       try {
+        const framedBlob = await exportFramedImage().catch(() => null)
         const link = document.createElement('a')
-        link.href = dreamImage
-        link.download = 'dream-story.png'
+        link.href = framedBlob ? URL.createObjectURL(framedBlob) : dreamImage
+        link.download = 'dream-story.jpg'
         document.body.appendChild(link)
         link.click()
         link.remove()
@@ -121,15 +228,40 @@ export default function StoryModeModal({
             <span className="text-[9px] tracking-widest text-white/50 uppercase block">{t.storySubtitle}</span>
           </div>
 
-          <div className="my-auto flex flex-col items-center">
-            <div className="w-full aspect-[4/5] rounded-2xl overflow-hidden border border-white/15 bg-black shadow-2xl relative">
+          <div className="my-auto flex flex-col items-center w-full">
+            <div
+              ref={frameRef}
+              onPointerDown={handleFramePointerDown}
+              onPointerMove={handleFramePointerMove}
+              onPointerUp={handleFramePointerUp}
+              onPointerLeave={handleFramePointerUp}
+              className="w-full aspect-[4/5] rounded-2xl overflow-hidden border border-white/15 bg-black shadow-2xl relative pointer-events-auto touch-none cursor-move"
+            >
               {dreamImage ? (
-                <img src={dreamImage} alt="Dream Visual" className="w-full h-full object-cover" />
+                <img
+                  ref={imgElRef}
+                  src={dreamImage}
+                  alt="Dream Visual"
+                  crossOrigin="anonymous"
+                  draggable={false}
+                  onLoad={handleImgLoad}
+                  className="absolute select-none"
+                  style={
+                    imgNatural.w
+                      ? {
+                          width: renderedW,
+                          height: renderedH,
+                          transform: `translate(${imgPos.x}px, ${imgPos.y}px)`,
+                          maxWidth: 'none',
+                        }
+                      : { width: '100%', height: '100%', objectFit: 'cover' }
+                  }
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-purple-900 to-black">🌌</div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
-              <div className="absolute bottom-4 left-4 right-4">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent pointer-events-none" />
+              <div className="absolute bottom-4 left-4 right-4 pointer-events-none">
                 <h4 className="text-lg font-bold text-white mb-1.5 leading-tight font-serif">{dreamTitle}</h4>
                 <p className="text-[9px] text-slate-300 italic mb-2">"{dreamMotiv}"</p>
                 <div className="flex flex-wrap gap-1">
@@ -142,6 +274,26 @@ export default function StoryModeModal({
                 </div>
               </div>
             </div>
+
+            {dreamImage && (
+              <div className="w-full flex items-center gap-2 mt-2 px-1 pointer-events-auto">
+                <span className="text-[8px] text-white/40 uppercase tracking-widest shrink-0">
+                  {lang === 'tr' ? 'Yakınlaştır' : 'Zoom'}
+                </span>
+                <input
+                  type="range"
+                  min="1"
+                  max="2.5"
+                  step="0.01"
+                  value={imgZoom}
+                  onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+                  className="flex-1 h-1 accent-fuchsia-400"
+                />
+              </div>
+            )}
+            <p className="text-[8px] text-white/30 tracking-wide mt-1 pointer-events-none">
+              {lang === 'tr' ? 'Görseli sürükleyerek konumlandır' : 'Drag the image to reposition'}
+            </p>
           </div>
 
           <div className="text-center pb-2 pointer-events-auto">
