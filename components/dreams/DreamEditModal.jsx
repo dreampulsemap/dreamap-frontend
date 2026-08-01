@@ -5,7 +5,7 @@ import TagInput from '@/components/TagInput'
 import PixabayPicker from '@/components/PixabayPicker'
 import { uploadDreamCoverImage, getDreamUploadErrorMessage } from '@/lib/uploadDreamCoverImage'
 
-export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 'tr' }) {
+export default function DreamEditModal({ dream, onClose, onSave, saving, error, lang = 'tr' }) {
   const [content, setContent] = useState('')
   const [location, setLocation] = useState('')
   const [visibility, setVisibility] = useState('public')
@@ -202,9 +202,9 @@ export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 
             onChange={(e) => setVisibility(e.target.value)}
             className="mb-4 w-full rounded-[1.2rem] border border-white/10 bg-black/30 px-4 py-3 text-white focus:border-violet-400/30 focus:outline-none"
           >
-            <option value="public">Public</option>
-            <option value="private">Private</option>
-            <option value="friends">Friends</option>
+            <option value="public">{lang === 'tr' ? 'Herkese Açık' : 'Public'}</option>
+            <option value="friends">{lang === 'tr' ? 'Arkadaşlar' : 'Friends'}</option>
+            <option value="private">{lang === 'tr' ? 'Gizli' : 'Private'}</option>
           </select>
 
           <label className="mb-6 flex items-center gap-3 rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
@@ -217,18 +217,23 @@ export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 
             Feed'de göster
           </label>
 
+          {error && (
+            <p className="mb-3 text-right text-xs text-rose-400">{error}</p>
+          )}
+
           <div className="flex flex-wrap justify-end gap-2">
             <button
               onClick={onClose}
-              className="energy-button rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/10"
+              disabled={saving}
+              className="energy-button rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               İptal
             </button>
             <button
               onClick={() =>
                 onSave({
-                  content,
-                  location_name: location,
+                  content: content.trim(),
+                  location_name: location.trim(),
                   visibility,
                   in_feed: inFeed,
                   tags,
@@ -240,7 +245,7 @@ export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 
                   } : {}),
                 })
               }
-              disabled={saving}
+              disabled={saving || uploadingImage || content.trim().length === 0}
               className="energy-button rounded-full border border-violet-300/18 bg-violet-500/12 px-5 py-2.5 text-sm font-medium text-violet-100 hover:border-violet-300/34 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? 'Kaydediliyor...' : 'Kaydet'}
