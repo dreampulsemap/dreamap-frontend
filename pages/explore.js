@@ -49,6 +49,14 @@ export default function ExplorePage() {
   const rankTokenRef = useRef(null)
   const asOfRef = useRef(null)
 
+  // Görselsiz rüyaları da göster: varsayılan kapalı (mevcut davranış),
+  // açıldığında /api/explore/feed'e includeNoImage=1 gönderilip sunucu
+  // tarafındaki "ai_image_url dolu olmalı" filtresi devre dışı bırakılır.
+  // ExploreImageTile zaten görselsiz rüyalar için metin tabanlı bir kart
+  // gösterebiliyor (bkz. showFallback) — burada eksik olan sadece backend'in
+  // bu rüyaları hiç göndermemesiydi.
+  const [includeNoImage, setIncludeNoImage] = useState(false)
+
   // 4 sekmeli hub: Dreamscape (rüyalar) / Vision Board (aktif hedefler) /
   // Victory Wall (gerçekleşenler) / Phoenix Wall (vazgeçilenler)
   const [activeHub, setActiveHub] = useState('dreamscape')
@@ -189,6 +197,7 @@ export default function ExplorePage() {
   const isSearching = searchQuery.trim().length > 0
 
   const loadGlobalDreams = useCallback(async (pageNum = 0, append = false) => {
+    setLoading(true)
     try {
       if (!asOfRef.current) {
         asOfRef.current = new Date().toISOString()
@@ -198,6 +207,7 @@ export default function ExplorePage() {
       const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {}
 
       const params = new URLSearchParams({ page: String(pageNum), asOf: asOfRef.current })
+      if (includeNoImage) params.set('includeNoImage', '1')
       if (pageNum > 0 && rankTokenRef.current) {
         params.set('rankToken', rankTokenRef.current)
       }
@@ -222,7 +232,7 @@ export default function ExplorePage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [includeNoImage])
 
   useEffect(() => {
     loadGlobalDreams(0, false)
@@ -391,6 +401,25 @@ export default function ExplorePage() {
         <>
         {activeHub === 'dreamscape' && (
         <>
+        {/* GÖRSELSİZ RÜYALARI DA GÖSTER — küçük, isteğe bağlı seçenek */}
+        <div className="flex justify-end mb-3">
+          <button
+            type="button"
+            onClick={() => setIncludeNoImage((v) => !v)}
+            aria-pressed={includeNoImage}
+            className={`flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full text-[11px] font-semibold transition-all border ${
+              includeNoImage
+                ? 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30'
+                : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'
+            }`}
+          >
+            <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${includeNoImage ? 'bg-fuchsia-500' : 'bg-white/15'}`}>
+              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${includeNoImage ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+            </span>
+            {lang === 'tr' ? 'Görselsiz rüyaları da göster' : 'Also show dreams without images'}
+          </button>
+        </div>
+
         {/* 3 KOLONLU GÖRSEL IZGARA (INSTAGRAM STYLE) */}
         {loading ? (
           <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
