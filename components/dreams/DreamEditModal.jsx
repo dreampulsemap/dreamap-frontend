@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Image as ImageIcon, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Image as ImageIcon, Upload, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import TagInput from '@/components/TagInput'
 import PixabayPicker from '@/components/PixabayPicker'
+import { uploadDreamCoverImage, getDreamUploadErrorMessage } from '@/lib/uploadDreamCoverImage'
 
 export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 'tr' }) {
   const [content, setContent] = useState('')
@@ -13,6 +14,8 @@ export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 
   const [image, setImage] = useState(null) // { url, width, height, source }
   const [showPixabayPicker, setShowPixabayPicker] = useState(false)
   const [pixabayError, setPixabayError] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     if (dream) {
@@ -54,6 +57,25 @@ export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 
     } catch {
       setPixabayError('network_error')
       return false
+    }
+  }
+
+  async function handleDeviceImageUpload(e) {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = ''
+    if (!file) return
+
+    setPixabayError('')
+    setUploadingImage(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setPixabayError('network_error'); return }
+      const result = await uploadDreamCoverImage({ file, userId: session.user.id, dreamId: dream?.id })
+      setImage(result)
+    } catch (err) {
+      setPixabayError(getDreamUploadErrorMessage(err, lang))
+    } finally {
+      setUploadingImage(false)
     }
   }
 
@@ -103,6 +125,14 @@ export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 
             <p className="mb-3 text-xs uppercase tracking-widest text-slate-400 font-bold">
               {lang === 'tr' ? 'Kapak Görseli' : 'Cover Image'}
             </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={uploadingImage}
+              onChange={handleDeviceImageUpload}
+            />
             {image?.url ? (
               <div className="relative w-full aspect-video rounded-xl overflow-hidden">
                 <img src={image.url} alt="" className="w-full h-full object-cover" />
@@ -115,25 +145,54 @@ export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => setShowPixabayPicker(true)}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 py-5 text-sm text-slate-400 hover:border-fuchsia-400/40 hover:text-fuchsia-200 transition-all"
-              >
-                <ImageIcon size={16} />
-                {lang === 'tr' ? "Pixabay'dan Seç" : 'Choose From Pixabay'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/15 py-5 text-sm text-slate-400 hover:border-fuchsia-400/40 hover:text-fuchsia-200 transition-all disabled:opacity-50"
+                >
+                  <Upload size={16} />
+                  {uploadingImage
+                    ? (lang === 'tr' ? 'Yükleniyor...' : 'Uploading...')
+                    : (lang === 'tr' ? 'Cihazdan Yükle' : 'From Device')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPixabayPicker(true)}
+                  disabled={uploadingImage}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/15 py-5 text-sm text-slate-400 hover:border-fuchsia-400/40 hover:text-fuchsia-200 transition-all disabled:opacity-50"
+                >
+                  <ImageIcon size={16} />
+                  {lang === 'tr' ? "Pixabay'dan Seç" : 'From Pixabay'}
+                </button>
+              </div>
             )}
             {image?.url && (
-              <button
-                onClick={() => setShowPixabayPicker(true)}
-                className="mt-2 text-xs text-fuchsia-300 hover:text-fuchsia-200"
-              >
-                {lang === 'tr' ? 'Değiştir' : 'Change'}
-              </button>
+              <div className="mt-2 flex gap-3">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  className="text-xs text-fuchsia-300 hover:text-fuchsia-200 disabled:opacity-50"
+                >
+                  {uploadingImage
+                    ? (lang === 'tr' ? 'Yükleniyor...' : 'Uploading...')
+                    : (lang === 'tr' ? 'Cihazdan değiştir' : 'Change from device')}
+                </button>
+                <button
+                  onClick={() => setShowPixabayPicker(true)}
+                  disabled={uploadingImage}
+                  className="text-xs text-fuchsia-300 hover:text-fuchsia-200 disabled:opacity-50"
+                >
+                  {lang === 'tr' ? "Pixabay'dan değiştir" : 'Change from Pixabay'}
+                </button>
+              </div>
             )}
             {pixabayError && (
               <p className="mt-2 text-[10px] text-rose-400">
-                {lang === 'tr' ? 'Görsel eklenemedi, tekrar dene.' : 'Could not add the image, please try again.'}
+                {pixabayError === 'network_error'
+                  ? (lang === 'tr' ? 'Görsel eklenemedi, tekrar dene.' : 'Could not add the image, please try again.')
+                  : pixabayError}
               </p>
             )}
           </div>
