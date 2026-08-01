@@ -153,7 +153,7 @@ export default function ImageCropModal({ imageSrc, lang = 'en', title, onCropped
         <button
           onClick={handleConfirm}
           disabled={!imgLoaded || exporting}
-          className="text-fuchsia-400 hover:text-fuchsia-300 disabled:opacity-40 flex items-center gap-1 text-sm font-bold"
+          className="text-brand-primary-400 hover:text-brand-primary-300 disabled:opacity-40 flex items-center gap-1 text-sm font-bold"
         >
           <Check size={18} />
         </button>
@@ -206,7 +206,7 @@ export default function ImageCropModal({ imageSrc, lang = 'en', title, onCropped
             step="0.01"
             value={zoom}
             onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-            className="flex-1 accent-fuchsia-500"
+            className="flex-1 accent-brand-primary-500"
           />
         </div>
         <div className="flex gap-2 mb-3">

@@ -52,7 +52,7 @@ export default function ExploreImageTile({ dream, sentimentEmoji, lang, onClick 
   return (
     <div
       onClick={onClick}
-      className="group aspect-square relative overflow-hidden rounded-xl border border-white/5 bg-slate-900/40 hover:border-fuchsia-500/40 shadow-lg cursor-pointer transition-all duration-300"
+      className="group aspect-square relative overflow-hidden rounded-xl border border-white/5 bg-slate-900/40 hover:border-brand-primary-500/40 shadow-lg cursor-pointer transition-all duration-300"
     >
       {!showFallback ? (
         <Image
@@ -64,7 +64,7 @@ export default function ExploreImageTile({ dream, sentimentEmoji, lang, onClick 
           onError={handleError}
         />
       ) : (
-        <div className="w-full h-full flex flex-col justify-between p-3 sm:p-5 bg-gradient-to-br from-purple-950/20 to-black select-none">
+        <div className="w-full h-full flex flex-col justify-between p-3 sm:p-5 bg-gradient-to-br from-brand-accent-950/20 to-black select-none">
           <span className="text-lg sm:text-2xl">{sentimentEmoji}</span>
           <p className="text-[10px] sm:text-xs text-white/70 leading-relaxed font-light line-clamp-3">"{dream.content}"</p>
           <span className="text-[8px] sm:text-[10px] tracking-wider text-slate-500 uppercase">✦ {dream.location_name || 'Mystic Node'}</span>

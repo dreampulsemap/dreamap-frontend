@@ -92,7 +92,7 @@ export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="Konum"
-            className="mb-4 w-full rounded-[1.2rem] border border-white/10 bg-black/30 px-4 py-3 text-white placeholder:text-white/30 focus:border-cyan-400/30 focus:outline-none"
+            className="mb-4 w-full rounded-[1.2rem] border border-white/10 bg-black/30 px-4 py-3 text-white placeholder:text-white/30 focus:border-brand-secondary-400/30 focus:outline-none"
           />
 
           <div className="mb-4 rounded-[1.2rem] border border-white/10 bg-black/30 p-4">
@@ -117,7 +117,7 @@ export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 
             ) : (
               <button
                 onClick={() => setShowPixabayPicker(true)}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 py-5 text-sm text-slate-400 hover:border-fuchsia-400/40 hover:text-fuchsia-200 transition-all"
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 py-5 text-sm text-slate-400 hover:border-brand-primary-400/40 hover:text-brand-primary-200 transition-all"
               >
                 <ImageIcon size={16} />
                 {lang === 'tr' ? "Pixabay'dan Seç" : 'Choose From Pixabay'}
@@ -126,13 +126,13 @@ export default function DreamEditModal({ dream, onClose, onSave, saving, lang = 
             {image?.url && (
               <button
                 onClick={() => setShowPixabayPicker(true)}
-                className="mt-2 text-xs text-fuchsia-300 hover:text-fuchsia-200"
+                className="mt-2 text-xs text-brand-primary-300 hover:text-brand-primary-200"
               >
                 {lang === 'tr' ? 'Değiştir' : 'Change'}
               </button>
             )}
             {pixabayError && (
-              <p className="mt-2 text-[10px] text-rose-400">
+              <p className="mt-2 text-[10px] text-semantic-danger-400">
                 {lang === 'tr' ? 'Görsel eklenemedi, tekrar dene.' : 'Could not add the image, please try again.'}
               </p>
             )}

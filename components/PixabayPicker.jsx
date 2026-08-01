@@ -146,7 +146,7 @@ export default function PixabayPicker({ lang = 'en', videoStatus, videoEnabled =
             <button
               onClick={() => switchTab('image')}
               className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-                mediaType === 'image' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                mediaType === 'image' ? 'bg-brand-primary-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
               }`}
             >
               {lang === 'tr' ? 'Görseller' : 'Images'}
@@ -154,7 +154,7 @@ export default function PixabayPicker({ lang = 'en', videoStatus, videoEnabled =
             <button
               onClick={() => switchTab('video')}
               className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${
-                mediaType === 'video' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                mediaType === 'video' ? 'bg-brand-primary-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
               }`}
             >
               {lang === 'tr' ? 'Videolar' : 'Videos'}
@@ -207,7 +207,7 @@ export default function PixabayPicker({ lang = 'en', videoStatus, videoEnabled =
               key={tag}
               onClick={() => handleQuickTag(tag)}
               className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-                query === tag ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                query === tag ? 'bg-brand-primary-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
               }`}
             >
               {tag}
@@ -216,7 +216,7 @@ export default function PixabayPicker({ lang = 'en', videoStatus, videoEnabled =
         </div>
 
         {error && !loading && (
-          <p className="text-rose-400 text-xs mb-3">{lang === 'tr' ? 'İçerikler yüklenemedi.' : 'Could not load content.'}</p>
+          <p className="text-semantic-danger-400 text-xs mb-3">{lang === 'tr' ? 'İçerikler yüklenemedi.' : 'Could not load content.'}</p>
         )}
 
         {!error && !loading && hits.length === 0 && (

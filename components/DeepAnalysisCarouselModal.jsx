@@ -116,7 +116,7 @@ export default function DeepAnalysisCarouselModal({
 
         {/* BAŞLIK & İNDİKATÖR */}
         <div className="absolute top-4 left-6 z-[180] flex items-center gap-2">
-          <span className="text-xs font-bold text-fuchsia-300 uppercase tracking-widest">
+          <span className="text-xs font-bold text-brand-primary-300 uppercase tracking-widest">
             {slides[currentSlide]?.title}
           </span>
           <span className="text-[10px] text-white/40 font-mono">({currentSlide + 1}/7)</span>
@@ -127,7 +127,7 @@ export default function DeepAnalysisCarouselModal({
           <button
             type="button"
             onClick={safeOnOpenStoryMode}
-            className="absolute top-18 right-4 z-[180] inline-flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-200 hover:bg-cyan-500/20 transition-all"
+            className="absolute top-18 right-4 z-[180] inline-flex items-center gap-1.5 rounded-full border border-brand-secondary-400/30 bg-brand-secondary-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary-200 hover:bg-brand-secondary-500/20 transition-all"
           >
             📱 {t.storyModeBtn || 'STORY MODE'}
           </button>
@@ -143,7 +143,7 @@ export default function DeepAnalysisCarouselModal({
                 {dreamImage ? (
                   <img src={dreamImage} alt="Dream Visual" className="w-full h-full object-cover animate-fade-in" />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-950/40 to-black p-6 text-center gap-4 select-none">
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-brand-accent-950/40 to-black p-6 text-center gap-4 select-none">
                     <span className="text-4xl">🌌</span>
                     <p className="text-xs text-slate-300 max-w-[240px]">
                       {safeLang === 'tr' 
@@ -154,7 +154,7 @@ export default function DeepAnalysisCarouselModal({
                       type="button"
                       onClick={(e) => { e.stopPropagation(); safeOnGenerateImage(); }}
                       disabled={generatingImage}
-                      className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-2.5 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.15)] animate-pulse"
+                      className="rounded-xl border border-brand-secondary-400/20 bg-brand-secondary-500/10 px-4 py-2.5 text-xs font-bold text-brand-secondary-300 hover:bg-brand-secondary-500/20 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.15)] animate-pulse"
                     >
                       <span>{generatingImage ? '⏳' : '✦'}</span>
                       <span>
@@ -164,7 +164,7 @@ export default function DeepAnalysisCarouselModal({
                       </span>
                     </button>
                     {premiumError && (
-                      <p className="text-xs text-rose-400 max-w-[240px] font-sans mt-2" role="alert">
+                      <p className="text-xs text-semantic-danger-400 max-w-[240px] font-sans mt-2" role="alert">
                         <AlertTriangle size={12} className="inline -mt-0.5" /> {premiumError}
                       </p>
                     )}
@@ -189,7 +189,7 @@ export default function DeepAnalysisCarouselModal({
           {/* SLAYT 2: KULLANICININ ORİJİNAL RÜYASI */}
           {currentSlide === 1 && (
             <div className="min-h-full flex flex-col justify-center max-w-xl mx-auto">
-              <span className="text-2xl mb-3 text-cyan-400">📖</span>
+              <span className="text-2xl mb-3 text-brand-secondary-400">📖</span>
               <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
                 {t.slideTitle1 || 'Your Dream Text'}
               </h4>
@@ -202,7 +202,7 @@ export default function DeepAnalysisCarouselModal({
           {/* SLAYT 3: TEASER / BAZ ANALİZ */}
           {currentSlide === 2 && (
             <div className="min-h-full flex flex-col justify-center max-w-xl mx-auto">
-              <span className="text-2xl mb-3 text-fuchsia-400">✨</span>
+              <span className="text-2xl mb-3 text-brand-primary-400">✨</span>
               <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
                 {t.slideTitle2 || 'Subconscious Signal'}
               </h4>
@@ -228,18 +228,18 @@ export default function DeepAnalysisCarouselModal({
           {/* SLAYT 5: GÖLGE VE ÇATIŞMA */}
           {currentSlide === 4 && (
             <div className="min-h-full flex flex-col justify-center gap-6 max-w-2xl mx-auto py-4">
-              <div className="p-5 rounded-2xl border border-rose-500/20 bg-rose-500/[0.02]">
-                <h5 className="text-xs font-bold uppercase tracking-wider text-rose-400 mb-2 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+              <div className="p-5 rounded-2xl border border-semantic-danger-500/20 bg-semantic-danger-500/[0.02]">
+                <h5 className="text-xs font-bold uppercase tracking-wider text-semantic-danger-400 mb-2 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-semantic-danger-400" />
                   {safeLang === 'tr' ? 'Bastırılmış Benlik (Gölge)' : 'Shadow Focus'}
                 </h5>
                 <p className="text-xs leading-6 text-slate-300 font-light pr-2">
                   {getSafeVal(premiumAnalysis?.shadow_focus, safeLang)}
                 </p>
               </div>
-              <div className="p-5 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.02]">
-                <h5 className="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-2 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+              <div className="p-5 rounded-2xl border border-brand-secondary-500/20 bg-brand-secondary-500/[0.02]">
+                <h5 className="text-xs font-bold uppercase tracking-wider text-brand-secondary-400 mb-2 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-secondary-400" />
                   {safeLang === 'tr' ? 'Temel Gerilim (Çatışma)' : 'Core Conflict'}
                 </h5>
                 <p className="text-xs leading-6 text-slate-300 font-light pr-2">
@@ -271,8 +271,8 @@ export default function DeepAnalysisCarouselModal({
               {Array.isArray(premiumAnalysis?.reflection_questions) &&
                 premiumAnalysis.reflection_questions.slice(0, 3).map((q, idx) => (
                   <div key={idx} className="p-4 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.02] transition-colors relative overflow-hidden">
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-fuchsia-400/40" />
-                    <span className="text-[10px] font-bold text-fuchsia-400 uppercase tracking-widest block mb-1">
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-primary-400/40" />
+                    <span className="text-[10px] font-bold text-brand-primary-400 uppercase tracking-widest block mb-1">
                       {safeLang === 'tr' ? `Yansıma ${idx + 1}` : `Reflection ${idx + 1}`}
                     </span>
                     <p className="text-xs text-slate-300 leading-relaxed italic">"{q}"</p>
@@ -292,7 +292,7 @@ export default function DeepAnalysisCarouselModal({
                 type="button"
                 onClick={() => setCurrentSlide(idx)}
                 aria-label={`Slide ${idx + 1}`}
-                className={`h-1.5 rounded-full transition-all duration-300 ${currentSlide === idx ? 'w-5 bg-fuchsia-400 shadow-[0_0_10px_rgba(240,73,214,0.4)]' : 'w-1.5 bg-white/20'}`}
+                className={`h-1.5 rounded-full transition-all duration-300 ${currentSlide === idx ? 'w-5 bg-brand-primary-400 shadow-[0_0_10px_rgba(240,73,214,0.4)]' : 'w-1.5 bg-white/20'}`}
               />
             ))}
           </div>
@@ -313,7 +313,7 @@ export default function DeepAnalysisCarouselModal({
                 type="button"
                 onClick={onLunosferShare}
                 title={t.lunosferTitle}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-fuchsia-600 to-indigo-600 hover:brightness-110 transition-all text-fuchsia-300"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-primary-600 to-indigo-600 hover:brightness-110 transition-all text-brand-primary-300"
               >
                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                   <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM12 14L10.5 10.5 7 9l3.5-1.5L12 4l1.5 3.5L17 9l-3.5 1.5L12 14z"/>
@@ -324,7 +324,7 @@ export default function DeepAnalysisCarouselModal({
                 type="button"
                 onClick={onInstagramShare}
                 title={t.instagramTitle}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-600 via-pink-500 to-yellow-500 hover:brightness-110 transition-all text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-accent-600 via-pink-500 to-yellow-500 hover:brightness-110 transition-all text-white"
               >
                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                   <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4.162 4.162 0 110-8.324A4.162 4.162 0 0112 16zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />

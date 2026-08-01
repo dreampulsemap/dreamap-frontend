@@ -92,11 +92,11 @@ export default function DailySeedsPanel({ lang = 'en', user, activeGoals = [] })
 
   return (
     <div className="mb-6 glass-card rounded-2xl p-4">
-      <h3 className="text-xs uppercase tracking-widest text-fuchsia-300 font-bold mb-3">
+      <h3 className="text-xs uppercase tracking-widest text-brand-primary-300 font-bold mb-3">
         <Sprout size={14} className="inline -mt-0.5 mr-1" /> {lang === 'tr' ? 'Bugünün Tohumları' : "Today's Seeds"}
       </h3>
 
-      {error && <p className="text-rose-400 text-xs mb-2">{error}</p>}
+      {error && <p className="text-semantic-danger-400 text-xs mb-2">{error}</p>}
 
       <div className="space-y-2">
         {seeds.map((seed) => (
@@ -104,7 +104,7 @@ export default function DailySeedsPanel({ lang = 'en', user, activeGoals = [] })
             <button
               onClick={() => toggleSeed(seed.id)}
               className={`w-5 h-5 mt-0.5 rounded-md border flex items-center justify-center text-xs shrink-0 cursor-pointer ${
-                seed.is_completed ? 'bg-cyan-400 border-cyan-400 text-black' : 'border-white/20 text-transparent'
+                seed.is_completed ? 'bg-brand-secondary-400 border-brand-secondary-400 text-black' : 'border-white/20 text-transparent'
               }`}
             >
               ✓
@@ -124,7 +124,7 @@ export default function DailySeedsPanel({ lang = 'en', user, activeGoals = [] })
             <button
               onClick={() => generateSeed(goal.id)}
               disabled={generatingGoalId === goal.id}
-              className="shrink-0 px-3 py-1 rounded-full bg-fuchsia-500/90 text-white text-[11px] font-bold uppercase tracking-widest hover:opacity-90 disabled:opacity-40"
+              className="shrink-0 px-3 py-1 rounded-full bg-brand-primary-500/90 text-white text-[11px] font-bold uppercase tracking-widest hover:opacity-90 disabled:opacity-40"
             >
               {generatingGoalId === goal.id
                 ? '...'

@@ -66,7 +66,7 @@ export default function SlideCaptionEditor({ slide, imageSrc, lang = 'en', onSav
         <button
           onClick={handleSave}
           disabled={saving}
-          className="text-fuchsia-400 hover:text-fuchsia-300 disabled:opacity-40 flex items-center gap-1 text-sm font-bold"
+          className="text-brand-primary-400 hover:text-brand-primary-300 disabled:opacity-40 flex items-center gap-1 text-sm font-bold"
         >
           <Check size={18} />
         </button>
@@ -134,7 +134,7 @@ export default function SlideCaptionEditor({ slide, imageSrc, lang = 'en', onSav
             step="0.05"
             value={size}
             onChange={(e) => setSize(parseFloat(e.target.value))}
-            className="flex-1 accent-fuchsia-500"
+            className="flex-1 accent-brand-primary-500"
           />
         </div>
 
@@ -145,7 +145,7 @@ export default function SlideCaptionEditor({ slide, imageSrc, lang = 'en', onSav
                 key={f}
                 onClick={() => setFont(f)}
                 className={`${FONT_CLASS[f]} w-8 h-8 rounded-lg text-xs flex items-center justify-center border ${
-                  font === f ? 'border-fuchsia-400 text-fuchsia-300' : 'border-white/10 text-slate-400'
+                  font === f ? 'border-brand-primary-400 text-brand-primary-300' : 'border-white/10 text-slate-400'
                 }`}
               >
                 Aa
@@ -158,7 +158,7 @@ export default function SlideCaptionEditor({ slide, imageSrc, lang = 'en', onSav
                 key={c}
                 onClick={() => setColor(c)}
                 style={{ backgroundColor: c }}
-                className={`w-7 h-7 rounded-full border-2 ${color.toLowerCase() === c ? 'border-fuchsia-400' : 'border-white/20'}`}
+                className={`w-7 h-7 rounded-full border-2 ${color.toLowerCase() === c ? 'border-brand-primary-400' : 'border-white/20'}`}
               />
             ))}
           </div>

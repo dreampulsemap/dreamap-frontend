@@ -109,14 +109,14 @@ export default function TagInput({ tags = [], onChange, lang = 'en' }) {
         {tags.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1.5 rounded-full bg-fuchsia-500/15 border border-fuchsia-400/30 px-3 py-1 text-xs text-fuchsia-100"
+            className="inline-flex items-center gap-1.5 rounded-full bg-brand-primary-500/15 border border-brand-primary-400/30 px-3 py-1 text-xs text-brand-primary-100"
           >
             #{tag}
             <button
               type="button"
               onClick={() => removeTag(tag)}
               aria-label={text.removeAria(tag)}
-              className="text-fuchsia-300 hover:text-white"
+              className="text-brand-primary-300 hover:text-white"
             >
               <X size={11} />
             </button>
@@ -132,7 +132,7 @@ export default function TagInput({ tags = [], onChange, lang = 'en' }) {
           onKeyDown={handleKeyDown}
           onBlur={() => draft && addTag(draft)}
           placeholder={text.placeholder}
-          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:border-fuchsia-500/50 focus:outline-none"
+          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:border-brand-primary-500/50 focus:outline-none"
         />
       )}
       {atLimit && (

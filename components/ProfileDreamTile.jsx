@@ -63,7 +63,7 @@ export default function ProfileDreamTile({ dream, lang, isHighlighted, onClick, 
     <div
       ref={tileRef}
       onClick={onClick}
-      className={`group aspect-square relative overflow-hidden rounded-xl border bg-slate-900/40 hover:border-fuchsia-500/45 cursor-pointer shadow-lg transition-all duration-300 ${isHighlighted ? 'border-fuchsia-500/70 ring-2 ring-fuchsia-500/50' : 'border-white/5'}`}
+      className={`group aspect-square relative overflow-hidden rounded-xl border bg-slate-900/40 hover:border-brand-primary-500/45 cursor-pointer shadow-lg transition-all duration-300 ${isHighlighted ? 'border-brand-primary-500/70 ring-2 ring-brand-primary-500/50' : 'border-white/5'}`}
     >
       {!showFallback ? (
         <Image
@@ -76,11 +76,11 @@ export default function ProfileDreamTile({ dream, lang, isHighlighted, onClick, 
         />
       ) : (
         // Görseli olmayan/onarılamayan rüyalar için estetik bakiye kartı
-        <div className="w-full h-full flex flex-col justify-between p-3 sm:p-5 bg-gradient-to-br from-purple-950/20 to-black select-none">
+        <div className="w-full h-full flex flex-col justify-between p-3 sm:p-5 bg-gradient-to-br from-brand-accent-950/20 to-black select-none">
           <span className="text-base sm:text-xl">🌌</span>
           <p className="text-[9px] sm:text-[11px] text-white/70 leading-relaxed font-light line-clamp-3">"{dream.content}"</p>
           {!hasImg && (
-            <button className="self-start rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2 py-0.5 text-[8px] sm:text-[9px] font-bold text-cyan-300 hover:bg-cyan-500/25">
+            <button className="self-start rounded-full border border-brand-secondary-400/20 bg-brand-secondary-500/10 px-2 py-0.5 text-[8px] sm:text-[9px] font-bold text-brand-secondary-300 hover:bg-brand-secondary-500/25">
               <Sparkles size={10} className="inline -mt-0.5" /> {getCreateVisualText(lang)}
             </button>
           )}

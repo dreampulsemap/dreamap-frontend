@@ -151,11 +151,11 @@ export default function MiniGlobe() {
         className="relative flex items-center justify-center"
         style={{ width: globeSize, height: globeSize }}
       >
-        <div className="absolute inset-0 rounded-full bg-cyan-400/10 blur-2xl opacity-70" />
+        <div className="absolute inset-0 rounded-full bg-brand-secondary-400/10 blur-2xl opacity-70" />
 
         <div
           ref={globeContainer}
-          className="relative z-10 h-80 w-80 overflow-hidden rounded-full border-2 border-purple-500/30 glow-border transition-all duration-300 group-hover:border-cyan-400/50 group-hover:scale-[1.02]"
+          className="relative z-10 h-80 w-80 overflow-hidden rounded-full border-2 border-brand-accent-500/30 glow-border transition-all duration-300 group-hover:border-brand-secondary-400/50 group-hover:scale-[1.02]"
         />
 
         {!ready && (

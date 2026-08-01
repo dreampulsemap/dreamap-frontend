@@ -76,7 +76,7 @@ export default function MentalWallPanel({ lang = 'en', user }) {
         onClick={() => setExpanded((e) => !e)}
         className="w-full flex items-center justify-between text-left"
       >
-        <h3 className="text-xs uppercase tracking-widest text-fuchsia-300 font-bold flex items-center gap-1.5">
+        <h3 className="text-xs uppercase tracking-widest text-brand-primary-300 font-bold flex items-center gap-1.5">
           <Eye size={14} /> {lang === 'tr' ? 'Gölge Çalışması' : 'Shadow Work'}
         </h3>
         <span className="text-slate-500 text-xs">{expanded ? '−' : '+'}</span>
@@ -90,12 +90,12 @@ export default function MentalWallPanel({ lang = 'en', user }) {
               : 'Cross-references your dreams against your goals to detect a subconscious block.'}
           </p>
 
-          {error && <p className="text-rose-400 text-xs mb-2">{error}</p>}
+          {error && <p className="text-semantic-danger-400 text-xs mb-2">{error}</p>}
 
           <button
             onClick={generateReport}
             disabled={generating}
-            className="w-full mb-4 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-xs font-bold uppercase tracking-widest hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-1.5"
+            className="w-full mb-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-primary-500 to-brand-accent-500 text-white text-xs font-bold uppercase tracking-widest hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-1.5"
           >
             <Sparkles size={14} />
             {generating
@@ -113,7 +113,7 @@ export default function MentalWallPanel({ lang = 'en', user }) {
             <div className="space-y-3">
               {reports.map((r) => (
                 <div key={r.id} className="bg-white/5 rounded-xl p-3">
-                  <p className="text-cyan-300 text-xs font-bold uppercase tracking-wide mb-1">
+                  <p className="text-brand-secondary-300 text-xs font-bold uppercase tracking-wide mb-1">
                     {r.detected_block}
                   </p>
                   <p className="text-slate-300 text-sm leading-relaxed">{r.report_content}</p>

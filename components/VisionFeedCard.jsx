@@ -67,7 +67,7 @@ export default function VisionFeedCard({ goal, lang = 'en', onOpen }) {
               {statusLabel}
             </span>
           )}
-          <span className="absolute top-3 right-3 z-[2] text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-black/60 backdrop-blur text-cyan-200 border border-cyan-300/20">
+          <span className="absolute top-3 right-3 z-[2] text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-black/60 backdrop-blur text-brand-secondary-200 border border-brand-secondary-300/20">
             {lang === 'tr' ? 'Vizyon' : 'Vision'}
           </span>
         </div>

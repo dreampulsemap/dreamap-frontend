@@ -179,17 +179,17 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
               onChange={(e) => setTitle(e.target.value)}
               placeholder={t.titlePlaceholder}
               maxLength={120}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500/50"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-brand-primary-500/50"
             />
             {!dismissedTenseHint && hasFutureTenseLanguage(title, lang) && (
-              <div className="mt-1.5 flex items-start gap-2 bg-fuchsia-500/5 border border-fuchsia-500/15 rounded-lg px-3 py-2">
-                <p className="flex-1 text-[11px] text-fuchsia-200/90 leading-snug">
+              <div className="mt-1.5 flex items-start gap-2 bg-brand-primary-500/5 border border-brand-primary-500/15 rounded-lg px-3 py-2">
+                <p className="flex-1 text-[11px] text-brand-primary-200/90 leading-snug">
                   {t.titleTenseHint}{' '}
                   <span className="text-slate-400">
-                    {(affirmationExamples[lang] || affirmationExamples.en)[0].future} → <span className="text-fuchsia-300">{(affirmationExamples[lang] || affirmationExamples.en)[0].present}</span>
+                    {(affirmationExamples[lang] || affirmationExamples.en)[0].future} → <span className="text-brand-primary-300">{(affirmationExamples[lang] || affirmationExamples.en)[0].present}</span>
                   </span>
                 </p>
-                <button type="button" onClick={() => setDismissedTenseHint(true)} className="text-fuchsia-300/60 hover:text-fuchsia-200 shrink-0">
+                <button type="button" onClick={() => setDismissedTenseHint(true)} className="text-brand-primary-300/60 hover:text-brand-primary-200 shrink-0">
                   <X size={12} />
                 </button>
               </div>
@@ -232,14 +232,14 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
                   type="button"
                   onClick={() => setShowPixabayPicker(true)}
                   disabled={uploadingCover}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-fuchsia-300 text-xs font-semibold hover:bg-white/10 disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-brand-primary-300 text-xs font-semibold hover:bg-white/10 disabled:opacity-40"
                 >
                   <SearchIcon size={14} />
                   {lang === 'tr' ? 'Pixabay\u2019dan Seç' : 'From Pixabay'}
                 </button>
               </div>
             )}
-            {coverError && <p className="text-rose-400 text-xs mt-1">{coverError}</p>}
+            {coverError && <p className="text-semantic-danger-400 text-xs mt-1">{coverError}</p>}
           </div>
 
           <div>
@@ -250,7 +250,7 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
               placeholder={t.descriptionPlaceholder}
               maxLength={2000}
               rows={3}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500/50 resize-none"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-brand-primary-500/50 resize-none"
             />
           </div>
 
@@ -261,7 +261,7 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
                 type="date"
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-fuchsia-500/50"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-brand-primary-500/50"
               />
             </div>
             <div>
@@ -269,7 +269,7 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
               <select
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-fuchsia-500/50"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-brand-primary-500/50"
               >
                 <option value="public" className="bg-black">{t.visibilityPublic}</option>
                 <option value="friends" className="bg-black">{t.visibilityFriends}</option>
@@ -287,7 +287,7 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRoadmapStep() } }}
                 placeholder={t.roadmapPlaceholder}
                 maxLength={200}
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500/50"
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-brand-primary-500/50"
               />
               <button
                 onClick={addRoadmapStep}
@@ -302,19 +302,19 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
                 {roadmap.map((step, i) => (
                   <li key={i} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-1.5 text-sm text-slate-300">
                     <span className="truncate">{step}</span>
-                    <button onClick={() => removeStep(i)} className="text-slate-500 hover:text-rose-400 ml-2"><X size={14} /></button>
+                    <button onClick={() => removeStep(i)} className="text-slate-500 hover:text-semantic-danger-400 ml-2"><X size={14} /></button>
                   </li>
                 ))}
               </ul>
             )}
           </div>
 
-          {error && <p className="text-rose-400 text-sm">{error}</p>}
+          {error && <p className="text-semantic-danger-400 text-sm">{error}</p>}
 
           <button
             onClick={handleSubmit}
             disabled={!title.trim() || submitting}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white font-bold uppercase tracking-widest text-sm hover:opacity-90 disabled:opacity-40 transition-all"
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-primary-500 to-brand-accent-500 text-white font-bold uppercase tracking-widest text-sm hover:opacity-90 disabled:opacity-40 transition-all"
           >
             {submitting ? t.creating : t.createSubmitBtn}
           </button>

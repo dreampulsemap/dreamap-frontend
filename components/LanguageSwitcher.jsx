@@ -73,7 +73,7 @@ export default function LanguageSwitcher({ onLanguageChange }) {
               }}
               className={`w-full px-4 py-3 flex items-center gap-3 rounded-lg transition-all ${
                 currentCode === lang.code
-                  ? 'bg-purple-500/30 text-white'
+                  ? 'bg-brand-accent-500/30 text-white'
                   : 'text-white/70 hover:bg-white/10'
               }`}
             >

@@ -120,7 +120,7 @@ export default function VisionReelsFeed({ goals, lang, t, currentUserId, initial
                   className="absolute left-4 right-20 bottom-24 text-left"
                 >
                   <span className="flex items-center gap-2 mb-2">
-                    <span className="w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold overflow-hidden shrink-0 ring-2 ring-white/20">
+                    <span className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-primary-500 to-brand-secondary-500 flex items-center justify-center text-white text-xs font-bold overflow-hidden shrink-0 ring-2 ring-white/20">
                       {goal.owner?.avatar_url ? <img src={goal.owner.avatar_url} alt="" className="w-full h-full object-cover" /> : initialsOf(ownerName)}
                     </span>
                     <span className="text-white text-sm font-semibold drop-shadow-md">{ownerName}</span>

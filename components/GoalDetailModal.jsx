@@ -409,20 +409,20 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
         {goal.status === 'active' && (
           <button
             onClick={handleShare}
-            className="w-full flex items-center gap-2.5 mb-4 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500/10 to-cyan-500/10 border border-fuchsia-500/20 hover:border-fuchsia-500/40 transition-colors text-left"
+            className="w-full flex items-center gap-2.5 mb-4 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-brand-primary-500/10 to-brand-secondary-500/10 border border-brand-primary-500/20 hover:border-brand-primary-500/40 transition-colors text-left"
           >
-            <Share2 size={15} className="text-fuchsia-300 shrink-0" />
+            <Share2 size={15} className="text-brand-primary-300 shrink-0" />
             <span className="flex-1 min-w-0">
               <span className="block text-white text-xs font-semibold">{t.shareCommitmentTitle}</span>
               <span className="block text-slate-400 text-[11px] truncate">{shareCopied ? t.shareLinkCopied : t.shareCommitmentDesc}</span>
             </span>
-            <span className="text-fuchsia-300 text-[10px] font-bold uppercase tracking-widest shrink-0">{t.shareBtn}</span>
+            <span className="text-brand-primary-300 text-[10px] font-bold uppercase tracking-widest shrink-0">{t.shareBtn}</span>
           </button>
         )}
 
         {goal.status === 'completed' && goal.victory_story && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-            <p className="text-emerald-300 text-xs font-bold uppercase tracking-widest mb-1">{t.victoryWallTitle}</p>
+          <div className="mb-4 p-3 rounded-xl bg-semantic-success-500/10 border border-semantic-success-500/20">
+            <p className="text-semantic-success-300 text-xs font-bold uppercase tracking-widest mb-1">{t.victoryWallTitle}</p>
             <p className="text-slate-200 text-sm">{goal.victory_story}</p>
           </div>
         )}
@@ -471,7 +471,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
         <div className="mb-5">
           <button
             onClick={() => setShowSlidesViewer(true)}
-            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500/90 via-purple-500/90 to-cyan-500/90 text-white text-xs font-bold uppercase tracking-widest hover:opacity-90"
+            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-primary-500/90 via-brand-accent-500/90 to-brand-secondary-500/90 text-white text-xs font-bold uppercase tracking-widest hover:opacity-90"
           >
             {lang === 'tr' ? '▶ Vizyon Slaytlarını İzle' : '▶ Watch Vision Slides'}
           </button>
@@ -512,10 +512,10 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
                 {lang === 'tr' ? 'Pixabay\u2019dan Seç' : 'From Pixabay'}
               </button>
             </div>
-            {galleryError && <p className="text-rose-400 text-xs mt-1.5">{galleryError}</p>}
+            {galleryError && <p className="text-semantic-danger-400 text-xs mt-1.5">{galleryError}</p>}
             <button
               onClick={() => setShowSlideEditor(true)}
-              className="mt-2 w-full py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500/20 via-purple-500/20 to-cyan-500/20 text-fuchsia-200 text-xs font-bold uppercase tracking-widest hover:opacity-90"
+              className="mt-2 w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-primary-500/20 via-brand-accent-500/20 to-brand-secondary-500/20 text-brand-primary-200 text-xs font-bold uppercase tracking-widest hover:opacity-90"
             >
               {lang === 'tr' ? 'Vizyon Slaytlarını Düzenle' : 'Edit Vision Slides'}
             </button>
@@ -549,7 +549,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
                   aria-label={m.is_completed ? (lang === 'tr' ? 'Tamamlandı, geri al' : 'Completed, undo') : (lang === 'tr' ? 'Tamamlandı işaretle' : 'Mark complete')}
                   aria-pressed={m.is_completed}
                   className={`w-5 h-5 rounded-md border flex items-center justify-center text-xs shrink-0 ${
-                    m.is_completed ? 'bg-cyan-400 border-cyan-400 text-black' : 'border-white/20 text-transparent'
+                    m.is_completed ? 'bg-brand-secondary-400 border-brand-secondary-400 text-black' : 'border-white/20 text-transparent'
                   } ${isOwner ? 'cursor-pointer' : 'cursor-default'}`}
                 >
                   {m.is_completed && <Check size={12} />}
@@ -576,9 +576,9 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
 
         {/* GÜNLÜK PRATİK — eğlenceli manifestation / oyun / alıştırma */}
         {goal.status === 'active' && (
-          <div className="mb-5 p-4 rounded-xl bg-gradient-to-br from-fuchsia-500/10 via-purple-500/10 to-cyan-500/10 border border-white/10">
+          <div className="mb-5 p-4 rounded-xl bg-gradient-to-br from-brand-primary-500/10 via-brand-accent-500/10 to-brand-secondary-500/10 border border-white/10">
             <h3 className="text-xs uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5">
-              <SparklesIcon size={14} className="text-fuchsia-300" />
+              <SparklesIcon size={14} className="text-brand-primary-300" />
               {lang === 'tr' ? 'Bugünün Pratiği' : "Today's Practice"}
             </h3>
             <p className="text-slate-200 text-sm mb-3">
@@ -589,7 +589,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
               onClick={togglePracticeDone}
               className={`w-full py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 ${
                 practiceDone
-                  ? 'bg-emerald-500/90 text-black'
+                  ? 'bg-semantic-success-500/90 text-black'
                   : 'bg-white/10 text-slate-200 hover:bg-white/20'
               }`}
             >
@@ -611,14 +611,14 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
             <button
               onClick={generateCover}
               disabled={generatingCover}
-              className="w-full py-2.5 rounded-xl bg-white/5 text-cyan-300 text-xs font-bold uppercase tracking-widest hover:bg-white/10 disabled:opacity-40 flex items-center justify-center gap-1.5"
+              className="w-full py-2.5 rounded-xl bg-white/5 text-brand-secondary-300 text-xs font-bold uppercase tracking-widest hover:bg-white/10 disabled:opacity-40 flex items-center justify-center gap-1.5"
             >
               <ImageIcon size={14} />
               {generatingCover
                 ? (lang === 'tr' ? 'Görsel Üretiliyor...' : 'Generating Image...')
                 : (lang === 'tr' ? `AI Kapak Üret (${AURA_COST} Aura)` : `Generate AI Cover (${AURA_COST} Auras)`)}
             </button>
-            {coverError && <p className="text-rose-400 text-xs mt-1.5">{coverError}</p>}
+            {coverError && <p className="text-semantic-danger-400 text-xs mt-1.5">{coverError}</p>}
           </div>
         )}
 
@@ -627,7 +627,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
           <div className="flex gap-2 mb-5">
             <button
               onClick={() => setResolveMode('completed')}
-              className="flex-1 py-2.5 rounded-xl bg-emerald-500/90 text-black text-xs font-bold uppercase tracking-widest hover:opacity-90"
+              className="flex-1 py-2.5 rounded-xl bg-semantic-success-500/90 text-black text-xs font-bold uppercase tracking-widest hover:opacity-90"
             >
               {t.markCompleteBtn}
             </button>
@@ -660,7 +660,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
               <button
                 onClick={resolveGoal}
                 disabled={busy}
-                className="flex-1 py-2 rounded-lg bg-fuchsia-500 text-white text-xs font-bold uppercase tracking-widest disabled:opacity-40"
+                className="flex-1 py-2 rounded-lg bg-brand-primary-500 text-white text-xs font-bold uppercase tracking-widest disabled:opacity-40"
               >
                 {t.confirmBtn}
               </button>
@@ -678,13 +678,13 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
           <button
             onClick={deleteGoal}
             disabled={busy}
-            className="text-rose-400 text-xs font-bold uppercase tracking-widest mb-5 hover:text-rose-300 flex items-center gap-1.5"
+            className="text-semantic-danger-400 text-xs font-bold uppercase tracking-widest mb-5 hover:text-semantic-danger-300 flex items-center gap-1.5"
           >
             <Trash2 size={14} /> {t.deleteGoalBtn}
           </button>
         )}
 
-        {error && <p className="text-rose-400 text-sm mb-3">{error}</p>}
+        {error && <p className="text-semantic-danger-400 text-sm mb-3">{error}</p>}
 
         {/* YORUMLAR */}
         <div>
@@ -702,7 +702,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
           <ul className="space-y-2 max-h-48 overflow-y-auto">
             {comments.map((c) => (
               <li key={c.id} className="text-sm">
-                <span className="text-cyan-300 font-semibold">
+                <span className="text-brand-secondary-300 font-semibold">
                   {c.user_profiles?.display_name || c.user_profiles?.username || '...'}
                 </span>{' '}
                 <span className="text-slate-300">{c.content}</span>

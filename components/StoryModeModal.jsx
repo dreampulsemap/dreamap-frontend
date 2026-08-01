@@ -224,7 +224,7 @@ export default function StoryModeModal({
 
         <div className="relative z-10 flex flex-col h-full justify-between pointer-events-none select-none">
           <div className="text-center pt-4">
-            <span className="text-[10px] tracking-[0.24em] font-black text-cyan-300 uppercase block mb-1">{t.storyTitle}</span>
+            <span className="text-[10px] tracking-[0.24em] font-black text-brand-secondary-300 uppercase block mb-1">{t.storyTitle}</span>
             <span className="text-[9px] tracking-widest text-white/50 uppercase block">{t.storySubtitle}</span>
           </div>
 
@@ -258,7 +258,7 @@ export default function StoryModeModal({
                   }
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-purple-900 to-black">🌌</div>
+                <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-brand-accent-900 to-black">🌌</div>
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent pointer-events-none" />
               <div className="absolute bottom-4 left-4 right-4 pointer-events-none">
@@ -287,7 +287,7 @@ export default function StoryModeModal({
                   step="0.01"
                   value={imgZoom}
                   onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                  className="flex-1 h-1 accent-fuchsia-400"
+                  className="flex-1 h-1 accent-brand-primary-400"
                 />
               </div>
             )}
@@ -301,7 +301,7 @@ export default function StoryModeModal({
               type="button"
               onClick={handleShareToInstagramStory}
               disabled={sharing}
-              className="mb-3 inline-flex items-center gap-2 rounded-full bg-gradient-to-tr from-purple-600 via-pink-500 to-yellow-500 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white shadow-[0_0_20px_rgba(240,73,214,0.35)] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="mb-3 inline-flex items-center gap-2 rounded-full bg-gradient-to-tr from-brand-accent-600 via-pink-500 to-yellow-500 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white shadow-[0_0_20px_rgba(240,73,214,0.35)] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
                 <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4.162 4.162 0 110-8.324A4.162 4.162 0 0112 16zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
@@ -312,13 +312,13 @@ export default function StoryModeModal({
             </button>
 
             {shareStatus && (
-              <p className="mb-2 text-[10px] leading-4 text-cyan-200/90 max-w-[260px] mx-auto">{shareStatus}</p>
+              <p className="mb-2 text-[10px] leading-4 text-brand-secondary-200/90 max-w-[260px] mx-auto">{shareStatus}</p>
             )}
 
             <p className="text-[9px] text-white/40 tracking-wider mb-2">
               {t.storyInstructions}
             </p>
-            <span className="inline-block px-3 py-1 rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 text-[9px] font-bold text-fuchsia-300">
+            <span className="inline-block px-3 py-1 rounded-full border border-brand-primary-400/20 bg-brand-primary-500/10 text-[9px] font-bold text-brand-primary-300">
               🔗 lunosfer.com
             </span>
           </div>

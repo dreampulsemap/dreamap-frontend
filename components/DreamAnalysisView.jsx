@@ -39,8 +39,8 @@ export default function DreamAnalysisView({ analysis, lang = 'en' }) {
     bg: analysis.visual_theme?.background_color || 'bg-slate-950',
     text: analysis.visual_theme?.text_color || 'text-slate-100',
     primary: analysis.visual_theme?.primary_color || '#6366f1', // indigo-500
-    secondary: analysis.visual_theme?.secondary_color || '#a855f7', // purple-500
-    accent: analysis.visual_theme?.accent_color || '#f43f5e', // rose-500
+    secondary: analysis.visual_theme?.secondary_color || '#a855f7', // brand-accent-500
+    accent: analysis.visual_theme?.accent_color || '#f43f5e', // semantic-danger-500
   };
 
   // Dinamik Inline CSS Değişkenleri
@@ -143,7 +143,7 @@ export default function DreamAnalysisView({ analysis, lang = 'en' }) {
                   </p>
                 </div>
                 <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/40">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-rose-400 mb-2">Gizlenen Benlik (Animus/Anima)</h4>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-semantic-danger-400 mb-2">Gizlenen Benlik (Animus/Anima)</h4>
                   <p className="text-sm text-slate-300 leading-relaxed font-light">
                     {getVal(analysis.persona_profile.hidden_self, lang)}
                   </p>
@@ -152,9 +152,9 @@ export default function DreamAnalysisView({ analysis, lang = 'en' }) {
 
               {/* Güçler, Korkular, İhtiyaçlar Gridi */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl border border-emerald-500/10 bg-emerald-500/[0.02]">
-                  <h5 className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <div className="p-4 rounded-xl border border-semantic-success-500/10 bg-semantic-success-500/[0.02]">
+                  <h5 className="text-xs font-semibold uppercase tracking-wider text-semantic-success-400 mb-3 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-semantic-success-400" />
                     Arketipsel Güçler
                   </h5>
                   <ul className="space-y-2">
@@ -164,9 +164,9 @@ export default function DreamAnalysisView({ analysis, lang = 'en' }) {
                   </ul>
                 </div>
 
-                <div className="p-4 rounded-xl border border-rose-500/10 bg-rose-500/[0.02]">
-                  <h5 className="text-xs font-semibold uppercase tracking-wider text-rose-400 mb-3 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                <div className="p-4 rounded-xl border border-semantic-danger-500/10 bg-semantic-danger-500/[0.02]">
+                  <h5 className="text-xs font-semibold uppercase tracking-wider text-semantic-danger-400 mb-3 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-semantic-danger-400" />
                     Çekirdek Korkular
                   </h5>
                   <ul className="space-y-2">
@@ -193,10 +193,10 @@ export default function DreamAnalysisView({ analysis, lang = 'en' }) {
 
           {/* SEKSİYON B: Gölge Odak ve Merkez Çatışma (The Shadow & Core Conflict) */}
           <section className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900/10 p-6 md:p-8 backdrop-blur-sm">
-            <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-rose-500/5 blur-3xl pointer-events-none" />
+            <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-semantic-danger-500/5 blur-3xl pointer-events-none" />
             
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+              <div className="p-2.5 rounded-xl bg-semantic-danger-500/10 text-semantic-danger-400 border border-semantic-danger-500/20">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
@@ -210,7 +210,7 @@ export default function DreamAnalysisView({ analysis, lang = 'en' }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Gölge Odak */}
               <div className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-rose-400/80">Bastırılmış Parçalar (Gölge)</h4>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-semantic-danger-400/80">Bastırılmış Parçalar (Gölge)</h4>
                 <p className="text-sm text-slate-300 leading-relaxed font-light">
                   {getVal(analysis.shadow_focus, lang)}
                 </p>

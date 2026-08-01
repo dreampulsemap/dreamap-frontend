@@ -348,7 +348,7 @@ export default function DreamGlobe() {
                 <button
                   key={pred.id}
                   onClick={() => { setSelectedPrediction(pred); setPredictionsExpanded(false) }}
-                  className="w-full text-left glass-card p-3 hover:bg-purple-500/20 transition-all"
+                  className="w-full text-left glass-card p-3 hover:bg-brand-accent-500/20 transition-all"
                 >
                   <div className="text-sm font-semibold">
                     {pred[`title_${lang}`] || pred.title_en || pred.title}
@@ -385,7 +385,7 @@ export default function DreamGlobe() {
             {selectedDream.ai_archetypes?.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {selectedDream.ai_archetypes.map((a, i) => (
-                  <span key={i} className="glass-card px-3 py-1 text-xs text-purple-300">{a}</span>
+                  <span key={i} className="glass-card px-3 py-1 text-xs text-brand-accent-300">{a}</span>
                 ))}
               </div>
             )}
@@ -400,11 +400,11 @@ export default function DreamGlobe() {
               <button
                 onClick={() => handleTranslateDream(selectedDream)}
                 disabled={translatingDreams[selectedDream.id]?.loading}
-                className="w-full glass-card px-4 py-2 mb-4 text-sm hover:bg-purple-500/20 transition-all disabled:opacity-50"
+                className="w-full glass-card px-4 py-2 mb-4 text-sm hover:bg-brand-accent-500/20 transition-all disabled:opacity-50"
               >
                 {translatingDreams[selectedDream.id]?.loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 border-2 border-brand-accent-400 border-t-transparent rounded-full animate-spin"></div>
                     {getTranslation('globe.translating', lang)}
                   </span>
                 ) : translatingDreams[selectedDream.id]?.translated ? (
@@ -416,13 +416,13 @@ export default function DreamGlobe() {
             )}
 
             {getTranslatedAnalysis(selectedDream) && (
-              <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/30 mb-6">
-                <div className="font-semibold text-purple-300 mb-2 flex items-center gap-2">
+              <div className="p-4 bg-brand-accent-500/10 rounded-lg border border-brand-accent-500/30 mb-6">
+                <div className="font-semibold text-brand-accent-300 mb-2 flex items-center gap-2">
                   <span>🔮</span> {getTranslation('globe.jungianAnalysis', lang)}
                 </div>
                 <p className="text-white/80 text-sm mb-2">{getTranslatedAnalysis(selectedDream)}</p>
                 {getDreamMotiv(selectedDream) && (
-                  <p className="text-white/60 text-xs italic pt-2 border-t border-purple-500/30">
+                  <p className="text-white/60 text-xs italic pt-2 border-t border-brand-accent-500/30">
                     💫 {getDreamMotiv(selectedDream)}
                   </p>
                 )}

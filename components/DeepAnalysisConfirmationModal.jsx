@@ -43,7 +43,7 @@ export default function DeepAnalysisConfirmationModal({
 
         {/* BAŞLIK */}
         <div className="text-center mb-6">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-fuchsia-300 mb-3 shadow-[0_0_15px_rgba(240,73,214,0.1)]">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-primary-400/20 bg-brand-primary-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-primary-300 mb-3 shadow-[0_0_15px_rgba(240,73,214,0.1)]">
             ✦ {t.confirmBadge}
           </span>
           <h3 className="text-2xl font-bold gradient-text font-serif">
@@ -103,7 +103,7 @@ export default function DeepAnalysisConfirmationModal({
             <button
               onClick={isGenerating ? undefined : onConfirm}
               disabled={isGenerating}
-              className="w-full inline-flex min-h-[50px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-3.5 text-sm font-bold text-white transition hover:scale-[1.01] hover:brightness-110 shadow-[0_0_20px_rgba(240,73,214,0.3)] disabled:opacity-80 disabled:hover:scale-100"
+              className="w-full inline-flex min-h-[50px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-primary-500 to-violet-600 px-6 py-3.5 text-sm font-bold text-white transition hover:scale-[1.01] hover:brightness-110 shadow-[0_0_20px_rgba(240,73,214,0.3)] disabled:opacity-80 disabled:hover:scale-100"
             >
               {isGenerating ? (
                 <>
@@ -118,14 +118,14 @@ export default function DeepAnalysisConfirmationModal({
             </button>
           ) : (
             <div className="space-y-3">
-              <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 text-center">
+              <p className="text-xs text-semantic-danger-300 bg-semantic-danger-500/10 border border-semantic-danger-500/20 rounded-xl p-3 text-center">
                 {t.insufficientAuras}
               </p>
               <a
                 href={gumroadUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full inline-flex min-h-[50px] items-center justify-center rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-3.5 text-sm font-bold text-white transition hover:scale-[1.01]"
+                className="w-full inline-flex min-h-[50px] items-center justify-center rounded-2xl bg-gradient-to-r from-brand-primary-500 to-violet-600 px-6 py-3.5 text-sm font-bold text-white transition hover:scale-[1.01]"
               >
                 {t.buyAuraLabel}
               </a>

@@ -41,7 +41,7 @@ export default function ReferralWidget({ lang = 'en', user }) {
   return (
     <div className="mb-6 glass-card rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
       <div className="flex-1 min-w-0">
-        <h3 className="text-xs uppercase tracking-widest text-cyan-300 font-bold mb-1">
+        <h3 className="text-xs uppercase tracking-widest text-brand-secondary-300 font-bold mb-1">
           <Gift size={14} className="inline -mt-0.5 mr-1" /> {lang === 'tr' ? 'Arkadaşını Davet Et' : 'Invite a Friend'}
         </h3>
         <p className="text-slate-400 text-xs">
@@ -52,7 +52,7 @@ export default function ReferralWidget({ lang = 'en', user }) {
       </div>
       <button
         onClick={copyLink}
-        className="shrink-0 px-4 py-2 rounded-full bg-cyan-500/90 text-black text-xs font-bold uppercase tracking-widest hover:bg-cyan-400 transition-all"
+        className="shrink-0 px-4 py-2 rounded-full bg-brand-secondary-500/90 text-black text-xs font-bold uppercase tracking-widest hover:bg-brand-secondary-400 transition-all"
       >
         {copied ? (lang === 'tr' ? 'Kopyalandı ✓' : 'Copied ✓') : (lang === 'tr' ? 'Linki Kopyala' : 'Copy Link')}
       </button>

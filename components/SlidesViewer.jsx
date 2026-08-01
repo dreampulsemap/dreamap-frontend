@@ -300,7 +300,7 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
         onClick={(e) => { e.stopPropagation(); onOpenDetails?.() }}
         className="absolute left-4 bottom-40 z-10 flex items-center gap-2"
       >
-        <span className="w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold overflow-hidden shrink-0 ring-2 ring-white/20">
+        <span className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-primary-500 to-brand-secondary-500 flex items-center justify-center text-white text-xs font-bold overflow-hidden shrink-0 ring-2 ring-white/20">
           {owner?.avatar_url ? <img src={owner.avatar_url} alt="" className="w-full h-full object-cover" /> : initialsOf(ownerName)}
         </span>
         <span className="text-white text-sm font-semibold drop-shadow-md">{ownerName}</span>
@@ -323,7 +323,7 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
         </button>
 
         <button onClick={handleSaveSlide} disabled={savingSlide} className="flex flex-col items-center gap-1 disabled:opacity-60">
-          <span className={`w-10 h-10 rounded-full flex items-center justify-center ${current.has_saved ? 'text-cyan-300' : 'text-white'}`}>
+          <span className={`w-10 h-10 rounded-full flex items-center justify-center ${current.has_saved ? 'text-brand-secondary-300' : 'text-white'}`}>
             <Bookmark size={24} fill={current.has_saved ? 'currentColor' : 'none'} />
           </span>
           <span className="text-white text-[11px] font-semibold drop-shadow">{current.saves_count || 0}</span>
@@ -348,7 +348,7 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
                 {!confirmDelete ? (
                   <button
                     onClick={() => setConfirmDelete(true)}
-                    className="w-full flex items-center gap-2 px-3.5 py-3 text-rose-400 text-sm hover:bg-white/5 border-t border-white/10"
+                    className="w-full flex items-center gap-2 px-3.5 py-3 text-semantic-danger-400 text-sm hover:bg-white/5 border-t border-white/10"
                   >
                     <Trash2 size={14} /> {lang === 'tr' ? 'Sil' : 'Delete'}
                   </button>
@@ -356,7 +356,7 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
                   <button
                     onClick={handleDeleteSlide}
                     disabled={deletingSlide}
-                    className="w-full flex items-center gap-2 px-3.5 py-3 text-white text-sm bg-rose-500/90 hover:bg-rose-500 border-t border-white/10 disabled:opacity-60"
+                    className="w-full flex items-center gap-2 px-3.5 py-3 text-white text-sm bg-semantic-danger-500/90 hover:bg-semantic-danger-500 border-t border-white/10 disabled:opacity-60"
                   >
                     <Trash2 size={14} /> {lang === 'tr' ? 'Emin misin? Sil' : 'Confirm delete'}
                   </button>
@@ -390,7 +390,7 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
               ) : (
                 comments.map((c) => (
                   <div key={c.id} className="flex gap-2.5 py-2.5">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center text-white text-[10px] font-bold overflow-hidden shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-primary-500 to-brand-secondary-500 flex items-center justify-center text-white text-[10px] font-bold overflow-hidden shrink-0">
                       {c.user_profiles?.avatar_url ? (
                         <img src={c.user_profiles.avatar_url} alt="" className="w-full h-full object-cover" />
                       ) : initialsOf(c.user_profiles?.display_name || c.user_profiles?.username)}
@@ -414,7 +414,7 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
               <button
                 onClick={handlePostComment}
                 disabled={!commentText.trim() || postingComment}
-                className="w-9 h-9 rounded-full bg-fuchsia-500 flex items-center justify-center text-white disabled:opacity-40"
+                className="w-9 h-9 rounded-full bg-brand-primary-500 flex items-center justify-center text-white disabled:opacity-40"
               >
                 <Send size={15} />
               </button>

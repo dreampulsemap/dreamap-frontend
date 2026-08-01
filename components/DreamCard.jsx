@@ -442,7 +442,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
             <button
               type="button"
               onClick={() => { setEditError(''); setShowEditModal(true) }}
-              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400 hover:bg-white/5 hover:text-fuchsia-200 transition"
+              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400 hover:bg-white/5 hover:text-brand-primary-200 transition"
             >
               <Pencil size={12} />
               {lang === 'tr' ? 'Düzenle' : 'Edit'}
@@ -483,14 +483,14 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
             )}
             {uploadingCoverImage && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-primary-400 border-t-transparent" />
               </div>
             )}
           </div>
         )}
         {imgState === 'repairing' && (
           <div className="w-full aspect-square rounded-2xl overflow-hidden mb-4 flex flex-col items-center justify-center gap-2 bg-white/[0.03] border border-white/10">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-primary-400 border-t-transparent" />
             <span className="text-[11px] text-slate-400">
               {lang === 'tr' ? 'Görsel onarılıyor...' : 'Repairing image...'}
             </span>
@@ -526,16 +526,16 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
           const motiv = effectiveDream?.[`ai_motiv_${currentLang}`] || effectiveDream?.ai_motiv || effectiveDream?.ai_motiv_en
           if (!summary && !motiv) return null
           return (
-            <div className="mb-5 rounded-2xl border border-fuchsia-300/15 bg-fuchsia-500/8 p-4">
+            <div className="mb-5 rounded-2xl border border-brand-primary-300/15 bg-brand-primary-500/8 p-4">
               <div className="mb-2 flex items-center gap-2">
-                <span className="text-fuchsia-200">🜂</span>
-                <p className="text-xs uppercase tracking-[0.18em] text-fuchsia-100">
+                <span className="text-brand-primary-200">🜂</span>
+                <p className="text-xs uppercase tracking-[0.18em] text-brand-primary-100">
                   {t.jungianAnalysisLabel}
                 </p>
               </div>
               {summary && <p className="text-sm leading-7 text-slate-200">{summary}</p>}
               {motiv && (
-                <p className="mt-3 border-l border-fuchsia-300/30 pl-3 text-xs italic text-slate-400">
+                <p className="mt-3 border-l border-brand-primary-300/30 pl-3 text-xs italic text-slate-400">
                   "{motiv}"
                 </p>
               )}
@@ -549,7 +549,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
             premiumAnalysis ? setShowAnalysisModal(true) : setShowConfirmModal(true)
           }}
           disabled={isAnalysisPreparing}
-          className="w-full bg-fuchsia-600 p-4 rounded-xl text-white font-bold mb-3 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full bg-brand-primary-600 p-4 rounded-xl text-white font-bold mb-3 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {premiumAnalysis
             ? t.exploreCards
@@ -563,12 +563,12 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
             <button 
               onClick={handleGenerateImageOnly} 
               disabled={generatingImage} 
-              className="w-full bg-cyan-600 p-4 rounded-xl text-white font-bold hover:bg-cyan-500 transition disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full bg-brand-secondary-600 p-4 rounded-xl text-white font-bold hover:bg-brand-secondary-500 transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {generatingImage ? (stepMessage || t.generatingImage) : (isOwner ? t.generateImage : t.giftDreamImage)}
             </button>
             {generatingImage && stepMessage && (
-              <p className="text-center text-xs text-cyan-300 animate-pulse">{stepMessage}</p>
+              <p className="text-center text-xs text-brand-secondary-300 animate-pulse">{stepMessage}</p>
             )}
             {isOwner && (
               <div className="flex gap-2">
@@ -587,7 +587,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
                   type="button"
                   onClick={() => setShowPixabayPicker(true)}
                   disabled={uploadingCoverImage}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-fuchsia-300 text-xs font-semibold hover:bg-white/10 disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-brand-primary-300 text-xs font-semibold hover:bg-white/10 disabled:opacity-40"
                 >
                   <SearchIcon size={14} />
                   {lang === 'tr' ? "Pixabay'dan Seç" : 'From Pixabay'}
@@ -598,7 +598,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
         )}
 
         {coverImageError && (
-          <p className="mb-3 text-center text-[11px] text-rose-400">{coverImageError}</p>
+          <p className="mb-3 text-center text-[11px] text-semantic-danger-400">{coverImageError}</p>
         )}
 
         {premiumError && (

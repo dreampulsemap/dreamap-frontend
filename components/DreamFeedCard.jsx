@@ -24,7 +24,7 @@ export default function DreamFeedCard({ dream, lang = 'en', onOpen }) {
       <SwipePanels className="h-full">
         {/* PANEL 1: Görsel + rüya metni */}
         <div className="h-full flex flex-col cursor-pointer" onClick={() => onOpen(dream)}>
-          <div className="relative flex-1 min-h-0 bg-gradient-to-br from-purple-950/30 to-black">
+          <div className="relative flex-1 min-h-0 bg-gradient-to-br from-brand-accent-950/30 to-black">
             {dream.ai_image_url && !imgFailed ? (
               <Image
                 src={dream.ai_image_url}
@@ -48,7 +48,7 @@ export default function DreamFeedCard({ dream, lang = 'en', onOpen }) {
             {Array.isArray(dream.tags) && dream.tags.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {dream.tags.slice(0, 4).map((tag) => (
-                  <span key={tag} className="text-[10px] text-fuchsia-300/80">#{tag}</span>
+                  <span key={tag} className="text-[10px] text-brand-primary-300/80">#{tag}</span>
                 ))}
               </div>
             )}
@@ -57,22 +57,22 @@ export default function DreamFeedCard({ dream, lang = 'en', onOpen }) {
 
         {/* PANEL 2 (varsa): Jung / teaser analiz */}
         {hasJung && (
-          <div className="h-full overflow-y-auto px-5 py-8 bg-gradient-to-b from-fuchsia-950/30 to-black cursor-pointer" onClick={() => onOpen(dream)}>
+          <div className="h-full overflow-y-auto px-5 py-8 bg-gradient-to-b from-brand-primary-950/30 to-black cursor-pointer" onClick={() => onOpen(dream)}>
             <div className="mb-4 flex items-center gap-2">
-              <span className="text-fuchsia-200 text-lg">🜂</span>
-              <p className="text-xs uppercase tracking-[0.18em] text-fuchsia-100">
+              <span className="text-brand-primary-200 text-lg">🜂</span>
+              <p className="text-xs uppercase tracking-[0.18em] text-brand-primary-100">
                 {lang === 'tr' ? 'Jung Analizi' : 'Jungian Analysis'}
               </p>
             </div>
             {Array.isArray(dream.ai_archetypes) && dream.ai_archetypes.length > 0 && (
               <div className="mb-4 flex flex-wrap gap-2">
                 {dream.ai_archetypes.slice(0, 3).map((a) => (
-                  <span key={a} className="rounded-full border border-fuchsia-300/25 bg-fuchsia-500/10 px-3 py-1 text-xs text-fuchsia-100">{a}</span>
+                  <span key={a} className="rounded-full border border-brand-primary-300/25 bg-brand-primary-500/10 px-3 py-1 text-xs text-brand-primary-100">{a}</span>
                 ))}
               </div>
             )}
             {summary && <p className="text-sm leading-7 text-slate-200">{summary}</p>}
-            {motiv && <p className="mt-4 border-l border-fuchsia-300/30 pl-3 text-xs italic text-slate-400">"{motiv}"</p>}
+            {motiv && <p className="mt-4 border-l border-brand-primary-300/30 pl-3 text-xs italic text-slate-400">"{motiv}"</p>}
             <span className="mt-6 inline-flex items-center gap-1 text-xs text-slate-500">
               {lang === 'tr' ? 'Devamı için dokun' : 'Tap for more'} <ChevronRight size={12} />
             </span>
