@@ -141,33 +141,50 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
     setCropQueue((prev) => [...prev, ...queued])
   }
 
-  // Pixabay'den seçilen görsel önce indirilip kendi storage'ımıza kaydedilir
-  // (mevcut önbellekleme mantığı), sonra kırpma kuyruğuna eklenir.
-  async function handlePixabaySlidePick(hit) {
-    if (slides.length + cropQueue.length >= MAX_SLIDES) {
+  // Pixabay picker'da birden fazla görsel işaretlenip onaylandığında
+  // çağrılır. İndirme/önbellekleme adımı sırayla değil PARALEL yapılabilir
+  // (import-image bir sayaç tutmuyor, sadece indirip URL döndürüyor) —
+  // asıl slayt kayıtları (addSlide → /api/goals/slides/create) zaten kırpma
+  // kuyruğu üzerinden TEK TEK, kullanıcının onayıyla sırayla ekleniyor, o
+  // yüzden burada bir yarış durumu (TOCTOU) riski yok.
+  async function handlePixabaySlideMultiPick(hits) {
+    const room = MAX_SLIDES - slides.length - cropQueue.length
+    if (room <= 0) {
       setError(lang === 'tr' ? `En fazla ${MAX_SLIDES} slayt eklenebilir.` : `You can add up to ${MAX_SLIDES} slides.`)
       return false
     }
     const auth = await authBundle()
     if (!auth) { setError(lang === 'tr' ? 'Giriş yapmalısın.' : 'You need to log in.'); return false }
     setError('')
+    const toImport = hits.slice(0, room)
     try {
-      const res = await fetch('/api/pixabay/import-image', {
-        method: 'POST',
-        headers: auth.headers,
-        body: JSON.stringify({
-          pixabayId: hit.id,
-          imageUrl: hit.largeImageURL,
-          tags: hit.tags,
-          pixabayUser: hit.user,
-          width: hit.width,
-          height: hit.height,
-        }),
-      })
-      const json = await res.json()
-      if (!res.ok) { setError(json.error || 'error'); return false }
-      setCropQueue((prev) => [...prev, { kind: 'imported', previewUrl: json.url, finalUrl: json.url }])
-      return true
+      const results = await Promise.all(toImport.map(async (hit) => {
+        try {
+          const res = await fetch('/api/pixabay/import-image', {
+            method: 'POST',
+            headers: auth.headers,
+            body: JSON.stringify({
+              pixabayId: hit.id,
+              imageUrl: hit.largeImageURL,
+              tags: hit.tags,
+              pixabayUser: hit.user,
+              width: hit.width,
+              height: hit.height,
+            }),
+          })
+          const json = await res.json()
+          if (!res.ok) return null
+          return { kind: 'imported', previewUrl: json.url, finalUrl: json.url }
+        } catch {
+          return null
+        }
+      }))
+      const ok = results.filter(Boolean)
+      if (ok.length) setCropQueue((prev) => [...prev, ...ok])
+      if (ok.length < toImport.length) {
+        setError(lang === 'tr' ? 'Bazı görseller içeri aktarılamadı.' : 'Some images could not be imported.')
+      }
+      return ok.length > 0
     } catch {
       setError('network_error')
       return false
@@ -342,7 +359,7 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
           </button>
         </div>
 
-        {error && <p className="text-semantic-danger-400 text-xs mb-3">{error}</p>}
+        {error && <p className="text-rose-400 text-xs mb-3">{error}</p>}
 
         {loading ? (
           <p className="text-slate-400 text-sm">{lang === 'tr' ? 'Yükleniyor...' : 'Loading...'}</p>
@@ -365,7 +382,7 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
                     onDrop={() => handleDrop(index)}
                     onDragEnd={() => { dragIndexRef.current = null; setDragOverIndex(null) }}
                     className={`flex items-center gap-2.5 p-2 rounded-xl bg-white/5 border transition-colors ${
-                      dragOverIndex === index ? 'border-brand-primary-400/60' : 'border-white/10'
+                      dragOverIndex === index ? 'border-fuchsia-400/60' : 'border-white/10'
                     }`}
                   >
                     <span className="text-slate-600 cursor-grab active:cursor-grabbing shrink-0" aria-hidden="true">
@@ -412,7 +429,7 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
                     <button
                       onClick={() => removeSlide(slide.id)}
                       aria-label={lang === 'tr' ? 'Slaytı sil' : 'Delete slide'}
-                      className="w-7 h-7 rounded-md bg-semantic-danger-500/10 hover:bg-semantic-danger-500/20 flex items-center justify-center text-semantic-danger-400 shrink-0"
+                      className="w-7 h-7 rounded-md bg-rose-500/10 hover:bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0"
                     >
                       <Trash2 size={13} />
                     </button>
@@ -472,7 +489,7 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
               <button
                 onClick={handleGenerateAiSlide}
                 disabled={generatingAi || slides.length >= MAX_SLIDES}
-                className="flex-1 py-2.5 rounded-xl bg-white/5 text-brand-secondary-300 text-[11px] font-bold uppercase tracking-widest hover:bg-white/10 disabled:opacity-40 flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-white/5 text-cyan-300 text-[11px] font-bold uppercase tracking-widest hover:bg-white/10 disabled:opacity-40 flex items-center justify-center gap-1.5"
               >
                 <Sparkles size={14} />
                 {generatingAi ? (lang === 'tr' ? 'Üretiliyor...' : 'Generating...') : 'AI'}
@@ -486,7 +503,9 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
         <PixabayPicker
           lang={lang}
           videoEnabled={false}
-          onPickImage={handlePixabaySlidePick}
+          multiple
+          maxSelectable={Math.max(0, MAX_SLIDES - slides.length - cropQueue.length)}
+          onPickMultiple={handlePixabaySlideMultiPick}
           onClose={() => setShowPixabayPicker(false)}
         />
       )}
