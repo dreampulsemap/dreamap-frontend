@@ -3,8 +3,13 @@ import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 const MIN_DURATION = 1
 const MAX_DURATION = 15
 const ALLOWED_FONTS = ['sans', 'serif', 'mono']
-const ALLOWED_POSITIONS = ['top', 'center', 'bottom']
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
+
+function clampNum(v, min, max) {
+  const n = parseFloat(v)
+  if (Number.isNaN(n)) return null
+  return Math.min(Math.max(n, min), max)
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
@@ -13,7 +18,7 @@ export default async function handler(req, res) {
     const user = await getAuthedUser(req)
     if (!user) return res.status(401).json({ error: 'unauthorized' })
 
-    const { slideId, caption, durationSeconds, captionFont, captionColor, captionPosition } = req.body || {}
+    const { slideId, caption, durationSeconds, captionFont, captionColor, captionX, captionY, captionSize } = req.body || {}
     if (!slideId) return res.status(400).json({ error: 'invalid_params' })
 
     const { data: slide, error: fetchError } = await supabaseAdmin
@@ -35,7 +40,9 @@ export default async function handler(req, res) {
     }
     if (typeof captionFont === 'string' && ALLOWED_FONTS.includes(captionFont)) updates.caption_font = captionFont
     if (typeof captionColor === 'string' && HEX_COLOR.test(captionColor)) updates.caption_color = captionColor
-    if (typeof captionPosition === 'string' && ALLOWED_POSITIONS.includes(captionPosition)) updates.caption_position = captionPosition
+    if (captionX !== undefined) { const v = clampNum(captionX, 0, 100); if (v !== null) updates.caption_x = v }
+    if (captionY !== undefined) { const v = clampNum(captionY, 0, 100); if (v !== null) updates.caption_y = v }
+    if (captionSize !== undefined) { const v = clampNum(captionSize, 0.4, 3.5); if (v !== null) updates.caption_size = v }
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'nothing_to_update' })
     }
@@ -55,3 +62,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error.message || 'internal_error' })
   }
 }
+
