@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Plus, Trash2, ArrowUp, ArrowDown, Search as SearchIcon, Sparkles } from 'lucide-react'
+import { X, Plus, Trash2, GripVertical, Search as SearchIcon, Sparkles, Type } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
 import PixabayPicker from './PixabayPicker'
+import ImageCropModal from './ImageCropModal'
+import SlideCaptionEditor from './SlideCaptionEditor'
 
 const MAX_SLIDES = 20
 
@@ -15,9 +17,19 @@ async function authBundle() {
   }
 }
 
-// "Vizyon Slaytları" — hedefin galerisinden/cihazdan seçilen görsellerin
-// sıralı, başlıklı (niyet notu) ve süreli bir diziye dönüştürüldüğü editör.
-// Sadece hedef sahibi açabilir; oynatıcı (viewer) ayrı bir bileşendir.
+async function uploadToGoalImages(userId, goalId, fileOrBlob, extHint) {
+  const ext = extHint || (fileOrBlob.type?.includes('png') ? 'png' : 'jpg')
+  const filePath = `${userId}/${goalId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const { error } = await supabase.storage.from('goal-images').upload(filePath, fileOrBlob, { cacheControl: '3600', upsert: false })
+  if (error) throw error
+  const { data } = supabase.storage.from('goal-images').getPublicUrl(filePath)
+  return data.publicUrl
+}
+
+// "Vizyon Slaytları" — hedefin galerisinden/cihazdan/Pixabay'den/AI'dan
+// eklenen görsellerin sıralı, kırpılabilir, sürüklenerek konumlandırılan
+// metinli bir Reels destesine dönüştürüldüğü editör. Sadece hedef sahibi
+// açabilir; oynatıcı (viewer) ayrı bir bileşendir (SlidesViewer).
 export default function SlideEditor({ goal, lang = 'en', onClose }) {
   const modalRef = useRef(null)
   useModalA11y(modalRef, onClose)
@@ -26,9 +38,18 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
-  const [savingId, setSavingId] = useState(null)
   const [showPixabayPicker, setShowPixabayPicker] = useState(false)
   const [generatingAi, setGeneratingAi] = useState(false)
+  const [captionEditingSlide, setCaptionEditingSlide] = useState(null)
+
+  // Kırpma kuyruğu — cihazdan veya Pixabay'den birden fazla görsel
+  // eklendiğinde her biri sırayla kırpılabiliyor; istenirse hepsi tek
+  // hamlede (kırpmadan, otomatik ortalanmış) eklenebiliyor.
+  const [cropQueue, setCropQueue] = useState([]) // [{ kind: 'file'|'pixabay', ... }]
+  const [cropIndex, setCropIndex] = useState(0)
+
+  const dragIndexRef = useRef(null)
+  const [dragOverIndex, setDragOverIndex] = useState(null)
 
   const existingImages = [
     ...(goal.cover_image_url ? [goal.cover_image_url] : []),
@@ -69,40 +90,8 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
     }
   }
 
-  async function handlePixabaySlidePick(hit) {
-    if (slides.length >= MAX_SLIDES) {
-      setError(lang === 'tr' ? `En fazla ${MAX_SLIDES} slayt eklenebilir.` : `You can add up to ${MAX_SLIDES} slides.`)
-      return false
-    }
-    const auth = await authBundle()
-    if (!auth) { setError(lang === 'tr' ? 'Giriş yapmalısın.' : 'You need to log in.'); return false }
-    setError('')
-    try {
-      const res = await fetch('/api/pixabay/import-image', {
-        method: 'POST',
-        headers: auth.headers,
-        body: JSON.stringify({
-          pixabayId: hit.id,
-          imageUrl: hit.largeImageURL,
-          tags: hit.tags,
-          pixabayUser: hit.user,
-          width: hit.width,
-          height: hit.height,
-        }),
-      })
-      const json = await res.json()
-      if (!res.ok) { setError(json.error || 'error'); return false }
-      await addSlide(json.url)
-      return true
-    } catch {
-      setError('network_error')
-      return false
-    }
-  }
-
-  // Her tıklamada TEK bir görsel üretir ve doğrudan slayt olarak ekler
-  // (bkz. /api/goals/generate-slide-image.js — kapak alanına dokunmuyor).
-  // Tekrar tekrar çağrılabilir, her seferinde farklı bir görsel üretir.
+  // Her tıklamada TEK bir görsel üretir ve doğrudan slayt olarak ekler.
+  // AI görselleri zaten 9:16 üretiliyor — kırpma adımına gerek yok.
   async function handleGenerateAiSlide() {
     if (slides.length >= MAX_SLIDES) {
       setError(lang === 'tr' ? `En fazla ${MAX_SLIDES} slayt eklenebilir.` : `You can add up to ${MAX_SLIDES} slides.`)
@@ -138,39 +127,131 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
     }
   }
 
-  async function handleUploadFiles(fileList) {
+  // Cihazdan seçilen dosyaları kırpma kuyruğuna koyar — kırpma penceresi
+  // dosyaları sırayla gösterir.
+  function handleUploadFiles(fileList) {
     const files = Array.from(fileList || []).filter((f) => f.type?.startsWith('image/'))
     if (!files.length) return
-    setUploading(true)
+    const room = MAX_SLIDES - slides.length
+    if (room <= 0) {
+      setError(lang === 'tr' ? `En fazla ${MAX_SLIDES} slayt eklenebilir.` : `You can add up to ${MAX_SLIDES} slides.`)
+      return
+    }
+    const queued = files.slice(0, room).map((file) => ({ kind: 'file', file, previewUrl: URL.createObjectURL(file) }))
+    setCropQueue((prev) => [...prev, ...queued])
+  }
+
+  // Pixabay'den seçilen görsel önce indirilip kendi storage'ımıza kaydedilir
+  // (mevcut önbellekleme mantığı), sonra kırpma kuyruğuna eklenir.
+  async function handlePixabaySlidePick(hit) {
+    if (slides.length + cropQueue.length >= MAX_SLIDES) {
+      setError(lang === 'tr' ? `En fazla ${MAX_SLIDES} slayt eklenebilir.` : `You can add up to ${MAX_SLIDES} slides.`)
+      return false
+    }
+    const auth = await authBundle()
+    if (!auth) { setError(lang === 'tr' ? 'Giriş yapmalısın.' : 'You need to log in.'); return false }
     setError('')
     try {
-      const auth = await authBundle()
-      if (!auth) { setError(lang === 'tr' ? 'Giriş yapmalısın.' : 'You need to log in.'); return }
-
-      for (const file of files) {
-        if (slides.length >= MAX_SLIDES) break
-        const fileExt = file.name.split('.').pop() || 'jpg'
-        const filePath = `${auth.session.user.id}/${goal.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`
-
-        const { error: uploadError } = await supabase.storage
-          .from('goal-images')
-          .upload(filePath, file, { cacheControl: '3600', upsert: false })
-        if (uploadError) { setError(uploadError.message || 'upload_error'); continue }
-
-        const { data: publicData } = supabase.storage.from('goal-images').getPublicUrl(filePath)
-        if (publicData?.publicUrl) await addSlide(publicData.publicUrl)
-      }
+      const res = await fetch('/api/pixabay/import-image', {
+        method: 'POST',
+        headers: auth.headers,
+        body: JSON.stringify({
+          pixabayId: hit.id,
+          imageUrl: hit.largeImageURL,
+          tags: hit.tags,
+          pixabayUser: hit.user,
+          width: hit.width,
+          height: hit.height,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error || 'error'); return false }
+      setCropQueue((prev) => [...prev, { kind: 'imported', previewUrl: json.url, finalUrl: json.url }])
+      return true
     } catch {
       setError('network_error')
+      return false
+    }
+  }
+
+  const currentCropItem = cropQueue[cropIndex] || null
+
+  async function handleCropConfirmed(blob) {
+    const auth = await authBundle()
+    if (!auth) return
+    setUploading(true)
+    try {
+      const url = await uploadToGoalImages(auth.session.user.id, goal.id, blob, 'jpg')
+      await addSlide(url)
+    } catch (e) {
+      setError(e.message || 'upload_error')
     } finally {
       setUploading(false)
+      advanceCropQueue()
     }
+  }
+
+  // "Kırpmadan Ortala ve Devam Et" — orijinal görsel olduğu gibi eklenir.
+  // Görüntüleyicide zaten object-cover ile ekranı dolduruyor, sadece
+  // kadrajlama üzerinde kullanıcı kontrolü atlanmış olur.
+  async function handleCropSkipped() {
+    if (!currentCropItem) return
+    setUploading(true)
+    try {
+      let url = currentCropItem.finalUrl
+      if (!url) {
+        const auth = await authBundle()
+        if (!auth) return
+        url = await uploadToGoalImages(auth.session.user.id, goal.id, currentCropItem.file)
+      }
+      await addSlide(url)
+    } catch (e) {
+      setError(e.message || 'upload_error')
+    } finally {
+      setUploading(false)
+      advanceCropQueue()
+    }
+  }
+
+  function advanceCropQueue() {
+    setCropIndex((i) => {
+      const next = i + 1
+      if (next >= cropQueue.length) {
+        setCropQueue([])
+        return 0
+      }
+      return next
+    })
+  }
+
+  async function handleSkipAllRemaining() {
+    const auth = await authBundle()
+    if (!auth) return
+    setUploading(true)
+    try {
+      for (let i = cropIndex; i < cropQueue.length; i++) {
+        const item = cropQueue[i]
+        let url = item.finalUrl
+        if (!url) url = await uploadToGoalImages(auth.session.user.id, goal.id, item.file)
+        await addSlide(url)
+      }
+    } catch (e) {
+      setError(e.message || 'upload_error')
+    } finally {
+      setUploading(false)
+      setCropQueue([])
+      setCropIndex(0)
+    }
+  }
+
+  function handleCropQueueClose() {
+    setCropQueue([])
+    setCropIndex(0)
   }
 
   async function updateSlide(slideId, updates) {
     const auth = await authBundle()
     if (!auth) return
-    setSavingId(slideId)
     try {
       const res = await fetch('/api/goals/slides/update', {
         method: 'POST',
@@ -185,8 +266,6 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
       }
     } catch {
       setError('network_error')
-    } finally {
-      setSavingId(null)
     }
   }
 
@@ -220,11 +299,23 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
     }
   }
 
-  function moveSlide(index, direction) {
+  // Sürükle-bırak sıralama — Instagram/TikTok'un klip şeridi gibi, ok
+  // butonları yerine doğrudan sürükleyerek yeniden sıralanıyor.
+  function handleDragStart(index) {
+    dragIndexRef.current = index
+  }
+  function handleDragOver(e, index) {
+    e.preventDefault()
+    if (dragOverIndex !== index) setDragOverIndex(index)
+  }
+  function handleDrop(index) {
+    const from = dragIndexRef.current
+    dragIndexRef.current = null
+    setDragOverIndex(null)
+    if (from === null || from === index) return
     const next = [...slides]
-    const target = index + direction
-    if (target < 0 || target >= next.length) return
-    ;[next[index], next[target]] = [next[target], next[index]]
+    const [moved] = next.splice(from, 1)
+    next.splice(index, 0, moved)
     persistOrder(next)
   }
 
@@ -263,136 +354,71 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
                   {lang === 'tr' ? 'Henüz slayt yok. Aşağıdan görsel ekle.' : 'No slides yet. Add images below.'}
                 </p>
               )}
-              {slides.map((slide, index) => (
-                <div key={slide.id} className="flex gap-3 p-2 rounded-xl bg-white/5 border border-white/10">
-                  {/\/pixabay-video\//.test(slide.image_url) || /\.mp4($|\?)/.test(slide.image_url) ? (
-                    <video src={slide.image_url} className="w-16 h-16 rounded-lg object-cover shrink-0 bg-black/30" muted />
-                  ) : (
-                    <img
-                      src={slide.image_url}
-                      alt=""
-                      className="w-16 h-16 rounded-lg object-cover shrink-0 bg-black/30"
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <input
-                      type="text"
-                      defaultValue={slide.caption || ''}
-                      placeholder={lang === 'tr' ? 'Niyet / başlık (opsiyonel)' : 'Intention / caption (optional)'}
-                      maxLength={200}
-                      onBlur={(e) => {
-                        if (e.target.value !== (slide.caption || '')) {
-                          updateSlide(slide.id, { caption: e.target.value })
-                        }
-                      }}
-                      className="w-full bg-transparent text-slate-200 text-sm placeholder-slate-500 border-b border-white/10 focus:border-fuchsia-400/50 outline-none pb-1 mb-1.5"
-                    />
-                    <div className="flex items-center gap-2">
-                      <label className="text-[10px] uppercase tracking-widest text-slate-500">
-                        {lang === 'tr' ? 'Süre' : 'Duration'}
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={15}
-                        defaultValue={slide.duration_seconds}
-                        onBlur={(e) => {
-                          const val = parseInt(e.target.value, 10)
-                          if (val && val !== slide.duration_seconds) {
-                            updateSlide(slide.id, { durationSeconds: val })
-                          }
-                        }}
-                        className="w-14 bg-white/5 rounded-md text-slate-200 text-xs px-1.5 py-0.5 outline-none"
-                      />
-                      <span className="text-[10px] text-slate-500">{lang === 'tr' ? 'sn' : 's'}</span>
-                      {savingId === slide.id && (
-                        <span className="text-[10px] text-slate-500">
-                          {lang === 'tr' ? 'kaydediliyor...' : 'saving...'}
+              {slides.map((slide, index) => {
+                const isVideo = /\/pixabay-video\//.test(slide.image_url) || /\.mp4($|\?)/.test(slide.image_url)
+                return (
+                  <div
+                    key={slide.id}
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDrop={() => handleDrop(index)}
+                    onDragEnd={() => { dragIndexRef.current = null; setDragOverIndex(null) }}
+                    className={`flex items-center gap-2.5 p-2 rounded-xl bg-white/5 border transition-colors ${
+                      dragOverIndex === index ? 'border-fuchsia-400/60' : 'border-white/10'
+                    }`}
+                  >
+                    <span className="text-slate-600 cursor-grab active:cursor-grabbing shrink-0" aria-hidden="true">
+                      <GripVertical size={16} />
+                    </span>
+
+                    {isVideo ? (
+                      <video src={slide.image_url} className="w-14 h-14 rounded-lg object-cover shrink-0 bg-black/30" muted />
+                    ) : (
+                      <img src={slide.image_url} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0 bg-black/30" />
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <button
+                        onClick={() => setCaptionEditingSlide(slide)}
+                        className="w-full flex items-center gap-1.5 text-left mb-1.5 text-slate-300 hover:text-white"
+                      >
+                        <Type size={12} className="shrink-0 text-slate-500" />
+                        <span className="text-xs truncate">
+                          {slide.caption || (lang === 'tr' ? 'Metin ekle...' : 'Add text...')}
                         </span>
-                      )}
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <label className="text-[10px] uppercase tracking-widest text-slate-500">
+                          {lang === 'tr' ? 'Süre' : 'Duration'}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={15}
+                          defaultValue={slide.duration_seconds}
+                          onBlur={(e) => {
+                            const val = parseInt(e.target.value, 10)
+                            if (val && val !== slide.duration_seconds) {
+                              updateSlide(slide.id, { durationSeconds: val })
+                            }
+                          }}
+                          className="w-14 bg-white/5 rounded-md text-slate-200 text-xs px-1.5 py-0.5 outline-none"
+                        />
+                        <span className="text-[10px] text-slate-500">{lang === 'tr' ? 'sn' : 's'}</span>
+                      </div>
                     </div>
 
-                    {/* Reels overlay stili: font / renk / konum */}
-                    <div className="flex items-center gap-3 mt-2">
-                      <div className="flex gap-1">
-                        {[
-                          { key: 'sans', cls: 'font-sans' },
-                          { key: 'serif', cls: 'font-serif' },
-                          { key: 'mono', cls: 'font-mono' },
-                        ].map((f) => (
-                          <button
-                            key={f.key}
-                            onClick={() => updateSlide(slide.id, { captionFont: f.key })}
-                            aria-label={f.key}
-                            className={`${f.cls} w-6 h-6 rounded-md text-[11px] flex items-center justify-center border ${
-                              (slide.caption_font || 'sans') === f.key ? 'border-fuchsia-400 text-fuchsia-300' : 'border-white/10 text-slate-400'
-                            }`}
-                          >
-                            Aa
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex gap-1">
-                        {['#ffffff', '#0a0a0f', '#f5c451', '#e879f9', '#22d3ee', '#fb7185'].map((color) => (
-                          <button
-                            key={color}
-                            onClick={() => updateSlide(slide.id, { captionColor: color })}
-                            aria-label={color}
-                            style={{ backgroundColor: color }}
-                            className={`w-5 h-5 rounded-full border-2 ${
-                              (slide.caption_color || '#ffffff').toLowerCase() === color ? 'border-fuchsia-400' : 'border-white/20'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <div className="flex gap-1">
-                        {[
-                          { key: 'top', label: lang === 'tr' ? 'Üst' : 'Top' },
-                          { key: 'center', label: lang === 'tr' ? 'Orta' : 'Mid' },
-                          { key: 'bottom', label: lang === 'tr' ? 'Alt' : 'Bot' },
-                        ].map((p) => (
-                          <button
-                            key={p.key}
-                            onClick={() => updateSlide(slide.id, { captionPosition: p.key })}
-                            className={`px-1.5 h-6 rounded-md text-[9px] uppercase font-bold border ${
-                              (slide.caption_position || 'bottom') === p.key ? 'border-fuchsia-400 text-fuchsia-300' : 'border-white/10 text-slate-400'
-                            }`}
-                          >
-                            {p.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center justify-between shrink-0">
-                    <div className="flex flex-col gap-0.5">
-                      <button
-                        onClick={() => moveSlide(index, -1)}
-                        disabled={index === 0}
-                        aria-label={lang === 'tr' ? 'Yukarı taşı' : 'Move up'}
-                        className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 disabled:opacity-30 flex items-center justify-center text-slate-300"
-                      >
-                        <ArrowUp size={12} />
-                      </button>
-                      <button
-                        onClick={() => moveSlide(index, 1)}
-                        disabled={index === slides.length - 1}
-                        aria-label={lang === 'tr' ? 'Aşağı taşı' : 'Move down'}
-                        className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 disabled:opacity-30 flex items-center justify-center text-slate-300"
-                      >
-                        <ArrowDown size={12} />
-                      </button>
-                    </div>
                     <button
                       onClick={() => removeSlide(slide.id)}
                       aria-label={lang === 'tr' ? 'Slaytı sil' : 'Delete slide'}
-                      className="w-6 h-6 rounded-md bg-rose-500/10 hover:bg-rose-500/20 flex items-center justify-center text-rose-400"
+                      className="w-7 h-7 rounded-md bg-rose-500/10 hover:bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             {unusedImages.length > 0 && (
@@ -462,6 +488,40 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
           videoEnabled={false}
           onPickImage={handlePixabaySlidePick}
           onClose={() => setShowPixabayPicker(false)}
+        />
+      )}
+
+      {currentCropItem && (
+        <>
+          <ImageCropModal
+            imageSrc={currentCropItem.previewUrl}
+            lang={lang}
+            title={cropQueue.length > 1 ? `${lang === 'tr' ? 'Görsel' : 'Image'} ${cropIndex + 1}/${cropQueue.length}` : undefined}
+            onCropped={handleCropConfirmed}
+            onSkip={handleCropSkipped}
+            onClose={handleCropQueueClose}
+          />
+          {cropQueue.length - cropIndex > 1 && (
+            <button
+              onClick={handleSkipAllRemaining}
+              className="fixed top-7 left-1/2 -translate-x-1/2 z-[130] px-4 py-1.5 rounded-full bg-white/10 backdrop-blur text-white text-[11px] font-bold uppercase tracking-widest hover:bg-white/20"
+            >
+              {lang === 'tr' ? `Kalan ${cropQueue.length - cropIndex} Görseli Kırpmadan Ekle` : `Add Remaining ${cropQueue.length - cropIndex} Without Cropping`}
+            </button>
+          )}
+        </>
+      )}
+
+      {captionEditingSlide && (
+        <SlideCaptionEditor
+          slide={captionEditingSlide}
+          imageSrc={captionEditingSlide.image_url}
+          lang={lang}
+          onClose={() => setCaptionEditingSlide(null)}
+          onSave={async (updates) => {
+            await updateSlide(captionEditingSlide.id, updates)
+            setCaptionEditingSlide(null)
+          }}
         />
       )}
     </div>

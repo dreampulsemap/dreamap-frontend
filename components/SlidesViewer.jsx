@@ -11,7 +11,7 @@ import { useModalA11y } from '@/lib/useModalA11y'
 // kayıyor — gerçek Reels'te de böyle çalışır.
 
 const FONT_CLASS = { sans: 'font-sans', serif: 'font-serif', mono: 'font-mono' }
-const POSITION_CLASS = { top: 'top-20 items-start', center: 'top-1/2 -translate-y-1/2 items-center', bottom: 'bottom-28 items-end' }
+const BASE_FONT_PX = 22
 
 function isVideoUrl(url) {
   return /\/pixabay-video\//.test(url || '') || /\.mp4($|\?)/.test(url || '')
@@ -225,7 +225,6 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
         {slides.map((slide, i) => {
           const slideIsVideo = isVideoUrl(slide.image_url)
           const fontClass = FONT_CLASS[slide.caption_font] || FONT_CLASS.sans
-          const positionClass = POSITION_CLASS[slide.caption_position] || POSITION_CLASS.bottom
           return (
             <div
               key={slide.id}
@@ -247,13 +246,22 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/25 pointer-events-none" />
               {slide.caption && (
-                <div className={`absolute left-4 right-20 flex flex-col z-10 ${positionClass}`}>
-                  <p
-                    className={`${fontClass} text-base leading-snug drop-shadow-md whitespace-pre-wrap`}
-                    style={{ color: slide.caption_color || '#ffffff' }}
-                  >
-                    {slide.caption}
-                  </p>
+                <div
+                  className={`absolute max-w-[80%] z-10 ${fontClass}`}
+                  style={{
+                    left: `${slide.caption_x ?? 50}%`,
+                    top: `${slide.caption_y ?? 85}%`,
+                    transform: 'translate(-50%, -50%)',
+                    color: slide.caption_color || '#ffffff',
+                    fontSize: `${BASE_FONT_PX * (slide.caption_size ?? 1)}px`,
+                    lineHeight: 1.25,
+                    fontWeight: 700,
+                    textShadow: '0 1px 6px rgba(0,0,0,0.5)',
+                    whiteSpace: 'pre-wrap',
+                    textAlign: 'center',
+                  }}
+                >
+                  {slide.caption}
                 </div>
               )}
             </div>
