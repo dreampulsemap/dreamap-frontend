@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 import { persistRemoteImage } from '@/lib/persistRemoteImage';
+import { isPremiumMember, getAuraBalance } from '@/lib/premiumMembership';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -345,27 +346,42 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'dream_content_empty' });
     }
 
-    const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
-      p_user_id: user.id,
-      p_amount: 2
-    });
+    // Premium üye ise (Gumroad "Lunosfer Premium") 2 Aura'lık görsel ücreti
+    // alınmaz — bkz. lib/premiumMembership.js.
+    const premiumMember = await isPremiumMember(user.id);
+    let spend = { success: true, remaining: null };
 
-    if (spendError) throw spendError;
+    if (!premiumMember) {
+      const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
+        p_user_id: user.id,
+        p_amount: 2
+      });
 
-    const spend = spendResult?.[0];
-    if (!spend?.success) {
-      return res.status(402).json({ error: 'no_auras' });
+      if (spendError) throw spendError;
+
+      spend = spendResult?.[0];
+      if (!spend?.success) {
+        return res.status(402).json({ error: 'no_auras' });
+      }
     }
 
-    let scene;
-    try {
-      scene = await extractDreamScene(dream.content);
-    } catch (sceneError) {
+    // Premium üyeden zaten harcama yapılmadığı için aşağıdaki hata
+    // durumlarında iade edilecek bir şey yok — bu yardımcı, sadece gerçekten
+    // ücret alınmışsa iade eder.
+    const maybeRefund = async () => {
+      if (premiumMember) return;
       try {
         await refundAuras(user.id, 2);
       } catch (refundError) {
         console.error('Refund Error:', refundError);
       }
+    };
+
+    let scene;
+    try {
+      scene = await extractDreamScene(dream.content);
+    } catch (sceneError) {
+      await maybeRefund();
 
       return res.status(502).json({
         error: 'scene_extraction_failed',
@@ -393,11 +409,7 @@ export default async function handler(req, res) {
         imageUrl = await generateWithOpenAI(prompt);
         provider = 'openai_dalle_3';
       } catch (err) {
-        try {
-          await refundAuras(user.id, 2);
-        } catch (refundError) {
-          console.error('Refund Error:', refundError);
-        }
+        await maybeRefund();
 
         const details = generationError?.message || err?.message || 'unknown_generation_error';
         return res.status(502).json({
@@ -433,11 +445,7 @@ export default async function handler(req, res) {
       .eq('id', dreamId);
 
     if (updateDreamError) {
-      try {
-        await refundAuras(user.id, 2);
-      } catch (refundError) {
-        console.error('Refund Error:', refundError);
-      }
+      await maybeRefund();
 
       return res.status(500).json({
         error: 'failed_to_save_image_url',
@@ -448,7 +456,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       imageUrl,
-      aurasLeft: spend.remaining,
+      isPremiumMember: premiumMember,
+      aurasLeft: premiumMember ? await getAuraBalance(user.id) : spend.remaining,
       provider,
       promptPreview: prompt.slice(0, 700),
       scene

@@ -9,6 +9,7 @@ import {
 } from '@/lib/deepAnalysisEngine'
 import { notifyAnalysisOutcome } from '@/lib/notify'
 import { isPersistedImageUrl } from '@/lib/imageUrlUtils'
+import { isPremiumMember, getAuraBalance } from '@/lib/premiumMembership'
 
 // =====================================================================
 // SADECE OpenAI, TAMAMEN SENKRON — kuyruk yok, cron yok, dış worker yok.
@@ -97,16 +98,24 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, queued: true, alreadyQueued: true })
     }
 
-    const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
-      p_user_id: user.id,
-      p_amount: 8
-    })
+    // Premium üye ise (Gumroad "Lunosfer Premium" aboneliği aktifse) Aura
+    // harcanmaz — bkz. lib/premiumMembership.js. Değilse eski davranış aynen
+    // sürüyor: 8 Aura düşülür, yetmezse 402 döner.
+    const premiumMember = await isPremiumMember(user.id)
+    let spend = { success: true, remaining: null }
 
-    if (spendError) throw spendError
+    if (!premiumMember) {
+      const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
+        p_user_id: user.id,
+        p_amount: 8
+      })
 
-    const spend = spendResult?.[0]
-    if (!spend?.success) {
-      return res.status(402).json({ error: 'no_auras' })
+      if (spendError) throw spendError
+
+      spend = spendResult?.[0]
+      if (!spend?.success) {
+        return res.status(402).json({ error: 'no_auras' })
+      }
     }
 
     // ---- Tek deneme, tam bütçeyle ----
@@ -177,18 +186,25 @@ export default async function handler(req, res) {
         analysis: best.analysis,
         provider: best.provider,
         imageUrl,
-        aurasLeft: spend.remaining
+        isPremiumMember: premiumMember,
+        // Premium üyede hiç harcama olmadığından spend.remaining null'dır —
+        // frontend'in bakiyeyi yanlışlıkla sıfırlamaması için gerçek bakiyeyi
+        // ayrıca çekiyoruz.
+        aurasLeft: premiumMember ? await getAuraBalance(user.id) : spend.remaining
       })
     }
 
     // ---- Deneme başarısız: 'pending'de takılı bırakma — direkt failed + iade ----
     console.error('generate-deep-analysis: OpenAI attempt failed:', lastError?.message)
 
-    const refundResult = await supabaseAdmin.rpc('refund_auras', {
-      p_user_id: user.id,
-      p_amount: 8
-    })
-    if (refundResult.error) console.error('refund error:', refundResult.error.message)
+    // Premium üyeden zaten Aura düşülmediği için iade edilecek bir şey yok.
+    if (!premiumMember) {
+      const refundResult = await supabaseAdmin.rpc('refund_auras', {
+        p_user_id: user.id,
+        p_amount: 8
+      })
+      if (refundResult.error) console.error('refund error:', refundResult.error.message)
+    }
 
     await supabaseAdmin
       .from('dreams')
@@ -209,7 +225,7 @@ export default async function handler(req, res) {
     return res.status(502).json({
       error: 'analysis_failed',
       details: lastError?.message || 'openai_failed',
-      aurasRefunded: true
+      aurasRefunded: !premiumMember
     })
   } catch (error) {
     console.error('Deep Analysis Enqueue Error:', error)
