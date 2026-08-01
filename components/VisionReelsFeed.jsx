@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { ChevronLeft, Sparkles, MessageCircle, Layers } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useModalA11y } from '@/lib/useModalA11y'
 
 // Vizyon panosunun 9:16 "Reels" görünümü — grid'in aksine hedefler tek tek,
 // tam ekran, dikey kaydırmayla (scroll-snap) art arda geliyor. Her kart
@@ -23,6 +24,8 @@ export default function VisionReelsFeed({ goals, lang, t, currentUserId, initial
   const [localGoals, setLocalGoals] = useState(goals)
 
   useEffect(() => { setLocalGoals(goals) }, [goals])
+
+  useModalA11y(containerRef, onClose)
 
   // Belirli bir vizyona tıklanarak açıldıysa (ana sayfa/keşfet), besleme o
   // vizyonda başlasın — her zaman en baştan değil. Animasyonsuz, anlık.
