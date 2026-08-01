@@ -527,3 +527,61 @@ veritabanına zaten uygulandı.
 TEST EDİLEMEDİ: Yine tarayıcıda render edemiyorum; JSX'i sözdizimi için
 taradım (temiz). SQL tarafını ise gerçekten Supabase'e karşı ÇALIŞTIRDIM
 ve sorgularla doğruladım — o kısım "tahmin" değil, doğrulanmış durum.
+
+## 19) Kartlarda GERİ tuşu sorunu + dil menüsü kapanmıyordu
+
+Bu paketi (`__22_.zip`) başka bir turda yapılan büyük bir ana-sayfa/keşif
+yeniden tasarımıyla (Instagram-tarzı tek sütun akış, `DEGISIKLIK_OZETI_3.md`)
+birlikte aldım — görsellerin akışta görünmeme sorunu ORADA zaten kök
+nedeniyle düzeltilmiş (aşırı sıkı bir filtre `needs_persist` görselleri de
+gizliyordu). Ben ekran görüntülerindeki o sorunu ayrıca düzeltmedim, zaten
+çözülmüştü; yeni pakette olmalı.
+
+**Dil menüsü kapanmıyordu:** `components/LanguageSwitcher.jsx` menüyü CSS
+`:hover` ile açıp kapatıyordu — dokunmatik ekranda "hover" güvenilir değildir,
+bir dile dokunduktan sonra menü açık kalabiliyordu. Gerçek bir açık/kapalı
+state'e geçirdim: butona dokun → açılır, bir dil seç ya da dışarı dokun →
+kapanır.
+
+**Kartlarda "Geri tuşu yok, çıkmak zor, geri basınca çok geri gidiyor":**
+Kök neden, modal'ların (rüya/vizyon detayı) tarayıcı geçmişine hiç
+girmemesiydi — fiziksel/tarayıcı GERİ tuşu modal'ı kapatmak yerine asıl
+sayfa geçmişinde geriye gidiyordu (bazen siteden bile çıkarıyordu).
+`GoalDetailModal` gibi bazılarında görünür bir X butonu vardı ama GERİ
+tuşuna basınca yine de bu sorun oluyordu; rüya kartının modal'ında (ana
+sayfada) görünür bir kapatma butonu bile yoktu, yalnızca karartılmış
+arka plana tıklayarak kapanıyordu.
+
+- `lib/useModalA11y.js` — DÜZENLENDİ (TEK YERDEN, HER MODAL'I DÜZELTİR):
+  modal açılırken sahte bir tarayıcı geçmişi girdisi ekleniyor; fiziksel
+  GERİ tuşuna basılınca bu girdi düşüyor (popstate) ve modal kapanıyor —
+  kullanıcı sayfadan hiç ayrılmamış, aynı scroll konumunda kalıyor. Modal
+  X/arka-plan/Escape ile kapatılırsa, açılışta eklenen girdi de otomatik
+  temizleniyor (yoksa kullanıcı asıl sayfadan çıkmak için GERİ'ye bir kez
+  daha boşuna basardı). Bu hook zaten `CreateGoalModal`, `StoryModeModal`,
+  `DeepAnalysisConfirmationModal`, `PixabayPicker`, `GoalDetailModal`,
+  `SlidesViewer`, `SlideEditor` tarafından kullanılıyordu — hepsi bu
+  düzeltmeyi otomatik olarak aldı, tek tek dokunmadım.
+- `components/VisionReelsFeed.jsx` — `useModalA11y` eklendi (zaten görünür
+  bir Geri butonu vardı, şimdi fiziksel GERİ tuşu da çalışıyor).
+- `pages/index.js` — rüya kartı artık çıplak bir overlay değil, yeni bir
+  `DreamCardModal` sarmalayıcısı kullanıyor: `useModalA11y` + her zaman
+  görünür bir kapatma (X) butonu.
+
+DOKUNULMADI (bilinen, benzer ama ayrı bir boşluk): `DeepAnalysisCarouselModal`
+kendi X butonuna sahip ama `useModalA11y` kullanmıyor — `isOpen` prop'uyla
+açılıp kapanıyor (mount/unmount değil), bu yüzden mevcut hook'u oraya
+doğrudan eklemek güvenli değildi (hook, "mount = açık" varsayıyor). Düzgün
+desteklemek için hook'un `isOpen` tabanlı bileşenleri de anlayacak şekilde
+genişletilmesi gerekir — istersen ayrı bir iş olarak yaparım.
+
+BİLİNEN SINIRLAMA: Aynı anda birden fazla modal açıksa (ör. vizyon detayı
+içinden slayt düzenleyici açılması), GERİ'ye TEK basış şu an ikisini de
+kapatıyor (her ikisi de aynı global `popstate` olayını dinliyor) — düzgün
+bir modal-yığını (her seviye kendi derinliğini bilecek şekilde) kurmak daha
+büyük bir iş, bu turda yapmadım. Pratikte en sık karşılaşılan durum (tek
+modal açıkken GERİ'ye basmak) artık doğru çalışıyor.
+
+TEST EDİLEMEDİ: Sözdizimi için taradım (temiz), ama gerçek bir tarayıcıda
+GERİ tuşu davranışını deneyemedim — bu özellikle dikkatle test etmen
+gereken bir değişiklik.
