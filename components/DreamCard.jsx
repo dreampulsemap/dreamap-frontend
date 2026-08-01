@@ -48,6 +48,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
 
   const { subscribe: subscribeToPush } = usePushSubscription()
   const [premiumAuras, setPremiumAuras] = useState(0)
+  const [isPremiumMember, setIsPremiumMember] = useState(false)
   const [premiumGenerating, setPremiumGenerating] = useState(false)
   const [premiumQueued, setPremiumQueued] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
@@ -139,8 +140,9 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   useEffect(() => {
     let active = true
 
-    const applyUser = async (currentUser) => {
+    const applyUser = async (session) => {
       if (!active) return
+      const currentUser = session?.user || null
       setUser(currentUser)
       if (currentUser) {
         const { data: profile } = await supabase
@@ -149,15 +151,29 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
           .eq('id', currentUser.id)
           .single()
         if (active && profile) setPremiumAuras(profile.premium_analysis_auras || 0)
+
+        // Gumroad "Lunosfer Premium" aboneliği aktifse Aura harcanmadan
+        // derin analiz/görsel yapılabiliyor — bkz. pages/api/user/premium-status.js
+        try {
+          const res = await fetch('/api/user/premium-status', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          })
+          const status = await res.json()
+          if (active && res.ok) setIsPremiumMember(!!status?.isPremium)
+        } catch {
+          // sessizce geç — premium değilse zaten normal Aura akışı çalışır
+        }
+      } else {
+        setIsPremiumMember(false)
       }
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      applyUser(session?.user || null)
+      applyUser(session)
     })
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      applyUser(session?.user || null)
+      applyUser(session)
     })
 
     return () => {
@@ -342,6 +358,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       setImgState('idle')
       repairAttemptedRef.current = false
       setPremiumAuras(data.aurasLeft)
+      if (typeof data.isPremiumMember === 'boolean') setIsPremiumMember(data.isPremiumMember)
       triggerToast(isOwner ? t.imageSuccess : t.imageGiftSuccess)
     } catch (err) {
       setPremiumError(err.message)
@@ -391,6 +408,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       }
 
       setPremiumAuras(data.aurasLeft)
+      if (typeof data.isPremiumMember === 'boolean') setIsPremiumMember(data.isPremiumMember)
 
       if (data.generated && data.analysis) {
         setPremiumAnalysis(data.analysis)
@@ -596,7 +614,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
         )}
       </article>
 
-      {showConfirmModal && <DeepAnalysisConfirmationModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} auras={premiumAuras} onConfirm={handlePremiumAnalysisExecute} lang={currentLang} gumroadUrl={GUMROAD_PRODUCT_URL} isGift={!isOwner} isGenerating={premiumGenerating} />}
+      {showConfirmModal && <DeepAnalysisConfirmationModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} auras={premiumAuras} isPremiumMember={isPremiumMember} onConfirm={handlePremiumAnalysisExecute} lang={currentLang} gumroadUrl={GUMROAD_PRODUCT_URL} isGift={!isOwner} isGenerating={premiumGenerating} />}
       {showEditModal && (
         <DreamEditModal
           dream={effectiveDream}

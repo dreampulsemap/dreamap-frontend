@@ -7,6 +7,7 @@ export default function DeepAnalysisConfirmationModal({
   isOpen,
   onClose,
   auras,
+  isPremiumMember = false,
   onConfirm,
   lang,
   gumroadUrl,
@@ -89,10 +90,16 @@ export default function DeepAnalysisConfirmationModal({
         <div className="border-t border-white/10 pt-6">
           <div className="flex justify-between items-center mb-4">
             <span className="text-slate-400 text-xs uppercase tracking-wider">{t.balanceLabel}</span>
-            <span className="text-sm font-semibold text-white">✦ {auras} Aura</span>
+            {isPremiumMember ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-200">
+                ✦ {t.premiumUnlimitedLabel}
+              </span>
+            ) : (
+              <span className="text-sm font-semibold text-white">✦ {auras} Aura</span>
+            )}
           </div>
 
-          {auras >= 8 ? (
+          {(isPremiumMember || auras >= 8) ? (
             <button
               onClick={isGenerating ? undefined : onConfirm}
               disabled={isGenerating}
@@ -103,6 +110,8 @@ export default function DeepAnalysisConfirmationModal({
                   <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
                   {t.generatingAnalysis}
                 </>
+              ) : isPremiumMember ? (
+                isGift ? t.startGiftAnalysisPremiumLabel : t.startAnalysisPremiumLabel
               ) : (
                 isGift ? t.startGiftAnalysisLabel : t.startAnalysisLabel
               )}
