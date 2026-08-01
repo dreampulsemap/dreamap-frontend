@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { usePushSubscription } from '@/hooks/usePushSubscription'
 import Image from 'next/image'
+import { Upload, Search as SearchIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from 'next/router'
 import { getTranslation } from '@/lib/translations'
@@ -8,14 +9,17 @@ import { supabase } from '@/lib/supabase'
 import { tAddDream } from '@/lib/addDreamTranslations'
 import { ARCHETYPE_LOCALIZATIONS } from '@/lib/archetypeTranslations'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
+import { uploadDreamCoverImage, getDreamUploadErrorMessage } from '@/lib/uploadDreamCoverImage'
+import { updateDream } from '@/services/dreamService'
 import DreamAnalysisView from '@/components/DreamAnalysisView'
 import DeepAnalysisConfirmationModal from '@/components/DeepAnalysisConfirmationModal'
 import DeepAnalysisCarouselModal from '@/components/DeepAnalysisCarouselModal'
 import StoryModeModal from '@/components/StoryModeModal'
+import PixabayPicker from '@/components/PixabayPicker'
 
 const GUMROAD_PRODUCT_URL = 'https://shop.lunosfer.com'
 
-export default function DreamCard({ dream, lang, onTranslate, translating, translated, translatedContent, translatedAnalysis, currentUserId }) {
+export default function DreamCard({ dream, lang, onTranslate, translating, translated, translatedContent, translatedAnalysis, currentUserId, onImageChanged }) {
   const { i18n } = useTranslation()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -58,6 +62,13 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   const [imgState, setImgState] = useState('idle')
   const [imgOverrideUrl, setImgOverrideUrl] = useState(null) // onarımdan dönen taze URL
   const repairAttemptedRef = useRef(false)
+  // Sahibinin kapak görselini elle değiştirmesi (cihazdan yükleme / Pixabay).
+  // AI otomatik üretiminden BAĞIMSIZ, ek bir yol — sahibi rüya kartı
+  // oluştuktan sonra da (görsel olsun/olmasın) görseli değiştirebilsin diye.
+  const [showPixabayPicker, setShowPixabayPicker] = useState(false)
+  const [uploadingCoverImage, setUploadingCoverImage] = useState(false)
+  const [coverImageError, setCoverImageError] = useState('')
+  const coverFileInputRef = useRef(null)
 
   const effectiveDream = useMemo(() => (analysisOverride ? { ...dream, ...analysisOverride } : dream), [dream, analysisOverride])
 
@@ -202,6 +213,81 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
     return ARCHETYPE_LOCALIZATIONS[currentLang]?.[cleanArch] || cleanArch
   }, [currentLang])
 
+  // Sahibi kapak görselini cihazından ya da Pixabay'den elle seçtiğinde
+  // ikisi de burada birleşiyor: yükle/al -> update-dream ile kalıcı olarak
+  // rüyaya kaydet -> ekranı anında handleGenerateImageOnly ile AYNI desende
+  // güncelle (analysisOverride + img state reset).
+  const persistCoverImage = async (result, userId) => {
+    await updateDream(dream.id, userId, {
+      ai_image_url: result.url,
+      image_source: result.source,
+      image_width: result.width || null,
+      image_height: result.height || null,
+    })
+    setAnalysisOverride({
+      ...effectiveDream,
+      ai_image_url: result.url,
+      image_source: result.source,
+      image_width: result.width || null,
+      image_height: result.height || null,
+    })
+    setImgOverrideUrl(null)
+    setImgState('idle')
+    repairAttemptedRef.current = false
+    setShowPixabayPicker(false)
+    onImageChanged?.(result.url)
+  }
+
+  const handleDeviceCoverUpload = async (file) => {
+    if (!file || !isOwner) return
+    setCoverImageError('')
+    setUploadingCoverImage(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setCoverImageError(t.loginRequired || 'Please log in to continue'); return }
+      const result = await uploadDreamCoverImage({ file, userId: session.user.id, dreamId: dream.id })
+      await persistCoverImage(result, session.user.id)
+    } catch (err) {
+      setCoverImageError(getDreamUploadErrorMessage(err, lang))
+    } finally {
+      setUploadingCoverImage(false)
+    }
+  }
+
+  const onCoverFileInputChange = (e) => {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = ''
+    if (file) handleDeviceCoverUpload(file)
+  }
+
+  const handlePixabayCoverPick = async (hit) => {
+    if (!isOwner) return false
+    setCoverImageError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setCoverImageError(t.loginRequired || 'Please log in to continue'); return false }
+      const res = await fetch('/api/dreams/pixabay-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          pixabayId: hit.id,
+          imageUrl: hit.largeImageURL || hit.webformatURL,
+          tags: hit.tags,
+          pixabayUser: hit.user,
+          width: hit.width,
+          height: hit.height,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setCoverImageError(json.error || 'error'); return false }
+      await persistCoverImage({ url: json.url, width: json.width, height: json.height, source: 'pixabay' }, session.user.id)
+      return true
+    } catch {
+      setCoverImageError(lang === 'tr' ? 'Görsel eklenemedi, tekrar dene.' : 'Could not add the image, please try again.')
+      return false
+    }
+  }
+
   const handleGenerateImageOnly = async () => {
     setPremiumError('')
     setGeneratingImage(true)
@@ -292,6 +378,16 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   return (
     <>
       <article className="glass-card p-6 rounded-3xl border border-white/10 bg-slate-900/40">
+        {/* Cihazdan kapak görseli seçmek için gizli input — hem "görsel yok"
+            hem "görseli değiştir" butonları aynı input'u tetikler. */}
+        <input
+          ref={coverFileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          disabled={uploadingCoverImage}
+          onChange={onCoverFileInputChange}
+        />
         {showImage && (
           <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-4">
             <Image
@@ -302,6 +398,33 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
               className="object-cover"
               onError={handleImageError}
             />
+            {isOwner && (
+              <div className="absolute top-2 right-2 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => coverFileInputRef.current?.click()}
+                  disabled={uploadingCoverImage}
+                  title={lang === 'tr' ? 'Cihazdan değiştir' : 'Change from device'}
+                  className="h-8 w-8 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 disabled:opacity-50"
+                >
+                  <Upload size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPixabayPicker(true)}
+                  disabled={uploadingCoverImage}
+                  title={lang === 'tr' ? "Pixabay'dan değiştir" : 'Change from Pixabay'}
+                  className="h-8 w-8 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 disabled:opacity-50"
+                >
+                  <SearchIcon size={14} />
+                </button>
+              </div>
+            )}
+            {uploadingCoverImage && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+              </div>
+            )}
           </div>
         )}
         {imgState === 'repairing' && (
@@ -386,7 +509,35 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
             {generatingImage && stepMessage && (
               <p className="text-center text-xs text-cyan-300 animate-pulse">{stepMessage}</p>
             )}
+            {isOwner && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => coverFileInputRef.current?.click()}
+                  disabled={uploadingCoverImage}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-xs font-semibold hover:bg-white/10 disabled:opacity-40"
+                >
+                  <Upload size={14} />
+                  {uploadingCoverImage
+                    ? (lang === 'tr' ? 'Yükleniyor...' : 'Uploading...')
+                    : (lang === 'tr' ? 'Cihazdan Yükle' : 'From Device')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPixabayPicker(true)}
+                  disabled={uploadingCoverImage}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-fuchsia-300 text-xs font-semibold hover:bg-white/10 disabled:opacity-40"
+                >
+                  <SearchIcon size={14} />
+                  {lang === 'tr' ? "Pixabay'dan Seç" : 'From Pixabay'}
+                </button>
+              </div>
+            )}
           </div>
+        )}
+
+        {coverImageError && (
+          <p className="mb-3 text-center text-[11px] text-rose-400">{coverImageError}</p>
         )}
 
         {premiumError && (
@@ -403,6 +554,14 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       </article>
 
       {showConfirmModal && <DeepAnalysisConfirmationModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} auras={premiumAuras} onConfirm={handlePremiumAnalysisExecute} lang={currentLang} gumroadUrl={GUMROAD_PRODUCT_URL} isGift={!isOwner} isGenerating={premiumGenerating} />}
+      {showPixabayPicker && (
+        <PixabayPicker
+          lang={currentLang}
+          videoEnabled={false}
+          onPickImage={handlePixabayCoverPick}
+          onClose={() => setShowPixabayPicker(false)}
+        />
+      )}
       {showAnalysisModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setShowAnalysisModal(false)}>
            <DeepAnalysisCarouselModal isOpen={showAnalysisModal} onClose={() => setShowAnalysisModal(false)} premiumAnalysis={premiumAnalysis || effectiveDream?.premium_deep_analysis} lang={currentLang} dreamTitle={dream.ai_title} dreamContent={translated ? translatedContent : dream.content} dreamImage={effectiveDream.ai_image_url} dreamId={dream.id} onGenerateImageOnly={handleGenerateImageOnly} generatingImage={generatingImage} premiumError={premiumError} translateArchetype={translateArchetype} onOpenStoryMode={() => setShowStoryMode(true)} />
