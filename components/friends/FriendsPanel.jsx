@@ -27,11 +27,11 @@ export default function FriendsPanel({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Kullanıcı ara"
-            className="flex-1 rounded-[1.1rem] border border-white/10 bg-black/30 px-4 py-3 text-white placeholder:text-white/30 focus:border-cyan-400/30 focus:outline-none"
+            className="flex-1 rounded-[1.1rem] border border-white/10 bg-black/30 px-4 py-3 text-white placeholder:text-white/30 focus:border-brand-secondary-400/30 focus:outline-none"
           />
           <button
             onClick={onSearch}
-            className="energy-button rounded-full border border-cyan-300/18 bg-cyan-500/10 px-5 py-3 text-sm font-medium text-cyan-100 hover:border-cyan-300/34 hover:bg-cyan-500/18"
+            className="energy-button rounded-full border border-brand-secondary-300/18 bg-brand-secondary-500/10 px-5 py-3 text-sm font-medium text-brand-secondary-100 hover:border-brand-secondary-300/34 hover:bg-brand-secondary-500/18"
           >
             Ara
           </button>
@@ -61,7 +61,7 @@ export default function FriendsPanel({
 
                 <button
                   onClick={() => onSendRequest(user.id)}
-                  className="energy-button rounded-full border border-emerald-300/18 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 hover:border-emerald-300/34 hover:bg-emerald-500/18"
+                  className="energy-button rounded-full border border-semantic-success-300/18 bg-semantic-success-500/10 px-4 py-2 text-sm font-medium text-semantic-success-100 hover:border-semantic-success-300/34 hover:bg-semantic-success-500/18"
                 >
                   İstek gönder
                 </button>
@@ -90,7 +90,7 @@ export default function FriendsPanel({
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => onRespondRequest(item.id, 'accepted')}
-                    className="energy-button rounded-full border border-cyan-300/18 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-100 hover:border-cyan-300/34 hover:bg-cyan-500/18"
+                    className="energy-button rounded-full border border-brand-secondary-300/18 bg-brand-secondary-500/10 px-4 py-2 text-sm font-medium text-brand-secondary-100 hover:border-brand-secondary-300/34 hover:bg-brand-secondary-500/18"
                   >
                     Kabul et
                   </button>
