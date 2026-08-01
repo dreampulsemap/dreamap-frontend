@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { usePushSubscription } from '@/hooks/usePushSubscription'
 import Image from 'next/image'
-import { Upload, Search as SearchIcon } from 'lucide-react'
+import { Upload, Search as SearchIcon, Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from 'next/router'
 import { getTranslation } from '@/lib/translations'
@@ -16,6 +16,7 @@ import DeepAnalysisConfirmationModal from '@/components/DeepAnalysisConfirmation
 import DeepAnalysisCarouselModal from '@/components/DeepAnalysisCarouselModal'
 import StoryModeModal from '@/components/StoryModeModal'
 import PixabayPicker from '@/components/PixabayPicker'
+import DreamEditModal from '@/components/dreams/DreamEditModal'
 
 const GUMROAD_PRODUCT_URL = 'https://shop.lunosfer.com'
 
@@ -69,6 +70,11 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   const [uploadingCoverImage, setUploadingCoverImage] = useState(false)
   const [coverImageError, setCoverImageError] = useState('')
   const coverFileInputRef = useRef(null)
+  // Tam düzenleme (içerik/konum/etiket/görünürlük/görsel) — DreamEditModal
+  // artık burada bağlı: sahibi "Düzenle"ye basınca açılır.
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState('')
 
   const effectiveDream = useMemo(() => (analysisOverride ? { ...dream, ...analysisOverride } : dream), [dream, analysisOverride])
 
@@ -288,6 +294,31 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
     }
   }
 
+  // DreamEditModal'dan gelen tam güncelleme (içerik/konum/etiket/görünürlük
+  // ve opsiyonel olarak görsel) — aynı update-dream endpoint'i, aynı
+  // "kaydet -> analysisOverride'a yansıt" deseni.
+  const handleSaveEdit = async (updates) => {
+    setSavingEdit(true)
+    setEditError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error(t.loginRequired || 'Please log in to continue')
+      await updateDream(dream.id, session.user.id, updates)
+      setAnalysisOverride((prev) => ({ ...(prev || effectiveDream), ...updates }))
+      if ('ai_image_url' in updates) {
+        setImgOverrideUrl(null)
+        setImgState('idle')
+        repairAttemptedRef.current = false
+      }
+      setShowEditModal(false)
+      triggerToast(lang === 'tr' ? 'Rüya güncellendi.' : 'Dream updated.')
+    } catch (err) {
+      setEditError(err.message || (lang === 'tr' ? 'Güncellenemedi, tekrar dene.' : 'Could not update, please try again.'))
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
   const handleGenerateImageOnly = async () => {
     setPremiumError('')
     setGeneratingImage(true)
@@ -388,6 +419,18 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
           disabled={uploadingCoverImage}
           onChange={onCoverFileInputChange}
         />
+        {isOwner && (
+          <div className="flex justify-end mb-2 -mt-1">
+            <button
+              type="button"
+              onClick={() => { setEditError(''); setShowEditModal(true) }}
+              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400 hover:bg-white/5 hover:text-fuchsia-200 transition"
+            >
+              <Pencil size={12} />
+              {lang === 'tr' ? 'Düzenle' : 'Edit'}
+            </button>
+          </div>
+        )}
         {showImage && (
           <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-4">
             <Image
@@ -554,6 +597,16 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
       </article>
 
       {showConfirmModal && <DeepAnalysisConfirmationModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} auras={premiumAuras} onConfirm={handlePremiumAnalysisExecute} lang={currentLang} gumroadUrl={GUMROAD_PRODUCT_URL} isGift={!isOwner} isGenerating={premiumGenerating} />}
+      {showEditModal && (
+        <DreamEditModal
+          dream={effectiveDream}
+          onClose={() => setShowEditModal(false)}
+          onSave={handleSaveEdit}
+          saving={savingEdit}
+          error={editError}
+          lang={currentLang}
+        />
+      )}
       {showPixabayPicker && (
         <PixabayPicker
           lang={currentLang}
