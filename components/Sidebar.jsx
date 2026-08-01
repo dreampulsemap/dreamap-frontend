@@ -7,7 +7,9 @@ import { supabase } from '@/lib/supabase'
 
 // Not: Bu liste Navbar.jsx'teki NAV_ITEMS ile kasıtlı olarak örtüşüyor —
 // masaüstünde birincil gezinme artık burada, Navbar'ın ikinci satırı
-// (metin linkleri) bu yüzden md: altında gizlenmeli (bkz. entegrasyon notu).
+// (metin linkleri) bu yüzden lg: altında gizlenmeli (bkz. entegrasyon notu).
+// lg (1024px) kasıtlı: md (768px) tabletleri (ör. dikey iPad, 768-834px)
+// masaüstü olarak sınıflandırıyordu — tabletler artık BottomNav'ı görüyor.
 const NAV_ITEMS = [
   { href: '/', key: 'home', icon: Home },
   { href: '/explore', key: 'explore', icon: Compass },
@@ -51,7 +53,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="hidden md:flex md:flex-col fixed left-0 top-0 z-40 h-screen w-64 overflow-y-auto border-r border-white/5 bg-void-950/70 px-4 pb-6 pt-24 backdrop-blur-2xl"
+      className="hidden lg:flex lg:flex-col fixed left-0 top-0 z-40 h-screen w-64 overflow-y-auto border-r border-white/5 bg-void-950/70 px-4 pb-6 pt-24 backdrop-blur-2xl"
       aria-label={t('nav.home')}
     >
       {/* ODAK NOKTASI: birincil CTA — mevcut ?create=1 akışını kullanır

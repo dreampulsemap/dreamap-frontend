@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { Sparkles, MessageCircle } from 'lucide-react'
 import SwipePanels from '@/components/SwipePanels'
 import { getGoalTheme } from '@/lib/goalTheme'
+import { isNextImageHost } from '@/lib/imageUrlUtils'
 
 const CARD_HEIGHT = '78vh'
 
@@ -33,14 +34,24 @@ export default function VisionFeedCard({ goal, lang = 'en', onOpen }) {
               {images.map((url) => (
                 <div key={url} className="relative h-full w-full bg-gradient-to-br from-void-900 to-void-950">
                   {!failedUrls.has(url) ? (
-                    <Image
-                      src={url}
-                      alt={goal.title}
-                      fill
-                      sizes="100vw"
-                      className="object-cover"
-                      onError={() => setFailedUrls((prev) => new Set(prev).add(url))}
-                    />
+                    isNextImageHost(url) ? (
+                      <Image
+                        src={url}
+                        alt={goal.title}
+                        fill
+                        sizes="100vw"
+                        className="object-cover"
+                        onError={() => setFailedUrls((prev) => new Set(prev).add(url))}
+                      />
+                    ) : (
+                      <img
+                        src={url}
+                        alt={goal.title}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        loading="lazy"
+                        onError={() => setFailedUrls((prev) => new Set(prev).add(url))}
+                      />
+                    )
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-4xl">✨</div>
                   )}

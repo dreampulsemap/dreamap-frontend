@@ -29,7 +29,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/5 bg-void-950/90 backdrop-blur-2xl px-6 py-2.5 pb-safe"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/5 bg-void-950/90 backdrop-blur-2xl px-6 py-2.5 pb-safe"
       aria-label="Ana gezinme"
     >
       <div className="flex items-center justify-between max-w-md mx-auto">

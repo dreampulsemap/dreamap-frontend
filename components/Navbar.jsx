@@ -237,7 +237,7 @@ export default function Navbar() {
       </div>
 
       {/* MASAÜSTÜ İKİNCİL SATIR: metin linkleri (mobilde BottomNav ikonları karşılıyor) */}
-      <nav className="hidden md:flex items-center justify-center gap-8 border-t border-white/5 px-6 py-2 font-sans">
+      <nav className="hidden lg:flex items-center justify-center gap-8 border-t border-white/5 px-6 py-2 font-sans">
         {NAV_ITEMS.map(({ href, key }) => (
           <Link key={key} href={href} className={`text-sm font-medium transition-colors ${router.pathname === href ? 'text-astral-gold' : 'text-slate-300 hover:text-astral-gold'}`}>
             {mounted ? NAV_LABELS[key][currentLang === 'tr' ? 'tr' : 'en'] : <TextSkeleton width="w-14" />}
