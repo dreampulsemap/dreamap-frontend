@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { AlertTriangle, Image as ImageIcon, X } from 'lucide-react'
+import { AlertTriangle, Image as ImageIcon, Upload, X } from 'lucide-react'
 import { useRouter } from 'next/router'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { tAddDream, normalizeAddDreamLang } from '@/lib/addDreamTranslations'
 import TagInput from '@/components/TagInput'
 import PixabayPicker from '@/components/PixabayPicker'
+import { uploadDreamCoverImage, getDreamUploadErrorMessage } from '@/lib/uploadDreamCoverImage'
 
 export default function AddDreamPage() {
   const { i18n } = useTranslation()
@@ -27,14 +28,16 @@ export default function AddDreamPage() {
   const [visibility, setVisibility] = useState('public')
   const [selectedEmotions, setSelectedEmotions] = useState([])
   const [tags, setTags] = useState([])
-  const [pixabayImage, setPixabayImage] = useState(null) // { url, width, height }
+  const [coverImage, setCoverImage] = useState(null) // { url, width, height, source: 'pixabay' | 'user_upload' }
   const [showPixabayPicker, setShowPixabayPicker] = useState(false)
-  const [pixabayError, setPixabayError] = useState('')
+  const [coverImageError, setCoverImageError] = useState('')
+  const [uploadingCover, setUploadingCover] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef(null)
   const committedFinalRef = useRef('')
+  const coverFileInputRef = useRef(null)
 
   // 12.000 Karakter limiti (Yaklaşık 1500-2000 kelime / Optimize edilmiş token sınırı)
   const CHAR_LIMIT = 12000
@@ -181,7 +184,7 @@ export default function AddDreamPage() {
   }, []);
 
   async function handlePickPixabayImage(hit) {
-    setPixabayError('')
+    setCoverImageError('')
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/dreams/pixabay-image', {
@@ -201,14 +204,38 @@ export default function AddDreamPage() {
       })
       const json = await res.json()
       if (!res.ok) {
-        setPixabayError(json.error || 'error')
+        setCoverImageError(json.error || 'error')
         return false
       }
-      setPixabayImage({ url: json.url, width: json.width, height: json.height })
+      setCoverImage({ url: json.url, width: json.width, height: json.height, source: 'pixabay' })
       return true
     } catch (err) {
-      setPixabayError('network_error')
+      setCoverImageError('network_error')
       return false
+    }
+  }
+
+  async function handleDeviceCoverUpload(e) {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = ''
+    if (!file) return
+
+    setCoverImageError('')
+    setUploadingCover(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setCoverImageError(tAddDream('common.errorGeneric', lang))
+        return
+      }
+      // Rüya henüz oluşturulmadı — dreamId geçmiyoruz, kullanıcı klasörünün
+      // köküne yükleniyor (bkz. lib/uploadDreamCoverImage.js).
+      const result = await uploadDreamCoverImage({ file, userId: session.user.id })
+      setCoverImage(result)
+    } catch (err) {
+      setCoverImageError(getDreamUploadErrorMessage(err, lang))
+    } finally {
+      setUploadingCover(false)
     }
   }
 
@@ -252,15 +279,16 @@ export default function AddDreamPage() {
             dream_date: new Date().toISOString().split('T')[0],
             original_language: lang,
             tags,
-            ...(pixabayImage ? {
-              ai_image_url: pixabayImage.url,
-              image_source: 'pixabay',
-              image_width: pixabayImage.width || null,
-              image_height: pixabayImage.height || null,
-              // Pixabay import her zaman kalıcı depoya (image-library bucket)
-              // indirir, bu yüzden doğrudan 'ok'. reanalyze-dreams.js (teaser
-              // analiz) artık zaten dolu olan ai_image_url'in üzerine
-              // yazmıyor — kullanıcının seçtiği görsel korunuyor.
+            ...(coverImage ? {
+              ai_image_url: coverImage.url,
+              image_source: coverImage.source || 'pixabay',
+              image_width: coverImage.width || null,
+              image_height: coverImage.height || null,
+              // Pixabay/cihaz yüklemesi her zaman kalıcı depoya (image-library
+              // ya da dream-images bucket'ı) iniyor, bu yüzden doğrudan 'ok'.
+              // reanalyze-dreams.js (teaser analiz) artık zaten dolu olan
+              // ai_image_url'in üzerine yazmıyor — kullanıcının seçtiği
+              // görsel korunuyor.
               image_status: 'ok',
               image_checked_at: new Date().toISOString(),
             } : {}),
@@ -372,17 +400,17 @@ export default function AddDreamPage() {
               <TagInput tags={tags} onChange={setTags} lang={lang} />
             </div>
 
-            {/* KAPAK GÖRSELİ (PIXABAY'DEN SEÇ) */}
+            {/* KAPAK GÖRSELİ (CİHAZDAN YÜKLE / PIXABAY'DEN SEÇ) */}
             <div className="bg-white/[0.02] border border-white/5 p-5 rounded-3xl">
               <label className="text-xs uppercase tracking-widest text-slate-400 font-bold block mb-3">
                 {lang === 'tr' ? 'Kapak Görseli (opsiyonel)' : 'Cover Image (optional)'}
               </label>
-              {pixabayImage ? (
+              {coverImage ? (
                 <div className="relative w-full aspect-video rounded-2xl overflow-hidden">
-                  <img src={pixabayImage.url} alt="" className="w-full h-full object-cover" />
+                  <img src={coverImage.url} alt="" className="w-full h-full object-cover" />
                   <button
                     type="button"
-                    onClick={() => setPixabayImage(null)}
+                    onClick={() => setCoverImage(null)}
                     aria-label={lang === 'tr' ? 'Görseli kaldır' : 'Remove image'}
                     className="absolute top-2 right-2 h-8 w-8 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
                   >
@@ -390,18 +418,40 @@ export default function AddDreamPage() {
                   </button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowPixabayPicker(true)}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 py-6 text-sm text-slate-400 hover:border-fuchsia-400/40 hover:text-fuchsia-200 transition-all"
-                >
-                  <ImageIcon size={16} />
-                  {lang === 'tr' ? "Pixabay'dan Görsel Seç" : 'Choose Image From Pixabay'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => coverFileInputRef.current?.click()}
+                    disabled={uploadingCover}
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-white/15 py-6 text-sm text-slate-400 hover:border-fuchsia-400/40 hover:text-fuchsia-200 transition-all disabled:opacity-50"
+                  >
+                    <Upload size={16} />
+                    {uploadingCover
+                      ? (lang === 'tr' ? 'Yükleniyor...' : 'Uploading...')
+                      : (lang === 'tr' ? 'Cihazından Yükle' : 'Upload From Device')}
+                  </button>
+                  <input
+                    ref={coverFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingCover}
+                    onChange={handleDeviceCoverUpload}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPixabayPicker(true)}
+                    disabled={uploadingCover}
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-white/15 py-6 text-sm text-slate-400 hover:border-fuchsia-400/40 hover:text-fuchsia-200 transition-all disabled:opacity-50"
+                  >
+                    <ImageIcon size={16} />
+                    {lang === 'tr' ? "Pixabay'dan Seç" : 'From Pixabay'}
+                  </button>
+                </div>
               )}
-              {pixabayError && (
+              {coverImageError && (
                 <p className="mt-2 text-[10px] text-rose-400">
-                  {lang === 'tr' ? 'Görsel eklenemedi, tekrar dene.' : 'Could not add the image, please try again.'}
+                  {coverImageError}
                 </p>
               )}
               <p className="mt-2 text-[10px] text-slate-600">
