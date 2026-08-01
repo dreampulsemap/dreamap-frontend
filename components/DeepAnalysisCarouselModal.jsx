@@ -188,12 +188,12 @@ export default function DeepAnalysisCarouselModal({
 
           {/* SLAYT 2: KULLANICININ ORİJİNAL RÜYASI */}
           {currentSlide === 1 && (
-            <div className="h-full flex flex-col justify-center max-w-xl mx-auto">
+            <div className="min-h-full flex flex-col justify-center max-w-xl mx-auto">
               <span className="text-2xl mb-3 text-cyan-400">📖</span>
               <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
                 {t.slideTitle1 || 'Your Dream Text'}
               </h4>
-              <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap overflow-y-auto max-h-[30vh] pr-2">
+              <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap pr-2">
                 {dreamContent}
               </p>
             </div>
@@ -201,7 +201,7 @@ export default function DeepAnalysisCarouselModal({
 
           {/* SLAYT 3: TEASER / BAZ ANALİZ */}
           {currentSlide === 2 && (
-            <div className="h-full flex flex-col justify-center max-w-xl mx-auto">
+            <div className="min-h-full flex flex-col justify-center max-w-xl mx-auto">
               <span className="text-2xl mb-3 text-fuchsia-400">✨</span>
               <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
                 {t.slideTitle2 || 'Subconscious Signal'}
@@ -214,12 +214,12 @@ export default function DeepAnalysisCarouselModal({
 
           {/* SLAYT 4: SEMBOLİK OKUMA */}
           {currentSlide === 3 && (
-            <div className="h-full flex flex-col justify-center max-w-xl mx-auto">
+            <div className="min-h-full flex flex-col justify-center max-w-xl mx-auto">
               <span className="text-2xl mb-3 text-indigo-400">🜂</span>
               <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
                 {t.slideTitle3 || 'Symbolic Roadmap'}
               </h4>
-              <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap overflow-y-auto max-h-[30vh] pr-2">
+              <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap pr-2">
                 {getSafeVal(premiumAnalysis?.symbolic_reading, safeLang) || getSafeVal(premiumAnalysis?.summary, safeLang)}
               </p>
             </div>
@@ -227,13 +227,13 @@ export default function DeepAnalysisCarouselModal({
 
           {/* SLAYT 5: GÖLGE VE ÇATIŞMA */}
           {currentSlide === 4 && (
-            <div className="h-full flex flex-col justify-center gap-6 max-w-2xl mx-auto">
+            <div className="min-h-full flex flex-col justify-center gap-6 max-w-2xl mx-auto py-4">
               <div className="p-5 rounded-2xl border border-rose-500/20 bg-rose-500/[0.02]">
                 <h5 className="text-xs font-bold uppercase tracking-wider text-rose-400 mb-2 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
                   {safeLang === 'tr' ? 'Bastırılmış Benlik (Gölge)' : 'Shadow Focus'}
                 </h5>
-                <p className="text-xs leading-6 text-slate-300 font-light overflow-y-auto max-h-[15vh] pr-2">
+                <p className="text-xs leading-6 text-slate-300 font-light pr-2">
                   {getSafeVal(premiumAnalysis?.shadow_focus, safeLang)}
                 </p>
               </div>
@@ -242,7 +242,7 @@ export default function DeepAnalysisCarouselModal({
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                   {safeLang === 'tr' ? 'Temel Gerilim (Çatışma)' : 'Core Conflict'}
                 </h5>
-                <p className="text-xs leading-6 text-slate-300 font-light overflow-y-auto max-h-[15vh] pr-2">
+                <p className="text-xs leading-6 text-slate-300 font-light pr-2">
                   {getSafeVal(premiumAnalysis?.core_conflict, safeLang)}
                 </p>
               </div>
@@ -251,12 +251,12 @@ export default function DeepAnalysisCarouselModal({
 
           {/* SLAYT 6: BİREYLEŞME */}
           {currentSlide === 5 && (
-            <div className="h-full flex flex-col justify-center max-w-xl mx-auto">
+            <div className="min-h-full flex flex-col justify-center max-w-xl mx-auto">
               <span className="text-2xl mb-3 text-violet-400">💫</span>
               <h4 className="text-lg font-bold uppercase tracking-wider text-slate-400 mb-3">
                 {t.slideTitle5 || 'Path of Transformation'}
               </h4>
-              <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap overflow-y-auto max-h-[30vh] pr-2">
+              <p className="text-sm leading-8 text-slate-200 font-light whitespace-pre-wrap pr-2">
                 {getSafeVal(premiumAnalysis?.individuation_path, safeLang)}
               </p>
             </div>
@@ -264,7 +264,7 @@ export default function DeepAnalysisCarouselModal({
 
           {/* SLAYT 7: SORULAR */}
           {currentSlide === 6 && (
-            <div className="h-full flex flex-col justify-center gap-4 max-w-xl mx-auto">
+            <div className="min-h-full flex flex-col justify-center gap-4 max-w-xl mx-auto py-4">
               <h4 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-2">
                 {t.slideTitle6 || 'Reflection Questions'}
               </h4>

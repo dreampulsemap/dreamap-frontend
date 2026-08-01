@@ -115,10 +115,10 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/5 bg-void-950/80 backdrop-blur-2xl">
-      <div className="mx-auto grid max-w-[1200px] grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2.5 sm:px-6 sm:py-3">
+      <div className="mx-auto grid max-w-[1200px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 px-3 py-2.5 sm:gap-2 sm:px-6 sm:py-3">
 
         {/* SOL: MANA & AURA */}
-        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2.5 font-sans">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-2.5 font-sans">
           {user && (
             <div
               className="flex items-center gap-1 sm:gap-1.5 rounded-full border border-aether-cyan/30 bg-aether-cyan/10 px-2 py-1 sm:px-3.5 text-xs font-bold text-aether-cyan shadow-aether-glow"
@@ -153,7 +153,7 @@ export default function Navbar() {
 
         {/* ORTA: LOGO & MARKA (sabit merkez) */}
         <Link href="/" className="group flex items-center justify-center gap-2 sm:gap-3">
-          <span className="text-[0.9rem] font-black font-serif uppercase tracking-[0.18em] gold-gradient-text sm:text-[1.2rem]">
+          <span className="whitespace-nowrap text-[clamp(0.7rem,3.2vw,1.2rem)] font-black font-serif uppercase tracking-[clamp(0.06em,1.1vw,0.18em)] gold-gradient-text">
             LUNOSFER
           </span>
         </Link>
