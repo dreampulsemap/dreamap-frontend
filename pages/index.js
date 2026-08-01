@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
-import { Plus, X } from 'lucide-react'
+import { Shuffle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
@@ -11,7 +10,6 @@ import VisionFeedCard from '@/components/VisionFeedCard'
 import HomeFeedFilter from '@/components/HomeFeedFilter'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import VisionReelsFeed from '@/components/VisionReelsFeed'
-import CreateGoalModal from '@/components/CreateGoalModal'
 import TextSkeleton from '@/components/TextSkeleton'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 
@@ -28,8 +26,6 @@ export default function HomePage() {
   const [activeDream, setActiveDream] = useState(null)
   const [activeGoal, setActiveGoal] = useState(null)
   const [reelsGoalId, setReelsGoalId] = useState(null)
-  const [showCreateGoal, setShowCreateGoal] = useState(false)
-  const [showCreateMenu, setShowCreateMenu] = useState(false)
 
   const observerRef = useRef(null)
 
@@ -112,6 +108,8 @@ export default function HomePage() {
     [loading, hasMore, loadingMore, loadMore]
   )
 
+  const visionItems = items.filter((it) => it.feed_type === 'vision')
+
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="sticky top-14 sm:top-16 z-30 bg-black/85 backdrop-blur-md border-b border-white/5">
@@ -151,41 +149,22 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Yeni rüya/vizyon oluşturma FAB'ı */}
-      {mounted && user && (
-        <div className="fixed bottom-20 sm:bottom-6 right-5 z-40">
-          {showCreateMenu && (
-            <div className="mb-3 flex flex-col items-end gap-2 animate-fade-in">
-              <Link
-                href="/add-dream"
-                className="rounded-full bg-white text-black text-xs font-bold px-4 py-2.5 shadow-lg whitespace-nowrap"
-              >
-                {lang === 'tr' ? '🌙 Rüya Ekle' : '🌙 Log a Dream'}
-              </Link>
-              <button
-                onClick={() => { setShowCreateMenu(false); setShowCreateGoal(true) }}
-                className="rounded-full bg-white text-black text-xs font-bold px-4 py-2.5 shadow-lg whitespace-nowrap"
-              >
-                {lang === 'tr' ? '✨ Vizyon Ekle' : '✨ New Vision'}
-              </button>
-            </div>
-          )}
-          <button
-            onClick={() => setShowCreateMenu((v) => !v)}
-            className="h-14 w-14 rounded-full bg-fuchsia-600 text-white flex items-center justify-center shadow-xl hover:bg-fuchsia-500 transition-colors"
-            aria-label={lang === 'tr' ? 'Oluştur' : 'Create'}
-          >
-            {showCreateMenu ? <X size={22} /> : <Plus size={22} />}
-          </button>
-        </div>
-      )}
-
-      {showCreateGoal && (
-        <CreateGoalModal
-          lang={lang}
-          onClose={() => setShowCreateGoal(false)}
-          onCreated={() => { setShowCreateGoal(false); refreshFeed() }}
-        />
+      {/* Rastgele bir vizyonla Reels akışını açan sürpriz kısayol */}
+      {mounted && user && visionItems.length > 0 && (
+        <button
+          onClick={() => {
+            const pick = visionItems[Math.floor(Math.random() * visionItems.length)]
+            setReelsGoalId(pick.id)
+          }}
+          className="group fixed bottom-20 sm:bottom-6 right-5 z-40 block active:scale-95 transition-transform"
+          aria-label={lang === 'tr' ? 'Sürpriz vizyon reels aç' : 'Open a surprise vision reel'}
+        >
+          <span className="absolute inset-0 rounded-full bg-gradient-to-tr from-aether-indigo to-aether-violet blur opacity-70 group-hover:opacity-100 transition-opacity animate-pulse" />
+          <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-void-950 border border-aether-indigo/40 text-aether-indigo shadow-[0_0_25px_rgba(129,140,248,0.3)]">
+            <Shuffle size={22} />
+          </span>
+          <span className="absolute -top-1 -right-1 text-sm leading-none">✨</span>
+        </button>
       )}
 
       {activeGoal && (
@@ -200,7 +179,7 @@ export default function HomePage() {
 
       {reelsGoalId && (
         <VisionReelsFeed
-          goals={items.filter((it) => it.feed_type === 'vision')}
+          goals={visionItems}
           lang={lang}
           t={tVision}
           currentUserId={user?.id}
