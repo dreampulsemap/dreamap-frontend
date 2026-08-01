@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Shuffle } from 'lucide-react'
+import { Shuffle, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
@@ -12,6 +12,46 @@ import GoalDetailModal from '@/components/GoalDetailModal'
 import VisionReelsFeed from '@/components/VisionReelsFeed'
 import TextSkeleton from '@/components/TextSkeleton'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
+import { useModalA11y } from '@/lib/useModalA11y'
+
+// DreamCard kendi başına bir modal değil (onClose almıyor) — burada onu bir
+// modal kabuğuna sarıyoruz. GoalDetailModal ile aynı desen: useModalA11y
+// (Escape + fiziksel GERİ tuşu desteği) + her zaman görünür bir kapatma
+// butonu. Önceden yalnızca karartılmış arka plana tıklayarak kapanıyordu —
+// görünür bir buton yoktu ve GERİ tuşu sayfadan tamamen çıkarıyordu.
+function DreamCardModal({ dream, lang, currentUserId, onClose }) {
+  const modalRef = useRef(null)
+  useModalA11y(modalRef, onClose)
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+      onClick={onClose}
+    >
+      <div ref={modalRef} className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={onClose}
+          aria-label={lang === 'tr' ? 'Kapat' : 'Close'}
+          className="sticky top-2 left-full -mr-1 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-sm"
+        >
+          <X size={18} />
+        </button>
+        <div className="-mt-9">
+          <DreamCard
+            dream={dream}
+            lang={lang}
+            currentUserId={currentUserId}
+            onTranslate={() => {}}
+            translating={false}
+            translated={false}
+            translatedContent=""
+            translatedAnalysis=""
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function HomePage() {
   const { i18n } = useTranslation()
@@ -193,23 +233,12 @@ export default function HomePage() {
       )}
 
       {activeDream && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
-          onClick={() => setActiveDream(null)}
-        >
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <DreamCard
-              dream={activeDream}
-              lang={lang}
-              currentUserId={user?.id}
-              onTranslate={() => {}}
-              translating={false}
-              translated={false}
-              translatedContent=""
-              translatedAnalysis=""
-            />
-          </div>
-        </div>
+        <DreamCardModal
+          dream={activeDream}
+          lang={lang}
+          currentUserId={user?.id}
+          onClose={() => setActiveDream(null)}
+        />
       )}
     </div>
   )
