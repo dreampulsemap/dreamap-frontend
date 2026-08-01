@@ -41,8 +41,17 @@ const OWN_DREAM_WEIGHT = 1 // Kullanıcının kendi rüyalarındaki arketipler (
 // gizleniyor — bu da gerçekten kurtarılamayan görseller demek.
 const MIN_IMAGE_DIMENSION = 300 // yalnızca boyutu BİLİNEN (ör. Pixabay) görsellere uygulanır
 
-function applyImageQualityFilter(query) {
-  return query.not('ai_image_url', 'is', null).neq('image_status', 'broken')
+// includeNoImage=1: kullanıcı Keşfet'te "görselsiz rüyaları da göster"
+// seçeneğini açtıysa ai_image_url boş olan rüyaları artık ELEMİYORUZ —
+// 'broken' olarak işaretlenmiş (onarım denemeleri tükenmiş) rüyalar yine de
+// gizli kalır, çünkü onlar gerçekten kurtarılamayan/bozuk görsellerdir,
+// "görselsiz" değildir.
+function applyImageQualityFilter(query, includeNoImage) {
+  let q = query.neq('image_status', 'broken')
+  if (!includeNoImage) {
+    q = q.not('ai_image_url', 'is', null)
+  }
+  return q
 }
 
 function passesImageQuality(dream) {
@@ -183,10 +192,11 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'method_not_allowed' })
 
   try {
-    const { page = '0', rankToken, asOf } = req.query
+    const { page = '0', rankToken, asOf, includeNoImage } = req.query
     const pageNum = Math.max(parseInt(page, 10) || 0, 0)
     const from = pageNum * BATCH_SIZE
     const to = from + BATCH_SIZE - 1
+    const wantsNoImage = includeNoImage === '1' || includeNoImage === 'true'
 
     // asOf: istemcinin ilk sayfada sabitlediği "şu an" anı. Sonraki tüm
     // sayfalarda aynı değer gönderilir ki scroll sürerken araya yeni rüya
@@ -218,7 +228,7 @@ export default async function handler(req, res) {
         .order('created_at', { ascending: false })
         .range(from, to)
       if (asOfDate) tailQuery = tailQuery.lte('created_at', asOfDate)
-      tailQuery = applyImageQualityFilter(tailQuery)
+      tailQuery = applyImageQualityFilter(tailQuery, wantsNoImage)
 
       const { data, error } = await tailQuery
       if (error) throw error
@@ -252,7 +262,7 @@ export default async function handler(req, res) {
       .order('created_at', { ascending: false })
       .limit(RANK_POOL_SIZE)
     if (asOfDate) poolQuery = poolQuery.lte('created_at', asOfDate)
-    poolQuery = applyImageQualityFilter(poolQuery)
+    poolQuery = applyImageQualityFilter(poolQuery, wantsNoImage)
 
     const { data: pool, error: poolError } = await poolQuery
     if (poolError) throw poolError
