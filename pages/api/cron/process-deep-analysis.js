@@ -10,6 +10,7 @@ import {
 } from '@/lib/deepAnalysisEngine'
 import { notifyAnalysisOutcome } from '@/lib/notify'
 import { isPersistedImageUrl } from '@/lib/imageUrlUtils'
+import { isPremiumMember } from '@/lib/premiumMembership'
 
 // =====================================================================
 // DERİN ANALİZ WORKER'I — asıl LLM işini burada, istek/yanıt döngüsünün
@@ -175,10 +176,15 @@ async function processDream(dream) {
   } catch (e) {
     console.error('process-deep-analysis failure:', dream.id, e.message)
 
-    try {
-      await refundAuras(dream.user_id, 8)
-    } catch (refundError) {
-      console.error('Refund Error:', refundError)
+    // Premium üyeden bu dream için zaten Aura düşülmemiştir (bkz.
+    // generate-deep-analysis.js) — o yüzden burada iade de yapılmamalı,
+    // aksi halde kullanıcıya olmayan bir harcama "iade" edilmiş olur.
+    if (!(await isPremiumMember(dream.user_id))) {
+      try {
+        await refundAuras(dream.user_id, 8)
+      } catch (refundError) {
+        console.error('Refund Error:', refundError)
+      }
     }
 
     await supabaseAdmin
