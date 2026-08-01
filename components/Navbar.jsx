@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useState, useEffect, useRef } from 'react'
 import { User, LogIn, Bell, Droplet, Sparkles } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { supabase, auth } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
 import TextSkeleton from '@/components/TextSkeleton'
@@ -55,7 +55,21 @@ export default function Navbar() {
         if (!active) return
         setUser(currentUser || null)
         if (currentUser) {
-          const { data: profile } = await supabase.from('user_profiles').select('avatar_url, premium_analysis_auras, mana_balance').eq('id', currentUser.id).maybeSingle()
+          let { data: profile } = await supabase.from('user_profiles').select('avatar_url, premium_analysis_auras, mana_balance, username').eq('id', currentUser.id).maybeSingle()
+          // GÜVENLİK AĞI (KÖK NEDEN DÜZELTMESİ): user_profiles satırı sadece
+          // auth.signUp/signIn/exchangeCodeForSession çağrıldığında
+          // oluşturuluyordu (bkz. lib/supabase.js ensureProfile). Bir hesap
+          // bu akışların dışında (ör. Supabase panelinden elle, ya da bu
+          // kod eklenmeden önce) oluşturulmuşsa ve o zamandan beri sadece
+          // kalıcı oturumla giriş yapıyorsa, profili hiç oluşmamış oluyordu
+          // — bu da SlidesViewer, yorumlar, Explore gibi her yerde
+          // kullanıcı adı yerine "Bilinmeyen/Unknown" görünmesine yol
+          // açıyordu. username hâlâ boşsa (satır yok ya da username null)
+          // burada kendiliğinden oluşturup/tamamlıyoruz.
+          if (!profile || !profile.username) {
+            const created = await auth.ensureProfile(currentUser)
+            if (created) profile = created
+          }
           setAvatarUrl(profile?.avatar_url || currentUser?.user_metadata?.avatar_url || '')
           setAuras(Number(profile?.premium_analysis_auras || 0))
           setMana(Number(profile?.mana_balance ?? 0))
@@ -72,7 +86,12 @@ export default function Navbar() {
       if (!active) return
       if (session?.user) {
         setUser(session.user)
-        const { data: profile } = await supabase.from('user_profiles').select('avatar_url, premium_analysis_auras, mana_balance').eq('id', session.user.id).maybeSingle()
+        let { data: profile } = await supabase.from('user_profiles').select('avatar_url, premium_analysis_auras, mana_balance, username').eq('id', session.user.id).maybeSingle()
+        // Aynı güvenlik ağı — bkz. checkUser() içindeki not.
+        if (!profile || !profile.username) {
+          const created = await auth.ensureProfile(session.user)
+          if (created) profile = created
+        }
         setAuras(Number(profile?.premium_analysis_auras || 0)); setMana(Number(profile?.mana_balance ?? 0)); setAvatarUrl(profile?.avatar_url || '')
       } else {
         setUser(null); setAuras(0); setMana(0); setAvatarUrl('')
