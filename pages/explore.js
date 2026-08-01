@@ -275,7 +275,7 @@ export default function ExplorePage() {
       <main className="mx-auto w-full max-w-[1200px] px-3 py-6 sm:px-6">
         {/* ÜST BAŞLIK */}
         <div className={`mb-8 text-center sm:text-left transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-secondary-400/20 bg-brand-secondary-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-brand-secondary-300 mb-2">
             🌐 {lang === 'tr' ? 'Küresel Rüya Ağı' : 'Global Dream Nexus'}
           </span>
           <h1 className="text-3xl font-bold font-serif gradient-text">
@@ -296,7 +296,7 @@ export default function ExplorePage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={lang === 'tr' ? 'Kullanıcı ara...' : 'Search users...'}
-              className="w-full bg-white/5 border border-white/10 rounded-full pl-11 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400/50 transition-colors"
+              className="w-full bg-white/5 border border-white/10 rounded-full pl-11 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-secondary-400/50 transition-colors"
             />
             {searchQuery && (
               <button
@@ -319,9 +319,9 @@ export default function ExplorePage() {
                 phoenix: { tr: 'Anka Duvarı', en: 'Phoenix Wall', icon: Bird },
               }
               const activeStyles = {
-                dreamscape: 'bg-fuchsia-500 text-white',
-                vision: 'bg-cyan-500 text-black',
-                victory: 'bg-emerald-500 text-black',
+                dreamscape: 'bg-brand-primary-500 text-white',
+                vision: 'bg-brand-secondary-500 text-black',
+                victory: 'bg-semantic-success-500 text-black',
                 phoenix: 'bg-slate-400 text-black',
               }
               const HubIcon = labels[hub].icon
@@ -345,10 +345,10 @@ export default function ExplorePage() {
           <div className="max-w-md">
             {searchLoading ? (
               <div className="py-10 text-center text-slate-400 flex flex-col items-center gap-2">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-secondary-400 border-t-transparent" />
               </div>
             ) : searchError ? (
-              <p className="text-rose-400 text-sm py-6 text-center">{searchError}</p>
+              <p className="text-semantic-danger-400 text-sm py-6 text-center">{searchError}</p>
             ) : searchResults.length === 0 ? (
               <p className="text-slate-500 text-sm py-10 text-center">
                 {lang === 'tr' ? `"${searchQuery}" için sonuç bulunamadı.` : `No results for "${searchQuery}".`}
@@ -360,7 +360,7 @@ export default function ExplorePage() {
                     key={result.id}
                     className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors"
                   >
-                    <Link href={`/u/${result.id}`} className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-600 to-purple-800 flex items-center justify-center text-white font-bold text-sm shrink-0 overflow-hidden relative">
+                    <Link href={`/u/${result.id}`} className="w-11 h-11 rounded-full bg-gradient-to-br from-brand-primary-600 to-brand-accent-800 flex items-center justify-center text-white font-bold text-sm shrink-0 overflow-hidden relative">
                       {result.avatar_url ? (
                         <Image src={result.avatar_url} alt={result.username} fill sizes="44px" className="object-cover" />
                       ) : (
@@ -383,7 +383,7 @@ export default function ExplorePage() {
                           ? 'bg-white/5 text-slate-500 cursor-default'
                           : result.friendshipStatus === 'pending'
                           ? 'bg-white/5 text-amber-400 cursor-default'
-                          : 'bg-cyan-500 text-black hover:bg-cyan-400 disabled:opacity-50'
+                          : 'bg-brand-secondary-500 text-black hover:bg-brand-secondary-400 disabled:opacity-50'
                       }`}
                     >
                       {result.friendshipStatus === 'accepted'
@@ -409,11 +409,11 @@ export default function ExplorePage() {
             aria-pressed={includeNoImage}
             className={`flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full text-[11px] font-semibold transition-all border ${
               includeNoImage
-                ? 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30'
+                ? 'bg-brand-primary-500/15 text-brand-primary-300 border-brand-primary-500/30'
                 : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'
             }`}
           >
-            <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${includeNoImage ? 'bg-fuchsia-500' : 'bg-white/15'}`}>
+            <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${includeNoImage ? 'bg-brand-primary-500' : 'bg-white/15'}`}>
               <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${includeNoImage ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
             </span>
             {lang === 'tr' ? 'Görselsiz rüyaları da göster' : 'Also show dreams without images'}
@@ -423,7 +423,7 @@ export default function ExplorePage() {
         {/* 3 KOLONLU GÖRSEL IZGARA (INSTAGRAM STYLE) */}
         {loading ? (
           <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-secondary-400 border-t-transparent" />
             {mounted && <span className="text-xs tracking-wider uppercase">{lang === 'tr' ? 'Keşfet Yükleniyor...' : 'Loading Explore Grid...'}</span>}
           </div>
         ) : dreams.length === 0 ? (
@@ -448,7 +448,7 @@ export default function ExplorePage() {
 
         {loadingMore && (
           <div className="py-8 text-center text-slate-400 flex items-center justify-center gap-3">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-primary-400 border-t-transparent" />
             <span className="text-xs uppercase tracking-widest">{lang === 'tr' ? 'Keşif Devam Ediyor...' : 'Loading More...'}</span>
           </div>
         )}
@@ -459,7 +459,7 @@ export default function ExplorePage() {
           <>
             {hubLoading[activeHub] ? (
               <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-secondary-400 border-t-transparent" />
               </div>
             ) : hubError[activeHub] ? (
               <ErrorState lang={lang} onRetry={() => loadHubGoals(activeHub)} />

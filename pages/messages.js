@@ -325,7 +325,7 @@ export default function MessagesPage() {
             <h1 className="text-lg font-bold font-serif text-white mb-2">
               {lang === 'tr' ? 'Mesajları görmek için giriş yap' : 'Sign in to see your messages'}
             </h1>
-            <Link href="/auth" className="inline-block mt-4 px-5 py-2 rounded-full bg-cyan-500 text-black text-xs font-bold uppercase tracking-widest hover:bg-cyan-400 transition-colors">
+            <Link href="/auth" className="inline-block mt-4 px-5 py-2 rounded-full bg-brand-secondary-500 text-black text-xs font-bold uppercase tracking-widest hover:bg-brand-secondary-400 transition-colors">
               {lang === 'tr' ? 'Giriş Yap' : 'Sign in'}
             </Link>
           </div>
@@ -360,7 +360,7 @@ export default function MessagesPage() {
             </div>
             {loadingConversations ? (
               <div className="flex justify-center py-10">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-primary-400 border-t-transparent" />
               </div>
             ) : conversations.length === 0 ? (
               <div className="text-center py-16 px-6 text-white/40 text-sm">
@@ -378,7 +378,7 @@ export default function MessagesPage() {
                   {c.otherUser.avatar_url ? (
                     <img src={c.otherUser.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                   ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-fuchsia-600 to-purple-800 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-primary-600 to-brand-accent-800 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                         {(c.otherUser.display_name || c.otherUser.username || '?').charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -387,7 +387,7 @@ export default function MessagesPage() {
                         <p className={`truncate text-sm ${c.unreadCount > 0 ? 'font-bold text-white' : 'font-medium text-slate-300'}`}>
                           {c.otherUser.display_name || c.otherUser.username}
                         </p>
-                        {c.unreadCount > 0 && <span className="flex-shrink-0 w-2 h-2 rounded-full bg-cyan-400" />}
+                        {c.unreadCount > 0 && <span className="flex-shrink-0 w-2 h-2 rounded-full bg-brand-secondary-400" />}
                       </div>
                       <p className={`truncate text-xs ${c.unreadCount > 0 ? 'text-slate-300' : 'text-slate-500'}`}>
                         {c.lastMessage?.content || attachmentPreviewLabel(c.lastMessage?.attachment_type, lang)}
@@ -415,7 +415,7 @@ export default function MessagesPage() {
                         {activeOtherUser.avatar_url ? (
                           <img src={activeOtherUser.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-600 to-purple-800 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-primary-600 to-brand-accent-800 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                             {(activeOtherUser.display_name || activeOtherUser.username || '?').charAt(0).toUpperCase()}
                           </div>
                         )}
@@ -429,7 +429,7 @@ export default function MessagesPage() {
                   <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
                     {loadingThread ? (
                       <div className="flex justify-center py-10">
-                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-primary-400 border-t-transparent" />
                       </div>
                     ) : (
                       <>
@@ -452,7 +452,7 @@ export default function MessagesPage() {
                             const hasAttachment = !!m.attachment_type
                             return (
                               <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[75%] rounded-2xl text-sm overflow-hidden ${mine ? 'bg-cyan-500 text-black' : 'bg-white/10 text-white'}`}>
+                                <div className={`max-w-[75%] rounded-2xl text-sm overflow-hidden ${mine ? 'bg-brand-secondary-500 text-black' : 'bg-white/10 text-white'}`}>
                                   {m.attachment_type === 'image' && (
                                     <a href={m.attachment_url} target="_blank" rel="noopener noreferrer" className="block">
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -516,7 +516,7 @@ export default function MessagesPage() {
                           </button>
                         </div>
                       )}
-                      {attachmentError && <p className="text-[11px] text-rose-400 mt-1">{attachmentError}</p>}
+                      {attachmentError && <p className="text-[11px] text-semantic-danger-400 mt-1">{attachmentError}</p>}
                     </div>
                   )}
 
@@ -549,7 +549,7 @@ export default function MessagesPage() {
                       onClick={handleSend}
                       disabled={(!draft.trim() && !attachedFile) || sending || uploading}
                       aria-label={lang === 'tr' ? 'Gönder' : 'Send'}
-                      className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-cyan-500 text-black disabled:opacity-40 hover:bg-cyan-400 transition-colors"
+                      className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-brand-secondary-500 text-black disabled:opacity-40 hover:bg-brand-secondary-400 transition-colors"
                     >
                       {uploading || sending ? (
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-black/40 border-t-transparent" />

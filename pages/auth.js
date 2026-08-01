@@ -183,7 +183,7 @@ export default function AuthPage() {
             </form>
 
             <div className="mt-4 text-center">
-              <button type="button" onClick={() => setIsLogin(!isLogin)} className="text-sm text-purple-300">{isLogin ? (getTranslation('auth.noAccount', lang) || 'Hesabın yok mu? Kayıt ol') : (getTranslation('auth.hasAccount', lang) || 'Zaten hesabın var mı? Giriş yap')}</button>
+              <button type="button" onClick={() => setIsLogin(!isLogin)} className="text-sm text-brand-accent-300">{isLogin ? (getTranslation('auth.noAccount', lang) || 'Hesabın yok mu? Kayıt ol') : (getTranslation('auth.hasAccount', lang) || 'Zaten hesabın var mı? Giriş yap')}</button>
             </div>
           </div>
         </div>

@@ -318,7 +318,7 @@ export default function AddDreamPage() {
   if (!user || !mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-fuchsia-300 text-sm tracking-widest uppercase font-bold animate-pulse">
+        <div className="text-brand-primary-300 text-sm tracking-widest uppercase font-bold animate-pulse">
           {mounted ? tAddDream('auth.loading', lang) : <span className="inline-block h-4 w-24 rounded bg-white/10 align-middle" />}
         </div>
       </div>
@@ -330,7 +330,7 @@ export default function AddDreamPage() {
       <div className="max-w-2xl mx-auto p-4 sm:p-6 mt-6">
         <div className="glass-card p-6 sm:p-8 rounded-[2.5rem] border border-white/10 bg-slate-900/40 shadow-[0_30px_100px_rgba(0,0,0,0.4)]">
           <div className="text-center mb-8">
-            <span className="inline-block px-3 py-1 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-[10px] uppercase tracking-widest text-fuchsia-300 mb-3">
+            <span className="inline-block px-3 py-1 rounded-full bg-brand-primary-500/10 border border-brand-primary-500/20 text-[10px] uppercase tracking-widest text-brand-primary-300 mb-3">
               ✦ LUNOSFER JOURNAL
             </span>
             <h1 className="text-3xl font-bold font-serif text-white">
@@ -346,14 +346,14 @@ export default function AddDreamPage() {
                 <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                   {tAddDream('dream.dreamText', lang)}
                 </label>
-                <span className={`text-[10px] font-mono ${charCount > CHAR_LIMIT * 0.9 ? 'text-rose-400' : 'text-slate-500'}`}>
+                <span className={`text-[10px] font-mono ${charCount > CHAR_LIMIT * 0.9 ? 'text-semantic-danger-400' : 'text-slate-500'}`}>
                   {charCount} / {CHAR_LIMIT}
                 </span>
               </div>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-3xl p-5 text-sm leading-relaxed text-slate-200 focus:border-fuchsia-500/50 focus:ring-1 focus:ring-fuchsia-500/50 outline-none min-h-[220px] transition-all resize-none"
+                className="w-full bg-black/40 border border-white/10 rounded-3xl p-5 text-sm leading-relaxed text-slate-200 focus:border-brand-primary-500/50 focus:ring-1 focus:ring-brand-primary-500/50 outline-none min-h-[220px] transition-all resize-none"
                 required
                 placeholder={tAddDream('dream.placeholder', lang)}
               />
@@ -362,7 +362,7 @@ export default function AddDreamPage() {
                 onClick={toggleSpeech}
                 title={lang === 'tr' ? 'Sesli Dikte' : 'Voice Dictation'}
                 className={`absolute bottom-5 right-5 h-10 w-10 flex items-center justify-center rounded-full transition-all shadow-lg ${
-                  isListening ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                  isListening ? 'bg-semantic-danger-500 text-white animate-pulse' : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
                 }`}
               >
                 🎤
@@ -382,7 +382,7 @@ export default function AddDreamPage() {
                     onClick={() => toggleEmotion(emotion.value)}
                     className={`flex flex-col items-center justify-center py-2.5 rounded-2xl border transition-all ${
                       selectedEmotions.includes(emotion.value)
-                        ? 'bg-fuchsia-500/20 border-fuchsia-400/50 shadow-[0_0_15px_rgba(240,73,214,0.15)]'
+                        ? 'bg-brand-primary-500/20 border-brand-primary-400/50 shadow-[0_0_15px_rgba(240,73,214,0.15)]'
                         : 'bg-black/30 border-white/5 hover:border-white/20 hover:bg-white/5 opacity-60 hover:opacity-100'
                     }`}
                   >
@@ -423,7 +423,7 @@ export default function AddDreamPage() {
                     type="button"
                     onClick={() => coverFileInputRef.current?.click()}
                     disabled={uploadingCover}
-                    className="flex-1 flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-white/15 py-6 text-sm text-slate-400 hover:border-fuchsia-400/40 hover:text-fuchsia-200 transition-all disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-white/15 py-6 text-sm text-slate-400 hover:border-brand-primary-400/40 hover:text-brand-primary-200 transition-all disabled:opacity-50"
                   >
                     <Upload size={16} />
                     {uploadingCover
@@ -442,7 +442,7 @@ export default function AddDreamPage() {
                     type="button"
                     onClick={() => setShowPixabayPicker(true)}
                     disabled={uploadingCover}
-                    className="flex-1 flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-white/15 py-6 text-sm text-slate-400 hover:border-fuchsia-400/40 hover:text-fuchsia-200 transition-all disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-white/15 py-6 text-sm text-slate-400 hover:border-brand-primary-400/40 hover:text-brand-primary-200 transition-all disabled:opacity-50"
                   >
                     <ImageIcon size={16} />
                     {lang === 'tr' ? "Pixabay'dan Seç" : 'From Pixabay'}
@@ -450,7 +450,7 @@ export default function AddDreamPage() {
                 </div>
               )}
               {coverImageError && (
-                <p className="mt-2 text-[10px] text-rose-400">
+                <p className="mt-2 text-[10px] text-semantic-danger-400">
                   {coverImageError}
                 </p>
               )}
@@ -471,7 +471,7 @@ export default function AddDreamPage() {
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:border-fuchsia-500/50 focus:outline-none"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:border-brand-primary-500/50 focus:outline-none"
                   placeholder={tAddDream('dream.locationPlaceholder', lang)}
                 />
               </div>
@@ -483,7 +483,7 @@ export default function AddDreamPage() {
                 <select
                   value={visibility}
                   onChange={(e) => setVisibility(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:border-fuchsia-500/50 focus:outline-none appearance-none"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:border-brand-primary-500/50 focus:outline-none appearance-none"
                 >
                   <option value="public">{tAddDream('dream.public', lang)}</option>
                   <option value="friends">{tAddDream('dream.friends', lang)}</option>
@@ -498,7 +498,7 @@ export default function AddDreamPage() {
                 type="checkbox"
                 checked={inFeed}
                 onChange={(e) => setInFeed(e.target.checked)}
-                className="w-5 h-5 rounded border-white/20 text-fuchsia-500 focus:ring-0 focus:ring-offset-0 bg-black"
+                className="w-5 h-5 rounded border-white/20 text-brand-primary-500 focus:ring-0 focus:ring-offset-0 bg-black"
               />
               <span className="text-sm text-slate-300 font-medium">
                 {tAddDream('dream.shareInFeed', lang)}
@@ -506,7 +506,7 @@ export default function AddDreamPage() {
             </label>
 
             {error && (
-              <div className="text-rose-400 text-xs text-center bg-rose-500/10 p-3 rounded-xl border border-rose-500/20 font-medium flex items-center justify-center gap-1.5">
+              <div className="text-semantic-danger-400 text-xs text-center bg-semantic-danger-500/10 p-3 rounded-xl border border-semantic-danger-500/20 font-medium flex items-center justify-center gap-1.5">
                 <AlertTriangle size={13} /> {error}
               </div>
             )}
@@ -514,7 +514,7 @@ export default function AddDreamPage() {
             <button
               type="submit"
               disabled={loading || content.trim().length === 0}
-              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 px-6 py-4 text-sm font-bold text-white transition hover:scale-[1.02] hover:brightness-110 shadow-[0_0_20px_rgba(240,73,214,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-primary-600 to-indigo-600 px-6 py-4 text-sm font-bold text-white transition hover:scale-[1.02] hover:brightness-110 shadow-[0_0_20px_rgba(240,73,214,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               <span>{loading ? '⏳' : '✦'}</span>
               <span>{loading ? tAddDream('auth.loading', lang) : tAddDream('dream.submit', lang)}</span>

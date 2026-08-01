@@ -385,7 +385,7 @@ export default function ProfilePage() {
         {/* INSTAGRAM TARZI PROFİL BAŞLIĞI */}
         <div className={`flex flex-col sm:flex-row items-center gap-6 sm:gap-10 border-b border-white/10 pb-8 mb-6 relative transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           <div className="shrink-0 relative group">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-2 border-fuchsia-500 bg-white/5 shadow-[0_0_20px_rgba(240,73,214,0.15)] flex items-center justify-center">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-2 border-brand-primary-500 bg-white/5 shadow-[0_0_20px_rgba(240,73,214,0.15)] flex items-center justify-center">
               {displayAvatar ? (
                 <img src={displayAvatar} alt={displayUsername} className="w-full h-full object-cover" />
               ) : (
@@ -416,7 +416,7 @@ export default function ProfilePage() {
             <div className="text-sm font-medium text-slate-200 mt-2">
               <p className="font-bold text-white">{profile?.display_name || displayUsername}</p>
               {profile?.is_private && (
-                <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-fuchsia-300 border border-fuchsia-500/20 mt-1 uppercase tracking-widest">
+                <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-brand-primary-300 border border-brand-primary-500/20 mt-1 uppercase tracking-widest">
                   🔒 {lang === 'tr' ? 'Gizli Profil' : 'Private Profile'}
                 </span>
               )}
@@ -437,7 +437,7 @@ export default function ProfilePage() {
                 placeholder={getTranslation('friends.searchPlaceholder', lang)}
                 className="flex-1 bg-black/40 border border-white/20 rounded px-4 py-2.5 text-white text-sm"
               />
-              <button onClick={handleSearch} className="glass-card px-4 py-2 hover:bg-purple-500/20 text-sm">
+              <button onClick={handleSearch} className="glass-card px-4 py-2 hover:bg-brand-accent-500/20 text-sm">
                 {getTranslation('friends.search', lang) || 'Ara'}
               </button>
             </div>
@@ -451,7 +451,7 @@ export default function ProfilePage() {
                     <div key={res.id} className="glass-card p-3 flex items-center justify-between gap-3">
                       <div className="truncate text-xs font-semibold">{res.username}</div>
                       {res.friendshipStatus === null && (
-                        <button onClick={() => handleSendRequest(res.id)} className="glass-card px-3 py-1 text-xs hover:bg-purple-500/20">{tCard.followLabel}</button>
+                        <button onClick={() => handleSendRequest(res.id)} className="glass-card px-3 py-1 text-xs hover:bg-brand-accent-500/20">{tCard.followLabel}</button>
                       )}
                       {res.friendshipStatus === 'pending' && <span className="text-yellow-400 text-xs">{tCard.pendingLabel}</span>}
                       {res.friendshipStatus === 'accepted' && <span className="text-green-400 text-xs">{tCard.followingLabel}</span>}
@@ -503,7 +503,7 @@ export default function ProfilePage() {
                         <Link
                           href={`/messages?with=${other.id}`}
                           aria-label={lang === 'tr' ? 'Mesaj gönder' : 'Send message'}
-                          className="glass-card p-1.5 hover:bg-purple-500/20 flex-shrink-0"
+                          className="glass-card p-1.5 hover:bg-brand-accent-500/20 flex-shrink-0"
                         >
                           <MessageCircle size={14} />
                         </Link>
@@ -521,7 +521,7 @@ export default function ProfilePage() {
           <button
             onClick={() => setProfileTab('vision')}
             className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
-              profileTab === 'vision' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
+              profileTab === 'vision' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
             <Sparkles size={13} /> {mounted ? (lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board') : <TextSkeleton width="w-20" />}
@@ -529,7 +529,7 @@ export default function ProfilePage() {
           <button
             onClick={() => setProfileTab('dreams')}
             className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
-              profileTab === 'dreams' ? 'border-fuchsia-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
+              profileTab === 'dreams' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
             <Moon size={13} /> {mounted ? (lang === 'tr' ? 'Rüyalar' : 'Dreams') : <TextSkeleton width="w-14" />}
@@ -541,7 +541,7 @@ export default function ProfilePage() {
             <div className="flex justify-end mb-3">
               <button
                 onClick={() => setShowCreateGoal(true)}
-                className="px-4 py-2 rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-xs font-bold uppercase tracking-widest hover:opacity-90"
+                className="px-4 py-2 rounded-full bg-gradient-to-r from-brand-primary-500 to-brand-accent-500 text-white text-xs font-bold uppercase tracking-widest hover:opacity-90"
               >
                 + {tVision.createGoalBtn}
               </button>
@@ -549,7 +549,7 @@ export default function ProfilePage() {
 
             {goalsLoading && !goalsLoaded ? (
               <div className="py-20 flex justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-primary-400 border-t-transparent" />
               </div>
             ) : goals.length === 0 ? (
               <div className="text-center py-20 text-white/40 text-sm">
@@ -601,7 +601,7 @@ export default function ProfilePage() {
 
         {loadingMore && (
           <div className="py-8 text-center text-slate-400 flex items-center justify-center gap-3">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-primary-400 border-t-transparent" />
             <span className="text-xs uppercase tracking-widest">{lang === 'tr' ? 'Rüyalarınız Alınıyor...' : 'Loading More...'}</span>
           </div>
         )}
@@ -632,7 +632,7 @@ export default function ProfilePage() {
                   type="checkbox"
                   checked={profileIsPrivate}
                   onChange={(e) => setProfileIsPrivate(e.target.checked)}
-                  className="w-4 h-4 rounded text-fuchsia-500 focus:ring-0 focus:outline-none"
+                  className="w-4 h-4 rounded text-brand-primary-500 focus:ring-0 focus:outline-none"
                 />
                 <div>
                   <span className="text-sm font-semibold text-white block">🔒 {lang === 'tr' ? 'Rüya Defterimi Gizli Yap' : 'Make Dream Journal Private'}</span>
@@ -669,14 +669,14 @@ export default function ProfilePage() {
                   {displayAvatar ? <img src={displayAvatar} alt="preview" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-900 flex items-center justify-center">👤</div>}
                 </div>
                 <div className="flex-1">
-                  <input type="file" accept="image/*" onChange={handleAvatarFileChange} className="block w-full text-xs text-white file:mr-4 file:rounded-full file:border-0 file:bg-purple-500/20 file:px-4 file:py-2 file:text-xs file:font-medium file:text-white" />
+                  <input type="file" accept="image/*" onChange={handleAvatarFileChange} className="block w-full text-xs text-white file:mr-4 file:rounded-full file:border-0 file:bg-brand-accent-500/20 file:px-4 file:py-2 file:text-xs file:font-medium file:text-white" />
                 </div>
               </div>
             </div>
 
             <div className="flex gap-3">
               <button onClick={() => setShowProfileEditor(false)} className="flex-1 glass-card py-2.5 text-sm">{getTranslation('profile.cancel', lang)}</button>
-              <button onClick={handleSaveProfile} disabled={profileSaving} className="flex-1 glass-card py-2.5 bg-purple-500/20 text-sm">{profileSaving ? 'Saving...' : 'Save'}</button>
+              <button onClick={handleSaveProfile} disabled={profileSaving} className="flex-1 glass-card py-2.5 bg-brand-accent-500/20 text-sm">{profileSaving ? 'Saving...' : 'Save'}</button>
             </div>
           </div>
         </div>

@@ -133,7 +133,7 @@ export default function VisionBoardPage() {
           </div>
           <button
             onClick={() => (user ? setShowCreate(true) : (window.location.href = '/auth'))}
-            className="px-5 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-bold uppercase tracking-widest hover:opacity-90 self-start sm:self-auto"
+            className="px-5 py-2.5 rounded-full bg-gradient-to-r from-brand-primary-500 to-brand-accent-500 text-white text-sm font-bold uppercase tracking-widest hover:opacity-90 self-start sm:self-auto"
           >
             + {t.createGoalBtn}
           </button>
@@ -147,7 +147,7 @@ export default function VisionBoardPage() {
           <button
             onClick={() => setTab('feed')}
             className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-              tab === 'feed' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+              tab === 'feed' ? 'bg-brand-primary-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
             }`}
           >
             {t.feedTab}
@@ -155,7 +155,7 @@ export default function VisionBoardPage() {
           <button
             onClick={() => (user ? setTab('own') : (window.location.href = '/auth'))}
             className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-              tab === 'own' ? 'bg-cyan-500 text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+              tab === 'own' ? 'bg-brand-secondary-500 text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10'
             }`}
           >
             {t.myGoalsTab}
