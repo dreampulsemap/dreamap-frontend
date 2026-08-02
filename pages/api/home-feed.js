@@ -75,7 +75,31 @@ async function fetchVisions({ userId, allowedUserIds, before }) {
 
   const { data, error } = await query
   if (error) throw error
-  return (data || []).map((g) => ({ ...g, feed_type: 'vision' }))
+  let visions = (data || []).map((g) => ({ ...g, feed_type: 'vision' }))
+
+  // KÖK NEDEN DÜZELTMESİ: pages/api/goals/list.js'teki aynı toplu-sorgu
+  // deseni burada eksikti — bu yüzden ana sayfadaki Reels beslemesinde
+  // sahip adı her zaman "Bilinmeyen/Unknown"a düşüyordu VE slide_count
+  // hiç set edilmediği için VisionReelsFeed'de tıklama hiçbir zaman
+  // slayt oynatıcıyı açmıyordu (koşul hep false'a düşüyordu).
+  if (visions.length > 0) {
+    const goalIds = visions.map((g) => g.id)
+    const ownerIds = [...new Set(visions.map((g) => g.user_id))]
+    const [{ data: slideRows }, { data: owners }] = await Promise.all([
+      supabaseAdmin.from('goal_slides').select('goal_id').in('goal_id', goalIds),
+      supabaseAdmin.from('user_profiles').select('id, username, display_name, avatar_url').in('id', ownerIds),
+    ])
+
+    const slideCounts = {}
+    for (const row of slideRows || []) slideCounts[row.goal_id] = (slideCounts[row.goal_id] || 0) + 1
+
+    const ownerMap = {}
+    for (const o of owners || []) ownerMap[o.id] = o
+
+    visions = visions.map((g) => ({ ...g, slide_count: slideCounts[g.id] || 0, owner: ownerMap[g.user_id] || null }))
+  }
+
+  return visions
 }
 
 export default async function handler(req, res) {
