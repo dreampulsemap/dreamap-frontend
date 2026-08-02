@@ -185,9 +185,9 @@ export default function PixabayPicker({
         </div>
 
         {multiple && mediaType === 'image' && (
-          <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-fuchsia-500/5 border border-fuchsia-500/15">
-            <Check size={13} className="text-fuchsia-300 shrink-0" />
-            <p className="flex-1 text-[11px] text-fuchsia-200/90 leading-snug">
+          <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-primary-500/5 border border-brand-primary-500/15">
+            <Check size={13} className="text-brand-primary-300 shrink-0" />
+            <p className="flex-1 text-[11px] text-brand-primary-200/90 leading-snug">
               {lang === 'tr'
                 ? 'Birden fazla görsel seçebilirsin — işaretledikten sonra aşağıdaki "Ekle" ile onayla.'
                 : 'You can select multiple images — tap "Add" below once you\u2019re done.'}
@@ -200,7 +200,7 @@ export default function PixabayPicker({
             <button
               onClick={() => switchTab('image')}
               className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-                mediaType === 'image' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                mediaType === 'image' ? 'bg-brand-primary-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
               }`}
             >
               {lang === 'tr' ? 'Görseller' : 'Images'}
@@ -208,7 +208,7 @@ export default function PixabayPicker({
             <button
               onClick={() => switchTab('video')}
               className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${
-                mediaType === 'video' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                mediaType === 'video' ? 'bg-brand-primary-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
               }`}
             >
               {lang === 'tr' ? 'Videolar' : 'Videos'}
@@ -261,7 +261,7 @@ export default function PixabayPicker({
               key={tag}
               onClick={() => handleQuickTag(tag)}
               className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-                query === tag ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                query === tag ? 'bg-brand-primary-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
               }`}
             >
               {tag}
@@ -270,7 +270,7 @@ export default function PixabayPicker({
         </div>
 
         {error && !loading && (
-          <p className="text-rose-400 text-xs mb-3">{lang === 'tr' ? 'İçerikler yüklenemedi.' : 'Could not load content.'}</p>
+          <p className="text-semantic-danger-400 text-xs mb-3">{lang === 'tr' ? 'İçerikler yüklenemedi.' : 'Could not load content.'}</p>
         )}
 
         {!error && !loading && hits.length === 0 && (
@@ -289,7 +289,7 @@ export default function PixabayPicker({
                 onClick={() => handleSelect(hit)}
                 disabled={!!selectingId || disabledBySelectionLimit}
                 className={`relative aspect-square rounded-lg overflow-hidden bg-black/30 group disabled:opacity-40 transition-all ${
-                  isSelected ? 'ring-2 ring-fuchsia-400' : ''
+                  isSelected ? 'ring-2 ring-brand-primary-400' : ''
                 }`}
               >
                 {mediaType === 'video' ? (
@@ -316,8 +316,8 @@ export default function PixabayPicker({
                   </div>
                 )}
                 {isSelected && (
-                  <div className="absolute inset-0 bg-fuchsia-500/10">
-                    <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-fuchsia-500 text-white text-[10px] font-bold flex items-center justify-center shadow">
+                  <div className="absolute inset-0 bg-brand-primary-500/10">
+                    <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-brand-primary-500 text-white text-[10px] font-bold flex items-center justify-center shadow">
                       {selectionIndex}
                     </span>
                   </div>
@@ -366,7 +366,7 @@ export default function PixabayPicker({
               type="button"
               onClick={handleConfirmSelection}
               disabled={selected.length === 0 || confirming}
-              className="shrink-0 px-4 py-1.5 rounded-full bg-fuchsia-500 text-white text-xs font-bold uppercase tracking-widest hover:bg-fuchsia-400 disabled:opacity-30"
+              className="shrink-0 px-4 py-1.5 rounded-full bg-brand-primary-500 text-white text-xs font-bold uppercase tracking-widest hover:bg-brand-primary-400 disabled:opacity-30"
             >
               {confirming
                 ? (lang === 'tr' ? 'Ekleniyor...' : 'Adding...')
