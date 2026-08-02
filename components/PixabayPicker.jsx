@@ -1,35 +1,34 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Search, Loader2, Lock, Crown, Check } from 'lucide-react'
+import { X, Search, Loader2, Lock, Crown } from 'lucide-react'
 import { useModalA11y } from '@/lib/useModalA11y'
 
 // Vizyon panosuna Pixabay'den görsel/video seçmek için arama modalı.
-// Gerçek indirme/kaydetme işini onPickImage / onPickVideo / onPickMultiple
-// (parent'ta tanımlı, /api/goals/add-image-from-pixabay ya da
-// add-video-from-pixabay çağıran async fonksiyonlar) yapar — bu bileşen
-// sadece arama/seçim UI'ı + erişim kilidi.
+// Gerçek indirme/kaydetme işini onPickImage / onPickVideo (parent'ta tanımlı,
+// /api/goals/add-image-from-pixabay ya da add-video-from-pixabay çağıran async
+// fonksiyonlar) yapar — bu bileşen sadece arama/seçim UI'ı + erişim kilidi.
 //
 // videoStatus: { isPremium, canPickVideo, nextAvailableAt } — GoalDetailModal
 // /api/user/premium-status'tan çekip buraya geçiriyor.
-//
-// ÇOKLU SEÇİM (multiple=true): görsellere tıklamak artık anında seçip
-// kapatmıyor, seçili/seçili-değil durumunu değiştiriyor (Instagram çoklu
-// seçim gibi, sayı rozetiyle). Kullanıcı istediği kadar görsel işaretleyip
-// alttaki "Ekle" çubuğuyla tek seferde onaylıyor — onPickMultiple(hits[])
-// çağrılıyor. Video sekmesi (varsa) bundan etkilenmiyor: video her zaman
-// tek seçimlik eski akışta kalıyor (haftalık kota / premium kilidiyle çoklu
-// seçim zaten anlamsız). multiple=false (varsayılan) olan tüm mevcut
-// kullanım yerlerinde davranış birebir aynı kalıyor.
-export default function PixabayPicker({
-  lang = 'en',
-  videoStatus,
-  videoEnabled = true,
-  multiple = false,
-  maxSelectable,
-  onPickImage,
-  onPickVideo,
-  onPickMultiple,
-  onClose,
-}) {
+
+const QUICK_TAGS = {
+  tr: ['hayaller', 'hedefler', 'motivasyon', 'doğa', 'seyahat', 'başarı', 'meditasyon'],
+  en: ['dreams', 'goals', 'motivation', 'nature', 'travel', 'success', 'meditation'],
+}
+
+// TODO: uygulama içi bir /premium sayfası oluşunca buradaki direkt Gumroad
+// linki yerine o sayfaya yönlendirilebilir.
+const PREMIUM_UPGRADE_URL = 'https://elsuilgen.gumroad.com/l/dmtasl'
+
+function formatNextAvailable(iso, lang) {
+  if (!iso) return ''
+  try {
+    return new Date(iso).toLocaleDateString(lang === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'long' })
+  } catch {
+    return ''
+  }
+}
+
+export default function PixabayPicker({ lang = 'en', videoStatus, videoEnabled = true, onPickImage, onPickVideo, onClose }) {
   const modalRef = useRef(null)
   useModalA11y(modalRef, onClose)
 
@@ -44,16 +43,9 @@ export default function PixabayPicker({
   const [lockedNotice, setLockedNotice] = useState(false)
   const debounceRef = useRef(null)
 
-  // Çoklu seçimde işaretlenen görseller — sıralarını korumak için dizi.
-  const [selected, setSelected] = useState([])
-  const [confirming, setConfirming] = useState(false)
-
   const isPremium = !!videoStatus?.isPremium
   const canPickVideo = isPremium || !!videoStatus?.canPickVideo
   const nextAvailableAt = videoStatus?.nextAvailableAt
-
-  const selectionLimit = Number.isFinite(maxSelectable) ? Math.max(0, maxSelectable) : Infinity
-  const limitReached = selected.length >= selectionLimit
 
   const search = useCallback(
     async (type, q, targetPage, replace) => {
@@ -81,13 +73,9 @@ export default function PixabayPicker({
     [lang]
   )
 
-  // İlk açılışta ilham verici bir varsayılan aramayla başla
-  useEffect(() => {
-    const initial = lang === 'tr' ? 'hayaller' : 'dreams'
-    setQuery(initial)
-    search('image', initial, 1, true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Not: önceden ilk açılışta otomatik "hayaller/dreams" araması yapılıyordu —
+  // kullanıcı istemeden alakasız sonuçlarla karşılaşıyordu. Artık picker boş
+  // açılıyor; arama ya da hızlı etiketlerden biri kullanıcının kendi seçimi.
 
   function switchTab(type) {
     if (type === mediaType) return
@@ -109,55 +97,20 @@ export default function PixabayPicker({
     search(mediaType, tag, 1, true)
   }
 
-  function toggleSelect(hit) {
-    setSelected((prev) => {
-      const exists = prev.some((h) => h.id === hit.id)
-      if (exists) return prev.filter((h) => h.id !== hit.id)
-      if (prev.length >= selectionLimit) return prev
-      return [...prev, hit]
-    })
-  }
-
   async function handleSelect(hit) {
     if (selectingId) return
 
-    if (mediaType === 'video') {
-      if (!canPickVideo) {
-        setLockedNotice(true)
-        return
-      }
-      setSelectingId(hit.id)
-      try {
-        const ok = await onPickVideo(hit)
-        if (ok) onClose?.()
-      } finally {
-        setSelectingId(null)
-      }
-      return
-    }
-
-    if (multiple) {
-      toggleSelect(hit)
+    if (mediaType === 'video' && !canPickVideo) {
+      setLockedNotice(true)
       return
     }
 
     setSelectingId(hit.id)
     try {
-      const ok = await onPickImage(hit)
+      const ok = mediaType === 'video' ? await onPickVideo(hit) : await onPickImage(hit)
       if (ok) onClose?.()
     } finally {
       setSelectingId(null)
-    }
-  }
-
-  async function handleConfirmSelection() {
-    if (!selected.length || confirming) return
-    setConfirming(true)
-    try {
-      const ok = await onPickMultiple?.(selected)
-      if (ok) onClose?.()
-    } finally {
-      setConfirming(false)
     }
   }
 
@@ -184,23 +137,12 @@ export default function PixabayPicker({
           </button>
         </div>
 
-        {multiple && mediaType === 'image' && (
-          <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-primary-500/5 border border-brand-primary-500/15">
-            <Check size={13} className="text-brand-primary-300 shrink-0" />
-            <p className="flex-1 text-[11px] text-brand-primary-200/90 leading-snug">
-              {lang === 'tr'
-                ? 'Birden fazla görsel seçebilirsin — işaretledikten sonra aşağıdaki "Ekle" ile onayla.'
-                : 'You can select multiple images — tap "Add" below once you\u2019re done.'}
-            </p>
-          </div>
-        )}
-
         {videoEnabled && (
           <div className="flex items-center gap-2 mb-4">
             <button
               onClick={() => switchTab('image')}
               className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-                mediaType === 'image' ? 'bg-brand-primary-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                mediaType === 'image' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
               }`}
             >
               {lang === 'tr' ? 'Görseller' : 'Images'}
@@ -208,7 +150,7 @@ export default function PixabayPicker({
             <button
               onClick={() => switchTab('video')}
               className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${
-                mediaType === 'video' ? 'bg-brand-primary-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                mediaType === 'video' ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
               }`}
             >
               {lang === 'tr' ? 'Videolar' : 'Videos'}
@@ -261,7 +203,7 @@ export default function PixabayPicker({
               key={tag}
               onClick={() => handleQuickTag(tag)}
               className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-                query === tag ? 'bg-brand-primary-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                query === tag ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
               }`}
             >
               {tag}
@@ -270,27 +212,26 @@ export default function PixabayPicker({
         </div>
 
         {error && !loading && (
-          <p className="text-semantic-danger-400 text-xs mb-3">{lang === 'tr' ? 'İçerikler yüklenemedi.' : 'Could not load content.'}</p>
+          <p className="text-rose-400 text-xs mb-3">{lang === 'tr' ? 'İçerikler yüklenemedi.' : 'Could not load content.'}</p>
         )}
 
         {!error && !loading && hits.length === 0 && (
-          <p className="text-slate-500 text-sm text-center py-8">{lang === 'tr' ? 'Sonuç bulunamadı.' : 'No results found.'}</p>
+          <p className="text-slate-500 text-sm text-center py-8">
+            {query.trim()
+              ? (lang === 'tr' ? 'Sonuç bulunamadı.' : 'No results found.')
+              : (lang === 'tr' ? 'Aramaya başla ya da bir etiket seç.' : 'Start searching or pick a tag.')}
+          </p>
         )}
 
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
           {hits.map((hit) => {
             const locked = mediaType === 'video' && !canPickVideo
-            const isSelected = multiple && mediaType === 'image' && selected.some((h) => h.id === hit.id)
-            const selectionIndex = isSelected ? selected.findIndex((h) => h.id === hit.id) + 1 : null
-            const disabledBySelectionLimit = multiple && mediaType === 'image' && !isSelected && limitReached
             return (
               <button
                 key={hit.id}
                 onClick={() => handleSelect(hit)}
-                disabled={!!selectingId || disabledBySelectionLimit}
-                className={`relative aspect-square rounded-lg overflow-hidden bg-black/30 group disabled:opacity-40 transition-all ${
-                  isSelected ? 'ring-2 ring-brand-primary-400' : ''
-                }`}
+                disabled={!!selectingId}
+                className="relative aspect-square rounded-lg overflow-hidden bg-black/30 group disabled:opacity-60"
               >
                 {mediaType === 'video' ? (
                   <video
@@ -313,13 +254,6 @@ export default function PixabayPicker({
                 {locked && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                     <Lock size={16} className="text-white/80" />
-                  </div>
-                )}
-                {isSelected && (
-                  <div className="absolute inset-0 bg-brand-primary-500/10">
-                    <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-brand-primary-500 text-white text-[10px] font-bold flex items-center justify-center shadow">
-                      {selectionIndex}
-                    </span>
                   </div>
                 )}
                 {selectingId === hit.id && (
@@ -352,47 +286,7 @@ export default function PixabayPicker({
         <p className="text-slate-600 text-[10px] text-center mt-5">
           {lang === 'tr' ? 'İçerikler Pixabay tarafından sağlanmaktadır.' : 'Content provided by Pixabay.'}
         </p>
-
-        {multiple && mediaType === 'image' && (
-          <div className="sticky bottom-0 -mx-6 -mb-6 mt-4 px-6 py-3 bg-slate-950/95 backdrop-blur border-t border-white/10 flex items-center justify-between gap-3 rounded-b-2xl">
-            <span className="text-[11px] text-slate-400">
-              {selected.length > 0
-                ? (lang === 'tr'
-                    ? `${selected.length}${Number.isFinite(selectionLimit) ? `/${selectionLimit}` : ''} görsel seçildi`
-                    : `${selected.length}${Number.isFinite(selectionLimit) ? `/${selectionLimit}` : ''} selected`)
-                : (lang === 'tr' ? 'Henüz görsel seçilmedi' : 'No images selected yet')}
-            </span>
-            <button
-              type="button"
-              onClick={handleConfirmSelection}
-              disabled={selected.length === 0 || confirming}
-              className="shrink-0 px-4 py-1.5 rounded-full bg-brand-primary-500 text-white text-xs font-bold uppercase tracking-widest hover:bg-brand-primary-400 disabled:opacity-30"
-            >
-              {confirming
-                ? (lang === 'tr' ? 'Ekleniyor...' : 'Adding...')
-                : (lang === 'tr' ? `Ekle (${selected.length})` : `Add (${selected.length})`)}
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )
-}
-
-const QUICK_TAGS = {
-  tr: ['hayaller', 'hedefler', 'motivasyon', 'doğa', 'seyahat', 'başarı', 'meditasyon'],
-  en: ['dreams', 'goals', 'motivation', 'nature', 'travel', 'success', 'meditation'],
-}
-
-// TODO: uygulama içi bir /premium sayfası oluşunca buradaki direkt Gumroad
-// linki yerine o sayfaya yönlendirilebilir.
-const PREMIUM_UPGRADE_URL = 'https://elsuilgen.gumroad.com/l/dmtasl'
-
-function formatNextAvailable(iso, lang) {
-  if (!iso) return ''
-  try {
-    return new Date(iso).toLocaleDateString(lang === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'long' })
-  } catch {
-    return ''
-  }
 }
