@@ -5,6 +5,7 @@ import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
 import { getDailyPractice, getPracticeDoneKey } from '@/lib/dailyPractices'
 import VisionVideoEditor from './VisionVideoEditor'
+import VisionVideoPlayer from './VisionVideoPlayer'
 import SlidesViewer from './SlidesViewer'
 import PixabayPicker from './PixabayPicker'
 
@@ -12,29 +13,6 @@ async function authHeader() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return null
   return { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }
-}
-
-// Basit tam ekran video oynatıcı — goal.vision_video_url doluysa Vizyonu
-// İzle butonu artık SlidesViewer yerine bunu açıyor. Ayrı bir component
-// olması bilerek: useModalA11y kendi mount/unmount'una bağlı çalışmalı
-// (bkz. DESIGN_SYSTEM.md §7 — her tam ekran görüntüleyici bu hook'u
-// kullanır), GoalDetailModal'ın kendi ref'ine bağlarsak player kapalıyken
-// bile history/Escape davranışını tetiklerdi.
-function VisionVideoPlayer({ videoUrl, lang, onClose }) {
-  const ref = useRef(null)
-  useModalA11y(ref, onClose)
-  return (
-    <div ref={ref} className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 text-white/80 hover:text-white"
-        aria-label={lang === 'tr' ? 'Kapat' : 'Close'}
-      >
-        <X size={26} />
-      </button>
-      <video src={videoUrl} controls autoPlay playsInline className="max-h-full max-w-full rounded-xl" />
-    </div>
-  )
 }
 
 export default function GoalDetailModal({ goal: initialGoal, lang = 'en', currentUserId, onClose, onChanged, onDeleted }) {
