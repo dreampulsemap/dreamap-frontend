@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
 import { getDailyPractice, getPracticeDoneKey } from '@/lib/dailyPractices'
-import SlideEditor from './SlideEditor'
+import VisionVideoEditor from './VisionVideoEditor'
 import SlidesViewer from './SlidesViewer'
 import PixabayPicker from './PixabayPicker'
 
@@ -12,6 +12,29 @@ async function authHeader() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return null
   return { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }
+}
+
+// Basit tam ekran video oynatıcı — goal.vision_video_url doluysa Vizyonu
+// İzle butonu artık SlidesViewer yerine bunu açıyor. Ayrı bir component
+// olması bilerek: useModalA11y kendi mount/unmount'una bağlı çalışmalı
+// (bkz. DESIGN_SYSTEM.md §7 — her tam ekran görüntüleyici bu hook'u
+// kullanır), GoalDetailModal'ın kendi ref'ine bağlarsak player kapalıyken
+// bile history/Escape davranışını tetiklerdi.
+function VisionVideoPlayer({ videoUrl, lang, onClose }) {
+  const ref = useRef(null)
+  useModalA11y(ref, onClose)
+  return (
+    <div ref={ref} className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 text-white/80 hover:text-white"
+        aria-label={lang === 'tr' ? 'Kapat' : 'Close'}
+      >
+        <X size={26} />
+      </button>
+      <video src={videoUrl} controls autoPlay playsInline className="max-h-full max-w-full rounded-xl" />
+    </div>
+  )
 }
 
 export default function GoalDetailModal({ goal: initialGoal, lang = 'en', currentUserId, onClose, onChanged, onDeleted }) {
@@ -33,7 +56,8 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   const [galleryImages, setGalleryImages] = useState(initialGoal.gallery_image_urls || [])
   const [uploadingImages, setUploadingImages] = useState(false)
   const [galleryError, setGalleryError] = useState('')
-  const [showSlideEditor, setShowSlideEditor] = useState(false)
+  const [showVisionVideoEditor, setShowVisionVideoEditor] = useState(false)
+  const [showVisionVideoPlayer, setShowVisionVideoPlayer] = useState(false)
   const [showSlidesViewer, setShowSlidesViewer] = useState(false)
   const [showPixabayPicker, setShowPixabayPicker] = useState(false)
   const [videoStatus, setVideoStatus] = useState(null)
@@ -470,13 +494,22 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
 
         <div className="mb-5">
           <button
-            onClick={() => setShowSlidesViewer(true)}
+            onClick={() => (goal.vision_video_url ? setShowVisionVideoPlayer(true) : setShowSlidesViewer(true))}
             className="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-primary-500/90 via-brand-accent-500/90 to-brand-secondary-500/90 text-white text-xs font-bold uppercase tracking-widest hover:opacity-90"
           >
-            {lang === 'tr' ? '▶ Vizyon Slaytlarını İzle' : '▶ Watch Vision Slides'}
+            {lang === 'tr' ? '▶ Vizyonu İzle' : '▶ Watch Vision'}
           </button>
         </div>
 
+        {showVisionVideoPlayer && goal.vision_video_url && (
+          <VisionVideoPlayer
+            videoUrl={goal.vision_video_url}
+            lang={lang}
+            onClose={() => setShowVisionVideoPlayer(false)}
+          />
+        )}
+
+        {/* goal.vision_video_url henüz yoksa (video oluşturulmamış eski hedef) eski slayt gösterisine düş */}
         {showSlidesViewer && (
           <SlidesViewer
             goal={goal}
@@ -484,7 +517,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
             currentUserId={currentUserId}
             onClose={() => setShowSlidesViewer(false)}
             onChanged={onChanged}
-            onEditSlides={() => { setShowSlidesViewer(false); setShowSlideEditor(true) }}
+            onEditSlides={() => { setShowSlidesViewer(false); setShowVisionVideoEditor(true) }}
           />
         )}
 
@@ -514,16 +547,26 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
             </div>
             {galleryError && <p className="text-semantic-danger-400 text-xs mt-1.5">{galleryError}</p>}
             <button
-              onClick={() => setShowSlideEditor(true)}
+              onClick={() => setShowVisionVideoEditor(true)}
               className="mt-2 w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-primary-500/20 via-brand-accent-500/20 to-brand-secondary-500/20 text-brand-primary-200 text-xs font-bold uppercase tracking-widest hover:opacity-90"
             >
-              {lang === 'tr' ? 'Vizyon Slaytlarını Düzenle' : 'Edit Vision Slides'}
+              {lang === 'tr'
+                ? (goal.vision_video_url ? 'Vizyon Videosunu Düzenle' : 'Vizyon Videosu Oluştur')
+                : (goal.vision_video_url ? 'Edit Vision Video' : 'Create Vision Video')}
             </button>
           </div>
         )}
 
-        {showSlideEditor && (
-          <SlideEditor goal={goal} lang={lang} onClose={() => setShowSlideEditor(false)} />
+        {showVisionVideoEditor && (
+          <VisionVideoEditor
+            goal={goal}
+            lang={lang}
+            onClose={() => setShowVisionVideoEditor(false)}
+            onChanged={(videoUrl) => {
+              setGoal((g) => ({ ...g, vision_video_url: videoUrl }))
+              onChanged?.()
+            }}
+          />
         )}
 
         {showPixabayPicker && (
