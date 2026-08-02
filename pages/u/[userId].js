@@ -10,6 +10,8 @@ import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import DreamCard from '@/components/DreamCard'
 import TextSkeleton from '@/components/TextSkeleton'
+import SlidesViewer from '@/components/SlidesViewer'
+import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 
 export default function PublicProfilePage() {
   const router = useRouter()
@@ -32,6 +34,15 @@ export default function PublicProfilePage() {
   const [followBusy, setFollowBusy] = useState(false)
   const [activeDream, setActiveDream] = useState(null)
   const [activeGoal, setActiveGoal] = useState(null)
+  const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
+  const [activeVideoGoal, setActiveVideoGoal] = useState(null)
+  // Video varsa oynatıcıya, yoksa eski slaytı varsa SlidesViewer'a, o da
+  // yoksa detay modalına düş — bkz. vision-board.js'teki aynı desen.
+  function handleOpenGoal(goal) {
+    if (goal.vision_video_url) setActiveVideoGoal(goal)
+    else if (goal.slide_count > 0) setActiveSlidesGoal(goal)
+    else setActiveGoal(goal)
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -191,7 +202,7 @@ export default function PublicProfilePage() {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                   {goals.map((goal) => (
-                    <GoalCard key={goal.id} goal={goal} lang={lang} currentUserId={viewer?.id} onOpenGoal={setActiveGoal} />
+                    <GoalCard key={goal.id} goal={goal} lang={lang} currentUserId={viewer?.id} onOpenGoal={handleOpenGoal} />
                   ))}
                 </div>
               )
@@ -230,6 +241,37 @@ export default function PublicProfilePage() {
           onClose={() => setActiveGoal(null)}
           onChanged={(u) => setGoals((l) => l.map((g) => (g.id === u.id ? { ...g, ...u } : g)))}
           onDeleted={(id) => setGoals((l) => l.filter((g) => g.id !== id))}
+        />
+      )}
+
+      {activeVideoGoal && (
+        <VisionVideoPlayer
+          videoUrl={activeVideoGoal.vision_video_url}
+          lang={lang}
+          onClose={() => setActiveVideoGoal(null)}
+        />
+      )}
+
+      {activeSlidesGoal && (
+        <SlidesViewer
+          goal={activeSlidesGoal}
+          lang={lang}
+          currentUserId={viewer?.id}
+          onClose={() => setActiveSlidesGoal(null)}
+          onChanged={(u) => {
+            setActiveSlidesGoal((g) => (g ? { ...g, ...u } : g))
+            setGoals((l) => l.map((g) => (g.id === u.id ? { ...g, ...u } : g)))
+          }}
+          onOpenDetails={() => {
+            const goal = activeSlidesGoal
+            setActiveSlidesGoal(null)
+            setActiveGoal(goal)
+          }}
+          onEditSlides={() => {
+            const goal = activeSlidesGoal
+            setActiveSlidesGoal(null)
+            setActiveGoal(goal)
+          }}
         />
       )}
 
