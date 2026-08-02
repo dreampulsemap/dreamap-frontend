@@ -3,6 +3,10 @@ import { useState } from 'react'
 export default function GumroadTestPage() {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  // Endpoint artık ?secret= ile korunuyor (bkz. gumroad-webhook.js).
+  // Bilerek koda gömülmedi — burada elle giriliyor, böylece secret client
+  // bundle'ına sızmıyor.
+  const [secret, setSecret] = useState('')
 
   async function sendTest() {
     setLoading(true)
@@ -18,7 +22,7 @@ export default function GumroadTestPage() {
         test: 'true',
       }).toString()
 
-      const res = await fetch('/api/gumroad-webhook', {
+      const res = await fetch(`/api/gumroad-webhook?secret=${encodeURIComponent(secret)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -40,6 +44,24 @@ export default function GumroadTestPage() {
   return (
     <main style={{ padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Gumroad Webhook Test</h1>
+
+      <input
+        type="text"
+        value={secret}
+        onChange={(e) => setSecret(e.target.value)}
+        placeholder="GUMROAD_WEBHOOK_SECRET değeri"
+        style={{
+          display: 'block',
+          marginBottom: 12,
+          padding: '10px 12px',
+          borderRadius: 8,
+          border: '1px solid #ccc',
+          width: '100%',
+          maxWidth: 360,
+          fontFamily: 'monospace',
+        }}
+      />
+
       <button
         onClick={sendTest}
         disabled={loading}
