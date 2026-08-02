@@ -188,23 +188,22 @@ h1, h2, h3, h4, .font-serif {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Reels Besleme Ritmi — bir kart ekranda "aktif" hale geldiğinde hızlı bir
-   kesme (fast cut) hissi versin diye kısa, keskin bir giriş animasyonu. */
-@keyframes reel-fast-cut {
-  0% { opacity: 0.4; transform: scale(0.97); }
-  100% { opacity: 1; transform: scale(1); }
-}
-.reel-active {
-  animation: reel-fast-cut 180ms cubic-bezier(0.16, 1, 0.3, 1);
+/* Vizyon Slaytları — Oto-Oynatan Sinematik Görüntüleyici (Ken Burns).
+   Durağan görsellere de hareket hissi vermek için 4 varyant tanımlı, slayt
+   index'ine göre sırayla dönüyor — hepsi aynı yöne kaysa mekanik/tekdüze
+   hissettirir, dönüşümlü yön göz daha canlı/organik bir ritim hissettirir.
+   Süre (saniye) SlidesViewer.jsx'ten slide.duration_seconds ile inline
+   olarak set ediliyor. */
+@keyframes kenburns-1 { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.12) translate(-1.5%, -1.5%); } }
+@keyframes kenburns-2 { from { transform: scale(1.12) translate(1.5%, 1.5%); } to { transform: scale(1) translate(0, 0); } }
+@keyframes kenburns-3 { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.12) translate(1.8%, -1.2%); } }
+@keyframes kenburns-4 { from { transform: scale(1.1) translate(-1.2%, 1.5%); } to { transform: scale(1) translate(0, 0); } }
+
+/* Hikaye tarzı üst ilerleme çubuğu dolumu — süresi de aynı şekilde
+   slide.duration_seconds ile eşleşiyor, basılı tutunca (paused) durur. */
+@keyframes story-fill {
+  from { width: 0%; }
+  to { width: 100%; }
 }
 
-/* Aksiyon butonlarına dokunulduğunda ritmik bir "nabız" tepkisi — beğeni/mana
-   gibi mikro-etkileşimlere anlık, tatmin edici bir görsel karşılık verir. */
-@keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(230, 198, 135, 0.45); }
-  100% { box-shadow: 0 0 0 14px rgba(230, 198, 135, 0); }
-}
-.pulse-ring {
-  animation: pulse-ring 550ms cubic-bezier(0.16, 1, 0.3, 1);
-}
 
