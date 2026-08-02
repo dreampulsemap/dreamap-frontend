@@ -9,6 +9,7 @@ import DreamFeedCard from '@/components/DreamFeedCard'
 import VisionFeedCard from '@/components/VisionFeedCard'
 import HomeFeedFilter from '@/components/HomeFeedFilter'
 import GoalDetailModal from '@/components/GoalDetailModal'
+import SlidesViewer from '@/components/SlidesViewer'
 import VisionReelsFeed from '@/components/VisionReelsFeed'
 import TextSkeleton from '@/components/TextSkeleton'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
@@ -65,6 +66,7 @@ export default function HomePage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [activeDream, setActiveDream] = useState(null)
   const [activeGoal, setActiveGoal] = useState(null)
+  const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
   const [reelsGoalId, setReelsGoalId] = useState(null)
 
   const observerRef = useRef(null)
@@ -228,7 +230,30 @@ export default function HomePage() {
           loading={false}
           onClose={() => setReelsGoalId(null)}
           onOpenGoal={(g) => { setReelsGoalId(null); setActiveGoal(g) }}
-          onOpenSlides={(g) => { setReelsGoalId(null); setActiveGoal(g) }}
+          onOpenSlides={(g) => { setReelsGoalId(null); setActiveSlidesGoal(g) }}
+        />
+      )}
+
+      {activeSlidesGoal && (
+        <SlidesViewer
+          goal={activeSlidesGoal}
+          lang={lang}
+          currentUserId={user?.id}
+          onClose={() => setActiveSlidesGoal(null)}
+          onChanged={(updated) => {
+            setActiveSlidesGoal((g) => (g ? { ...g, ...updated } : g))
+            setItems((prev) => prev.map((it) => (it.id === updated.id && it.feed_type === 'vision' ? { ...it, ...updated } : it)))
+          }}
+          onOpenDetails={() => {
+            const goal = activeSlidesGoal
+            setActiveSlidesGoal(null)
+            setActiveGoal(goal)
+          }}
+          onEditSlides={() => {
+            const goal = activeSlidesGoal
+            setActiveSlidesGoal(null)
+            setActiveGoal(goal)
+          }}
         />
       )}
 
