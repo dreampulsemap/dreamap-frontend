@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 
 export const config = {
@@ -10,6 +11,39 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
+
+// GÜVENLİK — Gumroad'ın klasik "Ping" bildirimi (Settings > Advanced'daki tek
+// hesap-geneli Ping URL) isteği kriptografik olarak imzalamıyor: Stripe/GitHub
+// tarzı bir X-Gumroad-Signature header'ı YOK. Bu, kütüphane/kod eksikliği değil,
+// Gumroad'ın resmi belgelediği bir kısıt (gumroad.com/ping — payload sadece
+// düz x-www-form-urlencoded, imza alanı listede yok). Doğrulanabilecek bir imza
+// olmadığı için burada paylaşılan-sır (shared secret) yöntemi kullanılıyor:
+// Gumroad'a tanımlanan Ping URL'sinin kendisine tahmin edilemez bir query
+// parametresi gömülüyor; bu değeri bilmeyen hiçbir istek işlenmiyor.
+//
+// Kurulum:
+//   1) Rastgele güçlü bir değer üret, örn: openssl rand -hex 32
+//   2) Vercel + .env.local'e GUMROAD_WEBHOOK_SECRET=<o değer> olarak ekle
+//   3) Gumroad > Settings > Advanced > Ping endpoint alanını şuna güncelle:
+//      https://<domain>/api/gumroad-webhook?secret=<o değer>
+const GUMROAD_WEBHOOK_SECRET = process.env.GUMROAD_WEBHOOK_SECRET
+
+function isAuthorizedGumroadRequest(req) {
+  // Secret tanımlı değilse fail-closed: hiçbir isteği kabul etme.
+  if (!GUMROAD_WEBHOOK_SECRET) return false
+
+  const provided = Array.isArray(req.query.secret) ? req.query.secret[0] : req.query.secret
+  if (!provided) return false
+
+  const providedBuf = Buffer.from(String(provided))
+  const expectedBuf = Buffer.from(GUMROAD_WEBHOOK_SECRET)
+
+  // Uzunluk eşleşmezse timingSafeEqual hata fırlatır; farklı uzunluk zaten
+  // eşleşmeme anlamına geldiği için doğrudan false dönüyoruz.
+  if (providedBuf.length !== expectedBuf.length) return false
+
+  return crypto.timingSafeEqual(providedBuf, expectedBuf)
+}
 
 // İki ayrı Gumroad ürünü aynı hesap-geneli Ping URL'ine düşüyor, product_id'ye
 // göre ayrıştırıyoruz:
@@ -112,6 +146,16 @@ async function handlePremiumSale({ profileId, payload, saleId, refunded, isTest 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  if (!isAuthorizedGumroadRequest(req)) {
+    console.warn(
+      JSON.stringify({
+        tag: 'gumroad_webhook_unauthorized',
+        ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
+      })
+    )
+    return res.status(401).json({ error: 'unauthorized' })
   }
 
   try {
