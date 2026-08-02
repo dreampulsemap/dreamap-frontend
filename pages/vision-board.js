@@ -11,6 +11,8 @@ import MentalWallPanel from '@/components/MentalWallPanel'
 import ReferralWidget from '@/components/ReferralWidget'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
+import SlidesViewer from '@/components/SlidesViewer'
+import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 
 export default function VisionBoardPage() {
   const router = useRouter()
@@ -28,6 +30,8 @@ export default function VisionBoardPage() {
   const [hasMore, setHasMore] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [activeGoal, setActiveGoal] = useState(null)
+  const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
+  const [activeVideoGoal, setActiveVideoGoal] = useState(null)
   const [ownActiveGoals, setOwnActiveGoals] = useState([])
   const [loadError, setLoadError] = useState('')
   const [authChecked, setAuthChecked] = useState(false)
@@ -123,6 +127,19 @@ export default function VisionBoardPage() {
     setGoals((list) => list.filter((g) => g.id !== goalId))
   }
 
+  // Bir vizyon kartına dokununca: video varsa doğrudan oto-oynayan
+  // VisionVideoPlayer'a gir, yoksa (henüz video oluşturmamış eski hedef)
+  // eski slaytı varsa SlidesViewer'a gir — ikisi de yoksa (henüz hiçbir
+  // vizyon içeriği yok) detay modalına düş. vision_video_url kontrolü
+  // slide_count'tan ÖNCE geliyor: bir hedefte hem eski slaytlar hem yeni
+  // video olabilir (video oluşturma eski slaytları silmiyor), o durumda
+  // güncel olan videoyu göstermek doğru olan.
+  function handleOpenGoal(goal) {
+    if (goal.vision_video_url) setActiveVideoGoal(goal)
+    else if (goal.slide_count > 0) setActiveSlidesGoal(goal)
+    else setActiveGoal(goal)
+  }
+
   return (
     <div className="min-h-screen bg-black">
       <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8 pb-16">
@@ -182,7 +199,7 @@ export default function VisionBoardPage() {
               goal={goal}
               lang={lang}
               currentUserId={user?.id}
-              onOpenGoal={setActiveGoal}
+              onOpenGoal={handleOpenGoal}
               onReacted={() => {}}
             />
           ))}
@@ -224,6 +241,37 @@ export default function VisionBoardPage() {
           onClose={() => setActiveGoal(null)}
           onChanged={handleGoalUpdated}
           onDeleted={handleGoalDeleted}
+        />
+      )}
+
+      {activeVideoGoal && (
+        <VisionVideoPlayer
+          videoUrl={activeVideoGoal.vision_video_url}
+          lang={lang}
+          onClose={() => setActiveVideoGoal(null)}
+        />
+      )}
+
+      {activeSlidesGoal && (
+        <SlidesViewer
+          goal={activeSlidesGoal}
+          lang={lang}
+          currentUserId={user?.id}
+          onClose={() => setActiveSlidesGoal(null)}
+          onChanged={(updated) => {
+            setActiveSlidesGoal((g) => (g ? { ...g, ...updated } : g))
+            handleGoalUpdated(updated)
+          }}
+          onOpenDetails={() => {
+            const goal = activeSlidesGoal
+            setActiveSlidesGoal(null)
+            setActiveGoal(goal)
+          }}
+          onEditSlides={() => {
+            const goal = activeSlidesGoal
+            setActiveSlidesGoal(null)
+            setActiveGoal(goal)
+          }}
         />
       )}
     </div>

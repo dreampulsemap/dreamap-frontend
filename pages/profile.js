@@ -14,6 +14,8 @@ import CreateGoalModal from '@/components/CreateGoalModal'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import TextSkeleton from '@/components/TextSkeleton'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import SlidesViewer from '@/components/SlidesViewer'
+import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 
 const BATCH_SIZE = 12;
 
@@ -92,6 +94,16 @@ export default function ProfilePage() {
   const [goalsLoading, setGoalsLoading] = useState(true)
   const [goalsLoaded, setGoalsLoaded] = useState(false)
   const [activeGoal, setActiveGoal] = useState(null)
+  const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
+  const [activeVideoGoal, setActiveVideoGoal] = useState(null)
+  // Video varsa oynatıcıya, yoksa eski slaytı varsa SlidesViewer'a, o da
+  // yoksa detay modalına düş. vision_video_url kontrolü slide_count'tan
+  // önce: bir hedefte ikisi de olabilir, güncel olan (video) gösterilmeli.
+  function handleOpenGoal(goal) {
+    if (goal.vision_video_url) setActiveVideoGoal(goal)
+    else if (goal.slide_count > 0) setActiveSlidesGoal(goal)
+    else setActiveGoal(goal)
+  }
   const [showCreateGoal, setShowCreateGoal] = useState(false)
 
   const displayUsername =
@@ -563,7 +575,7 @@ export default function ProfilePage() {
                     goal={goal}
                     lang={lang}
                     currentUserId={user?.id}
-                    onOpenGoal={setActiveGoal}
+                    onOpenGoal={handleOpenGoal}
                   />
                 ))}
               </div>
@@ -715,6 +727,37 @@ export default function ProfilePage() {
           }}
           onDeleted={(goalId) => {
             setGoals((list) => list.filter((g) => g.id !== goalId))
+          }}
+        />
+      )}
+
+      {activeVideoGoal && (
+        <VisionVideoPlayer
+          videoUrl={activeVideoGoal.vision_video_url}
+          lang={lang}
+          onClose={() => setActiveVideoGoal(null)}
+        />
+      )}
+
+      {activeSlidesGoal && (
+        <SlidesViewer
+          goal={activeSlidesGoal}
+          lang={lang}
+          currentUserId={user?.id}
+          onClose={() => setActiveSlidesGoal(null)}
+          onChanged={(updated) => {
+            setActiveSlidesGoal((g) => (g ? { ...g, ...updated } : g))
+            setGoals((list) => list.map((g) => (g.id === updated.id ? { ...g, ...updated } : g)))
+          }}
+          onOpenDetails={() => {
+            const goal = activeSlidesGoal
+            setActiveSlidesGoal(null)
+            setActiveGoal(goal)
+          }}
+          onEditSlides={() => {
+            const goal = activeSlidesGoal
+            setActiveSlidesGoal(null)
+            setActiveGoal(goal)
           }}
         />
       )}
