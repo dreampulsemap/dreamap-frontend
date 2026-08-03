@@ -282,7 +282,7 @@ export default function ExplorePage() {
           <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2">
             🌐 {lang === 'tr' ? 'Küresel Rüya Ağı' : 'Global Dream Nexus'}
           </span>
-          <h1 className="text-3xl font-bold font-serif gradient-text">
+          <h1 className="text-3xl font-bold font-serif gold-gradient-text">
             {lang === 'tr' ? 'Kolektif Keşfet' : 'Explore'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-md">

@@ -625,7 +625,7 @@ export default function ProfilePage() {
       {showProfileEditor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
           <div className="glass-card p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4 gradient-text">{getTranslation('profile.editProfile', lang)}</h2>
+            <h2 className="text-xl font-bold mb-4 gold-gradient-text">{getTranslation('profile.editProfile', lang)}</h2>
             
             <div className="mb-4">
               <label className="text-xs text-white/50 block mb-2 uppercase tracking-widest">{getTranslation('profile.username', lang)}</label>
