@@ -339,7 +339,7 @@ export default function DreamGlobe() {
               predictionsExpanded ? 'block' : 'hidden'
             }`}
           >
-            <h3 className="text-base sm:text-lg font-bold gradient-text mb-3">
+            <h3 className="text-base sm:text-lg font-bold gold-gradient-text mb-3">
               🔮 {getTranslation('globe.collectivePredictions', lang)}
             </h3>
 
@@ -442,7 +442,7 @@ export default function DreamGlobe() {
           <div className="absolute inset-0 bg-black/70" onClick={() => setSelectedPrediction(null)} />
           <div className="relative glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <button onClick={() => setSelectedPrediction(null)} className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white">×</button>
-            <h2 className="text-2xl font-bold gradient-text mb-4">
+            <h2 className="text-2xl font-bold gold-gradient-text mb-4">
               🔮 {selectedPrediction[`title_${lang}`] || selectedPrediction.title_en || selectedPrediction.title}
             </h2>
             <p className="text-white/90 mb-6 whitespace-pre-wrap">

@@ -46,7 +46,7 @@ export default function DeepAnalysisConfirmationModal({
           <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-primary-400/20 bg-brand-primary-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-primary-300 mb-3 shadow-[0_0_15px_rgba(240,73,214,0.1)]">
             ✦ {t.confirmBadge}
           </span>
-          <h3 className="text-2xl font-bold gradient-text font-serif">
+          <h3 className="text-2xl font-bold gold-gradient-text font-serif">
             {isGift ? t.confirmGiftTitle : t.confirmTitle}
           </h3>
         </div>

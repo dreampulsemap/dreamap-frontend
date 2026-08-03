@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
+import { useModalA11y } from '@/lib/useModalA11y'
 
 // Dış bağımlılıkları kaldırmak ve çökmeleri önlemek için Güvenli Okuyucu (Safe Getter) içeriye alındı
 function getSafeVal(obj, targetLang = 'en') {
@@ -32,6 +33,8 @@ export default function DeepAnalysisCarouselModal({
   const [currentSlide, setCurrentSlide] = useState(0)
   const [touchStart, setTouchStart] = useState(null)
   const [touchEnd, setTouchEnd] = useState(null)
+  const modalRef = useRef(null)
+  useModalA11y(modalRef, isOpen ? onClose : null)
 
   if (!isOpen || !premiumAnalysis) return null
 
@@ -100,6 +103,7 @@ export default function DeepAnalysisCarouselModal({
       onClick={safeOnClose}
     >
       <div
+        ref={modalRef}
         className="relative h-[95vh] w-full max-w-4xl overflow-hidden rounded-t-[2.5rem] border border-white/10 bg-[#040711] shadow-[0_30px_120px_rgba(0,0,0,0.85)] sm:h-[85vh] sm:rounded-[2.5rem]"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={handleTouchStart}

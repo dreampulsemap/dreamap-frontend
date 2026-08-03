@@ -10,7 +10,7 @@ export default function EmptyState({ icon = '🌌', title, description, actionLa
       {actionLabel && onAction && (
         <button
           onClick={onAction}
-          className="mt-5 px-5 py-2.5 rounded-pill bg-gradient-to-r from-brand-primary to-brand-secondary text-white text-label"
+          className="mt-5 px-5 py-2.5 rounded-pill bg-gradient-to-r from-brand-primary-500 to-brand-secondary-500 text-white text-label"
         >
           {actionLabel}
         </button>
