@@ -246,9 +246,19 @@ export default function VisionBoardPage() {
 
       {activeVideoGoal && (
         <VisionVideoPlayer
-          videoUrl={activeVideoGoal.vision_video_url}
+          goal={activeVideoGoal}
           lang={lang}
+          currentUserId={user?.id}
           onClose={() => setActiveVideoGoal(null)}
+          onChanged={(updated) => {
+            setActiveVideoGoal((g) => (g ? { ...g, ...updated } : g))
+            handleGoalUpdated(updated)
+          }}
+          onOpenDetails={() => {
+            const goal = activeVideoGoal
+            setActiveVideoGoal(null)
+            setActiveGoal(goal)
+          }}
         />
       )}
 

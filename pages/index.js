@@ -248,9 +248,19 @@ export default function HomePage() {
 
       {activeVideoGoal && (
         <VisionVideoPlayer
-          videoUrl={activeVideoGoal.vision_video_url}
+          goal={activeVideoGoal}
           lang={lang}
+          currentUserId={user?.id}
           onClose={() => setActiveVideoGoal(null)}
+          onChanged={(updated) => {
+            setActiveVideoGoal((g) => (g ? { ...g, ...updated } : g))
+            setItems((prev) => prev.map((it) => (it.id === updated.id && it.feed_type === 'vision' ? { ...it, ...updated } : it)))
+          }}
+          onOpenDetails={() => {
+            const goal = activeVideoGoal
+            setActiveVideoGoal(null)
+            setActiveGoal(goal)
+          }}
         />
       )}
 

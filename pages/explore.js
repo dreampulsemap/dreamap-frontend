@@ -586,9 +586,25 @@ export default function ExplorePage() {
       )}
       {activeVideoGoal && (
         <VisionVideoPlayer
-          videoUrl={activeVideoGoal.vision_video_url}
+          goal={activeVideoGoal}
           lang={lang}
+          currentUserId={user?.id}
           onClose={() => setActiveVideoGoal(null)}
+          onChanged={(updated) => {
+            setActiveVideoGoal((g) => (g ? { ...g, ...updated } : g))
+            setHubGoals((g) => {
+              const next = { ...g }
+              for (const hub of ['vision', 'victory', 'phoenix']) {
+                next[hub] = next[hub].map((goal) => (goal.id === updated.id ? { ...goal, ...updated } : goal))
+              }
+              return next
+            })
+          }}
+          onOpenDetails={() => {
+            const goal = activeVideoGoal
+            setActiveVideoGoal(null)
+            setActiveGoal(goal)
+          }}
         />
       )}
       {activeSlidesGoal && (
