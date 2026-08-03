@@ -1485,6 +1485,7 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
         <PixabayPicker
           lang={lang}
           videoStatus={videoStatus}
+          multiSelect
           onPickImage={(hit) => bridgeRef.current.onPickImage?.(hit)}
           onPickVideo={(hit) => bridgeRef.current.onPickVideo?.(hit)}
           onClose={() => setShowPixabayPicker(false)}
