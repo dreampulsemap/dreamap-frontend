@@ -246,9 +246,19 @@ export default function PublicProfilePage() {
 
       {activeVideoGoal && (
         <VisionVideoPlayer
-          videoUrl={activeVideoGoal.vision_video_url}
+          goal={activeVideoGoal}
           lang={lang}
+          currentUserId={viewer?.id}
           onClose={() => setActiveVideoGoal(null)}
+          onChanged={(u) => {
+            setActiveVideoGoal((g) => (g ? { ...g, ...u } : g))
+            setGoals((l) => l.map((g) => (g.id === u.id ? { ...g, ...u } : g)))
+          }}
+          onOpenDetails={() => {
+            const goal = activeVideoGoal
+            setActiveVideoGoal(null)
+            setActiveGoal(goal)
+          }}
         />
       )}
 
