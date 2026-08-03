@@ -65,3 +65,20 @@ içinde yapıyor, video editörü sadece aynı endpoint'i çağırıyor.
 - Dışa aktar → görsel klip(ler) dahil final videoda görünüyor mu
 - "+ Ekle" menüsünü aç, Pixabay'e geç, ikisini de Escape ile kapat → video
   editörünün kendisi kapanmamalı (useModalA11y'deki güncel stack mantığı)
+
+## Ek — Pixabay'de çoklu seçim
+`components/PixabayPicker.jsx`'e `multiSelect` prop'u eklendi (varsayılan
+`false`, GoalDetailModal'ın tekli kapak/galeri akışı DEĞİŞMEDİ). Video
+editörü `multiSelect` ile açıyor:
+- Dokunma artık işaretliyor (mor çerçeve + tik rozeti), Görsel↔Video
+  sekmeleri arasında seçim korunuyor
+- Altta beliren "Ekle (N)" barına basınca hepsi SIRAYLA (paralel değil —
+  haftalık video hakkı sunucuda kontrol edildiği için paralel istek yarış
+  durumu yaratıp limiti aşırtabilirdi) eklenir
+- Başarılı olan seçimden düşer, başarısız kalan (ör. video hakkı bittiyse)
+  seçili kalır — kullanıcı düzeltip tekrar "Ekle"ye basabilir
+
+Test: Görsel sekmesinde 3, Video sekmesinde 1 seç → "Ekle (4)" görünmeli →
+onayla → 4 klip de timeline'a düşmeli. Ücretsiz kullanıcıyla haftalık hakkı
+tükettikten sonra bir video + iki görsel seçip onayla → görseller eklenmeli,
+video seçili kalmalı ve kilit mesajı görünmeli.
