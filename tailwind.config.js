@@ -57,6 +57,19 @@ module.exports = {
         serif: ['Cormorant Garamond', 'Cinzel', 'Georgia', 'serif'],
         sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
       },
+      // NOT: Bunlar DESIGN_SYSTEM.md §2/§12'de "tanımlı değil" diye işaretlenen
+      // tam ölçeğin (display/h1/h2/h3/body/caption) kendisi DEĞİL — sadece
+      // component'lerde zaten `text-h1`/`text-h3`/`text-body-sm`/`text-label`
+      // olarak kullanılıp hiçbir karşılığı olmadığı için sessizce boyutsuz
+      // kalan 4 token'ın karşılığı eklendi (EmptyState/ErrorState/vision-board).
+      // Kalan ölçek kararı (display/h2/caption vb.) hâlâ ayrı, bilinçli bir
+      // ürün kararı gerektiriyor — bu değişiklik onu almıyor.
+      fontSize: {
+        h1: ['1.875rem', { lineHeight: '2.25rem' }],   // = text-3xl, mevcut sayfa başlıklarıyla (explore.js) aynı
+        h3: ['1.125rem', { lineHeight: '1.75rem' }],   // = text-lg, kod tabanındaki baskın alt-başlık boyutu
+        'body-sm': ['0.8125rem', { lineHeight: '1.25rem' }], // text-xs (12px) ile text-sm (14px) arası
+        label: ['0.875rem', { lineHeight: '1.25rem' }], // = text-sm, mevcut pill-buton etiketleriyle aynı
+      },
       borderRadius: {
         'card': '24px',
         'pill': '9999px',
