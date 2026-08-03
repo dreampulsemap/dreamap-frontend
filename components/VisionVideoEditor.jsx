@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
 import { uploadVisionVideo, getVisionVideoErrorMessage } from '@/lib/uploadVisionVideo'
+import PixabayPicker from './PixabayPicker'
 
 // "Vizyon Videosu" — "Vizyon Slaytlarını Düzenle" (eski SlideEditor: çoklu
 // görsel + başlık + süreden oluşan slayt gösterisi) editörünün yerini alan
@@ -29,6 +30,10 @@ import { uploadVisionVideo, getVisionVideoErrorMessage } from '@/lib/uploadVisio
 
 const PPS = 50
 const RATIOS = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080] }
+// Görsel klipler video gibi kendi süresini taşımaz — sabit bir varsayılanla
+// eklenir, kırpma tutamaçlarıyla MAX_IMAGE_DURATION'a kadar uzatılabilir.
+const DEFAULT_IMAGE_DURATION = 5
+const MAX_IMAGE_DURATION = 30
 
 const FILTERS = [
   { id: 'none', name: 'Orijinal', nameEn: 'Original', css: 'none' },
@@ -54,6 +59,32 @@ const CAPTION_FONTS = [
 // Aynı dokümandaki 6 preset renk
 const CAPTION_COLORS = ['#ffffff', '#0a0a0f', '#f5c451', '#e879f9', '#22d3ee', '#fb7185']
 
+// "+ Ekle" tıklanınca açılan kaynak seçim menüsü — üç madde (cihazdan video,
+// cihazdan görsel, Pixabay) tek bir yerden büyümesi kolay olsun diye burada.
+// Gerçek bir React component olması bilerek: useModalA11y'yi kendi
+// mount/unmount'una bağlayabilmesi için (bkz. lib/useModalA11y.js — iç içe
+// modallerde Escape/GERİ yalnızca en üstteki modala etki etmeli).
+function AddMediaMenu({ lang, onPickVideo, onPickImage, onPickPixabay, onClose }) {
+  const ref = useRef(null)
+  useModalA11y(ref, onClose)
+  const tr = lang === 'tr'
+  return (
+    <div
+      ref={ref}
+      className="vve-add-menu-backdrop"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="vve-add-menu">
+        <button className="vve-add-menu-item" onClick={onPickVideo}>🎬 {tr ? 'Cihazdan Video' : 'Video from Device'}</button>
+        <button className="vve-add-menu-item" onClick={onPickImage}>🖼️ {tr ? 'Cihazdan Görsel' : 'Image from Device'}</button>
+        <button className="vve-add-menu-item" onClick={onPickPixabay}>🔎 {tr ? "Pixabay'den Ara" : 'Search Pixabay'}</button>
+      </div>
+    </div>
+  )
+}
+
 export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChanged }) {
   const rootRef = useRef(null)
   const hiddenMediaRef = useRef(null)
@@ -63,6 +94,32 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
   onCloseRef.current = onClose
   const onChangedRef = useRef(onChanged)
   onChangedRef.current = onChanged
+
+  // Menü + Pixabay seçici gerçek React state — aşağıdaki motor ise düz JS
+  // kapanışı. Bu ikisi [] dependency'li tek bir effect'te mount olduğu için
+  // setShowAddMenu/setShowPixabayPicker/setVideoStatus referansları o
+  // kapanış içinde SABİT kalır (React setState fonksiyonları hiç değişmez),
+  // doğrudan çağrılabilir. Ters yöndeki akış (seçim sonucunun motora geri
+  // dönmesi) için bridgeRef kullanılıyor: motor mount olurken kendi
+  // fonksiyonlarını bridgeRef.current'a yazıyor, JSX'teki gerçek React
+  // component'ler (AddMediaMenu, PixabayPicker) bunlara bridgeRef üzerinden
+  // erişiyor.
+  const [showAddMenu, setShowAddMenu] = useState(false)
+  const [showPixabayPicker, setShowPixabayPicker] = useState(false)
+  const [videoStatus, setVideoStatus] = useState(null)
+  const bridgeRef = useRef({})
+
+  useEffect(() => {
+    let active = true
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session || !active) return
+      fetch('/api/user/premium-status', { headers: { Authorization: `Bearer ${session.access_token}` } })
+        .then((r) => r.json())
+        .then((json) => { if (active && !json.error) setVideoStatus(json) })
+        .catch(() => {})
+    })
+    return () => { active = false }
+  }, [])
 
   useEffect(() => {
     const root = rootRef.current
@@ -98,6 +155,7 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
     const musicTrackEl = $('#vve-musicTrackEl')
     const playheadLine = $('#vve-playheadLine')
     const fileInput = $('#vve-fileInput')
+    const imageFileInput = $('#vve-imageFileInput')
     const musicInput = $('#vve-musicInput')
     const addClipBtn = $('#vve-addClipBtn')
     const splitBtn = $('#vve-splitBtn')
@@ -168,15 +226,35 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
     }
 
     /* ============ CLIP MANAGEMENT ============ */
+    // Dosya seçici (video ya da görsel input'u) ya da sürükle-bırak ile gelen
+    // karışık listeyi MIME tipine göre doğru fabrikaya yönlendirir.
     function handleFiles(fileList) {
-      const files = Array.prototype.filter.call(fileList || [], (f) => f.type.indexOf('video/') === 0)
+      const files = Array.prototype.filter.call(
+        fileList || [],
+        (f) => f.type.indexOf('video/') === 0 || f.type.indexOf('image/') === 0
+      )
       if (!files.length) return
       ensureAudioContext()
-      files.forEach(addClipFromFile)
+      files.forEach((file) => {
+        if (file.type.indexOf('image/') === 0) addImageClipFromFile(file)
+        else addClipFromFile(file)
+      })
     }
 
     function addClipFromFile(file) {
       const url = URL.createObjectURL(file)
+      createVideoClipFromUrl(url, file.name.replace(/\.[^/.]+$/, ''))
+    }
+
+    function addImageClipFromFile(file) {
+      const url = URL.createObjectURL(file)
+      createImageClip(url, file.name.replace(/\.[^/.]+$/, ''))
+    }
+
+    // Video klip fabrikası — hem cihazdan seçilen dosyalar (blob: URL) hem de
+    // Pixabay'den indirilip kendi storage'ımıza kaydedilmiş klipler
+    // (https:// URL, bkz. PIXABAY bölümü) bunu paylaşır.
+    function createVideoClipFromUrl(url, name) {
       const videoEl = document.createElement('video')
       videoEl.src = url
       videoEl.preload = 'auto'
@@ -186,7 +264,7 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       hiddenMedia.appendChild(videoEl)
 
       const clip = {
-        id: uid('clip'), name: file.name.replace(/\.[^/.]+$/, ''),
+        id: uid('clip'), name, type: 'video',
         url, videoEl,
         duration: 0, trimStart: 0, trimEnd: 0,
         speed: 1, volume: 1, muted: false, filter: 'none',
@@ -214,13 +292,52 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       renderAll()
     }
 
+    // Görsel klip fabrikası. trimStart/trimEnd/speed alanlarını video ile
+    // aynı tutuyoruz (speed hep 1) ki recalcTimeline()'ın
+    // (trimEnd-trimStart)/speed formülü ve mevcut kırpma tutamaçları hiç
+    // değişmeden görsellerde de "süreyi uzat/kısalt" olarak çalışsın —
+    // duration'ı MAX_IMAGE_DURATION'a sabitlemek sağ tutamacın gidebileceği
+    // üst sınırı belirliyor.
+    function createImageClip(url, name) {
+      const imageEl = document.createElement('img')
+      imageEl.crossOrigin = 'anonymous'
+      imageEl.style.display = 'none'
+      hiddenMedia.appendChild(imageEl)
+
+      const clip = {
+        id: uid('clip'), name, type: 'image',
+        url, imageEl,
+        duration: MAX_IMAGE_DURATION, trimStart: 0, trimEnd: 0,
+        speed: 1, volume: 0, muted: true, filter: 'none',
+        timelineStart: 0, timelineDuration: 0, thumbnail: null,
+      }
+
+      function onLoaded() {
+        clip.trimEnd = DEFAULT_IMAGE_DURATION
+        recalcTimeline()
+        renderAll()
+        generateImageThumbnail(clip)
+        if (!state.selectedClipId) selectClip(clip.id)
+        seekGlobal(state.playhead)
+      }
+      imageEl.addEventListener('load', onLoaded)
+      imageEl.addEventListener('error', () => {
+        toast(tt(`"${name}" yüklenemedi`, `Could not load "${name}"`))
+      })
+      imageEl.src = url
+      if (imageEl.complete && imageEl.naturalWidth) onLoaded()
+
+      state.clips.push(clip)
+      renderAll()
+    }
+
     function generateThumbnail(clip) {
       const v = clip.videoEl
       const tc = document.createElement('canvas')
       tc.width = 64; tc.height = 114
       const tctx = tc.getContext('2d')
       function onSeeked() {
-        try { drawCover(tctx, v, 64, 114); clip.thumbnail = tc.toDataURL('image/jpeg', 0.6); renderTimelineUI() }
+        try { drawCover(tctx, v, 64, 114, false); clip.thumbnail = tc.toDataURL('image/jpeg', 0.6); renderTimelineUI() }
         catch (e) { /* thumbnail is best-effort */ }
         v.removeEventListener('seeked', onSeeked)
       }
@@ -228,17 +345,31 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       try { v.currentTime = Math.min(0.15, (v.duration || 0.3)) } catch (e) { /* ignore */ }
     }
 
+    function generateImageThumbnail(clip) {
+      const tc = document.createElement('canvas')
+      tc.width = 64; tc.height = 114
+      const tctx = tc.getContext('2d')
+      try {
+        drawCover(tctx, clip.imageEl, 64, 114, true)
+        clip.thumbnail = tc.toDataURL('image/jpeg', 0.6)
+        renderTimelineUI()
+      } catch (e) { /* thumbnail is best-effort */ }
+    }
+
     function removeClip(id) {
       const idx = state.clips.findIndex((c) => c.id === id)
       if (idx === -1) return
       const clip = state.clips[idx]
-      try { clip.videoEl.pause() } catch (e) { /* ignore */ }
-      const nodes = clipAudioNodes.get(clip.id)
-      if (nodes) { try { nodes.source.disconnect(); nodes.gain.disconnect() } catch (e) { /* ignore */ } clipAudioNodes.delete(clip.id) }
-      clip.videoEl.remove()
+      if (clip.videoEl) {
+        try { clip.videoEl.pause() } catch (e) { /* ignore */ }
+        const nodes = clipAudioNodes.get(clip.id)
+        if (nodes) { try { nodes.source.disconnect(); nodes.gain.disconnect() } catch (e) { /* ignore */ } clipAudioNodes.delete(clip.id) }
+        clip.videoEl.remove()
+      }
+      if (clip.imageEl) clip.imageEl.remove()
       state.clips.splice(idx, 1)
       const stillUsed = state.clips.some((c) => c.url === clip.url)
-      if (!stillUsed) URL.revokeObjectURL(clip.url)
+      if (!stillUsed && clip.url.indexOf('blob:') === 0) URL.revokeObjectURL(clip.url)
       if (state.selectedClipId === id) state.selectedClipId = state.clips.length ? state.clips[0].id : null
       if (state.activeClipId === id) state.activeClipId = null
       recalcTimeline()
@@ -297,26 +428,42 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
         return
       }
       const idx = state.clips.indexOf(clip)
-      const videoEl2 = document.createElement('video')
-      videoEl2.src = clip.url
-      videoEl2.preload = 'auto'; videoEl2.playsInline = true; videoEl2.crossOrigin = 'anonymous'
-      videoEl2.style.display = 'none'
-      hiddenMedia.appendChild(videoEl2)
+      let clip2
+      if (clip.type === 'image') {
+        const imageEl2 = document.createElement('img')
+        imageEl2.crossOrigin = 'anonymous'
+        imageEl2.style.display = 'none'
+        imageEl2.src = clip.url
+        hiddenMedia.appendChild(imageEl2)
+        clip2 = {
+          id: uid('clip'), name: clip.name + ' (2)', type: 'image',
+          url: clip.url, imageEl: imageEl2,
+          duration: clip.duration, trimStart: localTime, trimEnd: clip.trimEnd,
+          speed: 1, volume: 0, muted: true, filter: clip.filter,
+          timelineStart: 0, timelineDuration: 0, thumbnail: clip.thumbnail,
+        }
+      } else {
+        const videoEl2 = document.createElement('video')
+        videoEl2.src = clip.url
+        videoEl2.preload = 'auto'; videoEl2.playsInline = true; videoEl2.crossOrigin = 'anonymous'
+        videoEl2.style.display = 'none'
+        hiddenMedia.appendChild(videoEl2)
 
-      const clip2 = {
-        id: uid('clip'), name: clip.name + ' (2)',
-        url: clip.url, videoEl: videoEl2,
-        duration: clip.duration, trimStart: localTime, trimEnd: clip.trimEnd,
-        speed: clip.speed, volume: clip.volume, muted: clip.muted, filter: clip.filter,
-        timelineStart: 0, timelineDuration: 0, thumbnail: clip.thumbnail,
+        clip2 = {
+          id: uid('clip'), name: clip.name + ' (2)', type: 'video',
+          url: clip.url, videoEl: videoEl2,
+          duration: clip.duration, trimStart: localTime, trimEnd: clip.trimEnd,
+          speed: clip.speed, volume: clip.volume, muted: clip.muted, filter: clip.filter,
+          timelineStart: 0, timelineDuration: 0, thumbnail: clip.thumbnail,
+        }
+        videoEl2.addEventListener('loadedmetadata', () => {
+          connectClipAudio(clip2)
+          recalcTimeline(); renderAll()
+        })
+        videoEl2.addEventListener('ended', () => {
+          if (state.isPlaying && state.activeClipId === clip2.id) advanceToNext(clip2)
+        })
       }
-      videoEl2.addEventListener('loadedmetadata', () => {
-        connectClipAudio(clip2)
-        recalcTimeline(); renderAll()
-      })
-      videoEl2.addEventListener('ended', () => {
-        if (state.isPlaying && state.activeClipId === clip2.id) advanceToNext(clip2)
-      })
 
       clip.trimEnd = localTime
       state.clips.splice(idx + 1, 0, clip2)
@@ -327,8 +474,20 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
 
     /* ============ PLAYBACK ENGINE ============ */
     function pauseAllVideos() {
-      state.clips.forEach((c) => { try { c.videoEl.pause() } catch (e) { /* ignore */ } })
+      state.clips.forEach((c) => { if (c.videoEl) { try { c.videoEl.pause() } catch (e) { /* ignore */ } } })
       if (state.music) { try { state.music.audioEl.pause() } catch (e) { /* ignore */ } }
+    }
+
+    // Görsel klipler <video> gibi kendi currentTime'ını ilerletmez — oynatma
+    // sırasında playhead'i duvar saatiyle ilerletmek için bu referans
+    // kullanılıyor (bkz. tick()). startImageClipClock() her çağrıldığında
+    // "şu an" ile state.playhead'i eşleştirir; play()/advanceToNext()/
+    // seekGlobal() bir görsel klip aktif olduğunda bunu çağırır.
+    let imageAnchorWallTime = 0
+    let imageAnchorPlayhead = 0
+    function startImageClipClock() {
+      imageAnchorWallTime = performance.now()
+      imageAnchorPlayhead = state.playhead
     }
 
     function play() {
@@ -338,10 +497,14 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       const clip = getActiveClipAt(state.playhead)
       if (!clip) return
       state.activeClipId = clip.id
-      const localTime = clip.trimStart + (state.playhead - clip.timelineStart) * clip.speed
-      try { clip.videoEl.currentTime = localTime } catch (e) { /* ignore */ }
-      clip.videoEl.playbackRate = clip.speed
-      clip.videoEl.play().catch((e) => console.warn('play() hata', e))
+      if (clip.type === 'image') {
+        startImageClipClock()
+      } else {
+        const localTime = clip.trimStart + (state.playhead - clip.timelineStart) * clip.speed
+        try { clip.videoEl.currentTime = localTime } catch (e) { /* ignore */ }
+        clip.videoEl.playbackRate = clip.speed
+        clip.videoEl.play().catch((e) => console.warn('play() hata', e))
+      }
       if (state.music) {
         try { state.music.audioEl.currentTime = Math.min(state.playhead, state.music.audioEl.duration || 0) } catch (e) { /* ignore */ }
         state.music.audioEl.play().catch(() => {})
@@ -374,12 +537,17 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
     function advanceToNext(currentClip) {
       const idx = state.clips.indexOf(currentClip)
       const next = state.clips[idx + 1]
-      try { currentClip.videoEl.pause() } catch (e) { /* ignore */ }
+      if (currentClip.videoEl) { try { currentClip.videoEl.pause() } catch (e) { /* ignore */ } }
       if (!next) { state.playhead = state.totalDuration; endPlayback(); renderTimelineUI(); return }
       state.activeClipId = next.id
-      try { next.videoEl.currentTime = next.trimStart } catch (e) { /* ignore */ }
-      next.videoEl.playbackRate = next.speed
-      next.videoEl.play().catch(() => {})
+      if (next.type === 'image') {
+        state.playhead = next.timelineStart
+        startImageClipClock()
+      } else {
+        try { next.videoEl.currentTime = next.trimStart } catch (e) { /* ignore */ }
+        next.videoEl.playbackRate = next.speed
+        next.videoEl.play().catch(() => {})
+      }
     }
 
     function seekGlobal(t) {
@@ -390,8 +558,12 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       if (clip.id !== state.activeClipId || !state.isPlaying) {
         pauseAllVideos()
         state.activeClipId = clip.id
-        const localTime = clip.trimStart + (t - clip.timelineStart) * clip.speed
-        try { clip.videoEl.currentTime = Math.min(localTime, Math.max(0, clip.duration - 0.01)) } catch (e) { /* ignore */ }
+        if (clip.type === 'image') {
+          if (state.isPlaying) startImageClipClock()
+        } else {
+          const localTime = clip.trimStart + (t - clip.timelineStart) * clip.speed
+          try { clip.videoEl.currentTime = Math.min(localTime, Math.max(0, clip.duration - 0.01)) } catch (e) { /* ignore */ }
+        }
       }
       if (state.music) {
         try { state.music.audioEl.currentTime = Math.min(t, state.music.audioEl.duration || 0) } catch (e) { /* ignore */ }
@@ -401,14 +573,15 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
     }
 
     /* ============ RENDER ENGINE ============ */
-    function drawCover(c, video, cw, ch) {
-      const vw = video.videoWidth, vh = video.videoHeight
+    function drawCover(c, mediaEl, cw, ch, isImage) {
+      const vw = isImage ? mediaEl.naturalWidth : mediaEl.videoWidth
+      const vh = isImage ? mediaEl.naturalHeight : mediaEl.videoHeight
       if (!vw || !vh) { c.fillStyle = '#000'; c.fillRect(0, 0, cw, ch); return }
       const vr = vw / vh, cr = cw / ch
       let sx, sy, sw, sh
       if (vr > cr) { sh = vh; sw = vh * cr; sx = (vw - sw) / 2; sy = 0 }
       else { sw = vw; sh = sw / cr; sx = 0; sy = (vh - sh) / 2 }
-      c.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch)
+      c.drawImage(mediaEl, sx, sy, sw, sh, 0, 0, cw, ch)
     }
 
     function drawTexts(currentTime) {
@@ -462,10 +635,13 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       if (!stage.width || !stage.height) return
       ctx.clearRect(0, 0, stage.width, stage.height)
       const clip = getActiveClipAt(state.playhead) || state.clips[state.clips.length - 1]
-      if (clip && clip.videoEl.readyState >= 2) {
+      const isImage = !!clip && clip.type === 'image'
+      const mediaEl = clip && (isImage ? clip.imageEl : clip.videoEl)
+      const mediaReady = !!clip && (isImage ? (mediaEl.complete && mediaEl.naturalWidth > 0) : mediaEl.readyState >= 2)
+      if (clip && mediaReady) {
         const f = FILTERS.find((x) => x.id === clip.filter) || FILTERS[0]
         ctx.filter = f.css
-        drawCover(ctx, clip.videoEl, stage.width, stage.height)
+        drawCover(ctx, mediaEl, stage.width, stage.height, isImage)
         ctx.filter = 'none'
       } else {
         ctx.fillStyle = '#04060E'
@@ -479,11 +655,22 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       if (state.isPlaying) {
         const clip = state.clips.find((c) => c.id === state.activeClipId)
         if (clip) {
-          const localT = clip.videoEl.currentTime
-          if (localT >= clip.trimEnd - 0.04) {
-            advanceToNext(clip)
+          if (clip.type === 'image') {
+            const elapsed = (performance.now() - imageAnchorWallTime) / 1000
+            const newPlayhead = imageAnchorPlayhead + elapsed
+            const localT = clip.trimStart + (newPlayhead - clip.timelineStart)
+            if (localT >= clip.trimEnd - 0.04) {
+              advanceToNext(clip)
+            } else {
+              state.playhead = newPlayhead
+            }
           } else {
-            state.playhead = clip.timelineStart + (localT - clip.trimStart) / clip.speed
+            const localT = clip.videoEl.currentTime
+            if (localT >= clip.trimEnd - 0.04) {
+              advanceToNext(clip)
+            } else {
+              state.playhead = clip.timelineStart + (localT - clip.trimStart) / clip.speed
+            }
           }
         }
         updateTimeUI()
@@ -592,6 +779,79 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       musicNodes = null
       renderAll()
     }
+
+    /* ============ PIXABAY ============ */
+    // Arama/seçim ekranı gerçek bir React bileşeni (PixabayPicker — bkz.
+    // component'in JSX'i); bu iki fonksiyon bridgeRef üzerinden ona bağlanır.
+    // /api/pixabay/import-image ve import-video GOAL'DAN BAĞIMSIZ
+    // endpoint'ler (SlideEditor.jsx'te de aynı şekilde kullanılıyor) —
+    // görseli/videoyu indirip kendi storage'ımızda önbelleğe alıp URL
+    // döndürüyor, goal.gallery_image_urls'e dokunmuyor. Video seçiminde
+    // GoalDetailModal'daki galeri özelliğiyle AYNI haftalık ücretsiz hak
+    // sınırı geçerli (aynı maliyetli kaynağı paylaşıyorlar, kasıtlı).
+    async function pixabayAuthHeaders() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return null
+      return { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }
+    }
+
+    async function handlePixabayImagePick(hit) {
+      const headers = await pixabayAuthHeaders()
+      if (!headers) { toast(tt('Giriş yapmalısın.', 'You need to log in.')); return false }
+      try {
+        const res = await fetch('/api/pixabay/import-image', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            pixabayId: hit.id, imageUrl: hit.largeImageURL, tags: hit.tags,
+            pixabayUser: hit.user, width: hit.width, height: hit.height,
+          }),
+        })
+        const json = await res.json()
+        if (!res.ok) { toast(json.error || tt('Görsel eklenemedi', 'Could not add image')); return false }
+        createImageClip(json.url, (hit.tags && hit.tags[0]) || 'Pixabay')
+        return true
+      } catch (e) {
+        toast(tt('Ağ hatası', 'Network error'))
+        return false
+      }
+    }
+
+    async function handlePixabayVideoPick(hit) {
+      const headers = await pixabayAuthHeaders()
+      if (!headers) { toast(tt('Giriş yapmalısın.', 'You need to log in.')); return false }
+      try {
+        const res = await fetch('/api/pixabay/import-video', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            pixabayId: hit.id, videoUrl: hit.downloadURL, tags: hit.tags,
+            pixabayUser: hit.user, width: hit.width, height: hit.height,
+          }),
+        })
+        const json = await res.json()
+        if (!res.ok) {
+          if (json.error === 'weekly_video_limit_reached') {
+            toast(tt('Haftalık ücretsiz video hakkın doldu.', 'Weekly free video pick used up.'))
+          } else {
+            toast(json.error || tt('Video eklenemedi', 'Could not add video'))
+          }
+          return false
+        }
+        ensureAudioContext()
+        createVideoClipFromUrl(json.url, (hit.tags && hit.tags[0]) || 'Pixabay')
+        return true
+      } catch (e) {
+        toast(tt('Ağ hatası', 'Network error'))
+        return false
+      }
+    }
+
+    // Dış (gerçek React) dünyaya bağlantı noktaları — bkz. component gövdesi.
+    bridgeRef.current.onPickImage = handlePixabayImagePick
+    bridgeRef.current.onPickVideo = handlePixabayVideoPick
+    bridgeRef.current.openVideoPicker = () => { ensureAudioContext(); fileInput.click() }
+    bridgeRef.current.openImagePicker = () => { ensureAudioContext(); imageFileInput.click() }
 
     /* ============ TIMELINE UI ============ */
     function trackWidth() { return Math.max(state.totalDuration * PPS, 5 * PPS) }
@@ -878,6 +1138,29 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
         pane.innerHTML = `<p class="vve-hint">${tt('Hız ve ses ayarları için zaman çizelgesinden bir klip seç.', 'Select a clip on the timeline for speed and volume settings.')}</p>`
         return
       }
+      if (clip.type === 'image') {
+        const durationVal = clip.trimEnd - clip.trimStart
+        pane.innerHTML = `
+          <p class="vve-hint">${tt('Seçili klip', 'Selected clip')}: <strong>${escapeHtml(clip.name)}</strong></p>
+          <div class="vve-field"><label>${tt('Süre', 'Duration')} <span id="vve-clipDurLabel">${durationVal.toFixed(1)}s</span></label>
+          <input type="range" id="vve-clipDur" min="1" max="${MAX_IMAGE_DURATION}" step="0.5" value="${durationVal}"></div>
+          <div class="vve-btn-row">
+            <button class="vve-btn-small" id="vve-clipMoveLeft">◀ ${tt('Sola Taşı', 'Move Left')}</button>
+            <button class="vve-btn-small" id="vve-clipMoveRight">${tt('Sağa Taşı', 'Move Right')} ▶</button>
+          </div>
+          <button class="vve-btn-small danger" id="vve-clipDelete2">${tt('Klibi Sil', 'Delete Clip')}</button>
+        `
+        $('#vve-clipDur').addEventListener('input', (e) => {
+          const v = +e.target.value
+          clip.trimEnd = clip.trimStart + v
+          $('#vve-clipDurLabel').textContent = v.toFixed(1) + 's'
+          recalcTimeline(); renderTimelineUI()
+        })
+        $('#vve-clipMoveLeft').addEventListener('click', () => moveClip(clip.id, -1))
+        $('#vve-clipMoveRight').addEventListener('click', () => moveClip(clip.id, 1))
+        $('#vve-clipDelete2').addEventListener('click', () => removeClip(clip.id))
+        return
+      }
       pane.innerHTML = `
         <p class="vve-hint">${tt('Seçili klip', 'Selected clip')}: <strong>${escapeHtml(clip.name)}</strong></p>
         <div class="vve-field"><label>${tt('Hız', 'Speed')} <span id="vve-clipSpeedLabel">${clip.speed.toFixed(2)}x</span></label>
@@ -1036,8 +1319,11 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
     }
 
     /* ============ EVENTS ============ */
-    function onAddClipClick() { ensureAudioContext(); fileInput.click() }
+    // "+ Ekle" artık doğrudan dosya seçiciyi açmıyor, üç kaynağı (video/
+    // görsel/Pixabay) listeleyen AddMediaMenu'yü (gerçek React state) açıyor.
+    function onAddClipClick() { setShowAddMenu(true) }
     function onFileInputChange(e) { handleFiles(e.target.files); fileInput.value = '' }
+    function onImageFileInputChange(e) { handleFiles(e.target.files); imageFileInput.value = '' }
     function onMusicInputChange(e) { handleMusicFile(e.target.files[0]); musicInput.value = '' }
     function onDeleteClipClick() { if (state.selectedClipId) removeClip(state.selectedClipId) }
     function onCloseExportClick() { exportOverlay.classList.remove('show') }
@@ -1053,6 +1339,7 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
     addClipBtn.addEventListener('click', onAddClipClick)
     emptyAddBtn.addEventListener('click', onAddClipClick)
     fileInput.addEventListener('change', onFileInputChange)
+    imageFileInput.addEventListener('change', onImageFileInputChange)
     musicInput.addEventListener('change', onMusicInputChange)
     playBtn.addEventListener('click', togglePlay)
     splitBtn.addEventListener('click', splitAtPlayhead)
@@ -1087,7 +1374,7 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       window.removeEventListener('pointerup', onWindowPointerUp)
       document.removeEventListener('keydown', onKeyDown)
       pauseAllVideos()
-      state.clips.forEach((c) => { try { URL.revokeObjectURL(c.url) } catch (e) { /* ignore */ } })
+      state.clips.forEach((c) => { if (c.url.indexOf('blob:') === 0) { try { URL.revokeObjectURL(c.url) } catch (e) { /* ignore */ } } })
       if (state.music) { try { URL.revokeObjectURL(state.music.url) } catch (e) { /* ignore */ } }
       if (audioCtx) { try { audioCtx.close() } catch (e) { /* ignore */ } }
       clearTimeout(toastTimer)
@@ -1118,8 +1405,8 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
             <canvas id="vve-stage" />
             <div className="vve-corner tl" /><div className="vve-corner tr" /><div className="vve-corner bl" /><div className="vve-corner br" />
             <div className="vve-empty-state" id="vve-emptyState">
-              <p>{tr ? 'Başlamak için bir video ekle ya da buraya sürükle' : 'Add a video to get started, or drop it here'}</p>
-              <button id="vve-emptyAddBtn" className="vve-btn-primary">+ {tr ? 'Video Ekle' : 'Add Video'}</button>
+              <p>{tr ? 'Başlamak için video ya da görsel ekle, ya da buraya sürükle' : 'Add a video or image to get started, or drop it here'}</p>
+              <button id="vve-emptyAddBtn" className="vve-btn-primary">+ {tr ? 'Ekle' : 'Add'}</button>
             </div>
           </div>
           <div className="vve-transport">
@@ -1151,7 +1438,7 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
 
       <div className="vve-timeline-panel">
         <div className="vve-timeline-toolbar">
-          <button id="vve-addClipBtn" className="vve-tool-btn">+ {tr ? 'Video' : 'Video'}</button>
+          <button id="vve-addClipBtn" className="vve-tool-btn">+ {tr ? 'Ekle' : 'Add'}</button>
           <button id="vve-splitBtn" className="vve-tool-btn" disabled>{tr ? 'Böl' : 'Split'}</button>
           <button id="vve-deleteClipBtn" className="vve-tool-btn danger" disabled>{tr ? 'Sil' : 'Delete'}</button>
           <span className="vve-spacer" />
@@ -1167,6 +1454,7 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       </div>
 
       <input type="file" id="vve-fileInput" accept="video/*" multiple hidden />
+      <input type="file" id="vve-imageFileInput" accept="image/*" multiple hidden />
       <input type="file" id="vve-musicInput" accept="audio/*" hidden />
 
       <div className="vve-export-overlay" id="vve-exportOverlay">
@@ -1182,6 +1470,26 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       </div>
 
       <div className="vve-toast" id="vve-toast" />
+
+      {showAddMenu && (
+        <AddMediaMenu
+          lang={lang}
+          onPickVideo={() => { setShowAddMenu(false); bridgeRef.current.openVideoPicker?.() }}
+          onPickImage={() => { setShowAddMenu(false); bridgeRef.current.openImagePicker?.() }}
+          onPickPixabay={() => { setShowAddMenu(false); setShowPixabayPicker(true) }}
+          onClose={() => setShowAddMenu(false)}
+        />
+      )}
+
+      {showPixabayPicker && (
+        <PixabayPicker
+          lang={lang}
+          videoStatus={videoStatus}
+          onPickImage={(hit) => bridgeRef.current.onPickImage?.(hit)}
+          onPickVideo={(hit) => bridgeRef.current.onPickVideo?.(hit)}
+          onClose={() => setShowPixabayPicker(false)}
+        />
+      )}
 
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Cormorant+Garamond:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -1316,6 +1624,12 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
         .vve-progress-fill{ height:100%; width:0%; background:var(--vve-accent-2); transition:width 0.2s; }
         .vve-progress-fill.success{ background:var(--vve-success); }
         .vve-export-done{ display:flex; gap:8px; }
+
+        .vve-add-menu-backdrop{ position:fixed; inset:0; background:rgba(4,6,14,0.6); z-index:215; display:flex; align-items:flex-end; justify-content:center; }
+        .vve-add-menu{ background:var(--vve-panel); border:1px solid var(--vve-border); border-radius:16px 16px 0 0; width:100%; max-width:420px; padding:10px; display:flex; flex-direction:column; gap:4px; }
+        @media(min-width:640px){ .vve-add-menu-backdrop{ align-items:center; } .vve-add-menu{ border-radius:16px; margin-bottom:0; } }
+        .vve-add-menu-item{ background:transparent; border:none; color:var(--vve-text); text-align:left; padding:14px 12px; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:10px; font-family:inherit; }
+        .vve-add-menu-item:hover{ background:var(--vve-panel-2); }
 
         .vve-toast{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--vve-panel-2); border:1px solid var(--vve-border); color:var(--vve-text); padding:10px 18px; border-radius:9999px; font-size:13px; opacity:0; pointer-events:none; transition:all 0.25s; z-index:220; max-width:85vw; text-align:center; }
         .vve-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
