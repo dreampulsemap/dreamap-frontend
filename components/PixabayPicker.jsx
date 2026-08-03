@@ -91,8 +91,15 @@ export default function PixabayPicker({ lang = 'en', videoStatus, videoEnabled =
   )
 
   // Not: önceden ilk açılışta otomatik "hayaller/dreams" araması yapılıyordu —
-  // kullanıcı istemeden alakasız sonuçlarla karşılaşıyordu. Artık picker boş
-  // açılıyor; arama ya da hızlı etiketlerden biri kullanıcının kendi seçimi.
+  // kullanıcı istemeden alakasız, tek bir konuya özel sonuçlarla karşılaşıyordu.
+  // Onun yerine boş sorguyla arıyoruz: /api/pixabay/search boş q'da 400
+  // vermiyor, Pixabay'in kendi kürasyonlu/trend sonuçlarını döndürüyor (bkz.
+  // pages/api/pixabay/search.js) — yani konuya özel değil ama YİNE DE ekran
+  // hiçbir zaman boş açılmıyor, kullanıcı hemen bir şey görüp seçebiliyor.
+  useEffect(() => {
+    search(mediaType, '', 1, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function switchTab(type) {
     if (type === mediaType) return
