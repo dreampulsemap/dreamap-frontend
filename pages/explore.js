@@ -11,6 +11,7 @@ import ExploreImageTile from '@/components/ExploreImageTile'
 import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import SlidesViewer from '@/components/SlidesViewer'
+import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import VisionReelsFeed from '@/components/VisionReelsFeed'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -66,17 +67,19 @@ export default function ExplorePage() {
   const [hubLoaded, setHubLoaded] = useState({ vision: false, victory: false, phoenix: false })
   const [activeGoal, setActiveGoal] = useState(null)
   const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
+  const [activeVideoGoal, setActiveVideoGoal] = useState(null)
   const [reelsGoalId, setReelsGoalId] = useState(null)
 
-  // Instagram Explore'da bir karoya dokunmak tam ekran, kaydırılabilir bir
-  // görüntüleyici açar — burada da aynı: hangi hedefe dokunulursa dokunulsun
-  // tam ekran Reels beslemesi o hedefte açılıyor, aşağı kaydırınca aynı
-  // hub'daki bir sonraki vizyona geçiliyor. Slaytı olan bir hedefin başlığına
-  // dokununca (VisionReelsFeed içinde) o vizyonun kendi slayt destesine
-  // (SlidesViewer — artık kaydırmalı değil, oto-oynatan sinematik bir
-  // görüntüleyici) girilir.
+  // Bir karoya dokununca: video varsa doğrudan oto-oynayan
+  // VisionVideoPlayer'a gir, yoksa (henüz video oluşturmamış eski hedef)
+  // eski slaytı varsa SlidesViewer'a gir, ikisi de yoksa detay modalına
+  // düş — vision-board.js'teki aynı öncelik sırası. Reels beslemesi artık
+  // buradan tetiklenmiyor (aşağıdaki VisionReelsFeed bloğu, o akışın
+  // içindeki "detaylara dön" gibi ikincil eylemler için hâlâ duruyor).
   function handleOpenGoal(goal) {
-    setReelsGoalId(goal.id)
+    if (goal.vision_video_url) setActiveVideoGoal(goal)
+    else if (goal.slide_count > 0) setActiveSlidesGoal(goal)
+    else setActiveGoal(goal)
   }
 
   const HUB_STATUS = { vision: 'active', victory: 'completed', phoenix: 'abandoned' }
@@ -579,6 +582,13 @@ export default function ExplorePage() {
           onClose={() => setReelsGoalId(null)}
           onOpenGoal={(g) => { setReelsGoalId(null); setActiveGoal(g) }}
           onOpenSlides={(g) => { setReelsGoalId(null); setActiveSlidesGoal(g) }}
+        />
+      )}
+      {activeVideoGoal && (
+        <VisionVideoPlayer
+          videoUrl={activeVideoGoal.vision_video_url}
+          lang={lang}
+          onClose={() => setActiveVideoGoal(null)}
         />
       )}
       {activeSlidesGoal && (

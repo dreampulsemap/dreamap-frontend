@@ -10,6 +10,7 @@ import VisionFeedCard from '@/components/VisionFeedCard'
 import HomeFeedFilter from '@/components/HomeFeedFilter'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import SlidesViewer from '@/components/SlidesViewer'
+import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import VisionReelsFeed from '@/components/VisionReelsFeed'
 import TextSkeleton from '@/components/TextSkeleton'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
@@ -67,6 +68,7 @@ export default function HomePage() {
   const [activeDream, setActiveDream] = useState(null)
   const [activeGoal, setActiveGoal] = useState(null)
   const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
+  const [activeVideoGoal, setActiveVideoGoal] = useState(null)
   const [reelsGoalId, setReelsGoalId] = useState(null)
 
   const observerRef = useRef(null)
@@ -152,6 +154,16 @@ export default function HomePage() {
 
   const visionItems = items.filter((it) => it.feed_type === 'vision')
 
+  // Bir vizyon kartına ya da Shuffle'a dokununca: video varsa doğrudan
+  // oto-oynayan VisionVideoPlayer'a gir, yoksa (henüz video oluşturmamış
+  // eski hedef) eski slaytı varsa SlidesViewer'a gir, ikisi de yoksa detay
+  // modalına düş — vision-board.js'teki aynı öncelik sırası.
+  function handleOpenGoal(goal) {
+    if (goal.vision_video_url) setActiveVideoGoal(goal)
+    else if (goal.slide_count > 0) setActiveSlidesGoal(goal)
+    else setActiveGoal(goal)
+  }
+
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="sticky top-14 sm:top-16 z-30 bg-black/85 backdrop-blur-md border-b border-white/5">
@@ -181,7 +193,7 @@ export default function HomePage() {
                   {item.feed_type === 'dream' ? (
                     <DreamFeedCard dream={item} lang={lang} onOpen={setActiveDream} />
                   ) : (
-                    <VisionFeedCard goal={item} lang={lang} onOpen={(g) => setReelsGoalId(g.id)} />
+                    <VisionFeedCard goal={item} lang={lang} onOpen={handleOpenGoal} />
                   )}
                 </div>
               ))
@@ -196,7 +208,7 @@ export default function HomePage() {
         <button
           onClick={() => {
             const pick = visionItems[Math.floor(Math.random() * visionItems.length)]
-            setReelsGoalId(pick.id)
+            handleOpenGoal(pick)
           }}
           className="group fixed bottom-20 sm:bottom-6 right-5 z-40 block active:scale-95 transition-transform"
           aria-label={lang === 'tr' ? 'Sürpriz vizyon reels aç' : 'Open a surprise vision reel'}
@@ -231,6 +243,14 @@ export default function HomePage() {
           onClose={() => setReelsGoalId(null)}
           onOpenGoal={(g) => { setReelsGoalId(null); setActiveGoal(g) }}
           onOpenSlides={(g) => { setReelsGoalId(null); setActiveSlidesGoal(g) }}
+        />
+      )}
+
+      {activeVideoGoal && (
+        <VisionVideoPlayer
+          videoUrl={activeVideoGoal.vision_video_url}
+          lang={lang}
+          onClose={() => setActiveVideoGoal(null)}
         />
       )}
 
