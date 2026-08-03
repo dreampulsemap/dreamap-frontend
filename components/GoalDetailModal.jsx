@@ -481,9 +481,11 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
 
         {showVisionVideoPlayer && goal.vision_video_url && (
           <VisionVideoPlayer
-            videoUrl={goal.vision_video_url}
+            goal={goal}
             lang={lang}
+            currentUserId={currentUserId}
             onClose={() => setShowVisionVideoPlayer(false)}
+            onChanged={onChanged}
           />
         )}
 
