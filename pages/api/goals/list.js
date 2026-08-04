@@ -84,6 +84,22 @@ export default async function handler(req, res) {
       goals = goals.map((g) => ({ ...g, has_reacted: false }))
     }
 
+    // "Kaydet" butonunun ilk açılışta doğru durumda görünmesi için —
+    // has_reacted ile birebir aynı desen.
+    if (authedUser && goals.length > 0) {
+      const goalIds = goals.map((g) => g.id)
+      const { data: saves } = await supabaseAdmin
+        .from('goal_saves')
+        .select('goal_id')
+        .eq('user_id', authedUser.id)
+        .in('goal_id', goalIds)
+
+      const savedSet = new Set((saves || []).map((s) => s.goal_id))
+      goals = goals.map((g) => ({ ...g, has_saved: savedSet.has(g.id) }))
+    } else {
+      goals = goals.map((g) => ({ ...g, has_saved: false }))
+    }
+
     // Explore'da "Vizyon Slaytları" rozeti için: bu sayfadaki hedeflerden
     // hangilerinin en az bir slaytı var, tek sorguda çekip sayıyoruz
     // (has_reacted ile aynı desen — count(*) group by yerine ham satırları
