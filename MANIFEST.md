@@ -585,3 +585,74 @@ modal açıkken GERİ'ye basmak) artık doğru çalışıyor.
 TEST EDİLEMEDİ: Sözdizimi için taradım (temiz), ama gerçek bir tarayıcıda
 GERİ tuşu davranışını deneyemedim — bu özellikle dikkatle test etmen
 gereken bir değişiklik.
+
+## 20) Vizyon videosunda "Kaydet" + üç nokta menüsü (Düzenle/Videoyu Sil/Bildir)
+
+Anasayfadaki vizyon videosu oynatıcısında (VisionVideoPlayer) yorumların
+yanına bir Kaydet (bookmark) butonu ve bir üç nokta menüsü eklendi — aynı
+turda SlidesViewer'ın üç nokta menüsü de sahip olmayanlara açıldı (tutarlılık
+için, çünkü ikisi kasıtlı olarak birebir aynı deseni paylaşıyor).
+
+**SQL — Supabase'e UYGULANDI (Supabase MCP ile bağlanıp bizzat çalıştırdım):**
+- `009_goal_saves_and_reports.sql`:
+  - `goals.saves_count` kolonu (goal_slides.saves_count ile aynı desen)
+  - `goal_saves` tablosu + `saves_count`'u otomatik güncelleyen trigger
+    (`handle_goal_save_change`)
+  - `goal_reports` tablosu (goal_id + reporter_id, unique çift — aynı kişi
+    aynı hedefi iki kez bildiremez)
+  - Uygulamadan önce gerçek şemayı sorguladım ve ilk taslağımda bir hata
+    buldum: projede `user_id` gibi kolonlar `auth.users(id)`'e değil
+    `public.user_profiles(id)`'e referans veriyor (goals, goal_reactions,
+    goal_comments, goal_slide_saves hepsi böyle) — düzelttim. RLS de
+    `goal_slide_saves`'in birebir aynısı: yalnızca "kendi kayıtların"
+    SELECT policy'si var, INSERT/DELETE bilerek yok (tüm yazmalar
+    supabaseAdmin/service-role ile API üzerinden). Ayrıca security
+    advisor'ın uyardığı bir noktayı da kapattım: `handle_goal_save_change`
+    trigger fonksiyonunun `/rest/v1/rpc/...` üzerinden anon/authenticated
+    tarafından direkt çağrılabilmesini `revoke execute` ile engelledim
+    (trigger ateşlemesini etkilemiyor, yalnızca gereksiz bir RPC yüzeyini
+    kapatıyor).
+
+**Yeni API route'ları:**
+- `pages/api/goals/save.js` — YENİ: goal seviyesinde kaydet/kaldır toggle
+  (`goals/slides/save.js` ile birebir aynı desen, ama slayt değil goal'e
+  bağlı). unique constraint'e çarpan yarış durumunu (23505) da "zaten
+  kaydedilmiş" olarak sessizce ele alıyor.
+- `pages/api/goals/report.js` — YENİ: bildirim gönderir, kendi hedefini
+  bildiremezsin, aynı hedefi ikinci kez bildirirsen hata değil "zaten
+  bildirildi" (unique constraint'in 23505 hatasını yakalayıp 200 dönüyor)
+
+**Değişen API route'ları (has_saved alanı eklendi — has_reacted ile aynı desen):**
+- `pages/api/home-feed.js` — `fetchVisions`: goal_saves'ten giriş yapmış
+  kullanıcının kaydettiklerini tek sorguda çekip her vizyona işliyor
+- `pages/api/goals/list.js` — aynı ekleme (explore/profile/vision-board/
+  u/[userId] hepsi bu route'u kullandığı için tek yerden düzeliyor)
+
+**Frontend:**
+- `lib/reportReasons.js` — YENİ: Bildir sheet'indeki sebep listesi
+  (Spam/Uygunsuz içerik/Taciz/Yanlış bilgi/Nefret söylemi/Diğer), iki
+  bileşen de aynı listeyi kullansın diye tek yerden.
+- `components/VisionVideoPlayer.jsx` — DÜZENLENDİ: aksiyon şeridine Kaydet
+  butonu (Bookmark ikonu, dolu/boş durum) eklendi. Yanına her zaman görünen
+  bir üç nokta butonu eklendi: sahip için Düzenle (mevcut onOpenDetails
+  akışına giriyor, ayrı bir ekran yok) + Videoyu Sil (önceden hiçbir
+  arayüzden çağrılmayan `delete-vision-video.js`'i kullanıyor — goal'ü değil
+  yalnızca videoyu kaldırır, hedef eski slaytlarına/detayına döner, iki adımlı
+  onay SlidesViewer'daki "Sil" ile aynı). Sahip olmayanlar için Bildir —
+  sebep seçilip gönderilen bir alt sheet (yorum sheet'inin üstünde, z-40).
+- `components/SlidesViewer.jsx` — DÜZENLENDİ: üç nokta menüsü artık
+  `{isOwner && ...}` ile tamamen gizlenmek yerine herkese açık; sahip yine
+  Düzenle/Sil görüyor, diğerleri Bildir görüyor. Kaydet butonu zaten vardı
+  (slayt seviyesinde, `goal_slides.saves_count` ile), dokunulmadı.
+
+TEST EDİLEMEDİ: Bu ortamda npm install / next build çalıştırma imkanı yok
+(network kapalı) — frontend değişikliklerini esbuild ile (JSX/ES modül
+sözdizimi) tek tek doğruladım, hepsi temiz derlendi. Gerçek bir tarayıcıda
+deneyemedim.
+
+SQL İSE TEST EDİLDİ: 009'u Supabase MCP ile canlı projene (dreampulsemap's
+Project) uyguladıktan sonra gerçek bir satırla uçtan uca doğruladım —
+`goal_saves`'e test kaydı ekleyip `goals.saves_count`'un 0'dan 1'e çıktığını,
+sonra sildiğimde tekrar 0'a döndüğünü gördüm, test kaydını temizledim
+(canlı veride kalıcı bir iz yok). `get_advisors` (security) çalıştırıp yeni
+tablolarda RLS/policy eksiği olmadığını da doğruladım.
