@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { MessageCircle, Pause, Play, Send, Sparkles, Volume2, VolumeX, X } from 'lucide-react'
+import { Bookmark, Flag, MessageCircle, MoreHorizontal, Pause, Pencil, Play, Send, Sparkles, Trash2, Volume2, VolumeX, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
+import { REPORT_REASONS } from '@/lib/reportReasons'
 
 // Tam ekran "Vizyon Videosu" oynatıcısı — gerçek Reels hissi: üstte kapatma
 // çarpısı YOK, videonun native tarayıcı kontrolleri (alt ilerleme çubuğu,
@@ -22,6 +23,15 @@ import { useModalA11y } from '@/lib/useModalA11y'
 // yükleniyor/hata durumları, aşağı kaydırarak kapatma) ayrı bir turda
 // eklendi — önceki sürümde videoyu duraklatmanın hiçbir yolu yoktu
 // (controls yoktu, tıklama da bağlı değildi).
+//
+// "Kaydet" (Bookmark) + üç nokta menüsü: SlidesViewer'daki desenin aynısı,
+// tek fark — sahip için üç nokta artık başkalarına da açık (owner: Düzenle +
+// Videoyu Sil, diğerleri: Bildir). Düzenle mevcut onOpenDetails akışına
+// giriyor (ayrı bir video düzenleme ekranı yok, GoalDetailModal'a düşüyor —
+// tüm çağıran sayfalarda onOpenDetails zaten bunu yapıyor). Videoyu Sil,
+// önceden hiçbir arayüzden çağrılmayan /api/goals/delete-vision-video'yu
+// kullanıyor (goal'ü değil, yalnızca videoyu kaldırır — hedef eski
+// slaytlarına/detayına döner). Bildir, yeni /api/goals/report ucuna gidiyor.
 function initialsOf(name) {
   return (name || '?').trim().slice(0, 1).toUpperCase()
 }
@@ -45,6 +55,20 @@ export default function VisionVideoPlayer({ goal, lang, currentUserId, onClose, 
   const [loadingComments, setLoadingComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [postingComment, setPostingComment] = useState(false)
+
+  const [saved, setSaved] = useState(!!goal.has_saved)
+  const [savesCount, setSavesCount] = useState(goal.saves_count || 0)
+  const [savingGoal, setSavingGoal] = useState(false)
+
+  const [showMenu, setShowMenu] = useState(false)
+  const [confirmDeleteVideo, setConfirmDeleteVideo] = useState(false)
+  const [deletingVideo, setDeletingVideo] = useState(false)
+
+  const [showReportSheet, setShowReportSheet] = useState(false)
+  const [reportReason, setReportReason] = useState(null)
+  const [reportNote, setReportNote] = useState('')
+  const [submittingReport, setSubmittingReport] = useState(false)
+  const [reportSubmitted, setReportSubmitted] = useState(false)
 
   // --- video oynatma mekaniği ---
   const [isPaused, setIsPaused] = useState(false)
@@ -101,6 +125,7 @@ export default function VisionVideoPlayer({ goal, lang, currentUserId, onClose, 
   function toggleComments() {
     const next = !showComments
     setShowComments(next)
+    setShowMenu(false)
     if (next && comments.length === 0) loadComments()
   }
 
@@ -120,6 +145,70 @@ export default function VisionVideoPlayer({ goal, lang, currentUserId, onClose, 
         setCommentText('')
       }
     } catch (_) {} finally { setPostingComment(false) }
+  }
+
+  // KAYDET — goal seviyesinde bookmark, slides/save.js ile aynı toggle deseni.
+  async function handleSaveGoal() {
+    if (savingGoal) return
+    setSavingGoal(true)
+    try {
+      const headers = await authHeaders()
+      if (!headers) return
+      const res = await fetch('/api/goals/save', {
+        method: 'POST', headers, body: JSON.stringify({ goalId: goal.id }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        setSaved(json.saved)
+        setSavesCount((c) => Math.max(0, c + (json.saved ? 1 : -1)))
+        onChanged?.({ ...goal, has_saved: json.saved, saves_count: Math.max(0, savesCount + (json.saved ? 1 : -1)) })
+      }
+    } catch (_) {} finally { setSavingGoal(false) }
+  }
+
+  // VİDEOYU SİL — goal'ü değil yalnızca vision_video_url'i temizler (bkz.
+  // delete-vision-video.js), hedef kendi slaytlarına/detayına döner.
+  async function handleDeleteVideo() {
+    if (deletingVideo) return
+    setDeletingVideo(true)
+    try {
+      const headers = await authHeaders()
+      if (!headers) return
+      const res = await fetch('/api/goals/delete-vision-video', {
+        method: 'POST', headers, body: JSON.stringify({ goalId: goal.id }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        onChanged?.(json.goal)
+        onClose?.()
+      }
+    } catch (_) {} finally { setDeletingVideo(false) }
+  }
+
+  // BİLDİR — reason zorunlu, note opsiyonel. 409/23505 (zaten bildirilmiş)
+  // durumunu da API 200 + already_reported olarak döndürüyor, kullanıcıya
+  // yine de teşekkür ekranını gösteriyoruz.
+  async function handleSubmitReport() {
+    if (!reportReason || submittingReport) return
+    setSubmittingReport(true)
+    try {
+      const headers = await authHeaders()
+      if (!headers) return
+      const res = await fetch('/api/goals/report', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ goalId: goal.id, reason: reportReason, note: reportNote.trim() || undefined }),
+      })
+      if (res.ok) {
+        setReportSubmitted(true)
+        setTimeout(() => {
+          setShowReportSheet(false)
+          setReportSubmitted(false)
+          setReportReason(null)
+          setReportNote('')
+        }, 1600)
+      }
+    } catch (_) {} finally { setSubmittingReport(false) }
   }
 
   // --- video oynatma mekaniği ---
@@ -293,6 +382,65 @@ export default function VisionVideoPlayer({ goal, lang, currentUserId, onClose, 
             </span>
             <span className="text-white text-[11px] font-semibold drop-shadow">{goal.comments_count || 0}</span>
           </button>
+
+          <button
+            onClick={handleSaveGoal}
+            disabled={savingGoal}
+            aria-label={lang === 'tr' ? 'Kaydet' : 'Save'}
+            className="flex flex-col items-center gap-1 disabled:opacity-60"
+          >
+            <span className={`w-10 h-10 rounded-full flex items-center justify-center ${saved ? 'text-cyan-300' : 'text-white'}`}>
+              <Bookmark size={24} fill={saved ? 'currentColor' : 'none'} />
+            </span>
+            <span className="text-white text-[11px] font-semibold drop-shadow">{savesCount}</span>
+          </button>
+
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowMenu((v) => !v); setConfirmDeleteVideo(false) }}
+              aria-label={lang === 'tr' ? 'Diğer seçenekler' : 'More options'}
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white"
+            >
+              <MoreHorizontal size={24} />
+            </button>
+            {showMenu && (
+              <div className="absolute right-12 bottom-0 w-48 rounded-xl bg-void-900 border border-white/10 shadow-xl overflow-hidden">
+                {isOwner ? (
+                  <>
+                    <button
+                      onClick={() => { setShowMenu(false); onOpenDetails ? onOpenDetails() : onClose?.() }}
+                      className="w-full flex items-center gap-2 px-3.5 py-3 text-slate-200 text-sm hover:bg-white/5"
+                    >
+                      <Pencil size={14} /> {lang === 'tr' ? 'Düzenle' : 'Edit'}
+                    </button>
+                    {!confirmDeleteVideo ? (
+                      <button
+                        onClick={() => setConfirmDeleteVideo(true)}
+                        className="w-full flex items-center gap-2 px-3.5 py-3 text-rose-400 text-sm hover:bg-white/5 border-t border-white/10"
+                      >
+                        <Trash2 size={14} /> {lang === 'tr' ? 'Videoyu Sil' : 'Delete Video'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleDeleteVideo}
+                        disabled={deletingVideo}
+                        className="w-full flex items-center gap-2 px-3.5 py-3 text-white text-sm bg-rose-500/90 hover:bg-rose-500 border-t border-white/10 disabled:opacity-60"
+                      >
+                        <Trash2 size={14} /> {lang === 'tr' ? 'Emin misin? Sil' : 'Confirm delete'}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    onClick={() => { setShowMenu(false); setShowReportSheet(true) }}
+                    className="w-full flex items-center gap-2 px-3.5 py-3 text-rose-400 text-sm hover:bg-white/5"
+                  >
+                    <Flag size={14} /> {lang === 'tr' ? 'Bildir' : 'Report'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Yorum sheet'i — SlidesViewer ile birebir aynı */}
@@ -347,6 +495,66 @@ export default function VisionVideoPlayer({ goal, lang, currentUserId, onClose, 
                   <Send size={15} />
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bildir sheet'i — yorum sheet'inin üstünde açılabilmesi için daha
+            yüksek z-index (üç nokta menüsünden tetikleniyor). */}
+        {showReportSheet && (
+          <div
+            className="absolute inset-0 z-40 flex items-end"
+            onClick={() => !submittingReport && setShowReportSheet(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-h-[70vh] bg-void-950 border-t border-white/10 rounded-t-2xl flex flex-col"
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                <span className="text-white text-sm font-bold">{lang === 'tr' ? 'İçeriği bildir' : 'Report content'}</span>
+                <button onClick={() => setShowReportSheet(false)} className="text-slate-400 hover:text-white">
+                  <X size={18} />
+                </button>
+              </div>
+              {reportSubmitted ? (
+                <div className="px-4 py-10 text-center">
+                  <p className="text-white text-sm font-semibold">
+                    {lang === 'tr' ? 'Bildirimin alındı, teşekkürler.' : 'Your report has been received, thank you.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="px-4 py-3 flex flex-col gap-1">
+                  <p className="text-slate-400 text-xs px-1 pb-1">
+                    {lang === 'tr' ? 'Bu içeriği neden bildiriyorsun?' : 'Why are you reporting this content?'}
+                  </p>
+                  {REPORT_REASONS.map((r) => (
+                    <button
+                      key={r.value}
+                      onClick={() => setReportReason(r.value)}
+                      className={`text-left px-3 py-3 rounded-lg text-sm transition-colors ${
+                        reportReason === r.value ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5'
+                      }`}
+                    >
+                      {lang === 'tr' ? r.tr : r.en}
+                    </button>
+                  ))}
+                  <textarea
+                    value={reportNote}
+                    onChange={(e) => setReportNote(e.target.value)}
+                    placeholder={lang === 'tr' ? 'Ek not (opsiyonel)' : 'Additional note (optional)'}
+                    rows={2}
+                    maxLength={500}
+                    className="mt-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none resize-none"
+                  />
+                  <button
+                    onClick={handleSubmitReport}
+                    disabled={!reportReason || submittingReport}
+                    className="mt-2 mb-4 py-3 rounded-full bg-rose-500 text-white text-sm font-bold disabled:opacity-40"
+                  >
+                    {lang === 'tr' ? 'Gönder' : 'Submit'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

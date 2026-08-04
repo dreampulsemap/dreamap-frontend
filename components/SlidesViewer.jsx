@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, MessageCircle, Bookmark, MoreHorizontal, Send, Trash2, Pencil, Volume2, VolumeX, Sparkles, Pause } from 'lucide-react'
+import { X, MessageCircle, Bookmark, Flag, MoreHorizontal, Send, Trash2, Pencil, Volume2, VolumeX, Sparkles, Pause } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
+import { REPORT_REASONS } from '@/lib/reportReasons'
 
 // Tam ekran "Vizyon Slaytları" oynatıcısı — OTO-OYNATAN sinematik deneyim.
 // Önceki sürüm gerçek Reels'in aksine elle kaydırmayla ilerliyordu (bu da
@@ -12,6 +13,11 @@ import { useModalA11y } from '@/lib/useModalA11y'
 // Kullanıcı sağa/sola dokunarak atlayabilir, basılı tutarak duraklatabilir
 // (Instagram/TikTok Stories'teki gibi) — ama varsayılan davranış, hiç
 // dokunmadan izlenebilen tek parça bir video hissi vermek.
+//
+// Üç nokta menüsü artık sahip OLMAYANLARA da açık (önceden {isOwner && ...}
+// ile tamamen gizliydi) — VisionVideoPlayer'daki aynı değişiklikle birlikte:
+// sahip Düzenle/Sil görür, diğerleri Bildir görür (/api/goals/report, aynı
+// paylaşılan REPORT_REASONS listesi).
 const FONT_CLASS = { sans: 'font-sans', serif: 'font-serif', mono: 'font-mono' }
 const BASE_FONT_PX = 22
 // Aynı yöne kayan tek bir Ken Burns hep tekdüze/mekanik hisseder — slayt
@@ -63,6 +69,12 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
   const [showMenu, setShowMenu] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deletingSlide, setDeletingSlide] = useState(false)
+
+  const [showReportSheet, setShowReportSheet] = useState(false)
+  const [reportReason, setReportReason] = useState(null)
+  const [reportNote, setReportNote] = useState('')
+  const [submittingReport, setSubmittingReport] = useState(false)
+  const [reportSubmitted, setReportSubmitted] = useState(false)
 
   const isOwner = currentUserId && goal.user_id === currentUserId
   const isPlaying = !paused && !showComments
@@ -248,6 +260,31 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
         activateSlide(Math.min(activeIndex, remaining.length - 1), remaining)
       }
     } catch (_) {} finally { setDeletingSlide(false) }
+  }
+
+  // BİLDİR — VisionVideoPlayer'daki üç nokta menüsüyle aynı desen/uç
+  // (/api/goals/report), goal seviyesinde (slayt seviyesinde değil).
+  async function handleSubmitReport() {
+    if (!reportReason || submittingReport) return
+    setSubmittingReport(true)
+    try {
+      const headers = await authHeaders()
+      if (!headers) return
+      const res = await fetch('/api/goals/report', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ goalId: goal.id, reason: reportReason, note: reportNote.trim() || undefined }),
+      })
+      if (res.ok) {
+        setReportSubmitted(true)
+        setTimeout(() => {
+          setShowReportSheet(false)
+          setReportSubmitted(false)
+          setReportReason(null)
+          setReportNote('')
+        }, 1600)
+      }
+    } catch (_) {} finally { setSubmittingReport(false) }
   }
 
   if (loading) {
@@ -462,42 +499,52 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
           <span className="text-white text-[11px] font-semibold drop-shadow">{current.saves_count || 0}</span>
         </button>
 
-        {isOwner && (
-          <div className="relative">
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowMenu((v) => !v); setConfirmDelete(false) }}
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white"
-            >
-              <MoreHorizontal size={24} />
-            </button>
-            {showMenu && (
-              <div className="absolute right-12 bottom-0 w-44 rounded-xl bg-void-900 border border-white/10 shadow-xl overflow-hidden">
+        <div className="relative">
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowMenu((v) => !v); setConfirmDelete(false) }}
+            aria-label={lang === 'tr' ? 'Diğer seçenekler' : 'More options'}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white"
+          >
+            <MoreHorizontal size={24} />
+          </button>
+          {showMenu && (
+            <div className="absolute right-12 bottom-0 w-44 rounded-xl bg-void-900 border border-white/10 shadow-xl overflow-hidden">
+              {isOwner ? (
+                <>
+                  <button
+                    onClick={() => { setShowMenu(false); onEditSlides?.() }}
+                    className="w-full flex items-center gap-2 px-3.5 py-3 text-slate-200 text-sm hover:bg-white/5"
+                  >
+                    <Pencil size={14} /> {lang === 'tr' ? 'Düzenle' : 'Edit'}
+                  </button>
+                  {!confirmDelete ? (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="w-full flex items-center gap-2 px-3.5 py-3 text-rose-400 text-sm hover:bg-white/5 border-t border-white/10"
+                    >
+                      <Trash2 size={14} /> {lang === 'tr' ? 'Sil' : 'Delete'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleDeleteSlide}
+                      disabled={deletingSlide}
+                      className="w-full flex items-center gap-2 px-3.5 py-3 text-white text-sm bg-rose-500/90 hover:bg-rose-500 border-t border-white/10 disabled:opacity-60"
+                    >
+                      <Trash2 size={14} /> {lang === 'tr' ? 'Emin misin? Sil' : 'Confirm delete'}
+                    </button>
+                  )}
+                </>
+              ) : (
                 <button
-                  onClick={() => { setShowMenu(false); onEditSlides?.() }}
-                  className="w-full flex items-center gap-2 px-3.5 py-3 text-slate-200 text-sm hover:bg-white/5"
+                  onClick={() => { setShowMenu(false); setShowReportSheet(true) }}
+                  className="w-full flex items-center gap-2 px-3.5 py-3 text-rose-400 text-sm hover:bg-white/5"
                 >
-                  <Pencil size={14} /> {lang === 'tr' ? 'Düzenle' : 'Edit'}
+                  <Flag size={14} /> {lang === 'tr' ? 'Bildir' : 'Report'}
                 </button>
-                {!confirmDelete ? (
-                  <button
-                    onClick={() => setConfirmDelete(true)}
-                    className="w-full flex items-center gap-2 px-3.5 py-3 text-rose-400 text-sm hover:bg-white/5 border-t border-white/10"
-                  >
-                    <Trash2 size={14} /> {lang === 'tr' ? 'Sil' : 'Delete'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleDeleteSlide}
-                    disabled={deletingSlide}
-                    className="w-full flex items-center gap-2 px-3.5 py-3 text-white text-sm bg-rose-500/90 hover:bg-rose-500 border-t border-white/10 disabled:opacity-60"
-                  >
-                    <Trash2 size={14} /> {lang === 'tr' ? 'Emin misin? Sil' : 'Confirm delete'}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Yorum sheet'i */}
@@ -552,6 +599,66 @@ export default function SlidesViewer({ goal, lang = 'en', currentUserId, onClose
                 <Send size={15} />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bildir sheet'i — VisionVideoPlayer ile birebir aynı, yorum
+          sheet'inin üstünde açılabilmesi için daha yüksek z-index. */}
+      {showReportSheet && (
+        <div
+          className="absolute inset-0 z-40 flex items-end"
+          onClick={() => !submittingReport && setShowReportSheet(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-h-[70vh] bg-void-950 border-t border-white/10 rounded-t-2xl flex flex-col"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+              <span className="text-white text-sm font-bold">{lang === 'tr' ? 'İçeriği bildir' : 'Report content'}</span>
+              <button onClick={() => setShowReportSheet(false)} className="text-slate-400 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+            {reportSubmitted ? (
+              <div className="px-4 py-10 text-center">
+                <p className="text-white text-sm font-semibold">
+                  {lang === 'tr' ? 'Bildirimin alındı, teşekkürler.' : 'Your report has been received, thank you.'}
+                </p>
+              </div>
+            ) : (
+              <div className="px-4 py-3 flex flex-col gap-1">
+                <p className="text-slate-400 text-xs px-1 pb-1">
+                  {lang === 'tr' ? 'Bu içeriği neden bildiriyorsun?' : 'Why are you reporting this content?'}
+                </p>
+                {REPORT_REASONS.map((r) => (
+                  <button
+                    key={r.value}
+                    onClick={() => setReportReason(r.value)}
+                    className={`text-left px-3 py-3 rounded-lg text-sm transition-colors ${
+                      reportReason === r.value ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5'
+                    }`}
+                  >
+                    {lang === 'tr' ? r.tr : r.en}
+                  </button>
+                ))}
+                <textarea
+                  value={reportNote}
+                  onChange={(e) => setReportNote(e.target.value)}
+                  placeholder={lang === 'tr' ? 'Ek not (opsiyonel)' : 'Additional note (optional)'}
+                  rows={2}
+                  maxLength={500}
+                  className="mt-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none resize-none"
+                />
+                <button
+                  onClick={handleSubmitReport}
+                  disabled={!reportReason || submittingReport}
+                  className="mt-2 mb-4 py-3 rounded-full bg-rose-500 text-white text-sm font-bold disabled:opacity-40"
+                >
+                  {lang === 'tr' ? 'Gönder' : 'Submit'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
