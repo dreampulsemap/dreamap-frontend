@@ -206,4 +206,14 @@ h1, h2, h3, h4, .font-serif {
   to { width: 100%; }
 }
 
+/* VisionVideoPlayer.jsx: videoya dokununca oynat/duraklat ikonunun kısa
+   yanıp sönmesi — Reels/TikTok'taki gibi. */
+@keyframes tap-flash {
+  0% { opacity: 0; transform: scale(0.75); }
+  15% { opacity: 1; transform: scale(1.08); }
+  30% { transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+.animate-tap-flash { animation: tap-flash 0.45s ease-out forwards; }
+
 
