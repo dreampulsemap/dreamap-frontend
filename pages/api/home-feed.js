@@ -99,6 +99,23 @@ async function fetchVisions({ userId, allowedUserIds, before }) {
     visions = visions.map((g) => ({ ...g, slide_count: slideCounts[g.id] || 0, owner: ownerMap[g.user_id] || null }))
   }
 
+  // VisionVideoPlayer/SlidesViewer'daki "Kaydet" butonunun ilk açılışta
+  // doğru durumda (dolu/boş bookmark) görünmesi için — has_reacted ile
+  // aynı desen (bkz. goals/list.js), sayfa başına en fazla PER_SOURCE_BATCH
+  // öğe olduğu için ucuz tek sorgu.
+  if (userId && visions.length > 0) {
+    const goalIds = visions.map((g) => g.id)
+    const { data: saves } = await supabaseAdmin
+      .from('goal_saves')
+      .select('goal_id')
+      .eq('user_id', userId)
+      .in('goal_id', goalIds)
+    const savedSet = new Set((saves || []).map((s) => s.goal_id))
+    visions = visions.map((g) => ({ ...g, has_saved: savedSet.has(g.id) }))
+  } else {
+    visions = visions.map((g) => ({ ...g, has_saved: false }))
+  }
+
   return visions
 }
 
