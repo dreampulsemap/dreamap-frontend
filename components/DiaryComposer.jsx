@@ -31,6 +31,7 @@ export default function DiaryComposer({ lang = 'en', currentUser, onClose, onCre
   const [goalId, setGoalId] = useState('')
   const [myGoals, setMyGoals] = useState([])
   const [submitting, setSubmitting] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(null) // { phase, percent } | null
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -84,19 +85,23 @@ export default function DiaryComposer({ lang = 'en', currentUser, onClose, onCre
       if (!session) { setError(t.errorGeneric); return }
 
       let mediaUrl = null
+      let posterUrl = null
       let resolvedType = mediaType
       if (file) {
-        const uploaded = await uploadDiaryMedia({ file, userId: session.user.id })
+        const uploaded = await uploadDiaryMedia({ file, userId: session.user.id, onProgress: setUploadProgress })
         mediaUrl = uploaded.url
+        posterUrl = uploaded.posterUrl
         resolvedType = uploaded.mediaType
       }
 
+      setUploadProgress(null)
       const res = await fetch('/api/diary/create', {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mediaType: resolvedType,
           mediaUrl,
+          posterUrl,
           caption: caption.trim() || null,
           visibility,
           goalId: goalId || null,
@@ -108,6 +113,7 @@ export default function DiaryComposer({ lang = 'en', currentUser, onClose, onCre
       onCreated?.()
     } catch (err) {
       setError(file ? getDiaryUploadErrorMessage(err, lang) : t.errorGeneric)
+      setUploadProgress(null)
     } finally {
       setSubmitting(false)
     }
@@ -238,9 +244,23 @@ export default function DiaryComposer({ lang = 'en', currentUser, onClose, onCre
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-primary-500 to-brand-accent-500 text-white font-bold uppercase tracking-widest text-sm hover:opacity-90 disabled:opacity-40 transition-all"
+            className="relative w-full py-3 rounded-xl bg-gradient-to-r from-brand-primary-500 to-brand-accent-500 text-white font-bold uppercase tracking-widest text-sm hover:opacity-90 disabled:opacity-40 transition-all overflow-hidden"
           >
-            {submitting ? t.posting : t.postBtn}
+            {uploadProgress?.phase === 'uploading' && (
+              <span
+                className="absolute inset-y-0 left-0 bg-white/25 transition-[width] duration-150 ease-linear"
+                style={{ width: `${uploadProgress.percent}%` }}
+              />
+            )}
+            <span className="relative">
+              {uploadProgress?.phase === 'compressing'
+                ? t.compressing
+                : uploadProgress?.phase === 'uploading'
+                ? t.uploadingPercent(uploadProgress.percent)
+                : submitting
+                ? t.posting
+                : t.postBtn}
+            </span>
           </button>
         </div>
       </div>

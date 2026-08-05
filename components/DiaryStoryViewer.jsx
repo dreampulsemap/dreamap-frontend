@@ -43,6 +43,7 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
   const [paused, setPaused] = useState(false)
   const [muted, setMuted] = useState(true)
   const [videoDurationS, setVideoDurationS] = useState(null)
+  const [buffering, setBuffering] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -74,6 +75,27 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
     if (group && !cache[group.userId]) loadGroup(group.userId)
   }, [group, cache, loadGroup])
 
+  // ALGILANAN gecikmeyi azaltmak için iki önceden-yükleme:
+  // (a) sıradaki KİŞİNİN girdi listesini arka planda çek — mevcut kişinin
+  //     hikayeleri bitip otomatik geçiş olduğunda spinner'a takılmasın;
+  // (b) sıradaki TEK medyayı (foto ya da video posteri) tarayıcı
+  //     önbelleğine ısıt — sıra ona gelince anında görünür.
+  useEffect(() => {
+    const nextGroup = groups[groupIndex + 1]
+    if (nextGroup && !cache[nextGroup.userId]) loadGroup(nextGroup.userId)
+  }, [groupIndex, groups, cache, loadGroup])
+
+  useEffect(() => {
+    let nextEntry = entries[entryIndex + 1]
+    if (!nextEntry) nextEntry = cache[groups[groupIndex + 1]?.userId]?.entries?.[0]
+    if (!nextEntry) return
+    const prefetchUrl = nextEntry.media_type === 'video' ? nextEntry.poster_url : nextEntry.media_type === 'photo' ? nextEntry.media_url : null
+    if (!prefetchUrl) return
+    const img = new window.Image()
+    img.src = prefetchUrl
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entryIndex, entries, groupIndex, groups, cache])
+
   const current = cache[group?.userId]
   const entries = current?.entries || []
   const entry = entries[entryIndex]
@@ -103,6 +125,7 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
     if (target) activationTokenRef.current[target.id] = tokenCounterRef.current
     setEntryIndex(index)
     setVideoDurationS(null)
+    setBuffering(false)
   }
 
   function goToGroup(nextGroupIndex, entryPos) {
@@ -112,6 +135,7 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
     setGroupIndex(nextGroupIndex)
     setEntryIndex(entryPos)
     setVideoDurationS(null)
+    setBuffering(false)
     setConfirmDelete(false)
   }
 
@@ -217,12 +241,17 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
                   ref={activeVideoRef}
                   key={entry.id}
                   src={entry.media_url}
+                  poster={entry.poster_url || undefined}
                   className="w-full h-full object-cover"
                   playsInline
                   muted={muted}
                   autoPlay
+                  preload="auto"
                   onLoadedMetadata={(e) => setVideoDurationS(e.currentTarget.duration || null)}
                   onEnded={advance}
+                  onWaiting={() => setBuffering(true)}
+                  onPlaying={() => setBuffering(false)}
+                  onCanPlay={() => setBuffering(false)}
                 />
               ) : entry.media_type === 'photo' ? (
                 <img
@@ -342,6 +371,12 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
             <span className="w-14 h-14 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
               <Pause size={22} className="text-white/90" fill="currentColor" />
             </span>
+          </div>
+        )}
+
+        {!paused && buffering && entry?.media_type === 'video' && (
+          <div className="absolute inset-0 z-[6] flex items-center justify-center pointer-events-none">
+            <div className="w-9 h-9 border-2 border-white/25 border-t-white rounded-full animate-spin" />
           </div>
         )}
       </div>
