@@ -757,3 +757,74 @@ karşılığının gerçekten var olduğunu da elle çapraz kontrol ettim. Gerç
 tarayıcıda uçtan uca (özellikle video onEnded ilerlemesi ve halka altın/gri
 geçişi) test edilmedi.
 
+## 22) Günce medyası: yavaş upload + yavaş gösterim (YENİ)
+
+Els'in geri bildirimi: "medya çok yavaş yükleniyor, uploadda da bize
+gösterilirken de kullanıcı deneyimini bozan bir gecikme var." Üç ayrı kök
+neden bulundu, üçü de düzeltildi:
+
+**1) Upload'ın kendisi yavaş — fotoğraflar sıkıştırılmadan yükleniyordu.**
+Telefon kamerasından gelen bir foto 4-12MB olabiliyor. `uploadDiaryMedia.js`
+artık PAYLAŞ'a basılmadan önce tarayıcıda (canvas + `createImageBitmap`)
+fotoğrafı uzun kenarı max 1920px olacak şekilde yeniden boyutlandırıp
+JPEG kalite 0.82 ile yeniden sıkıştırıyor — sonuç genelde 200-500KB'a
+iniyor. Sıkıştırma sonucu orijinalden büyük çıkarsa (nadir ama olabilir)
+orijinal korunuyor, asla dosya büyütülmüyor. GIF/SVG olduğu gibi bırakılıyor
+(GIF'i sıkıştırmak animasyonu bozar). Video için gerçek sıkıştırma
+(ffmpeg.wasm gibi ağır bir bağımlılık gerektirirdi) kapsam dışı bırakıldı.
+
+**2) Upload sırasında hiçbir geri bildirim yoktu — "donmuş" gibi
+görünüyordu.** `@supabase/supabase-js`'in `storage.upload()`'ı fetch
+tabanlı olduğu için ilerleme (progress) bilgisi vermiyor. Bunun yerine ana
+dosyayı Storage REST uç noktasına (`POST /storage/v1/object/{bucket}/
+{path}`) doğrudan `XMLHttpRequest` ile gönderip `xhr.upload.onprogress`
+ile gerçek yüzde takibi eklendi — SDK'nın `.upload()`'ı ile TAMAMEN aynı
+sonucu üretiyor (aynı bucket, aynı RLS kontrolleri, aynı public URL), sadece
+gerçek ilerleme bilgisi ekliyor. `DiaryComposer.jsx`'teki PAYLAŞ butonu artık
+üç aşamayı gösteriyor: "Optimize ediliyor..." → "Yükleniyor... %X" →
+"Paylaşılıyor..." (ilerleme çubuğu butonun kendi içinde dolan bir şerit).
+
+**3) Gösterim yavaştı — özellikle video, ilk kare boyanana kadar siyah
+ekran kalıyordu.** `uploadDiaryMedia.js` artık videonun ilk karesini küçük
+bir JPEG postere çevirip (`generateVideoPoster` — video elementinden canvas'a
+kare yakalama) ayrıca yüklüyor; `diary_entries.poster_url` (yeni migration:
+`add_diary_entries_poster_url`) sütununda tutuluyor. `DiaryStoryViewer.jsx`
+artık `<video poster={entry.poster_url}>` kullanıyor — asıl video henüz
+inmemiş olsa bile poster ANINDA görünüyor. Ayrıca:
+- Sıradaki KİŞİNİN girdi listesi arka planda önceden çekiliyor (mevcut
+  kişi bitip otomatik geçiş olduğunda spinner'a takılmasın diye).
+- Sıradaki TEK medya (foto ya da video posteri) tarayıcı önbelleğine
+  önceden ısıtılıyor (`new Image().src = ...`) — sıra ona gelince anında
+  görünüyor.
+- Video arabelleğe alırken (`onWaiting`/`onPlaying`/`onCanPlay`) küçük bir
+  dönen gösterge — ekran donmuş değil, gerçekten yükleniyor hissi.
+
+**Değişen/yeni dosyalar:** `lib/uploadDiaryMedia.js` (sıkıştırma + poster +
+XHR ilerleme), `lib/diaryTranslations.js` (`compressing`,
+`uploadingPercent` anahtarları), `components/DiaryComposer.jsx` (ilerleme
+UI'ı), `components/DiaryStoryViewer.jsx` (poster + prefetch + buffering
+göstergesi), `pages/api/diary/create.js` + `list-for-user.js`
+(`poster_url` okuma/yazma). SQL: `add_diary_entries_poster_url` migration'ı
+Supabase MCP ile canlıya uygulandı (`diary_entries.poster_url text`).
+
+**Bilinçli olarak dokunulmadı:** Bu oturumda ayrıca alakasız, doğrulanmamış
+bir `PERFORMANCE_FIXES.md` dosyası ve birkaç yetim yardımcı dosya
+(`lib/dbOptimizations.js`, `lib/imageOptimization.js`) bulundu —
+`pages/api/like.js`, `comment.js`, `prophet.js`, `auth.js` gibi dosyaları
+"iyileştirdiğini" iddia ediyordu ama bu dosyalar gerçekte HİÇ
+değiştirilmemiş (baytı baytına aynı) ve ölçüm olarak verilen yüzdeler
+(%60, %70 gibi) doğrulanabilir bir kaynağa dayanmıyordu. Bu iddiaları
+gerçek gibi sunmak yanlış olurdu, o yüzden bu turun teslimatına dahil
+etmedim — Els isterse bu genel performans konularına (N+1 sorgular, feed
+önbellekleme vb.) ayrı, doğrulanmış bir turda bakılabilir. Aynı şekilde
+`components/VisionVideoPlayer.jsx`'te büyük, alakasız bir yeniden yazım
+(kaydırmalı video kuyruğu, çift-dokunuşla beğeni) bulundu — bu da Günce
+medya hızıyla ilgisiz ve bu oturumda doğrulanmadığı için teslimata dahil
+edilmedi.
+
+TEST EDİLEMEDİ: Aynı şekilde gerçek tarayıcı/mobil cihazda uçtan uca test
+edilmedi — özellikle XHR upload'ın gerçek bir Supabase projesinde (RLS,
+`apikey` header'ı) beklendiği gibi çalıştığı, ve video poster
+çıkarımının farklı codec'lerde (H.264 dışı) sorunsuz çalıştığı doğrulanmalı.
+
+
