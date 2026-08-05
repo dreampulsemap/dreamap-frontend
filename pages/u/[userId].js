@@ -254,10 +254,9 @@ export default function PublicProfilePage() {
             setActiveVideoGoal((g) => (g ? { ...g, ...u } : g))
             setGoals((l) => l.map((g) => (g.id === u.id ? { ...g, ...u } : g)))
           }}
-          onOpenDetails={() => {
-            const goal = activeVideoGoal
+          onOpenDetails={(g) => {
             setActiveVideoGoal(null)
-            setActiveGoal(goal)
+            setActiveGoal(g || activeVideoGoal)
           }}
         />
       )}
