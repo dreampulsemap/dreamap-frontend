@@ -63,6 +63,13 @@ export default async function handler(req, res) {
       query = query.eq('status', status)
     }
 
+    // VisionVideoPlayer'ın kaydırarak sıradaki vizyona geçme kuyruğu için:
+    // yalnızca vision_video_url dolu olan hedefler. Var olan hiçbir çağrıyı
+    // etkilemiyor — parametre verilmediğinde davranış aynen eskisi gibi.
+    if (req.query.hasVideo === '1' || req.query.hasVideo === 'true') {
+      query = query.not('vision_video_url', 'is', null)
+    }
+
     const { data, error } = await query
     if (error) throw error
 
