@@ -656,3 +656,104 @@ Project) uyguladıktan sonra gerçek bir satırla uçtan uca doğruladım —
 sonra sildiğimde tekrar 0'a döndüğünü gördüm, test kaydını temizledim
 (canlı veride kalıcı bir iz yok). `get_advisors` (security) çalıştırıp yeni
 tablolarda RLS/policy eksiği olmadığını da doğruladım.
+
+## 21) Günce (Diary/Stories) özelliği (YENİ)
+
+Anasayfanın en üstüne, Instagram Hikayeleri tarzı yuvarlak bir "Günce"
+satırı eklendi: foto/video/metin günlük girdisi paylaşılabiliyor, kendi
+halkan her zaman ilk sırada, arkadaşların okunmamış girdisi varsa altın
+(şampanya) renkli halkayla öne çıkıyor. Ürün tartışmasından çıkan üç karar:
+girdiler KALICI (IG gibi 24 saatte silinmiyor — "günce" kelimesi bunu
+gerektiriyor), gizlilik varsayılanı PRIVATE (vizyonların aksine), ve
+opsiyonel olarak bir vizyona bağlanabiliyor (o vizyonun ilerleme kaydı gibi).
+
+**SQL — Supabase'e UYGULANDI (Supabase MCP ile):** İlk migration denemem
+"already exists" hatası verdi — meğerse bu görevin daha önceki bir
+oturumda/denemede zaten tamamlanmış hâli canlıda duruyormuş (muhtemelen bu
+konuşmanın bağlantısının koptuğu an). Kendi tasarımımla neredeyse birebir
+aynı ama farklı isimlendirilmiş bir şema buldum — kendi migration'ımı tekrar
+göndermek yerine olanı benimsedim:
+- `diary_entries`: user_id, goal_id (nullable, `goals`'a FK), media_type
+  (photo/video/text), media_url, caption, visibility (public/friends/
+  private), created_at. CHECK: metin girdisi caption'sız, foto/video
+  media_url'siz olamaz. RLS: kendi + public + (arkadaşsa) friends
+  görünürlüğü tek `diary_entries_select_visible` policy'sinde.
+- `diary_views` (viewer_id, owner_id, last_viewed_at): Instagram gibi girdi
+  başına değil KİŞİ başına tek "en son ne zaman baktım" satırı — halkanın
+  altın/gri durumunu belirlemek için yeterli, çok daha az satır.
+- `diary-media` bucket: goal-images/goal-videos ile birebir aynı desen
+  (herkese açık okuma, `{userId}/{dosya}` klasör kuralıyla sahibi
+  yükler/siler), 150MB limit.
+- `is_accepted_friend(a,b)` SQL fonksiyonu (RLS policy'si için) — admin
+  client zaten RLS'i bypass ettiğinden API route'ları kendi JS-taraflı
+  arkadaşlık kontrolünü kullanıyor (`getAcceptedFriendIds`), fonksiyon
+  sadece savunma katmanı.
+- `get_advisors` (security) çalıştırıldı: tek uyarı `diary-media`'nın public
+  listing'e izin vermesi — bu goal-images/goal-videos/dream_images/
+  image-library/goal-covers'ın HEPSİNDE zaten var olan, kabul edilmiş bir
+  risk; yeni bir şey değil, bilerek dokunulmadı.
+
+**Yeni API route'ları (`pages/api/diary/`):**
+- `create.js` — girdi oluştur (medya zaten istemcide yüklenmiş oluyor,
+  `lib/uploadDiaryMedia.js`), hedefe bağlanıyorsa sahiplik doğrulanıyor.
+- `feed.js` — story satırının veri kaynağı: kendisi + arkadaşları, kişi
+  başına özet (kaç girdi, en son ne zaman, okundu mu, kendi serisi kaç gün).
+- `list-for-user.js` — tek bir kişinin GÖRÜNÜR girdileri, kronolojik sırayla
+  (viewer opsiyonel — public profiller giriş yapmadan da görülebilir,
+  goals/slides/list.js ile aynı desen), bağlı vizyon varsa başlığı da.
+- `mark-seen.js` — diary_views'e upsert.
+- `delete.js` — sahip-only silme (storage temizliği yok, slides/delete.js
+  ile aynı bilinçli sadelik).
+
+**lib/:**
+- `uploadDiaryMedia.js` — YENİ: foto/video'yu doğrudan `diary-media`'ya
+  yükler (uploadVisionVideo.js deseni), tür otomatik dosyadan algılanıyor.
+- `diaryTranslations.js` — YENİ: TR/EN, `getVisionBoardText` ile aynı desen.
+- `supabaseAdmin.js` — DÜZENLENDİ: `getAcceptedFriendIds(userId)` eklendi
+  (canViewGoal'ın arkadaşlık .or() deseninin feed.js + list-for-user.js
+  arasında paylaşılan hâli).
+
+**Bileşenler:**
+- `components/DiaryStoryRow.jsx` — YENİ: yuvarlak satır. Kendi halkan boşsa
+  tıklayınca doğrudan composer açılır; doluysa halkaya dokununca izlersin,
+  eklemek için köşedeki küçük + rozetine dokunursun (IG'nin "add to story"
+  deseni). Altın halka `.gold-gradient-text` ile AYNI 3 renk durağı
+  (conic-gradient, inline style — DESIGN_SYSTEM.md'nin gradyan kuralı).
+  3+ günlük seri varsa `shadow-astral-glow` ile hafif parlama.
+- `components/DiaryStoryViewer.jsx` — YENİ: SlidesViewer'ın hikaye tarzı
+  ilerleme çubuğu + basılı-tut-duraklat + dokunma-bölgesi mekaniğinin AYNISI,
+  iki seviyeli hale getirilmiş (kişi × o kişinin girdisi). Bir kişi biterse
+  otomatik sıradakine geçer, en sonda kapanır. Her kişinin girdileri
+  TEMBEL yükleniyor (sadece halkasına dokununca). Video kendi doğal
+  süresince oynar (onEnded ile ilerler), foto/metin sabit süreli. Metin
+  girdileri `font-serif` + yumuşak altın radial-gradient zeminle (foto/
+  videodan bilinçli olarak farklı, "duygusal ağırlık" için DESIGN_SYSTEM.md
+  §serif kuralı).
+- `components/DiaryComposer.jsx` — YENİ: CreateGoalModal ile aynı modal
+  kabuğu/gizlilik-select deseni. Tür seçimi (Foto/Video/Metin)
+  HomeFeedFilter'daki AYNI segmentli pill kontrolü — homepage'de hemen
+  altında durduğu filtreyle bilinçli görsel tutarlılık. Medya PAYLAŞ'a
+  basılınca yükleniyor (seçilir seçilmez değil) — vazgeçilirse storage'da
+  öksüz dosya kalmasın diye. Kendi aktif vizyonların varsa (opsiyonel)
+  birine bağlayabiliyorsun.
+- `pages/index.js` — DÜZENLENDİ: story satırı sticky filtre çubuğunun
+  ÜSTÜNDE, normal akışta (kaydırınca kayboluyor, IG'deki gibi); viewer/
+  composer diğer tam ekran modallerin yanına eklendi.
+
+**Kasıtlı olarak V1 kapsamı DIŞINDA bırakılanlar** (hepsini aynı anda
+"tamam" demek gerçekçi değildi):
+- Girdi başına reaksiyon/yorum yok — sadece paylaş/izle/sil.
+- Seri (streak) sadece görsel bir halka efekti; mana/aura ekonomisine
+  (ödül/kredi) BAĞLANMADI — istenirse ayrı, bilinçli bir karar olarak
+  eklenebilir.
+- Viewer'da kendi günceni izlerken ORADAN yeni girdi ekleme yok; ekleme
+  girişi sadece ana sayfadaki halkanın + rozeti.
+
+TEST EDİLEMEDİ: Bu ortamda npm install / next build çalıştırma imkanı yok
+(network kapalı) — 18. bölümdeki önceki oturumun yaptığı gibi, tüm yeni/
+değişen dosyaları esbuild ile (JSX/ES modül sözdizimi, `--loader:.js=jsx`)
+tek tek doğruladım, hepsi temiz derlendi; tüm `@/...` import path'lerinin
+karşılığının gerçekten var olduğunu da elle çapraz kontrol ettim. Gerçek
+tarayıcıda uçtan uca (özellikle video onEnded ilerlemesi ve halka altın/gri
+geçişi) test edilmedi.
+
