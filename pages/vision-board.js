@@ -254,10 +254,9 @@ export default function VisionBoardPage() {
             setActiveVideoGoal((g) => (g ? { ...g, ...updated } : g))
             handleGoalUpdated(updated)
           }}
-          onOpenDetails={() => {
-            const goal = activeVideoGoal
+          onOpenDetails={(g) => {
             setActiveVideoGoal(null)
-            setActiveGoal(goal)
+            setActiveGoal(g || activeVideoGoal)
           }}
         />
       )}

@@ -600,10 +600,9 @@ export default function ExplorePage() {
               return next
             })
           }}
-          onOpenDetails={() => {
-            const goal = activeVideoGoal
+          onOpenDetails={(g) => {
             setActiveVideoGoal(null)
-            setActiveGoal(goal)
+            setActiveGoal(g || activeVideoGoal)
           }}
         />
       )}

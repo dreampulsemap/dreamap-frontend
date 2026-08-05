@@ -270,10 +270,9 @@ export default function HomePage() {
             setActiveVideoGoal((g) => (g ? { ...g, ...updated } : g))
             setItems((prev) => prev.map((it) => (it.id === updated.id && it.feed_type === 'vision' ? { ...it, ...updated } : it)))
           }}
-          onOpenDetails={() => {
-            const goal = activeVideoGoal
+          onOpenDetails={(g) => {
             setActiveVideoGoal(null)
-            setActiveGoal(goal)
+            setActiveGoal(g || activeVideoGoal)
           }}
         />
       )}

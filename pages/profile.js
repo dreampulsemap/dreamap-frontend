@@ -741,10 +741,9 @@ export default function ProfilePage() {
             setActiveVideoGoal((g) => (g ? { ...g, ...updated } : g))
             setGoals((list) => list.map((g) => (g.id === updated.id ? { ...g, ...updated } : g)))
           }}
-          onOpenDetails={() => {
-            const goal = activeVideoGoal
+          onOpenDetails={(g) => {
             setActiveVideoGoal(null)
-            setActiveGoal(goal)
+            setActiveGoal(g || activeVideoGoal)
           }}
         />
       )}
