@@ -543,8 +543,9 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
             lang={lang}
             onClose={() => setShowVisionVideoEditor(false)}
             onChanged={(videoUrl) => {
-              setGoal((g) => ({ ...g, vision_video_url: videoUrl }))
-              onChanged?.()
+              const updated = { ...goal, vision_video_url: videoUrl }
+              setGoal(updated)
+              onChanged?.(updated)
             }}
           />
         )}
