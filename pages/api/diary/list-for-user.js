@@ -33,7 +33,7 @@ export default async function handler(req, res) {
 
     const { data: entries, error } = await supabaseAdmin
       .from('diary_entries')
-      .select('id, media_type, media_url, caption, goal_id, visibility, created_at')
+      .select('id, media_type, media_url, poster_url, caption, goal_id, visibility, created_at')
       .eq('user_id', userId)
       .in('visibility', allowedVisibility)
       .order('created_at', { ascending: true })

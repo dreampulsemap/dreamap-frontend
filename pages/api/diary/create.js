@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     const user = await getAuthedUser(req)
     if (!user) return res.status(401).json({ error: 'unauthorized' })
 
-    const { mediaType, mediaUrl, caption, visibility = 'private', goalId } = req.body || {}
+    const { mediaType, mediaUrl, posterUrl, caption, visibility = 'private', goalId } = req.body || {}
 
     if (!VALID_TYPES.includes(mediaType)) return res.status(400).json({ error: 'invalid_media_type' })
     if (!VALID_VISIBILITY.includes(visibility)) return res.status(400).json({ error: 'invalid_visibility' })
@@ -43,6 +43,7 @@ export default async function handler(req, res) {
         user_id: user.id,
         media_type: mediaType,
         media_url: mediaType === 'text' ? null : mediaUrl.trim(),
+        poster_url: mediaType === 'video' && posterUrl ? posterUrl : null,
         caption: cleanCaption,
         visibility,
         goal_id: goalId || null,
