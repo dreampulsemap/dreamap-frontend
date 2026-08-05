@@ -12,6 +12,9 @@ import GoalDetailModal from '@/components/GoalDetailModal'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import VisionReelsFeed from '@/components/VisionReelsFeed'
+import DiaryStoryRow from '@/components/DiaryStoryRow'
+import DiaryStoryViewer from '@/components/DiaryStoryViewer'
+import DiaryComposer from '@/components/DiaryComposer'
 import TextSkeleton from '@/components/TextSkeleton'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
@@ -70,6 +73,8 @@ export default function HomePage() {
   const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
   const [activeVideoGoal, setActiveVideoGoal] = useState(null)
   const [reelsGoalId, setReelsGoalId] = useState(null)
+  const [diaryViewer, setDiaryViewer] = useState(null) // { groups, startIndex } | null
+  const [showDiaryComposer, setShowDiaryComposer] = useState(false)
 
   const observerRef = useRef(null)
 
@@ -166,6 +171,15 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
+      {mounted && user && (
+        <DiaryStoryRow
+          lang={lang}
+          currentUser={user}
+          onOpenViewer={(groups, startIndex) => setDiaryViewer({ groups, startIndex })}
+          onCompose={() => setShowDiaryComposer(true)}
+        />
+      )}
+
       <div className="sticky top-14 sm:top-16 z-30 bg-black/85 backdrop-blur-md border-b border-white/5">
         <HomeFeedFilter value={filterMode} onChange={setFilterMode} lang={lang} />
       </div>
@@ -284,6 +298,25 @@ export default function HomePage() {
             setActiveSlidesGoal(null)
             setActiveGoal(goal)
           }}
+        />
+      )}
+
+      {diaryViewer && (
+        <DiaryStoryViewer
+          groups={diaryViewer.groups}
+          startIndex={diaryViewer.startIndex}
+          lang={lang}
+          currentUserId={user?.id}
+          onClose={() => setDiaryViewer(null)}
+        />
+      )}
+
+      {showDiaryComposer && (
+        <DiaryComposer
+          lang={lang}
+          currentUser={user}
+          onClose={() => setShowDiaryComposer(false)}
+          onCreated={() => setShowDiaryComposer(false)}
         />
       )}
 
