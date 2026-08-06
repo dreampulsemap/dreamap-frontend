@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../../lib/supabase'
+import Seo from '../../components/Seo'
 
 export default function AuthCallbackPage() {
   const router = useRouter()
@@ -28,5 +29,5 @@ export default function AuthCallbackPage() {
     completeAuth()
   }, [router])
 
-  return null
+  return <Seo title="Giriş Yapılıyor…" noindex />
 }
