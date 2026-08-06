@@ -1,12 +1,14 @@
 import Link from 'next/link'
 import { ImageOff } from 'lucide-react'
 import AdminAuthGate, { useAdminAuth } from '@/components/admin/AdminAuthGate'
+import Seo from '@/components/Seo'
 
 function AdminHome() {
   const { logout } = useAdminAuth()
 
   return (
     <div className="min-h-screen bg-[#0c0e14] text-white">
+      <Seo title="Yönetim Paneli" noindex />
       <div className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
         <div className="flex items-center justify-between mb-8">
           <div>

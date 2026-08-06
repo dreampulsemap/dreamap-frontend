@@ -4,6 +4,7 @@ import { ArrowLeft, ImageOff, Loader2, Pencil, Search, Upload } from 'lucide-rea
 import AdminAuthGate, { useAdminAuth } from '@/components/admin/AdminAuthGate'
 import AdminDreamEditModal from '@/components/admin/AdminDreamEditModal'
 import PixabayPicker from '@/components/PixabayPicker'
+import Seo from '@/components/Seo'
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 
@@ -255,6 +256,7 @@ function DreamImages() {
 
   return (
     <div className="min-h-screen bg-[#0c0e14] text-white">
+      <Seo title="Rüya Görselleri — Yönetim" noindex />
       <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
