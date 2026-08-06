@@ -529,6 +529,25 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* Rüya paylaşımı sonrası tam bu anda geri dönülüyor (highlightDreamId
+            ?highlightDream= ile geliyor) — "içeriğim nereye gidiyor" merakının
+            en yüksek olduğu an. Nav'a kalıcı bir globe ikonu eklemek yerine
+            (mockup onu bilerek sadeleştirmişti) bu bağlam-duyarlı şeridi
+            kullanıyoruz: her paylaşımda garanti çıkıyor, rastgele değil. */}
+        {highlightDreamId && (
+          <Link
+            href="/globe"
+            className="flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-2xl bg-astral-gold/10 border border-astral-gold/30 hover:bg-astral-gold/15 transition-colors group"
+          >
+            <span className="text-xs sm:text-sm text-white font-medium">
+              🌐 {lang === 'tr' ? 'Rüyan bilinçaltı haritasına eklendi' : 'Your dream joined the subconscious map'}
+            </span>
+            <span className="shrink-0 text-[11px] font-bold uppercase tracking-wider text-astral-gold group-hover:brightness-110">
+              {lang === 'tr' ? 'Canlı Gör →' : 'See Live →'}
+            </span>
+          </Link>
+        )}
+
         {/* PROFİL SEKMELERİ (Instagram grid/tagged tarzı) — Vizyon Panosu varsayılan */}
         <div className="flex items-center justify-center gap-8 border-t border-white/10 mb-4">
           <button
@@ -585,6 +604,17 @@ export default function ProfilePage() {
         ) : (
         <>
         {mounted && <div className="mb-4"><PsycheMap lang={lang} /></div>}
+
+        {/* Paylaşım-sonrası banner sadece highlightDreamId anında çıkıyor —
+            bu ise HER ZAMAN burada, sessiz bir davet: rüya paylaşmamış olsan
+            da haritayı merak edip keşfedebilmelisin. */}
+        <Link
+          href="/globe"
+          className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] hover:border-white/20 transition-colors text-slate-300 hover:text-white text-xs font-medium w-fit"
+        >
+          🌐 {lang === 'tr' ? 'Bilinçaltı Haritasını Keşfet' : 'Explore the Subconscious Map'}
+        </Link>
+
         {/* 3 KOLONLU PROFİL IZGARASI (INSTAGRAM GRID) */}
         {dreams.length === 0 ? (
           <div className="text-center py-20 text-white/40 text-sm">
