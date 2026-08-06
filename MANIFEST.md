@@ -910,4 +910,48 @@ public insert" politikası `with_check: true` ile TAMAMEN açık — herkes
 zaten GROQ_KEY + "bugün var mı" kontrolü arkasında çalıştığı için pratik
 risk düşük, ama bilerek daraltılmamışsa sıkılaştırmak isteyebilirsin.
 
+## 24) Psyche Haritası — kendi arketip katmanımız (YENİ)
+
+Bağlam: Els'e harici bir ARG projesinin ("DO·LOON·AI EXPRESS") entegre
+edilip edilemeyeceğini değerlendirdim — teknik olarak entegre edilecek bir
+API/SDK yoktu, içerik de (gerçekliği bilinçli bulandıran, okült temalı)
+wellness kullanıcı kitlemize uygun değildi, üstelik başkasının telifli
+kurgusuydu. Ama arketip/gölge-çalışması TEMASI Lunosfer'in ZATEN sahip
+olduğu bir şeyle çarpıcı örtüşüyordu: `lib/deepAnalysisEngine.js` her
+rüyada AI'a Jungian arketipler tespit ettiriyor (`dreams.ai_archetypes`),
+ama bunları rüyalar arasında TOPLU gösteren bir yer yoktu. Önerim: harici
+IP'yi almak yerine, zaten var olan bu veriyi kullanarak KENDİ katmanımızı
+inşa edelim — Els onayladı.
+
+**Ne yaptım:** "Psyche Haritası" — kullanıcının TÜM analiz edilmiş
+rüyalarındaki `ai_archetypes`'ı toplayıp en sık tekrar edenleri bir
+yörünge/takımyıldız görselinde gösteren, tamamen AGREGASYON tabanlı (yeni
+AI çağrısı YOK, mevcut veriden) bir profil bölümü. `pages/profile.js`'in
+Rüyalar sekmesinin başına eklendi (sadece kendi profilin — `pages/u/
+[userId].js`'e dokunmadım, bu içe dönük veri herkese açık olmamalı).
+
+- `pages/api/psyche-map.js` — YENİ: kullanıcının `dreams.ai_archetypes`'ını
+  çekip (küçük/büyük harf normalize ederek) sayıp en sık 8 tanesini,
+  varsa en son premium derin analizden kısa bir doku alıntısıyla
+  (`individuation_path` — kullanıcının KENDİ verisi, telif sorunu yok)
+  birlikte döner. En az 3 analiz edilmiş rüya yoksa "haritan henüz
+  oluşuyor" kilitli durumu gösteriyor.
+- `lib/psycheMapTranslations.js` — YENİ: TR/EN, kurulu desenle aynı.
+- `components/PsycheMap.jsx` — YENİ: grafik kütüphanesi YOK (projede zaten
+  yok) — elle SVG, merkezde "Öz" (altın radial gradient — `.gold-gradient-
+  text` ile aynı 3 durak), etrafında arketip düğümleri (boyut/parlaklık =
+  sıklık), tıklanınca yüzdesini gösteriyor. Bilinçli olarak yapılmayanlar:
+  sabit isimli "arketip karakterleri" yok (AI ne tespit ettiyse o
+  gösteriliyor — canlıda gerçek veriyle doğruladım: "The Shadow", "The
+  Self", "The Anima", "The Seeker" gibi standart Jungian terimler
+  çıkıyor), gizem/kehanet dili yok.
+
+Canlı veriyle doğrulama: 426 rüyadan 45'inde `ai_archetypes` dolu —
+özellik gerçek veriyle çalışıyor, boş bir grafik değil. DB şeması
+DEĞİŞMEDİ (tamamen mevcut kolonlardan agregasyon).
+
+TEST EDİLEMEDİ: Gerçek tarayıcıda uçtan uca (özellikle SVG'nin farklı ekran
+genişliklerinde okunabilirliği, çok sayıda arketip olduğunda etiketlerin
+üst üste binip binmediği) test edilmedi.
+
 
