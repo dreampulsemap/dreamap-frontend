@@ -707,6 +707,7 @@ export default function ProfilePage() {
               dream={activeDream} 
               lang={lang} 
               currentUserId={user?.id}
+              owner={profile}
               onTranslate={() => {}}
               translating={false}
               translated={false}
