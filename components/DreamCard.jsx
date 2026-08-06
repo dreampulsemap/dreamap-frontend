@@ -17,10 +17,11 @@ import DeepAnalysisCarouselModal from '@/components/DeepAnalysisCarouselModal'
 import StoryModeModal from '@/components/StoryModeModal'
 import PixabayPicker from '@/components/PixabayPicker'
 import DreamEditModal from '@/components/dreams/DreamEditModal'
+import AuthorHeader from '@/components/AuthorHeader'
 
 const GUMROAD_PRODUCT_URL = 'https://shop.lunosfer.com'
 
-export default function DreamCard({ dream, lang, onTranslate, translating, translated, translatedContent, translatedAnalysis, currentUserId, onImageChanged }) {
+export default function DreamCard({ dream, lang, onTranslate, translating, translated, translatedContent, translatedAnalysis, currentUserId, onImageChanged, owner }) {
   const { i18n } = useTranslation()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -437,18 +438,25 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
           disabled={uploadingCoverImage}
           onChange={onCoverFileInputChange}
         />
-        {isOwner && (
-          <div className="flex justify-end mb-2 -mt-1">
-            <button
-              type="button"
-              onClick={() => { setEditError(''); setShowEditModal(true) }}
-              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400 hover:bg-white/5 hover:text-brand-primary-200 transition"
-            >
-              <Pencil size={12} />
-              {lang === 'tr' ? 'Düzenle' : 'Edit'}
-            </button>
-          </div>
-        )}
+        {(() => {
+          const postOwner = owner || effectiveDream?.owner
+          if (!postOwner && !isOwner) return null
+          return (
+            <div className="flex items-center justify-between mb-3 -mt-1">
+              {postOwner ? <AuthorHeader owner={postOwner} lang={lang} /> : <span />}
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={() => { setEditError(''); setShowEditModal(true) }}
+                  className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-400 hover:bg-white/5 hover:text-brand-primary-200 transition shrink-0"
+                >
+                  <Pencil size={12} />
+                  {lang === 'tr' ? 'Düzenle' : 'Edit'}
+                </button>
+              )}
+            </div>
+          )
+        })()}
         {showImage && (
           <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-4">
             <Image

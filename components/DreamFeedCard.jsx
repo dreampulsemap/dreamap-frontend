@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { Heart, MessageCircle, Sparkles, ChevronRight } from 'lucide-react'
 import SwipePanels from '@/components/SwipePanels'
+import AuthorHeader from '@/components/AuthorHeader'
 
 const CARD_HEIGHT = '78vh'
 
@@ -21,6 +22,17 @@ export default function DreamFeedCard({ dream, lang = 'en', onOpen }) {
       className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-950 mb-4"
       style={{ height: CARD_HEIGHT }}
     >
+      {/* Instagram tarzı gönderi başlığı — panellerin ÜZERİNDE sabit bir
+          overlay (VisionReelsFeed/DiaryStoryViewer'daki aynı desen), panel
+          içeriğinin swipe/height mekaniğine dokunmadan. Tıklanınca paylaşımı
+          açan alttaki onClick'i tetiklemeden doğrudan profile gider. */}
+      {dream.owner && (
+        <div className="absolute top-0 inset-x-0 z-20 flex items-center px-3 py-2.5 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+          <div className="pointer-events-auto">
+            <AuthorHeader owner={dream.owner} lang={lang} />
+          </div>
+        </div>
+      )}
       <SwipePanels className="h-full">
         {/* PANEL 1: Görsel + rüya metni */}
         <div className="h-full flex flex-col cursor-pointer" onClick={() => onOpen(dream)}>

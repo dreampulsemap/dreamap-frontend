@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import { Sparkles, MessageCircle } from 'lucide-react'
 import SwipePanels from '@/components/SwipePanels'
+import AuthorHeader from '@/components/AuthorHeader'
 import { getGoalTheme } from '@/lib/goalTheme'
 import { isNextImageHost } from '@/lib/imageUrlUtils'
 
@@ -62,12 +63,22 @@ export default function VisionFeedCard({ goal, lang = 'en', onOpen }) {
             <div className="absolute inset-0 flex items-center justify-center text-4xl bg-gradient-to-br from-void-900 to-void-950">✨</div>
           )}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/10" />
+          {/* Instagram tarzı gönderi başlığı — DreamFeedCard'daki aynı
+              overlay deseni. Altındaki durum/tür rozetleri çakışmaması için
+              biraz aşağı kaydırıldı. */}
+          {goal.owner && (
+            <div className="absolute top-0 inset-x-0 z-20 flex items-center px-3 py-2.5 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+              <div className="pointer-events-auto">
+                <AuthorHeader owner={goal.owner} lang={lang} />
+              </div>
+            </div>
+          )}
           {statusLabel && (
-            <span className="absolute top-3 left-3 z-[2] text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-black/60 backdrop-blur text-slate-200 border border-white/10">
+            <span className={`absolute ${goal.owner ? 'top-12' : 'top-3'} left-3 z-[2] text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-black/60 backdrop-blur text-slate-200 border border-white/10`}>
               {statusLabel}
             </span>
           )}
-          <span className="absolute top-3 right-3 z-[2] text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-black/60 backdrop-blur text-brand-secondary-200 border border-brand-secondary-300/20">
+          <span className={`absolute ${goal.owner ? 'top-12' : 'top-3'} right-3 z-[2] text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-black/60 backdrop-blur text-brand-secondary-200 border border-brand-secondary-300/20`}>
             {lang === 'tr' ? 'Vizyon' : 'Vision'}
           </span>
         </div>

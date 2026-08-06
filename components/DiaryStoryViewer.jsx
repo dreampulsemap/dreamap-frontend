@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import Link from 'next/link'
 import { X, Trash2, Target, Volume2, VolumeX, Pause } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
@@ -314,10 +315,16 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
         {/* Sahip başlığı + kontroller */}
         <div className="absolute top-7 left-3 right-3 z-20 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-brand-primary-500 to-brand-secondary-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-              {group.avatarUrl ? <img src={group.avatarUrl} alt="" className="w-full h-full object-cover" /> : initialsOf(label)}
-            </span>
-            <span className="text-white text-sm font-medium truncate">{label}</span>
+            <Link
+              href={`/u/${group.userId}`}
+              onClick={(e) => { e.stopPropagation(); setPaused(true) }}
+              className="group/author flex items-center gap-2 min-w-0"
+            >
+              <span className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-brand-primary-500 to-brand-secondary-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {group.avatarUrl ? <img src={group.avatarUrl} alt="" className="w-full h-full object-cover" /> : initialsOf(label)}
+              </span>
+              <span className="text-white text-sm font-medium truncate group-hover/author:underline">{label}</span>
+            </Link>
             {entry && <span className="text-white/50 text-xs shrink-0">· {formatRelativeTime(entry.created_at, lang)}</span>}
           </div>
           <div className="flex items-center gap-2 shrink-0">

@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import { ChevronLeft, Sparkles, MessageCircle, Layers } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
+import AuthorHeader from '@/components/AuthorHeader'
 
 // Vizyon panosunun 9:16 "Reels" görünümü — grid'in aksine hedefler tek tek,
 // tam ekran, dikey kaydırmayla (scroll-snap) art arda geliyor. Her kart
@@ -9,10 +10,6 @@ import { useModalA11y } from '@/lib/useModalA11y'
 // .reel-active, globals.css). Ağır bir gesture kütüphanesi yerine native
 // CSS scroll-snap + IntersectionObserver kullanıyoruz — daha performanslı
 // ve daha az kod.
-
-function initialsOf(name) {
-  return (name || '?').trim().slice(0, 1).toUpperCase()
-}
 
 export default function VisionReelsFeed({ goals, lang, t, currentUserId, initialGoalId, onClose, onOpenGoal, onOpenSlides, onLoadMore, hasMore, loading, onReacted }) {
   const containerRef = useRef(null)
@@ -96,7 +93,6 @@ export default function VisionReelsFeed({ goals, lang, t, currentUserId, initial
       >
         {localGoals.map((goal, i) => {
           const isOwner = currentUserId && goal.user_id === currentUserId
-          const ownerName = goal.owner?.display_name || goal.owner?.username || (lang === 'tr' ? 'Bilinmeyen' : 'Unknown')
           const isActive = i === activeIndex
 
           return (
@@ -114,24 +110,28 @@ export default function VisionReelsFeed({ goals, lang, t, currentUserId, initial
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/30" />
 
-                {/* Sahip + başlık + slayt destesine geçiş */}
-                <button
-                  onClick={() => (goal.slide_count > 0 ? onOpenSlides?.(goal) : onOpenGoal?.(goal))}
-                  className="absolute left-4 right-20 bottom-24 text-left"
-                >
-                  <span className="flex items-center gap-2 mb-2">
-                    <span className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-primary-500 to-brand-secondary-500 flex items-center justify-center text-white text-xs font-bold overflow-hidden shrink-0 ring-2 ring-white/20">
-                      {goal.owner?.avatar_url ? <img src={goal.owner.avatar_url} alt="" className="w-full h-full object-cover" /> : initialsOf(ownerName)}
-                    </span>
-                    <span className="text-white text-sm font-semibold drop-shadow-md">{ownerName}</span>
-                  </span>
-                  <span className="block text-white font-serif font-bold text-xl leading-snug drop-shadow-md line-clamp-2">{goal.title}</span>
-                  {goal.slide_count > 1 && (
-                    <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur text-white text-[10px] font-bold uppercase tracking-widest">
-                      <Layers size={11} /> {goal.slide_count} {lang === 'tr' ? 'slayt' : 'slides'}
-                    </span>
-                  )}
-                </button>
+                {/* Sahip → tıklanınca profile gider (paylaşımı açan butondan
+                    ayrı, Instagram'daki gibi) + başlık → tıklanınca slayt
+                    destesini/vizyonu açar */}
+                <div className="absolute left-4 right-20 bottom-24">
+                  <AuthorHeader
+                    owner={goal.owner}
+                    lang={lang}
+                    className="mb-2"
+                    nameClassName="text-white drop-shadow-md"
+                  />
+                  <button
+                    onClick={() => (goal.slide_count > 0 ? onOpenSlides?.(goal) : onOpenGoal?.(goal))}
+                    className="block text-left"
+                  >
+                    <span className="block text-white font-serif font-bold text-xl leading-snug drop-shadow-md line-clamp-2">{goal.title}</span>
+                    {goal.slide_count > 1 && (
+                      <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur text-white text-[10px] font-bold uppercase tracking-widest">
+                        <Layers size={11} /> {goal.slide_count} {lang === 'tr' ? 'slayt' : 'slides'}
+                      </span>
+                    )}
+                  </button>
+                </div>
 
                 {/* Aksiyon şeridi */}
                 <div className="absolute right-3 bottom-24 flex flex-col items-center gap-5">
