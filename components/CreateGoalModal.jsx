@@ -1,21 +1,35 @@
-import { useState, useRef } from 'react'
-import { Upload, X, Search as SearchIcon } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Upload, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
 import { hasFutureTenseLanguage, affirmationExamples } from '@/lib/affirmationLanguage'
 import PixabayPicker from './PixabayPicker'
+import AddMediaMenu from './AddMediaMenu'
+import VisionVideoEditor from './VisionVideoEditor'
+import CoverPickerModal from './CoverPickerModal'
 
-// Bir vizyon oluştururken en fazla kaç görsel (kapak + başlangıç slaytları)
-// seçilebilir. SlideEditor'daki genel MAX_SLIDES=20 sınırının altında
-// tutuyoruz — oluşturma ekranı hızlı kalsın, kullanıcı isterse sonradan
-// Vizyon Slaytları ekranından daha fazla ekleyebilir.
-const MAX_COVER_IMAGES = 10
+// Vizyon oluşturma artık video editörüyle AYNI medya seçim akışını kullanıyor
+// (cihazdan video/görsel + Pixabay çoklu seçim) — önceden burada sadece
+// "kapak" seçiliyordu ve seçilenler eski slayt sistemine ekleniyordu.
+// Şimdi: medya seç -> goal oluştur -> seçilenler otomatik olarak yeni
+// goal'ün video editörüne klip olarak düşer (initialMedia) -> kaydedince ya
+// da vazgeçince, videoya eklenen GÖRSELLER arasından kapak seçilir
+// (CoverPickerModal, ayrı ve opsiyonel bir son adım).
+//
+// Cihazdan seçilen dosyalar burada YÜKLENMİYOR — blob: URL olarak
+// pendingMedia'da bekliyor, video editörü onları normal cihaz-klipleri gibi
+// kabul ediyor (aynen editör içindeki "+ Ekle" ile aynı). Sadece export
+// sırasında BİRLEŞTİRİLMİŞ video yükleniyor — tek tek her klibi önceden
+// storage'a atmaya gerek yok. Pixabay'den seçilenler ise zaten
+// goal-bağımsız import endpoint'leriyle indirilip kalıcı URL olarak geliyor.
 
 export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
   const t = getVisionBoardText(lang)
   const modalRef = useRef(null)
-  useModalA11y(modalRef, onClose)
+  const [step, setStep] = useState('form') // 'form' | 'video' | 'cover'
+  const [createdGoal, setCreatedGoal] = useState(null)
+
   const [title, setTitle] = useState('')
   const [dismissedTenseHint, setDismissedTenseHint] = useState(false)
   const [description, setDescription] = useState('')
@@ -26,18 +40,30 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  // GÖRSELLER — birden fazla seçilebilir. images[0] "kapak" (goal'ün
-  // cover_image_url'i) olarak kullanılıyor; seçilen TÜM görseller (kapak
-  // dahil) oluşturma sonrasında sırasıyla başlangıç slaytı olarak da
-  // ekleniyor (bkz. handleSubmit). Önceden burada sadece TEK bir görsel
-  // seçilebiliyordu.
-  const [images, setImages] = useState([]) // [{ url, source: 'user_upload' | 'pixabay' }]
-  const [uploadingCover, setUploadingCover] = useState(false)
-  const [coverError, setCoverError] = useState('')
+  // MEDYA — [{ url, type: 'image'|'video', name, source: 'user_upload'|'pixabay' }]
+  const [pendingMedia, setPendingMedia] = useState([])
+  const [showAddMenu, setShowAddMenu] = useState(false)
   const [showPixabayPicker, setShowPixabayPicker] = useState(false)
-  const fileInputRef = useRef(null)
+  const [videoStatus, setVideoStatus] = useState(null)
+  const [mediaError, setMediaError] = useState('')
+  const videoInputRef = useRef(null)
+  const imageInputRef = useRef(null)
 
-  const remainingSlots = Math.max(0, MAX_COVER_IMAGES - images.length)
+  useModalA11y(modalRef, onClose)
+
+  // PixabayPicker'ın video sekmesindeki kilit/haftalık-hak UI'ı için —
+  // VisionVideoEditor'daki aynı fetch (bkz. o dosyadaki aynı yorum).
+  useEffect(() => {
+    let active = true
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session || !active) return
+      fetch('/api/user/premium-status', { headers: { Authorization: `Bearer ${session.access_token}` } })
+        .then((r) => r.json())
+        .then((json) => { if (active && !json.error) setVideoStatus(json) })
+        .catch(() => {})
+    })
+    return () => { active = false }
+  }, [])
 
   function addRoadmapStep() {
     const clean = roadmapInput.trim()
@@ -50,101 +76,74 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
     setRoadmap((r) => r.filter((_, i) => i !== index))
   }
 
-  function removeImage(index) {
-    setImages((prev) => prev.filter((_, i) => i !== index))
-    setCoverError('')
+  function removeMedia(index) {
+    setPendingMedia((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // Cihazdan seçilen TÜM dosyaları (input artık multiple) sırayla storage'a
-  // yükler. Tek bir dosya başarısız olursa diğerlerini durdurmuyoruz.
-  async function handleFileUpload(e) {
+  function onVideoFileChange(e) {
+    const files = Array.from(e.target.files || []).filter((f) => f.type?.startsWith('video/'))
+    files.forEach((file) => {
+      setPendingMedia((prev) => [...prev, { url: URL.createObjectURL(file), type: 'video', name: file.name, source: 'user_upload' }])
+    })
+    if (videoInputRef.current) videoInputRef.current.value = ''
+  }
+
+  function onImageFileChange(e) {
     const files = Array.from(e.target.files || []).filter((f) => f.type?.startsWith('image/'))
-    if (!files.length) return
-    if (remainingSlots <= 0) {
-      setCoverError(lang === 'tr' ? `En fazla ${MAX_COVER_IMAGES} görsel seçebilirsin.` : `You can select up to ${MAX_COVER_IMAGES} images.`)
-      return
-    }
+    files.forEach((file) => {
+      setPendingMedia((prev) => [...prev, { url: URL.createObjectURL(file), type: 'image', name: file.name, source: 'user_upload' }])
+    })
+    if (imageInputRef.current) imageInputRef.current.value = ''
+  }
 
-    setUploadingCover(true)
-    setCoverError('')
+  async function pixabayAuthHeaders() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return null
+    return { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }
+  }
+
+  // Bu ikisi PixabayPicker'ın multiSelect sözleşmesiyle birebir aynı
+  // (VisionVideoEditor'daki handlePixabayImagePick/VideoPick ile aynı desen)
+  // — goal-bağımsız import endpoint'lerini kullanıyor, henüz bir goal yok.
+  async function handlePixabayImagePick(hit) {
+    const headers = await pixabayAuthHeaders()
+    if (!headers) { setMediaError(t.loginRequired); return false }
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { setCoverError(t.loginRequired); return }
-
-      const toUpload = files.slice(0, remainingSlots)
-      const uploaded = []
-      for (const file of toUpload) {
-        try {
-          const fileExt = file.name.split('.').pop() || 'jpg'
-          const filePath = `${session.user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`
-          const { error: uploadError } = await supabase.storage
-            .from('goal-covers')
-            .upload(filePath, file, { cacheControl: '3600', upsert: true })
-          if (uploadError) throw uploadError
-          const { data } = supabase.storage.from('goal-covers').getPublicUrl(filePath)
-          uploaded.push({ url: data.publicUrl, source: 'user_upload' })
-        } catch (_) {
-          // bu dosya başarısız oldu, diğerlerine devam
-        }
-      }
-
-      if (uploaded.length) {
-        setImages((prev) => [...prev, ...uploaded])
-      }
-      if (uploaded.length < toUpload.length) {
-        setCoverError(t.coverUploadFailed)
-      }
-    } finally {
-      setUploadingCover(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
+      const res = await fetch('/api/pixabay/import-image', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ pixabayId: hit.id, imageUrl: hit.largeImageURL, tags: hit.tags, pixabayUser: hit.user, width: hit.width, height: hit.height }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setMediaError(json.error || (lang === 'tr' ? 'Görsel eklenemedi' : 'Could not add image')); return false }
+      setPendingMedia((prev) => [...prev, { url: json.url, type: 'image', name: (hit.tags && hit.tags[0]) || 'Pixabay', source: 'pixabay' }])
+      return true
+    } catch (_) {
+      setMediaError(lang === 'tr' ? 'Ağ hatası' : 'Network error')
+      return false
     }
   }
 
-  // Pixabay picker'da birden fazla görsel işaretlenip onaylandığında çağrılır.
-  // Henüz bir goal yok, o yüzden goal-bağımsız import endpoint'ini
-  // kullanıyoruz — sadece indirip kendi storage'ımıza kaydediyor, hiçbir
-  // goal'a bağlamıyor. Görseller paralel indirilir (import-image endpoint'i
-  // bir sayaç/sıra tutmuyor, yalnızca önbelleğe alıp URL döndürüyor —
-  // paralel çağırmak güvenli).
-  async function handleCoverPixabayMultiPick(picked) {
-    setCoverError('')
-    if (remainingSlots <= 0) return false
-    const toImport = picked.slice(0, remainingSlots)
-
+  async function handlePixabayVideoPick(hit) {
+    const headers = await pixabayAuthHeaders()
+    if (!headers) { setMediaError(t.loginRequired); return false }
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { setCoverError(t.loginRequired); return false }
-
-      const results = await Promise.all(toImport.map(async (hit) => {
-        try {
-          const res = await fetch('/api/pixabay/import-image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-            body: JSON.stringify({
-              pixabayId: hit.id,
-              imageUrl: hit.largeImageURL,
-              tags: hit.tags,
-              pixabayUser: hit.user,
-              width: hit.width,
-              height: hit.height,
-            }),
-          })
-          const json = await res.json()
-          if (!res.ok) return null
-          return { url: json.url, source: 'pixabay' }
-        } catch (_) {
-          return null
-        }
-      }))
-
-      const ok = results.filter(Boolean)
-      if (ok.length) setImages((prev) => [...prev, ...ok])
-      if (ok.length < toImport.length) {
-        setCoverError(lang === 'tr' ? 'Bazı görseller eklenemedi.' : 'Some images could not be added.')
+      const res = await fetch('/api/pixabay/import-video', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ pixabayId: hit.id, videoUrl: hit.downloadURL, tags: hit.tags, pixabayUser: hit.user, width: hit.width, height: hit.height }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setMediaError(json.error === 'weekly_video_limit_reached'
+          ? (lang === 'tr' ? 'Haftalık ücretsiz video hakkın doldu.' : 'Weekly free video pick used up.')
+          : (json.error || (lang === 'tr' ? 'Video eklenemedi' : 'Could not add video')))
+        return false
       }
-      return ok.length > 0
+      setPendingMedia((prev) => [...prev, { url: json.url, type: 'video', name: (hit.tags && hit.tags[0]) || 'Pixabay', source: 'pixabay' }])
+      return true
     } catch (_) {
-      setCoverError('network_error')
+      setMediaError(lang === 'tr' ? 'Ağ hatası' : 'Network error')
       return false
     }
   }
@@ -162,8 +161,6 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
         return
       }
 
-      const coverImageUrl = images[0]?.url || ''
-
       const res = await fetch('/api/goals/create', {
         method: 'POST',
         headers: {
@@ -176,8 +173,8 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
           target_date: targetDate || null,
           visibility,
           roadmap,
-          cover_image_url: coverImageUrl || null,
-          cover_image_source: coverImageUrl ? images[0].source : undefined,
+          cover_image_url: null,
+          cover_image_source: undefined,
         }),
       })
       const json = await res.json()
@@ -186,36 +183,65 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
         return
       }
 
-      // VİZYON EKLENDİĞİNDE SLAYTLAR OTOMATİK OLUŞTURULSUN — seçilen TÜM
-      // görseller (kapak dahil) başlangıç slaytı olarak da ekleniyor.
-      // /api/goals/slides/create, order_index'i "mevcut slayt sayısı"na
-      // bakarak hesaplıyor; bu yüzden isteklerin SIRAYLA (paralel değil)
-      // gönderilmesi gerekiyor — yoksa yarış durumu (TOCTOU) yüzünden
-      // birden fazla slayt aynı order_index'i alabilir ya da MAX_SLIDES
-      // sınırı yanlış hesaplanabilir.
-      if (images.length) {
-        for (const img of images) {
-          try {
-            await fetch('/api/goals/slides/create', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-              body: JSON.stringify({ goalId: json.goal.id, imageUrl: img.url }),
-            })
-          } catch (_) {
-            // Bir slaytın oluşturulması başarısız olsa bile goal zaten
-            // oluşturuldu — akışı durdurmuyoruz, kullanıcı SlideEditor'dan
-            // elle ekleyebilir.
-          }
-        }
+      setCreatedGoal(json.goal)
+      if (pendingMedia.length) {
+        setStep('video')
+      } else {
+        finish(json.goal)
       }
-
-      onCreated?.(json.goal)
-      onClose?.()
     } catch (err) {
       setError('network_error')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function finish(goal) {
+    onCreated?.(goal)
+    onClose?.()
+  }
+
+  // Video kaydedilince goal'ün en güncel halini (vision_video_url dahil)
+  // tutuyoruz ama adımı DEĞİŞTİRMİYORUZ — kullanıcı "Kaydedildi!" ekranını
+  // görsün, ne zaman devam edeceğine kendi karar versin (X'e basınca aşağı).
+  function handleVideoChanged(updatedGoal) {
+    setCreatedGoal(updatedGoal)
+  }
+
+  function handleVideoClose() {
+    const imageOptions = pendingMedia.filter((m) => m.type === 'image')
+    if (imageOptions.length === 0) {
+      finish(createdGoal)
+    } else {
+      setStep('cover')
+    }
+  }
+
+  function handleCoverDone(updatedGoal) {
+    finish(updatedGoal || createdGoal)
+  }
+
+  if (step === 'video' && createdGoal) {
+    return (
+      <VisionVideoEditor
+        goal={createdGoal}
+        lang={lang}
+        initialMedia={pendingMedia}
+        onClose={handleVideoClose}
+        onChanged={handleVideoChanged}
+      />
+    )
+  }
+
+  if (step === 'cover' && createdGoal) {
+    return (
+      <CoverPickerModal
+        lang={lang}
+        goalId={createdGoal.id}
+        images={pendingMedia.filter((m) => m.type === 'image').map((m) => ({ url: m.url, source: m.source, name: m.name }))}
+        onDone={handleCoverDone}
+      />
+    )
   }
 
   return (
@@ -253,26 +279,25 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
 
           <div>
             <label className="text-xs uppercase tracking-widest text-slate-400 mb-1.5 block">
-              {t.coverLabel}
-              {images.length > 0 && (
-                <span className="normal-case tracking-normal text-slate-500"> · {images.length}/{MAX_COVER_IMAGES}</span>
+              {lang === 'tr' ? 'Görsel & Video' : 'Photos & Video'}
+              {pendingMedia.length > 0 && (
+                <span className="normal-case tracking-normal text-slate-500"> · {pendingMedia.length}</span>
               )}
             </label>
 
-            {images.length > 0 && (
+            {pendingMedia.length > 0 && (
               <div className="grid grid-cols-4 gap-2 mb-2">
-                {images.map((img, i) => (
-                  <div key={img.url} className="relative aspect-square rounded-lg overflow-hidden bg-black/30">
-                    <img src={img.url} alt="" className="w-full h-full object-cover" />
-                    {i === 0 && (
-                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-full bg-black/70 text-[9px] text-brand-primary-300 font-bold uppercase tracking-wide">
-                        {lang === 'tr' ? 'Kapak' : 'Cover'}
-                      </span>
+                {pendingMedia.map((m, i) => (
+                  <div key={m.url} className="relative aspect-square rounded-lg overflow-hidden bg-black/30">
+                    {m.type === 'video' ? (
+                      <video src={m.url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+                    ) : (
+                      <img src={m.url} alt="" className="w-full h-full object-cover" />
                     )}
                     <button
                       type="button"
-                      onClick={() => removeImage(i)}
-                      aria-label={lang === 'tr' ? 'Görseli kaldır' : 'Remove image'}
+                      onClick={() => removeMedia(i)}
+                      aria-label={lang === 'tr' ? 'Kaldır' : 'Remove'}
                       className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black/90"
                     >
                       <X size={11} />
@@ -282,46 +307,25 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
               </div>
             )}
 
-            {remainingSlots > 0 && (
-              <div className="flex gap-2 mb-1">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingCover}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-xs font-semibold hover:bg-white/10 disabled:opacity-40"
-                >
-                  <Upload size={14} />
-                  {uploadingCover
-                    ? t.uploading
-                    : (images.length > 0 ? (lang === 'tr' ? 'Daha Fazla Ekle' : 'Add More') : t.uploadBtn)}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPixabayPicker(true)}
-                  disabled={uploadingCover}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-brand-primary-300 text-xs font-semibold hover:bg-white/10 disabled:opacity-40"
-                >
-                  <SearchIcon size={14} />
-                  {lang === 'tr' ? 'Pixabay\u2019dan Seç' : 'From Pixabay'}
-                </button>
-              </div>
-            )}
-            {images.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAddMenu(true)}
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-xs font-semibold hover:bg-white/10"
+            >
+              <Upload size={14} />
+              {pendingMedia.length > 0 ? (lang === 'tr' ? 'Daha Fazla Ekle' : 'Add More') : (lang === 'tr' ? '+ Görsel / Video Ekle' : '+ Add Photos / Video')}
+            </button>
+            <input ref={videoInputRef} type="file" accept="video/*" multiple onChange={onVideoFileChange} className="hidden" />
+            <input ref={imageInputRef} type="file" accept="image/*" multiple onChange={onImageFileChange} className="hidden" />
+
+            {pendingMedia.length > 0 && (
               <p className="text-slate-500 text-[11px] mt-1">
                 {lang === 'tr'
-                  ? 'İlk görsel kapak olur, seçtiğin tüm görseller başlangıç slaytı olarak da eklenir.'
-                  : 'The first image becomes the cover; every selected image is also added as a starting slide.'}
+                  ? 'Bunlardan otomatik bir vizyon videosu oluşturulur; kapak fotoğrafını sonra bunların arasından seçersin.'
+                  : "These automatically become your vision video; you'll pick a cover photo from among them afterward."}
               </p>
             )}
-            {coverError && <p className="text-semantic-danger-400 text-xs mt-1">{coverError}</p>}
+            {mediaError && <p className="text-semantic-danger-400 text-xs mt-1">{mediaError}</p>}
           </div>
 
           <div>
@@ -403,13 +407,23 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
         </div>
       </div>
 
+      {showAddMenu && (
+        <AddMediaMenu
+          lang={lang}
+          onPickVideo={() => { setShowAddMenu(false); videoInputRef.current?.click() }}
+          onPickImage={() => { setShowAddMenu(false); imageInputRef.current?.click() }}
+          onPickPixabay={() => { setShowAddMenu(false); setShowPixabayPicker(true) }}
+          onClose={() => setShowAddMenu(false)}
+        />
+      )}
+
       {showPixabayPicker && (
         <PixabayPicker
           lang={lang}
-          videoEnabled={false}
-          multiple
-          maxSelectable={remainingSlots}
-          onPickMultiple={handleCoverPixabayMultiPick}
+          videoStatus={videoStatus}
+          multiSelect
+          onPickImage={handlePixabayImagePick}
+          onPickVideo={handlePixabayVideoPick}
           onClose={() => setShowPixabayPicker(false)}
         />
       )}

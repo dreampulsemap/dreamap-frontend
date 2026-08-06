@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
 import { uploadVisionVideo, getVisionVideoErrorMessage } from '@/lib/uploadVisionVideo'
 import PixabayPicker from './PixabayPicker'
+import AddMediaMenu from './AddMediaMenu'
 
 // "Vizyon Videosu" — "Vizyon Slaytlarını Düzenle" (eski SlideEditor: çoklu
 // görsel + başlık + süreden oluşan slayt gösterisi) editörünün yerini alan
@@ -59,33 +60,7 @@ const CAPTION_FONTS = [
 // Aynı dokümandaki 6 preset renk
 const CAPTION_COLORS = ['#ffffff', '#0a0a0f', '#f5c451', '#e879f9', '#22d3ee', '#fb7185']
 
-// "+ Ekle" tıklanınca açılan kaynak seçim menüsü — üç madde (cihazdan video,
-// cihazdan görsel, Pixabay) tek bir yerden büyümesi kolay olsun diye burada.
-// Gerçek bir React component olması bilerek: useModalA11y'yi kendi
-// mount/unmount'una bağlayabilmesi için (bkz. lib/useModalA11y.js — iç içe
-// modallerde Escape/GERİ yalnızca en üstteki modala etki etmeli).
-function AddMediaMenu({ lang, onPickVideo, onPickImage, onPickPixabay, onClose }) {
-  const ref = useRef(null)
-  useModalA11y(ref, onClose)
-  const tr = lang === 'tr'
-  return (
-    <div
-      ref={ref}
-      className="vve-add-menu-backdrop"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="vve-add-menu">
-        <button className="vve-add-menu-item" onClick={onPickVideo}>🎬 {tr ? 'Cihazdan Video' : 'Video from Device'}</button>
-        <button className="vve-add-menu-item" onClick={onPickImage}>🖼️ {tr ? 'Cihazdan Görsel' : 'Image from Device'}</button>
-        <button className="vve-add-menu-item" onClick={onPickPixabay}>🔎 {tr ? "Pixabay'den Ara" : 'Search Pixabay'}</button>
-      </div>
-    </div>
-  )
-}
-
-export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChanged }) {
+export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChanged, initialMedia = [] }) {
   const rootRef = useRef(null)
   const hiddenMediaRef = useRef(null)
   useModalA11y(rootRef, onClose)
@@ -330,6 +305,17 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       state.clips.push(clip)
       renderAll()
     }
+
+    // Vizyon oluşturma akışında (CreateGoalModal) medya önceden seçilmiş
+    // olabilir — bu durumda editör boş değil, o klipler hazır şekilde
+    // açılsın. URL'ler ya blob: (cihazdan, henüz yüklenmemiş) ya da https:
+    // (Pixabay'den zaten indirilip önbelleğe alınmış) olabilir; her ikisi de
+    // addClipFromFile/createImageClip'in zaten kabul ettiği türden.
+    initialMedia.forEach((item) => {
+      if (!item?.url) return
+      if (item.type === 'image') createImageClip(item.url, item.name || 'Görsel')
+      else createVideoClipFromUrl(item.url, item.name || 'Video')
+    })
 
     function generateThumbnail(clip) {
       const v = clip.videoEl
@@ -1625,12 +1611,6 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
         .vve-progress-fill{ height:100%; width:0%; background:var(--vve-accent-2); transition:width 0.2s; }
         .vve-progress-fill.success{ background:var(--vve-success); }
         .vve-export-done{ display:flex; gap:8px; }
-
-        .vve-add-menu-backdrop{ position:fixed; inset:0; background:rgba(4,6,14,0.6); z-index:215; display:flex; align-items:flex-end; justify-content:center; }
-        .vve-add-menu{ background:var(--vve-panel); border:1px solid var(--vve-border); border-radius:16px 16px 0 0; width:100%; max-width:420px; padding:10px; display:flex; flex-direction:column; gap:4px; }
-        @media(min-width:640px){ .vve-add-menu-backdrop{ align-items:center; } .vve-add-menu{ border-radius:16px; margin-bottom:0; } }
-        .vve-add-menu-item{ background:transparent; border:none; color:var(--vve-text); text-align:left; padding:14px 12px; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:10px; font-family:inherit; }
-        .vve-add-menu-item:hover{ background:var(--vve-panel-2); }
 
         .vve-toast{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--vve-panel-2); border:1px solid var(--vve-border); color:var(--vve-text); padding:10px 18px; border-radius:9999px; font-size:13px; opacity:0; pointer-events:none; transition:all 0.25s; z-index:220; max-width:85vw; text-align:center; }
         .vve-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
