@@ -12,6 +12,7 @@ import DreamCard from '@/components/DreamCard'
 import TextSkeleton from '@/components/TextSkeleton'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
+import Seo from '@/components/Seo'
 
 export default function PublicProfilePage() {
   const router = useRouter()
@@ -121,6 +122,13 @@ export default function PublicProfilePage() {
 
   return (
     <div className="min-h-screen bg-black">
+      {/* noindex: bu rota şu anda oturum açmamış ziyaretçiyi /auth'a
+          yönlendiriyor (yukarıda `if (!viewer) router.push('/auth')`), yani
+          Google'ın görebileceği bir şey yok. İleride profiller herkese açık
+          (girişsiz görüntülenebilir) hale getirilirse noindex kaldırılıp
+          sitemap.xml'e eklenebilir — kullanıcı adı bazlı profil sayfaları
+          sosyal bir uygulama için değerli bir SEO yüzeyi olurdu. */}
+      <Seo title="Kullanıcı Profili" noindex />
       <div className="max-w-4xl mx-auto px-4 py-8">
         {loading || !profile ? (
           <div className="flex justify-center py-20">
