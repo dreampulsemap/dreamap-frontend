@@ -13,10 +13,10 @@ import GoalDetailModal from '@/components/GoalDetailModal'
 import CreateGoalModal from '@/components/CreateGoalModal'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import TextSkeleton from '@/components/TextSkeleton'
-import Seo from '@/components/Seo'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
+import PsycheMap from '@/components/PsycheMap'
 
 const BATCH_SIZE = 12;
 
@@ -393,7 +393,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
-      <Seo title="Profilim" noindex />
       <div className="max-w-4xl mx-auto px-4 py-8">
         
         {/* INSTAGRAM TARZI PROFİL BAŞLIĞI */}
@@ -585,6 +584,7 @@ export default function ProfilePage() {
           </div>
         ) : (
         <>
+        {mounted && <div className="mb-4"><PsycheMap lang={lang} /></div>}
         {/* 3 KOLONLU PROFİL IZGARASI (INSTAGRAM GRID) */}
         {dreams.length === 0 ? (
           <div className="text-center py-20 text-white/40 text-sm">
@@ -709,7 +709,6 @@ export default function ProfilePage() {
               dream={activeDream} 
               lang={lang} 
               currentUserId={user?.id}
-              owner={profile}
               onTranslate={() => {}}
               translating={false}
               translated={false}
