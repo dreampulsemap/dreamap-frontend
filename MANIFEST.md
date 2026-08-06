@@ -827,4 +827,87 @@ edilmedi — özellikle XHR upload'ın gerçek bir Supabase projesinde (RLS,
 `apikey` header'ı) beklendiği gibi çalıştığı, ve video poster
 çıkarımının farklı codec'lerde (H.264 dışı) sorunsuz çalıştığı doğrulanmalı.
 
+## 23) PERFORMANCE_FIXES.md'deki iddiaların tek tek doğrulanması (YENİ)
+
+Els: "o yapıldığı iddia edilip yapılmamış iyileştirmeleri de yap." Sekiz
+maddenin her birini TEK TEK, gerçek kod ve canlı DB durumuna bakarak
+doğruladım (PERFORMANCE_FIXES.md'nin kendisine güvenmeden). Sonuç
+beklediğimden karışıktı — bazı maddeler gerçekten yapılmış (ama bu oturumdan
+ÖNCE, muhtemelen bu konuşmanın çok daha erken bir yerinde), bazıları hiç
+yapılmamış, bir tanesi de dosyada "yapıldı" yazsa da GERÇEKTE ÇALIŞMIYORDU.
+
+**1) N+1 sorgular (like.js/comment.js) — YAPILMIŞ, ama altında GERÇEK bir
+bug buldum ve düzelttim.** `pages/api/like.js` zaten "trigger'a güven, tek
+sorguyla say" desenini kullanıyordu. Ama bu deseni mümkün kılan
+`update_dream_counts()` DB fonksiyonunun kendisinde ciddi bir hata vardı:
+DELETE işleminde (beğeni geri alma / yorum silme) `NEW.dream_id`
+kullanıyordu — DELETE'te NEW hata vermeyen ama TÜM ALANLARI NULL bir kayıt,
+yani `WHERE id = NULL` hiçbir satıra uymuyor ve sayaç SESSİZCE
+güncellenmiyordu. Yıllardır (ya da en azından bug'ın başından beri) beğeni
+geri alma / yorum silme işlemlerinde `dreams.likes_count` /
+`comments_count` hiç azalmıyor, sadece artıyordu. İzole geçici bir test
+tablosuyla önce hatayı, sonra düzeltmeyi (`COALESCE(NEW.x, OLD.x)` —
+`goals` tarafındaki `handle_goal_comment_change()` zaten bu deseni doğru
+kullanıyor) doğruladım, canlıya `fix_update_dream_counts_delete_bug`
+migration'ıyla uyguladım VE tüm mevcut `dreams` satırlarının sayaçlarını
+gerçek satır sayılarıyla tek seferlik eşitledim (geriye dönük düzeltme —
+kendi kendine iyileşmeyi beklemedim). Doğrulama sorgusu: eşleşmeyen sıfır
+satır kaldı.
+
+**2) "Feed loading'i optimize et / FriendshipCache" — YANLIŞ TEŞHİS,
+UYGULAMADIM.** `pages/index.js`'de zaten HİÇBİR arkadaşlık sorgusu yok
+(bu mantık sunucu tarafında `/api/home-feed` ve `/api/goals/list`'te,
+istek başına zaten TEK sorgu olarak çalışıyor — tekrarlanan bir N+1 deseni
+bulamadım). Ayrıca bellek-içi bir "cache class" Vercel'in serverless
+fonksiyon modelinde (her istek farklı bir fonksiyon örneğine düşebilir)
+güvenilir çalışmaz — kurulsa bile "bazen isabet, bazen ıskalama" gibi
+belirsiz bir davranış verir. Düzeltilecek somut bir sorun bulamadığım için
+uydurma bir "cache" eklemedim.
+
+**3) Sınırsız DB sorguları (prophet.js / mental-wall) — ZATEN YAPILMIŞ.**
+İkisi de zaten açık `limit()`, sadece gereken kolonları seçme ve (prophet.js
+için) `AbortController` ile 45sn timeout içeriyor. Bu, PERFORMANCE_FIXES.md
+yazılmadan ÖNCE yapılmış görünüyor.
+
+**4-5) Hydration flashing + useEffect temizliği (auth.js) — ZATEN
+YAPILMIŞ.** `mounted` state + `if (!mounted) return null` deseni ve
+`onAuthStateChange` aboneliğinin `unsubscribe()` ile düzgün temizlenmesi
+zaten yerinde.
+
+**6) Görsel optimizasyonu (lib/imageOptimization.js) — YARIM BIRAKILMIŞ,
+ÜSTELİK KULLANILSAYDI KIRIK OLACAKTI. Şimdi düzelttim.** Dosya hiçbir
+yerde import edilmiyordu (yetim). Daha kötüsü: `placeholder: 'blur'`
+varsayılanı next/image'da bu projedeki HER görsel gibi (Supabase
+Storage/Pixabay, statik import değil) `blurDataURL` olmadan ÇALIŞMA
+ZAMANI hatası fırlatır. Bu varsayılanı kaldırdım, çağıran taraf isterse
+kendi blurDataURL'ini geçebilir diye yorumla açıkladım. `DreamCard`,
+`GoalCard`, `globe.js`, `explore.js` gibi yerlerde `<img>`'den
+`next/image`'a geçiş YAPMADIM — bu, her bileşenin kendi layout/aspect-ratio
+varsayımlarını bozabilecek büyük ve ayrı bir iş; aceleye getirip regresyon
+riski almak yerine ayrı, odaklı bir turda yapılmalı.
+
+**7) AI çağrılarında timeout/retry (lib/aiClient.js) — KISMEN YAPILMIŞ,
+prophet.js'e UYGULAMADIM (bilerek).** `lib/aiClient.js` gerçek ve makul
+(timeout + üstel geri çekilmeli retry), `mental-wall/generate.js` zaten
+kullanıyor. AMA `aiClient.js` sabit olarak OpenAI'a (`api.openai.com`,
+`gpt-4o-mini`) yazılmış; `prophet.js` ise Groq kullanıyor
+(`api.groq.com`, `llama-3.1-8b-instant`). Bunu prophet.js'e "entegre etmek"
+aslında AI sağlayıcısını SESSİZCE OpenAI'a çevirmek olurdu — kimsenin
+istemediği bir davranış/maliyet değişikliği. prophet.js zaten kendi
+timeout'unu doğru yapıyor, dokunmadım.
+
+**8) Eşzamanlı API çağrıları — madde 2 ile aynı gerekçeyle
+uygulanmadı** (somut bir sorun bulunamadı).
+
+**Değişen dosya:** sadece `lib/imageOptimization.js`. DB tarafında
+`fix_update_dream_counts_delete_bug` migration'ı canlıya uygulandı (kod
+değişikliği gerektirmiyor, mevcut like.js/comment.js zaten trigger'a
+güveniyordu).
+
+Yan not (düzeltmedim, bilgi amaçlı): `daily_prophecy` tablosunda "Allow
+public insert" politikası `with_check: true` ile TAMAMEN açık — herkes
+(anonim dahil) doğrudan sahte bir "kehanet" satırı ekleyebilir. prophet.js
+zaten GROQ_KEY + "bugün var mı" kontrolü arkasında çalıştığı için pratik
+risk düşük, ama bilerek daraltılmamışsa sıkılaştırmak isteyebilirsin.
+
 
