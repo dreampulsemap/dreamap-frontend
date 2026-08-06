@@ -49,7 +49,24 @@ async function fetchDreams({ userId, allowedUserIds, before }) {
 
   const { data, error } = await query
   if (error) throw error
-  return (data || []).map((d) => ({ ...d, feed_type: 'dream' }))
+  let dreams = (data || []).map((d) => ({ ...d, feed_type: 'dream' }))
+
+  // Instagram tarzı gönderi başlığı (avatar + isim) için: aynı toplu-sorgu
+  // deseni fetchVisions'daki owner ekleme ile birebir aynı — sayfa başına en
+  // fazla PER_SOURCE_BATCH kayıt olduğu için ucuz tek sorgu.
+  if (dreams.length > 0) {
+    const ownerIds = [...new Set(dreams.map((d) => d.user_id))]
+    const { data: owners } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', ownerIds)
+
+    const ownerMap = {}
+    for (const o of owners || []) ownerMap[o.id] = o
+    dreams = dreams.map((d) => ({ ...d, owner: ownerMap[d.user_id] || null }))
+  }
+
+  return dreams
 }
 
 async function fetchVisions({ userId, allowedUserIds, before }) {
