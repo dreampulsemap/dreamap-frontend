@@ -54,6 +54,24 @@ function applyImageQualityFilter(query, includeNoImage) {
   return q
 }
 
+// Instagram Explore'da bir gönderi açıldığında üstte paylaşanın avatarı +
+// kullanıcı adı görünür (bkz. components/DreamCard.jsx'teki yeni AuthorHeader).
+// Izgara karoları (ExploreImageTile) kasıtlı olarak sahip göstermiyor — gerçek
+// Instagram Explore ızgarası da göstermiyor — ama bir rüya açılınca modal'ın
+// bu veriye ihtiyacı var. Sayfa başına en fazla BATCH_SIZE kayıt olduğu için
+// tek toplu sorgu ucuz.
+async function attachOwners(dreams) {
+  if (!dreams.length) return dreams
+  const ownerIds = [...new Set(dreams.map((d) => d.user_id))]
+  const { data: owners } = await supabaseAdmin
+    .from('user_profiles')
+    .select('id, username, display_name, avatar_url')
+    .in('id', ownerIds)
+  const ownerMap = {}
+  for (const o of owners || []) ownerMap[o.id] = o
+  return dreams.map((d) => ({ ...d, owner: ownerMap[d.user_id] || null }))
+}
+
 function passesImageQuality(dream) {
   // width/height bilinmiyorsa (çoğu AI-üretilen eski kayıt) filtreleme
   // yapmıyoruz — yalnızca BİLDİĞİMİZ düşük çözünürlüklü görselleri eleriz.
@@ -235,7 +253,7 @@ export default async function handler(req, res) {
 
       const fetched = (data || []).filter(passesImageQuality)
       return res.status(200).json({
-        dreams: fetched,
+        dreams: await attachOwners(fetched),
         page: pageNum,
         hasMore: fetched.length === BATCH_SIZE,
         rankToken: rankToken || null,
@@ -278,7 +296,7 @@ export default async function handler(req, res) {
     const hasMore = to + 1 < ranked.length || ranked.length === RANK_POOL_SIZE
 
     return res.status(200).json({
-      dreams: pageSlice,
+      dreams: await attachOwners(pageSlice),
       page: pageNum,
       hasMore,
       rankToken: authedUser ? encodeRankToken(affinity) : null,
