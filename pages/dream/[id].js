@@ -1,8 +1,50 @@
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import DreamAnalysisView from '@/components/DreamAnalysisView'
+import Seo from '@/components/Seo'
+import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
-export default function DreamDetailPage() {
+// SEO NOTU: Bu sayfa bilerek noindex. `premium_deep_analysis` alanı
+// shadow_focus / core_conflict / hidden_self gibi oldukça kişisel,
+// psikolojik içerik barındırıyor ve pages/api/get-dream.js herhangi bir
+// sahiplik/görünürlük kontrolü yapmadan id ile herkese döndürüyor — yani bu
+// içeriğin Google'da arama sonucuna düşmesini istemiyoruz. Yine de bir
+// kullanıcı kendi linkini paylaştığında WhatsApp/Twitter'da düzgün bir
+// önizleme (başlık/açıklama) çıksın diye getServerSideProps ile sunucu
+// tarafında hafif bir veri çekiyoruz — mevcut istemci tarafı fetch (aşağıdaki
+// useEffect) elle dokunulmadan aynen duruyor, asıl ekrana basılan içeriği o
+// besliyor; SSR verisi yalnızca <Seo> için kullanılıyor.
+export async function getServerSideProps({ params }) {
+  const { id } = params
+
+  try {
+    const { data: dream } = await supabaseAdmin
+      .from('dreams')
+      .select('ai_title, content, premium_deep_analysis, premium_deep_analysis_lang')
+      .eq('id', id)
+      .single()
+
+    if (!dream) return { props: {} }
+
+    const lang = dream.premium_deep_analysis_lang || 'tr'
+    const getVal = (v) => {
+      if (!v) return ''
+      if (typeof v === 'string') return v
+      return v[lang] || v.tr || v.en || Object.values(v)[0] || ''
+    }
+
+    const analysis = dream.premium_deep_analysis
+    const seoTitle = (analysis && getVal(analysis.title)) || dream.ai_title || null
+    const rawDescription = (analysis && getVal(analysis.summary)) || dream.content || ''
+    const seoDescription = rawDescription ? rawDescription.slice(0, 155).trim() : null
+
+    return { props: { seoTitle, seoDescription } }
+  } catch {
+    return { props: {} }
+  }
+}
+
+export default function DreamDetailPage({ seoTitle, seoDescription }) {
   const router = useRouter()
   const { id } = router.query
 
@@ -48,59 +90,77 @@ export default function DreamDetailPage() {
     }
   }, [id])
 
+  const seo = (
+    <Seo
+      title={seoTitle || 'Rüya Analizi'}
+      description={seoDescription || 'Lunosfer üzerinde paylaşılan, yapay zekâ destekli bir Jung rüya analizi.'}
+      type="article"
+      noindex
+    />
+  )
+
   if (loading) {
     return (
-      <div
-        className="full-height-mobile-safe"
-        style={{
-          background: '#0D1018',
-          color: '#F8F5EF',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 18,
-        }}
-      >
-        Yükleniyor...
-      </div>
+      <>
+        {seo}
+        <div
+          className="full-height-mobile-safe"
+          style={{
+            background: '#0D1018',
+            color: '#F8F5EF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 18,
+          }}
+        >
+          Yükleniyor...
+        </div>
+      </>
     )
   }
 
   if (error) {
     return (
-      <div
-        className="full-height-mobile-safe"
-        style={{
-          background: '#0D1018',
-          color: '#F8F5EF',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 24,
-          textAlign: 'center',
-          fontSize: 18,
-        }}
-      >
-        Hata: {error}
-      </div>
+      <>
+        {seo}
+        <div
+          className="full-height-mobile-safe"
+          style={{
+            background: '#0D1018',
+            color: '#F8F5EF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            textAlign: 'center',
+            fontSize: 18,
+          }}
+        >
+          Hata: {error}
+        </div>
+      </>
     )
   }
 
   if (!dream) {
     return (
-      <div
-        className="full-height-mobile-safe"
-        style={{
-          background: '#0D1018',
-          color: '#F8F5EF',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 18,
-        }}
-      >
-        Rüya bulunamadı.
-      </div>
+      <>
+        {seo}
+        <div
+          className="full-height-mobile-safe"
+          style={{
+            background: '#0D1018',
+            color: '#F8F5EF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 18,
+          }}
+        >
+          Rüya bulunamadı.
+        </div>
+      </>
     )
   }
 
@@ -111,51 +171,62 @@ export default function DreamDetailPage() {
   // sayfaya yönlendirdiği için etkisi büyüktü.
   if (dream.premium_deep_analysis_status === 'pending' || dream.premium_deep_analysis_status === 'processing') {
     return (
-      <div
-        className="full-height-mobile-safe"
-        style={{
-          background: '#0D1018',
-          color: '#F8F5EF',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          fontSize: 18,
-        }}
-      >
-        <div>Analiziniz hazırlanıyor...</div>
-        <div style={{ fontSize: 13, opacity: 0.6 }}>Bu birkaç dakika sürebilir, bittiğinde bildirim gelecek.</div>
-      </div>
+      <>
+        {seo}
+        <div
+          className="full-height-mobile-safe"
+          style={{
+            background: '#0D1018',
+            color: '#F8F5EF',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 12,
+            fontSize: 18,
+          }}
+        >
+          <div>Analiziniz hazırlanıyor...</div>
+          <div style={{ fontSize: 13, opacity: 0.6 }}>Bu birkaç dakika sürebilir, bittiğinde bildirim gelecek.</div>
+        </div>
+      </>
     )
   }
 
   if (dream.premium_deep_analysis_status === 'failed') {
     return (
-      <div
-        className="full-height-mobile-safe"
-        style={{
-          background: '#0D1018',
-          color: '#F8F5EF',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 10,
-          padding: 24,
-          textAlign: 'center',
-          fontSize: 18,
-        }}
-      >
-        <div>Analiz oluşturulamadı. Auralarınız iade edildi, tekrar deneyebilirsiniz.</div>
-        {dream.premium_deep_analysis_error && (
-          <div style={{ fontSize: 13, opacity: 0.6, maxWidth: 480 }}>
-            Sebep: {dream.premium_deep_analysis_error}
-          </div>
-        )}
-      </div>
+      <>
+        {seo}
+        <div
+          className="full-height-mobile-safe"
+          style={{
+            background: '#0D1018',
+            color: '#F8F5EF',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            padding: 24,
+            textAlign: 'center',
+            fontSize: 18,
+          }}
+        >
+          <div>Analiz oluşturulamadı. Auralarınız iade edildi, tekrar deneyebilirsiniz.</div>
+          {dream.premium_deep_analysis_error && (
+            <div style={{ fontSize: 13, opacity: 0.6, maxWidth: 480 }}>
+              Sebep: {dream.premium_deep_analysis_error}
+            </div>
+          )}
+        </div>
+      </>
     )
   }
 
-  return <DreamAnalysisView analysis={dream.premium_deep_analysis} lang={dream.premium_deep_analysis_lang || 'tr'} />
+  return (
+    <>
+      {seo}
+      <DreamAnalysisView analysis={dream.premium_deep_analysis} lang={dream.premium_deep_analysis_lang || 'tr'} />
+    </>
+  )
 }
