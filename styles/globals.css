@@ -216,4 +216,15 @@ h1, h2, h3, h4, .font-serif {
 }
 .animate-tap-flash { animation: tap-flash 0.45s ease-out forwards; }
 
+/* VisionVideoPlayer.jsx: videoya çift dokununca dokunulan noktada beliren
+   beğeni patlaması — Reels/TikTok'taki kalp animasyonu gibi. */
+@keyframes heart-burst {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  25% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  40% { transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -60%) scale(1.05); }
+}
+.animate-heart-burst { animation: heart-burst 0.7s ease-out forwards; }
+
+
 
