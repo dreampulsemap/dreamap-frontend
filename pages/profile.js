@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Heart, MessageCircle, Moon, Sparkles, Users } from 'lucide-react'
+import { Bookmark, Heart, MessageCircle, Moon, Sparkles, Users } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { supabase, auth } from '@/lib/supabase'
@@ -16,6 +16,7 @@ import TextSkeleton from '@/components/TextSkeleton'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
+import DiaryStoryViewer from '@/components/DiaryStoryViewer'
 import PsycheMap from '@/components/PsycheMap'
 
 const BATCH_SIZE = 12;
@@ -94,6 +95,11 @@ export default function ProfilePage() {
   const [goals, setGoals] = useState([])
   const [goalsLoading, setGoalsLoading] = useState(true)
   const [goalsLoaded, setGoalsLoaded] = useState(false)
+  const [savedGoals, setSavedGoals] = useState([])
+  const [savedLoading, setSavedLoading] = useState(false)
+  const [savedLoaded, setSavedLoaded] = useState(false)
+  const [diaryEntries, setDiaryEntries] = useState(null) // null = henüz kontrol edilmedi
+  const [diaryViewer, setDiaryViewer] = useState(null)
   const [activeGoal, setActiveGoal] = useState(null)
   const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
   const [activeVideoGoal, setActiveVideoGoal] = useState(null)
@@ -170,6 +176,53 @@ export default function ProfilePage() {
     }
   }, [])
 
+  // "Kaydedilenler" sekmesi ilk açıldığında yükleniyor (her profil
+  // ziyaretinde değil) — Instagram'daki gibi bu yalnızca kendi hesabına
+  // özel, u/[userId].js'de hiç yok.
+  const loadSavedGoals = useCallback(async () => {
+    setSavedLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/goals/saved', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const json = await res.json()
+      if (res.ok) setSavedGoals(json.goals || [])
+    } catch (err) {
+      console.error('Saved goals load error:', err)
+    } finally {
+      setSavedLoading(false)
+      setSavedLoaded(true)
+    }
+  }, [])
+
+  function handleSelectTab(tab) {
+    setProfileTab(tab)
+    if (tab === 'saved' && !savedLoaded) loadSavedGoals()
+  }
+
+  // Kendi güncenin olup olmadığını kontrol et — avatarın etrafında bir
+  // halka olarak göster, DiaryStoryRow'daki ile aynı görsel dil.
+  const loadOwnDiary = useCallback(async (userId) => {
+    try {
+      const res = await fetch(`/api/diary/list-for-user?userId=${userId}`)
+      const json = await res.json()
+      if (res.ok) setDiaryEntries(json.entries || [])
+    } catch (err) {
+      console.error('Diary check error:', err)
+      setDiaryEntries([])
+    }
+  }, [])
+
+  function openOwnDiary() {
+    if (!diaryEntries || diaryEntries.length === 0 || !user) return
+    setDiaryViewer({
+      groups: [{ userId: user.id, displayName: profile?.display_name, username: displayUsername, avatarUrl: displayAvatar, isSelf: true }],
+      startIndex: 0,
+    })
+  }
+
   const loadMoreDreams = useCallback(async () => {
     if (loadingMore || !hasMore || !user?.id) return
     setLoadingMore(true)
@@ -225,7 +278,8 @@ export default function ProfilePage() {
         await Promise.all([
           loadDreams(currentUser.id, 0, false),
           loadGoals(),
-          loadFriends(currentUser.id)
+          loadFriends(currentUser.id),
+          loadOwnDiary(currentUser.id),
         ])
       } catch (err) {
         console.error('Profile load error:', err)
@@ -398,13 +452,21 @@ export default function ProfilePage() {
         {/* INSTAGRAM TARZI PROFİL BAŞLIĞI */}
         <div className={`flex flex-col sm:flex-row items-center gap-6 sm:gap-10 border-b border-white/10 pb-8 mb-6 relative transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           <div className="shrink-0 relative group">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-2 border-brand-primary-500 bg-white/5 shadow-[0_0_20px_rgba(240,73,214,0.15)] flex items-center justify-center">
-              {displayAvatar ? (
-                <img src={displayAvatar} alt={displayUsername} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-4xl">🌌</span>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={diaryEntries && diaryEntries.length > 0 ? openOwnDiary : undefined}
+              className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full ${diaryEntries && diaryEntries.length > 0 ? 'p-[2.5px] cursor-pointer' : 'cursor-default'}`}
+              style={diaryEntries && diaryEntries.length > 0 ? { background: 'conic-gradient(from 0deg, #FFF6D6, #E6C687, #B89753, #E6C687, #FFF6D6)' } : undefined}
+              aria-label={diaryEntries && diaryEntries.length > 0 ? (lang === 'tr' ? 'Güncemi gör' : 'View my diary') : undefined}
+            >
+              <div className="w-full h-full rounded-full overflow-hidden border-2 border-brand-primary-500 bg-white/5 shadow-[0_0_20px_rgba(240,73,214,0.15)] flex items-center justify-center">
+                {displayAvatar ? (
+                  <img src={displayAvatar} alt={displayUsername} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-4xl">🌌</span>
+                )}
+              </div>
+            </button>
           </div>
 
           <div className="flex-1 min-w-0 text-center sm:text-left">
@@ -551,7 +613,7 @@ export default function ProfilePage() {
         {/* PROFİL SEKMELERİ (Instagram grid/tagged tarzı) — Vizyon Panosu varsayılan */}
         <div className="flex items-center justify-center gap-8 border-t border-white/10 mb-4">
           <button
-            onClick={() => setProfileTab('vision')}
+            onClick={() => handleSelectTab('vision')}
             className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
               profileTab === 'vision' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
@@ -559,12 +621,20 @@ export default function ProfilePage() {
             <Sparkles size={13} /> {mounted ? (lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board') : <TextSkeleton width="w-20" />}
           </button>
           <button
-            onClick={() => setProfileTab('dreams')}
+            onClick={() => handleSelectTab('dreams')}
             className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
               profileTab === 'dreams' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
             <Moon size={13} /> {mounted ? (lang === 'tr' ? 'Rüyalar' : 'Dreams') : <TextSkeleton width="w-14" />}
+          </button>
+          <button
+            onClick={() => handleSelectTab('saved')}
+            className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
+              profileTab === 'saved' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            <Bookmark size={13} /> {mounted ? (lang === 'tr' ? 'Kaydedilenler' : 'Saved') : <TextSkeleton width="w-16" />}
           </button>
         </div>
 
@@ -601,7 +671,7 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
-        ) : (
+        ) : profileTab === 'dreams' ? (
         <>
         {mounted && <div className="mb-4"><PsycheMap lang={lang} /></div>}
 
@@ -650,6 +720,30 @@ export default function ProfilePage() {
           </div>
         )}
         </>
+        ) : (
+          <div className={`transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
+            {savedLoading && !savedLoaded ? (
+              <div className="py-20 flex justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-primary-400 border-t-transparent" />
+              </div>
+            ) : savedGoals.length === 0 ? (
+              <div className="text-center py-20 text-white/40 text-sm">
+                {lang === 'tr' ? 'Henüz kaydettiğin bir vizyon yok.' : "You haven't saved any visions yet."}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+                {savedGoals.map((goal) => (
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    lang={lang}
+                    currentUserId={user?.id}
+                    onOpenGoal={handleOpenGoal}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -777,6 +871,16 @@ export default function ProfilePage() {
             setActiveVideoGoal(null)
             setActiveGoal(g || activeVideoGoal)
           }}
+        />
+      )}
+
+      {diaryViewer && (
+        <DiaryStoryViewer
+          groups={diaryViewer.groups}
+          startIndex={diaryViewer.startIndex}
+          lang={lang}
+          currentUserId={user?.id}
+          onClose={() => setDiaryViewer(null)}
         />
       )}
 
