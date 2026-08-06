@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+
+# API rotaları — içerik değil, taranmasının hiçbir SEO faydası yok
+Disallow: /api/
+
+# Yönetim ve iç test/araç sayfaları — herkese açık değil
+Disallow: /admin
+Disallow: /analizetgulum
+Disallow: /gorseltamiri
+Disallow: /gumroad-test
+
+# Not: /dream/, /u/, /profile, /messages, /add-dream, /vision-board bilerek
+# burada engellenmedi. Bunlar yerine sayfa başına <meta name="robots"
+# content="noindex"> kullanılıyor (bkz. components/Seo.jsx) — çünkü
+# robots.txt üzerinden engellemek Google'ın sayfayı hiç taramasını
+# engelliyor, bu da noindex etiketini görmesini de engelliyor; başka bir
+# yerden bu sayfalara link verilirse Google onu yine de (içeriksiz, sadece
+# URL olarak) sonuçlarda gösterebiliyor. noindex için crawl izni gerekir.
+
+Sitemap: https://lunosfer.com/sitemap.xml
