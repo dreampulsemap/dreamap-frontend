@@ -12,6 +12,7 @@ import DreamCard from '@/components/DreamCard'
 import TextSkeleton from '@/components/TextSkeleton'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
+import DiaryStoryViewer from '@/components/DiaryStoryViewer'
 import Seo from '@/components/Seo'
 
 export default function PublicProfilePage() {
@@ -37,6 +38,8 @@ export default function PublicProfilePage() {
   const [activeGoal, setActiveGoal] = useState(null)
   const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
   const [activeVideoGoal, setActiveVideoGoal] = useState(null)
+  const [diaryEntries, setDiaryEntries] = useState(null) // null = henüz kontrol edilmedi
+  const [diaryViewer, setDiaryViewer] = useState(null)
   // Video varsa oynatıcıya, yoksa eski slaytı varsa SlidesViewer'a, o da
   // yoksa detay modalına düş — bkz. vision-board.js'teki aynı desen.
   function handleOpenGoal(goal) {
@@ -58,9 +61,10 @@ export default function PublicProfilePage() {
       const { data: { session } } = await supabase.auth.getSession()
       const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {}
 
-      const [profileRes, goalsRes] = await Promise.all([
+      const [profileRes, goalsRes, diaryRes] = await Promise.all([
         fetch(`/api/public-profile/${userId}`, { headers }),
         fetch(`/api/goals/list?mode=user&userId=${userId}`, { headers }),
+        fetch(`/api/diary/list-for-user?userId=${userId}`, { headers }),
       ])
 
       const profileJson = await profileRes.json()
@@ -81,6 +85,9 @@ export default function PublicProfilePage() {
 
       const goalsJson = await goalsRes.json()
       if (goalsRes.ok) setGoals(goalsJson.goals || [])
+
+      const diaryJson = await diaryRes.json()
+      if (diaryRes.ok) setDiaryEntries(diaryJson.entries || [])
     } catch (err) {
       setNotFound(true)
     } finally {
@@ -91,6 +98,14 @@ export default function PublicProfilePage() {
   useEffect(() => {
     if (router.isReady) loadProfile()
   }, [router.isReady, loadProfile])
+
+  function openDiary() {
+    if (!diaryEntries || diaryEntries.length === 0 || !profile) return
+    setDiaryViewer({
+      groups: [{ userId, displayName: profile.display_name, username: profile.username, avatarUrl: profile.avatar_url }],
+      startIndex: 0,
+    })
+  }
 
   async function handleFollow() {
     if (!viewer) { router.push('/auth'); return }
@@ -138,13 +153,21 @@ export default function PublicProfilePage() {
           <>
             {/* PROFİL BAŞLIĞI */}
             <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-10 border-b border-white/10 pb-8 mb-6">
-              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-brand-primary-600 to-brand-accent-800 flex items-center justify-center text-white font-bold text-3xl overflow-hidden shrink-0">
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt={profile.username} className="w-full h-full object-cover" />
-                ) : (
-                  (profile.display_name || profile.username || '?').charAt(0).toUpperCase()
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={diaryEntries && diaryEntries.length > 0 ? openDiary : undefined}
+                className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full shrink-0 ${diaryEntries && diaryEntries.length > 0 ? 'p-[2.5px] cursor-pointer' : 'cursor-default'}`}
+                style={diaryEntries && diaryEntries.length > 0 ? { background: 'conic-gradient(from 0deg, #FFF6D6, #E6C687, #B89753, #E6C687, #FFF6D6)' } : undefined}
+                aria-label={diaryEntries && diaryEntries.length > 0 ? (lang === 'tr' ? 'Güncesini gör' : 'View diary') : undefined}
+              >
+                <div className="w-full h-full rounded-full bg-gradient-to-br from-brand-primary-600 to-brand-accent-800 flex items-center justify-center text-white font-bold text-3xl overflow-hidden">
+                  {profile.avatar_url ? (
+                    <img src={profile.avatar_url} alt={profile.username} className="w-full h-full object-cover" />
+                  ) : (
+                    (profile.display_name || profile.username || '?').charAt(0).toUpperCase()
+                  )}
+                </div>
+              </button>
               <div className="flex-1 text-center sm:text-left">
                 <h1 className="text-2xl font-bold text-white">{profile.display_name || profile.username}</h1>
                 {profile.username && <p className="text-slate-500 text-sm">@{profile.username}</p>}
@@ -266,6 +289,16 @@ export default function PublicProfilePage() {
             setActiveVideoGoal(null)
             setActiveGoal(g || activeVideoGoal)
           }}
+        />
+      )}
+
+      {diaryViewer && (
+        <DiaryStoryViewer
+          groups={diaryViewer.groups}
+          startIndex={diaryViewer.startIndex}
+          lang={lang}
+          currentUserId={viewer?.id}
+          onClose={() => setDiaryViewer(null)}
         />
       )}
 
