@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import {
+  X, Plus, Scissors, Trash2, Wand2, Type, Music2, SlidersHorizontal, ChevronDown, Download,
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
 import { uploadVisionVideo, getVisionVideoErrorMessage } from '@/lib/uploadVisionVideo'
@@ -108,7 +110,7 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
     const state = {
       clips: [], texts: [], music: null,
       selectedClipId: null, selectedTextId: null,
-      playhead: 0, isPlaying: false, isExporting: false,
+      playhead: 0, isPlaying: false, isExporting: false, panelOpen: false,
       totalDuration: 0, activeTab: 'filters', ratio: '9:16', activeClipId: null,
     }
     let uidCounter = 1
@@ -144,6 +146,11 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
     const closeExportBtn = $('#vve-closeExportBtn')
     const toastEl = $('#vve-toast')
     const emptyAddBtn = $('#vve-emptyAddBtn')
+    const tapFlashEl = $('#vve-tapFlash')
+    const progressLineFill = $('#vve-progressLineFill')
+    const sidePanelEl = $('#vve-sidePanel')
+    const sheetBackdrop = $('#vve-sheetBackdrop')
+    const panelCloseBtn = $('#vve-panelCloseBtn')
     const clipBlockEls = new Map()
 
     let toastTimer = null
@@ -152,6 +159,32 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       toastEl.classList.add('show')
       clearTimeout(toastTimer)
       toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2200)
+    }
+    // Reels/TikTok tarzı kısa yanıp sönen oynat/duraklat ikonu — aynı desen
+    // VisionVideoPlayer.jsx'te (.animate-tap-flash) izleme tarafında zaten
+    // var, burada düzenleme tarafında da uygulanıyor (bkz. play()/pause()).
+    let tapFlashTimer = null
+    function showTapFlash(kind) {
+      if (!tapFlashEl) return
+      tapFlashEl.textContent = kind === 'play' ? '▶' : '❚❚'
+      tapFlashEl.classList.remove('show')
+      void tapFlashEl.offsetWidth
+      tapFlashEl.classList.add('show')
+      clearTimeout(tapFlashTimer)
+      tapFlashTimer = setTimeout(() => tapFlashEl.classList.remove('show'), 450)
+    }
+    // Araç sayfası (filtre/metin/müzik/ayarla) mobilde alttan açılan sayfa
+    // (bottom sheet); masaüstünde (≥900px) CSS bunu her zaman sabit yan
+    // panel olarak gösteriyor (bkz. .vve-side-panel media query).
+    function openPanel() {
+      state.panelOpen = true
+      sidePanelEl?.classList.add('open')
+      sheetBackdrop?.classList.add('show')
+    }
+    function closePanel() {
+      state.panelOpen = false
+      sidePanelEl?.classList.remove('open')
+      sheetBackdrop?.classList.remove('show')
     }
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -497,12 +530,14 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       }
       state.isPlaying = true
       playBtn.textContent = '❚❚'
+      showTapFlash('play')
     }
 
     function pause() {
       pauseAllVideos()
       state.isPlaying = false
       playBtn.textContent = '▶'
+      showTapFlash('pause')
     }
 
     function togglePlay() {
@@ -669,6 +704,10 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
     function updateTimeUI() {
       curTimeEl.textContent = formatTime(state.playhead)
       totalTimeEl.textContent = formatTime(state.totalDuration)
+      if (progressLineFill) {
+        const pct = state.totalDuration > 0 ? Math.min(100, (state.playhead / state.totalDuration) * 100) : 0
+        progressLineFill.style.width = pct + '%'
+      }
     }
     function updatePlayheadPosition() {
       playheadLine.style.left = (state.playhead * PPS) + 'px'
@@ -678,9 +717,13 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
     function resizeStage() {
       const rp = RATIOS[state.ratio]
       stage.width = rp[0]; stage.height = rp[1]
+      // Reels-tarzı tam ekran düzeninde üst çubuk/transport/araç rayı artık
+      // viewfinder'ın ÜSTÜNE binen mutlak konumlu katmanlar (bkz. CSS) —
+      // preview-wrap'ten ayrı flex alanı almıyorlar, o yüzden burada sadece
+      // kenarlarda nefes payı bırakacak küçük bir tampon yeterli.
       const wrapEl = viewfinder.parentElement
-      const wrapW = wrapEl.clientWidth - 28
-      const wrapH = wrapEl.clientHeight - 90
+      const wrapW = wrapEl.clientWidth - 4
+      const wrapH = wrapEl.clientHeight - 4
       let scale = Math.min(wrapW / rp[0], wrapH / rp[1], 1)
       if (scale <= 0 || !isFinite(scale)) scale = 0.3
       stage.style.width = (rp[0] * scale) + 'px'
@@ -713,10 +756,12 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       const rect = stage.getBoundingClientRect()
       const scaleX = stage.width / rect.width, scaleY = stage.height / rect.height
       const mx = (e.clientX - rect.left) * scaleX, my = (e.clientY - rect.top) * scaleY
+      let hitText = false
       for (let i = state.texts.length - 1; i >= 0; i--) {
         const tx = state.texts[i]
         if (!tx._bbox) continue
         if (mx >= tx._bbox.x && mx <= tx._bbox.x + tx._bbox.w && my >= tx._bbox.y && my <= tx._bbox.y + tx._bbox.h) {
+          hitText = true
           draggingText = tx
           state.selectedTextId = tx.id
           dragOffset.x = mx - tx.x * stage.width
@@ -726,6 +771,12 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
           renderTimelineUI()
           break
         }
+      }
+      // Reels/TikTok'ta olduğu gibi: metne denk gelmeyen bir dokunuş
+      // videoyu oynat/duraklat (bkz. showTapFlash — aynı dokunuş anında
+      // görsel karşılık verir, "algılanan kontrol" için).
+      if (!hitText && state.clips.length && !state.isExporting) {
+        togglePlay()
       }
     }
     function onStagePointerMove(e) {
@@ -995,6 +1046,7 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
       state.activeTab = tabName
       root.querySelectorAll('.vve-tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === tabName))
       root.querySelectorAll('.vve-tab-pane').forEach((p) => p.classList.toggle('active', p.dataset.pane === tabName))
+      openPanel()
     }
 
     function renderSidePanel() {
@@ -1332,6 +1384,8 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
     deleteClipBtn.addEventListener('click', onDeleteClipClick)
     exportBtn.addEventListener('click', exportVideo)
     closeExportBtn.addEventListener('click', onCloseExportClick)
+    panelCloseBtn?.addEventListener('click', closePanel)
+    sheetBackdrop?.addEventListener('click', closePanel)
 
     const ratioBtns = root.querySelectorAll('.vve-ratio-btn')
     function onRatioBtnClick(btn) {
@@ -1374,44 +1428,74 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
     <div className="vve-root" ref={rootRef} role="dialog" aria-modal="true" aria-label={tr ? 'Vizyon Videosu Editörü' : 'Vision Video Editor'}>
       <div ref={hiddenMediaRef} style={{ display: 'none' }} />
 
-      <header className="vve-topbar">
-        <button className="vve-icon-btn" onClick={onClose} aria-label={tr ? 'Kapat' : 'Close'}>
-          <X size={18} />
-        </button>
-        <div className="vve-brand">
-          {tr ? 'Vizyon Videosu' : 'Vision Video'}
-          <small>{goal?.title || ''}</small>
-        </div>
-        <button id="vve-exportBtn" className="vve-btn-export" disabled>{tr ? 'Kaydet' : 'Save'}</button>
-      </header>
-
       <div className="vve-main-area">
         <div className="vve-preview-wrap">
+          {/* Reels-tarzı tam ekran vizör: kapatma/kaydetme, araç rayı ve
+              transport artık videonun ÜSTÜNE binen yüzen katmanlar —
+              ayrı bir üst çubuk/alt çubuk sırası video alanından yer
+              çalmıyor, önizleme mümkün olduğunca ekranı kaplıyor. */}
           <div className="vve-viewfinder" id="vve-viewfinder">
             <canvas id="vve-stage" />
-            <div className="vve-corner tl" /><div className="vve-corner tr" /><div className="vve-corner bl" /><div className="vve-corner br" />
+
             <div className="vve-empty-state" id="vve-emptyState">
+              <button id="vve-emptyAddBtn" className="vve-empty-add-btn" aria-label={tr ? 'Ekle' : 'Add'}>
+                <Plus size={26} />
+              </button>
               <p>{tr ? 'Başlamak için video ya da görsel ekle, ya da buraya sürükle' : 'Add a video or image to get started, or drop it here'}</p>
-              <button id="vve-emptyAddBtn" className="vve-btn-primary">+ {tr ? 'Ekle' : 'Add'}</button>
             </div>
-          </div>
-          <div className="vve-transport">
-            <button id="vve-playBtn" className="vve-play-btn" disabled>▶</button>
-            <span className="vve-time-display"><span id="vve-curTime">0:00</span> / <span id="vve-totalTime">0:00</span></span>
-            <div className="vve-aspect-toggle">
-              <button data-ratio="9:16" className="vve-ratio-btn active">9:16</button>
-              <button data-ratio="1:1" className="vve-ratio-btn">1:1</button>
-              <button data-ratio="16:9" className="vve-ratio-btn">16:9</button>
+
+            <div className="vve-tap-flash" id="vve-tapFlash" />
+
+            <div className="vve-scrim-top" />
+            <div className="vve-float-topbar">
+              <div className="vve-float-topbar-row">
+                <button className="vve-icon-btn" onClick={onClose} aria-label={tr ? 'Kapat' : 'Close'}>
+                  <X size={19} />
+                </button>
+                <span className="vve-goal-label">{goal?.title || (tr ? 'Vizyon Videosu' : 'Vision Video')}</span>
+                <button id="vve-exportBtn" className="vve-btn-export" disabled>{tr ? 'Kaydet' : 'Save'}</button>
+              </div>
+              <div className="vve-progress-line"><div className="vve-progress-line-fill" id="vve-progressLineFill" /></div>
+            </div>
+
+            <div className="vve-tool-rail">
+              <button className="vve-tab-btn active" data-tab="filters">
+                <Wand2 size={19} /><span>{tr ? 'Filtreler' : 'Filters'}</span>
+              </button>
+              <button className="vve-tab-btn" data-tab="text">
+                <Type size={19} /><span>{tr ? 'Metin' : 'Text'}</span>
+              </button>
+              <button className="vve-tab-btn" data-tab="music">
+                <Music2 size={19} /><span>{tr ? 'Müzik' : 'Music'}</span>
+              </button>
+              <button className="vve-tab-btn" data-tab="adjust">
+                <SlidersHorizontal size={19} /><span>{tr ? 'Ayarla' : 'Adjust'}</span>
+              </button>
+            </div>
+
+            <div className="vve-scrim-bottom" />
+            <div className="vve-transport">
+              <button id="vve-playBtn" className="vve-play-btn" disabled>▶</button>
+              <span className="vve-time-display"><span id="vve-curTime">0:00</span> / <span id="vve-totalTime">0:00</span></span>
+              <div className="vve-aspect-toggle">
+                <button data-ratio="9:16" className="vve-ratio-btn active">9:16</button>
+                <button data-ratio="1:1" className="vve-ratio-btn">1:1</button>
+                <button data-ratio="16:9" className="vve-ratio-btn">16:9</button>
+              </div>
             </div>
           </div>
         </div>
 
-        <aside className="vve-side-panel">
-          <div className="vve-tabs">
-            <button className="vve-tab-btn active" data-tab="filters">{tr ? 'Filtreler' : 'Filters'}</button>
-            <button className="vve-tab-btn" data-tab="text">{tr ? 'Metin' : 'Text'}</button>
-            <button className="vve-tab-btn" data-tab="music">{tr ? 'Müzik' : 'Music'}</button>
-            <button className="vve-tab-btn" data-tab="adjust">{tr ? 'Ayarla' : 'Adjust'}</button>
+        <div className="vve-sheet-backdrop" id="vve-sheetBackdrop" />
+        {/* Mobilde alttan açılan sayfa (rayın herhangi bir ikonu açar),
+            masaüstünde (≥900px) her zaman görünen sabit yan panel —
+            bkz. CSS .vve-side-panel media query. */}
+        <aside className="vve-side-panel" id="vve-sidePanel">
+          <div className="vve-sheet-header">
+            <div className="vve-sheet-handle" />
+            <button className="vve-panel-close-btn" id="vve-panelCloseBtn" aria-label={tr ? 'Kapat' : 'Close'}>
+              <ChevronDown size={18} />
+            </button>
           </div>
           <div className="vve-tab-content">
             <div className="vve-tab-pane active" data-pane="filters" id="vve-paneFilters" />
@@ -1424,9 +1508,9 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
 
       <div className="vve-timeline-panel">
         <div className="vve-timeline-toolbar">
-          <button id="vve-addClipBtn" className="vve-tool-btn">+ {tr ? 'Ekle' : 'Add'}</button>
-          <button id="vve-splitBtn" className="vve-tool-btn" disabled>{tr ? 'Böl' : 'Split'}</button>
-          <button id="vve-deleteClipBtn" className="vve-tool-btn danger" disabled>{tr ? 'Sil' : 'Delete'}</button>
+          <button id="vve-addClipBtn" className="vve-tool-btn"><Plus size={14} /> {tr ? 'Ekle' : 'Add'}</button>
+          <button id="vve-splitBtn" className="vve-tool-btn" disabled><Scissors size={14} /> {tr ? 'Böl' : 'Split'}</button>
+          <button id="vve-deleteClipBtn" className="vve-tool-btn danger" disabled><Trash2 size={14} /> {tr ? 'Sil' : 'Delete'}</button>
           <span className="vve-spacer" />
           <span className="vve-zoom-label">{tr ? 'Zaman Çizelgesi' : 'Timeline'}</span>
         </div>
@@ -1449,7 +1533,7 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
           <p id="vve-exportStatus">{tr ? 'Hazırlanıyor…' : 'Preparing…'}</p>
           <div className="vve-progress-bar"><div className="vve-progress-fill" id="vve-progressFill" /></div>
           <div id="vve-exportDone" className="vve-export-done" hidden>
-            <a id="vve-downloadLink" className="vve-btn-secondary" download="vizyon-videosu.webm">{tr ? 'Cihaza da indir' : 'Also download'}</a>
+            <a id="vve-downloadLink" className="vve-btn-secondary" download="vizyon-videosu.webm"><Download size={14} /> {tr ? 'Cihaza da indir' : 'Also download'}</a>
             <button id="vve-closeExportBtn" className="vve-btn-primary">{tr ? 'Kapat' : 'Close'}</button>
           </div>
         </div>
@@ -1494,6 +1578,11 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
           --vve-on-accent-2: #04060E;
           --vve-danger: #f43f5e;
           --vve-success: #10b981;
+          /* Reels-dönemi katmanı: yüzen cam yüzeyler + gradyan (bkz. dosya
+             başındaki not — brand-primary/accent/secondary'den türetildi). */
+          --vve-glass: rgba(18,24,38,0.55);
+          --vve-glass-border: rgba(255,255,255,0.16);
+          --vve-gradient: linear-gradient(135deg, #d946ef 0%, #a855f7 60%, #22d3ee 100%);
           position: fixed; inset: 0; z-index: 200;
           display: flex; flex-direction: column;
           height: 100vh; height: 100dvh;
@@ -1503,50 +1592,97 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
         }
         .vve-root *{ box-sizing: border-box; }
         .vve-root button, .vve-root input, .vve-root select, .vve-root textarea { font-family: inherit; }
+        .vve-root button:focus-visible{ outline:2px solid var(--vve-accent-2); outline-offset:2px; }
 
-        .vve-topbar{ flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 16px; border-bottom:1px solid var(--vve-border); background:var(--vve-panel); }
-        .vve-icon-btn{ background:transparent; border:1px solid var(--vve-border); color:var(--vve-text-dim); width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; }
-        .vve-brand{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:19px; text-align:center; flex:1 1 auto; line-height:1.15; color:var(--vve-text); }
-        .vve-brand small{ display:block; font-family:'Plus Jakarta Sans', sans-serif; font-weight:400; font-size:10.5px; color:var(--vve-text-dim); letter-spacing:0.02em; margin-top:1px; }
-        .vve-btn-export{ background:var(--vve-accent); color:var(--vve-on-accent); border:none; font-weight:700; padding:9px 16px; border-radius:9999px; font-size:13.5px; cursor:pointer; flex:0 0 auto; }
-        .vve-btn-export:disabled{ opacity:0.4; cursor:not-allowed; }
+        .vve-icon-btn, .vve-tool-btn, .vve-btn-primary, .vve-btn-export, .vve-play-btn,
+        .vve-filter-chip, .vve-btn-small, .vve-ratio-btn, .vve-tab-btn, .vve-swatch,
+        .vve-empty-add-btn{ transition:transform 0.12s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+        .vve-icon-btn:active, .vve-tool-btn:active, .vve-btn-primary:active, .vve-btn-export:active,
+        .vve-play-btn:active, .vve-filter-chip:active, .vve-btn-small:active, .vve-ratio-btn:active,
+        .vve-tab-btn:active, .vve-swatch:active, .vve-empty-add-btn:active{ transform:scale(0.93); }
 
-        .vve-main-area{ flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+        /* ============ ANA ALAN: vizör (tam ekran) + araç sayfası ============ */
+        .vve-main-area{ flex:1 1 auto; display:flex; flex-direction:column; min-height:0; position:relative; }
         @media(min-width:900px){ .vve-main-area{ flex-direction:row; } }
 
-        .vve-preview-wrap{ flex:1 1 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:0; background:#000; position:relative; padding:14px; gap:10px; }
+        .vve-preview-wrap{ flex:1 1 auto; display:flex; align-items:center; justify-content:center; min-height:0; background:#000; position:relative; padding:0; }
         .vve-viewfinder{ position:relative; max-height:100%; max-width:100%; display:flex; align-items:center; justify-content:center; }
-        #vve-stage{ max-height:100%; max-width:100%; background:#000; border-radius:6px; display:block; touch-action:none; }
-        .vve-corner{ position:absolute; width:22px; height:22px; border:2px solid var(--vve-accent-2); opacity:0.85; pointer-events:none; }
-        .vve-corner.tl{ top:-2px; left:-2px; border-right:none; border-bottom:none; }
-        .vve-corner.tr{ top:-2px; right:-2px; border-left:none; border-bottom:none; }
-        .vve-corner.bl{ bottom:-2px; left:-2px; border-right:none; border-top:none; }
-        .vve-corner.br{ bottom:-2px; right:-2px; border-left:none; border-top:none; }
+        #vve-stage{ max-height:100%; max-width:100%; background:#000; border-radius:14px; display:block; touch-action:none; box-shadow:0 25px 70px rgba(0,0,0,0.55); }
 
-        .vve-empty-state{ position:absolute; inset:0; display:flex; flex-direction:column; gap:14px; align-items:center; justify-content:center; text-align:center; padding:20px; }
-        .vve-empty-state p{ color:var(--vve-text-dim); font-size:14px; max-width:220px; }
+        .vve-empty-state{ position:absolute; inset:0; display:flex; flex-direction:column; gap:16px; align-items:center; justify-content:center; text-align:center; padding:20px; z-index:2; }
+        .vve-empty-add-btn{ width:64px; height:64px; border-radius:50%; background:var(--vve-gradient); border:none; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 10px 30px rgba(217,70,239,0.35); }
+        .vve-empty-state p{ color:var(--vve-text-dim); font-size:13.5px; max-width:230px; line-height:1.55; }
 
-        .vve-transport{ display:flex; align-items:center; gap:14px; width:100%; max-width:420px; flex-wrap:wrap; justify-content:center; }
-        .vve-play-btn{ width:40px; height:40px; border-radius:50%; background:var(--vve-panel-2); border:1px solid var(--vve-border); color:var(--vve-text); font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+        /* Videonun üstüne binen yüzen katmanlar — Reels/CapCut çekim-düzenleme
+           ekranındaki gibi: üstte kapat/başlık/kaydet + ilerleme çizgisi,
+           sağda araç rayı, altta oynatma/oran şeridi. Hiçbiri preview-wrap'ten
+           ayrı flex alanı almıyor, video mümkün olduğunca ekranı kaplıyor. */
+        .vve-scrim-top{ position:absolute; top:0; left:0; right:0; height:96px; background:linear-gradient(to bottom, rgba(0,0,0,0.62), rgba(0,0,0,0) 100%); pointer-events:none; z-index:9; border-radius:14px 14px 0 0; }
+        .vve-scrim-bottom{ position:absolute; left:0; right:0; bottom:0; height:110px; background:linear-gradient(to top, rgba(0,0,0,0.58), rgba(0,0,0,0) 100%); pointer-events:none; z-index:9; border-radius:0 0 14px 14px; }
+
+        .vve-float-topbar{ position:absolute; top:0; left:0; right:0; z-index:11; padding:calc(10px + env(safe-area-inset-top, 0px)) 10px 0; display:flex; flex-direction:column; gap:8px; }
+        .vve-float-topbar-row{ display:flex; align-items:center; gap:8px; }
+        .vve-icon-btn{ background:var(--vve-glass); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid var(--vve-glass-border); color:var(--vve-text); width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; }
+        .vve-goal-label{ flex:1 1 auto; text-align:center; font-family:'Cormorant Garamond', serif; font-weight:600; font-size:15px; color:var(--vve-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 4px; }
+        .vve-btn-export{ background:var(--vve-gradient); color:#fff; border:none; font-weight:800; padding:9px 18px; border-radius:9999px; font-size:13.5px; cursor:pointer; flex:0 0 auto; box-shadow:0 6px 18px rgba(217,70,239,0.35); }
+        .vve-btn-export:disabled{ opacity:0.35; cursor:not-allowed; box-shadow:none; }
+        .vve-progress-line{ height:2.5px; border-radius:2px; background:rgba(255,255,255,0.18); overflow:hidden; }
+        .vve-progress-line-fill{ display:block; height:100%; width:0%; background:var(--vve-gradient); border-radius:2px; }
+
+        .vve-tap-flash{ position:absolute; top:50%; left:50%; width:64px; height:64px; margin:-32px 0 0 -32px; border-radius:50%; background:rgba(0,0,0,0.42); backdrop-filter:blur(4px); color:#fff; font-size:22px; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; z-index:8; }
+        .vve-tap-flash.show{ animation:vve-tap-flash 0.45s ease-out forwards; }
+        @keyframes vve-tap-flash{
+          0%{ opacity:0; transform:scale(0.75); }
+          15%{ opacity:1; transform:scale(1.08); }
+          30%{ transform:scale(1); }
+          100%{ opacity:0; transform:scale(1); }
+        }
+
+        .vve-tool-rail{ position:absolute; right:10px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:10px; z-index:12; }
+        .vve-tab-btn{ width:50px; height:50px; border-radius:15px; background:var(--vve-glass); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid var(--vve-glass-border); color:var(--vve-text-dim); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; padding:0; }
+        .vve-tab-btn span{ font-size:8.5px; font-weight:700; letter-spacing:0.01em; }
+        .vve-tab-btn.active{ background:var(--vve-gradient); border-color:transparent; color:#fff; box-shadow:0 6px 18px rgba(217,70,239,0.35); }
+
+        .vve-transport{ position:absolute; left:0; right:0; bottom:0; z-index:11; display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap; padding:0 14px calc(14px + env(safe-area-inset-bottom, 0px)); }
+        .vve-play-btn{ width:46px; height:46px; border-radius:50%; background:var(--vve-glass); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid var(--vve-glass-border); color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
         .vve-play-btn:disabled{ opacity:0.35; }
-        .vve-time-display{ font-variant-numeric:tabular-nums; font-size:12.5px; color:var(--vve-text-dim); }
-        .vve-aspect-toggle{ display:flex; gap:4px; background:var(--vve-panel-2); padding:3px; border-radius:8px; }
-        .vve-ratio-btn{ background:transparent; border:none; color:var(--vve-text-dim); font-size:11px; padding:5px 8px; border-radius:6px; cursor:pointer; }
-        .vve-ratio-btn.active{ background:var(--vve-accent-2); color:var(--vve-on-accent-2); font-weight:700; }
+        .vve-time-display{ font-variant-numeric:tabular-nums; font-size:12px; color:var(--vve-text); background:var(--vve-glass); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid var(--vve-glass-border); padding:8px 13px; border-radius:9999px; }
+        .vve-aspect-toggle{ display:flex; gap:3px; background:var(--vve-glass); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid var(--vve-glass-border); padding:3px; border-radius:9999px; }
+        .vve-ratio-btn{ background:transparent; border:none; color:var(--vve-text-dim); font-size:10.5px; font-weight:700; padding:6px 10px; border-radius:9999px; cursor:pointer; }
+        .vve-ratio-btn.active{ background:var(--vve-gradient); color:#fff; }
 
-        .vve-side-panel{ flex:0 0 auto; background:var(--vve-panel); border-top:1px solid var(--vve-border); display:flex; flex-direction:column; }
-        @media(min-width:900px){ .vve-side-panel{ flex:0 0 300px; border-top:none; border-left:1px solid var(--vve-border); height:100%; } }
-        .vve-tabs{ display:flex; border-bottom:1px solid var(--vve-border); }
-        .vve-tab-btn{ flex:1; background:transparent; border:none; color:var(--vve-text-dim); padding:11px 6px; font-size:12.5px; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; }
-        .vve-tab-btn.active{ color:var(--vve-text); border-bottom-color:var(--vve-accent); }
-        .vve-tab-content{ flex:1; overflow-y:auto; padding:14px; min-height:150px; max-height:220px; }
-        @media(min-width:900px){ .vve-tab-content{ max-height:none; } }
+        /* ============ ARAÇ SAYFASI: mobilde alttan açılan sayfa, ============
+           masaüstünde (≥900px) sabit yan panel — rayın herhangi bir ikonu
+           açar, .vve-panelCloseBtn / arka plana dokunmak kapatır. */
+        .vve-sheet-backdrop{ position:fixed; inset:0; background:rgba(4,6,14,0.55); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity 0.28s ease; z-index:55; }
+        .vve-sheet-backdrop.show{ opacity:1; pointer-events:auto; }
+        @media(min-width:900px){ .vve-sheet-backdrop{ display:none; } }
+
+        .vve-side-panel{
+          background:var(--vve-panel); display:flex; flex-direction:column;
+          position:fixed; left:0; right:0; bottom:0; max-height:64vh;
+          border-radius:20px 20px 0 0; border:1px solid var(--vve-border); border-bottom:none;
+          box-shadow:0 -20px 50px rgba(0,0,0,0.45);
+          transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.16,1,0.3,1);
+          z-index:60; padding-bottom:env(safe-area-inset-bottom, 0px);
+        }
+        .vve-side-panel.open{ transform:translateY(0); }
+        @media(min-width:900px){
+          .vve-side-panel{ position:relative; flex:0 0 300px; max-height:none; height:100%; transform:none; border-radius:0; border:none; border-left:1px solid var(--vve-border); box-shadow:none; padding-bottom:0; }
+        }
+        .vve-sheet-header{ display:flex; align-items:center; justify-content:center; position:relative; padding:10px 12px 2px; flex:0 0 auto; }
+        .vve-sheet-handle{ width:36px; height:4px; border-radius:2px; background:rgba(255,255,255,0.18); flex:0 0 auto; }
+        .vve-panel-close-btn{ position:absolute; right:10px; top:8px; background:var(--vve-panel-2); border:1px solid var(--vve-border); color:var(--vve-text-dim); width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+        @media(min-width:900px){ .vve-sheet-header{ display:none; } }
+
+        .vve-tab-content{ flex:1 1 auto; overflow-y:auto; padding:8px 16px 18px; }
+        @media(min-width:900px){ .vve-tab-content{ padding:16px; } }
         .vve-tab-pane{ display:none; flex-direction:column; gap:12px; }
         .vve-tab-pane.active{ display:flex; }
 
-        .vve-filter-grid{ display:flex; flex-wrap:wrap; gap:8px; }
-        .vve-filter-chip{ background:var(--vve-panel-2); border:1px solid var(--vve-border); color:var(--vve-text); padding:8px 12px; border-radius:9999px; font-size:12.5px; cursor:pointer; }
-        .vve-filter-chip.active{ background:var(--vve-accent-2); color:var(--vve-on-accent-2); border-color:var(--vve-accent-2); font-weight:700; }
+        .vve-filter-grid{ display:flex; flex-wrap:nowrap; overflow-x:auto; gap:8px; padding-bottom:6px; -webkit-overflow-scrolling:touch; }
+        .vve-filter-chip{ background:var(--vve-panel-2); border:1px solid var(--vve-border); color:var(--vve-text); padding:9px 14px; border-radius:9999px; font-size:12.5px; font-weight:600; cursor:pointer; flex:0 0 auto; white-space:nowrap; }
+        .vve-filter-chip.active{ background:var(--vve-gradient); color:#fff; border-color:transparent; font-weight:700; box-shadow:0 4px 14px rgba(217,70,239,0.3); }
         .vve-hint{ color:var(--vve-text-dim); font-size:11.5px; line-height:1.5; }
 
         .vve-field{ display:flex; flex-direction:column; gap:6px; }
@@ -1554,57 +1690,58 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
         .vve-root input[type=range]{ width:100%; accent-color:var(--vve-accent-2); }
         .vve-root input[type=text], .vve-root input[type=color], .vve-root select, .vve-root textarea{
           background:var(--vve-panel-2); border:1px solid var(--vve-border); color:var(--vve-text);
-          padding:8px 10px; border-radius:8px; font-size:13px; width:100%;
+          padding:8px 10px; border-radius:10px; font-size:13px; width:100%;
         }
         .vve-root input[type=color]{ padding:4px; height:32px; width:40px; cursor:pointer; flex:0 0 auto; }
         .vve-root textarea{ resize:vertical; min-height:50px; }
         .vve-swatch-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
         .vve-swatch{ width:24px; height:24px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0; }
         .vve-swatch.active{ border-color:var(--vve-accent-2); }
-        .vve-btn-primary{ background:var(--vve-accent); color:var(--vve-on-accent); border:none; padding:10px 16px; border-radius:8px; font-weight:700; font-size:13.5px; cursor:pointer; }
-        .vve-btn-secondary{ background:transparent; color:var(--vve-text); border:1px solid var(--vve-border); padding:10px 16px; border-radius:8px; font-size:13.5px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+        .vve-btn-primary{ background:var(--vve-gradient); color:#fff; border:none; padding:11px 18px; border-radius:9999px; font-weight:700; font-size:13.5px; cursor:pointer; }
+        .vve-btn-secondary{ background:transparent; color:var(--vve-text); border:1px solid var(--vve-border); padding:10px 16px; border-radius:9999px; font-size:13.5px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
         .vve-btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
-        .vve-btn-small{ background:var(--vve-panel-2); border:1px solid var(--vve-border); color:var(--vve-text); padding:7px 10px; border-radius:7px; font-size:12px; cursor:pointer; }
+        .vve-btn-small{ background:var(--vve-panel-2); border:1px solid var(--vve-border); color:var(--vve-text); padding:7px 10px; border-radius:9999px; font-size:12px; cursor:pointer; }
         .vve-btn-small.danger{ color:var(--vve-danger); border-color:rgba(244,63,94,0.4); }
         .vve-btn-small.active{ background:var(--vve-accent-2); color:var(--vve-on-accent-2); border-color:var(--vve-accent-2); font-weight:700; }
         .vve-select-row{ display:flex; gap:8px; }
 
-        .vve-timeline-panel{ flex:0 0 auto; background:var(--vve-panel); border-top:1px solid var(--vve-border); }
-        .vve-timeline-toolbar{ display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--vve-border); }
-        .vve-tool-btn{ background:var(--vve-panel-2); border:1px solid var(--vve-border); color:var(--vve-text); padding:7px 12px; border-radius:7px; font-size:12.5px; cursor:pointer; }
+        /* ============ ALT ZAMAN ÇİZELGESİ (film şeridi) ============ */
+        .vve-timeline-panel{ flex:0 0 auto; background:var(--vve-panel); border-top:1px solid var(--vve-border); border-radius:16px 16px 0 0; box-shadow:0 -8px 24px rgba(0,0,0,0.3); position:relative; z-index:3; }
+        .vve-timeline-toolbar{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--vve-border); }
+        .vve-tool-btn{ background:var(--vve-panel-2); border:1px solid var(--vve-border); color:var(--vve-text); padding:7px 13px; border-radius:9999px; font-size:12.5px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
         .vve-tool-btn:disabled{ opacity:0.35; cursor:not-allowed; }
         .vve-tool-btn.danger{ color:var(--vve-danger); }
         .vve-spacer{ flex:1; }
         .vve-zoom-label{ color:var(--vve-text-dim); font-size:11px; }
 
-        .vve-timeline-scroll{ position:relative; overflow-x:auto; overflow-y:hidden; padding:8px 12px 12px; height:170px; }
+        .vve-timeline-scroll{ position:relative; overflow-x:auto; overflow-y:hidden; padding:10px 12px 12px; height:170px; }
         .vve-ruler{ height:16px; position:relative; border-bottom:1px solid var(--vve-border); margin-bottom:6px; min-width:100%; }
         .vve-tick{ position:absolute; bottom:0; width:1px; height:8px; background:var(--vve-text-dim); }
         .vve-tick-label{ position:absolute; bottom:9px; font-size:9px; color:var(--vve-text-dim); transform:translateX(2px); white-space:nowrap; }
 
         .vve-track{ position:relative; height:44px; margin-bottom:6px; min-width:100%; }
-        .vve-clip-track{ height:52px; }
-        .vve-clip-block{ position:absolute; top:0; height:100%; border-radius:6px; overflow:hidden; background:var(--vve-panel-2) center/cover no-repeat; border:2px solid transparent; cursor:pointer; display:flex; align-items:flex-end; }
-        .vve-clip-block.selected{ border-color:var(--vve-accent-2); }
-        .vve-clip-label{ background:linear-gradient(transparent, rgba(0,0,0,0.75)); width:100%; padding:3px 6px; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .vve-trim-handle{ position:absolute; top:0; bottom:0; width:14px; background:rgba(34,211,238,0.9); cursor:ew-resize; touch-action:none; display:none; }
-        .vve-trim-handle.left{ left:0; border-radius:6px 0 0 6px; }
-        .vve-trim-handle.right{ right:0; border-radius:0 6px 6px 0; }
+        .vve-clip-track{ height:54px; }
+        .vve-clip-block{ position:absolute; top:0; height:100%; border-radius:10px; overflow:hidden; background:var(--vve-panel-2) center/cover no-repeat; border:2px solid transparent; cursor:pointer; display:flex; align-items:flex-end; transition:border-color 0.15s ease, box-shadow 0.15s ease; }
+        .vve-clip-block.selected{ border-color:var(--vve-accent-2); box-shadow:0 0 0 3px rgba(34,211,238,0.18); }
+        .vve-clip-label{ background:linear-gradient(transparent, rgba(0,0,0,0.78)); width:100%; padding:4px 7px; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .vve-trim-handle{ position:absolute; top:0; bottom:0; width:16px; background:rgba(34,211,238,0.9); cursor:ew-resize; touch-action:none; display:none; }
+        .vve-trim-handle.left{ left:0; border-radius:8px 0 0 8px; }
+        .vve-trim-handle.right{ right:0; border-radius:0 8px 8px 0; }
         .vve-clip-block.selected .vve-trim-handle{ display:block; }
 
         .vve-text-track{ height:26px; }
-        .vve-text-block{ position:absolute; top:0; height:100%; background:rgba(34,211,238,0.22); border:1px solid var(--vve-accent-2); border-radius:5px; font-size:10px; color:var(--vve-text); padding:3px 6px; overflow:hidden; white-space:nowrap; cursor:pointer; }
+        .vve-text-block{ position:absolute; top:0; height:100%; background:rgba(34,211,238,0.22); border:1px solid var(--vve-accent-2); border-radius:6px; font-size:10px; color:var(--vve-text); padding:3px 6px; overflow:hidden; white-space:nowrap; cursor:pointer; }
         .vve-text-block.selected{ background:rgba(34,211,238,0.5); }
 
         .vve-music-track{ height:30px; }
-        .vve-music-block{ position:absolute; top:0; left:0; height:100%; background:rgba(217,70,239,0.18); border:1px solid var(--vve-accent); border-radius:5px; font-size:10px; padding:5px 8px; color:var(--vve-text); white-space:nowrap; overflow:hidden; }
+        .vve-music-block{ position:absolute; top:0; left:0; height:100%; background:rgba(217,70,239,0.18); border:1px solid var(--vve-accent); border-radius:6px; font-size:10px; padding:5px 8px; color:var(--vve-text); white-space:nowrap; overflow:hidden; }
 
         .vve-playhead{ position:absolute; top:0; bottom:0; width:2px; background:var(--vve-accent); pointer-events:none; z-index:5; }
         .vve-playhead::before{ content:''; position:absolute; top:-4px; left:50%; transform:translateX(-50%); width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid var(--vve-accent); }
 
         .vve-export-overlay{ position:fixed; inset:0; background:rgba(4,6,14,0.92); display:none; align-items:center; justify-content:center; z-index:210; padding:20px; }
         .vve-export-overlay.show{ display:flex; }
-        .vve-export-card{ background:var(--vve-panel); border:1px solid var(--vve-border); border-radius:16px; padding:28px; width:100%; max-width:320px; text-align:center; display:flex; flex-direction:column; gap:14px; align-items:center; }
+        .vve-export-card{ background:var(--vve-panel); border:1px solid var(--vve-border); border-radius:20px; padding:28px; width:100%; max-width:320px; text-align:center; display:flex; flex-direction:column; gap:14px; align-items:center; }
         .vve-spinner{ width:34px; height:34px; border:3px solid var(--vve-panel-2); border-top-color:var(--vve-accent); border-radius:50%; animation:vve-spin 0.8s linear infinite; }
         @keyframes vve-spin{ to{ transform:rotate(360deg); } }
         .vve-progress-bar{ width:100%; height:6px; background:var(--vve-panel-2); border-radius:3px; overflow:hidden; }
@@ -1617,6 +1754,13 @@ export default function VisionVideoEditor({ goal, lang = 'en', onClose, onChange
 
         .vve-root ::-webkit-scrollbar{ height:6px; width:6px; }
         .vve-root ::-webkit-scrollbar-thumb{ background:var(--vve-border); border-radius:3px; }
+
+        @media (prefers-reduced-motion: reduce){
+          .vve-side-panel, .vve-sheet-backdrop, .vve-tab-btn, .vve-icon-btn, .vve-btn-export,
+          .vve-play-btn, .vve-btn-primary, .vve-tool-btn, .vve-ratio-btn, .vve-filter-chip,
+          .vve-btn-small, .vve-swatch, .vve-empty-add-btn{ transition:none !important; }
+          .vve-tap-flash.show{ animation:none !important; opacity:0 !important; }
+        }
       `}</style>
     </div>
   )
