@@ -13,6 +13,7 @@ import GoalDetailModal from '@/components/GoalDetailModal'
 import CreateGoalModal from '@/components/CreateGoalModal'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import TextSkeleton from '@/components/TextSkeleton'
+import Seo from '@/components/Seo'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
@@ -392,6 +393,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
+      <Seo title="Profilim" noindex />
       <div className="max-w-4xl mx-auto px-4 py-8">
         
         {/* INSTAGRAM TARZI PROFİL BAŞLIĞI */}

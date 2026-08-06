@@ -13,6 +13,7 @@ import GoalDetailModal from '@/components/GoalDetailModal'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import VisionReelsFeed from '@/components/VisionReelsFeed'
+import Seo from '@/components/Seo'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 
@@ -272,6 +273,10 @@ export default function ExplorePage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
+      <Seo
+        title="Keşfet — Paylaşılan Rüyalar ve Vizyonlar"
+        description="Lunosfer topluluğunun paylaştığı rüyaları, arketip analizlerini ve vizyon panolarını keşfet. Herkese açık rüya akışında ilham al, benzer sembollerle karşılaşanları gör."
+      />
       <div className="starry-bg" />
       <div className="floating-orb orb-1" />
       <div className="floating-orb orb-2" />

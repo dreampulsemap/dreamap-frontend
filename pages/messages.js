@@ -1,6 +1,6 @@
-import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import Seo from '@/components/Seo'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { ArrowLeft, MessageCircle, Send, Paperclip, X, FileText, Download, Home } from 'lucide-react'
@@ -312,7 +312,7 @@ export default function MessagesPage() {
   if (authChecked && !viewer) {
     return (
       <>
-        <Head><title>{lang === 'tr' ? 'Mesajlar — Lunosfer' : 'Messages — Lunosfer'}</title></Head>
+        <Seo title="Mesajlar" noindex />
         <main className="relative h-[100dvh] flex flex-col items-center justify-center px-6 py-16 bg-black">
           <Link href="/" className="absolute top-4 left-4 flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors">
             <ArrowLeft size={14} />
@@ -336,7 +336,7 @@ export default function MessagesPage() {
 
   return (
     <>
-      <Head><title>{lang === 'tr' ? 'Mesajlar — Lunosfer' : 'Messages — Lunosfer'}</title></Head>
+      <Seo title="Mesajlar" noindex />
       {/* Navbar/Sidebar/BottomNav _app.js'de bu route için tamamen gizleniyor
           (WhatsApp benzeri tam ekran deneyim) — bu yüzden burada kendi geri/
           ana-sayfa yollarımızı sağlıyoruz. 100dvh: mobil tarayıcı adres

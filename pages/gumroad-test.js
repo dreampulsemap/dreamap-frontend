@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Seo from '@/components/Seo'
 
 export default function GumroadTestPage() {
   const [result, setResult] = useState(null)
@@ -43,6 +44,7 @@ export default function GumroadTestPage() {
 
   return (
     <main style={{ padding: 24, fontFamily: 'sans-serif' }}>
+      <Seo title="Gumroad Webhook Test" noindex />
       <h1>Gumroad Webhook Test</h1>
 
       <input

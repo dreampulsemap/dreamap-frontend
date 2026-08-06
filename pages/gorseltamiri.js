@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import Seo from '@/components/Seo'
 
 export default function GorselTamiriPage() {
   const [token, setToken] = useState('')
@@ -54,6 +55,7 @@ export default function GorselTamiriPage() {
 
   return (
     <div style={styles.page}>
+      <Seo title="Görsel Onarım Admin" noindex />
       <div style={styles.card}>
         <h1 style={styles.title}>Lunosfer Görsel Onarım Admin</h1>
         <p style={styles.text}>

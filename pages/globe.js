@@ -1,10 +1,16 @@
 // pages/globe.js
 import dynamic from 'next/dynamic'
-import Head from 'next/head'
 import Image from 'next/image'
 import { Component, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
+import Seo from '@/components/Seo'
+
+const GLOBE_TITLE = { tr: 'Rüya Küresi — Küresel Bilinçaltı Haritası', en: 'Dream Globe — Global Subconscious Map' }
+const GLOBE_DESCRIPTION = {
+  tr: 'Dünyanın dört bir yanından anlık olarak paylaşılan rüyaları 3 boyutlu, canlı bir küre üzerinde keşfet. Her ışık, birinin az önce haritaya işlediği bir rüya.',
+  en: 'Explore dreams shared in real time from around the world on a living 3D globe. Every light is a dream someone just mapped.',
+}
 
 // NOT: Bu sayfa önceden react-i18next'in t()'ini kullanıyordu, ama gerçek
 // "globe.*" çevirileri lib/translations.js'de (8 dilde, tam) yazılmıştı —
@@ -138,11 +144,11 @@ export default function GlobePage() {
 
   return (
     <>
-      <Head>
-        <title>{getTranslation('globe.metaTitle', lang)}</title>
-        <meta name="description" content={getTranslation('globe.metaDescription', lang)} />
-        <link rel="icon" href="/logo.png" />
-      </Head>
+      <Seo
+        title={GLOBE_TITLE[lang] || GLOBE_TITLE.tr}
+        description={GLOBE_DESCRIPTION[lang] || GLOBE_DESCRIPTION.tr}
+        lang={lang}
+      />
       <GlobeErrorBoundary>
         <DreamGlobe />
       </GlobeErrorBoundary>

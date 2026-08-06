@@ -7,6 +7,7 @@ import { tAddDream, normalizeAddDreamLang } from '@/lib/addDreamTranslations'
 import TagInput from '@/components/TagInput'
 import PixabayPicker from '@/components/PixabayPicker'
 import { uploadDreamCoverImage, getDreamUploadErrorMessage } from '@/lib/uploadDreamCoverImage'
+import Seo from '@/components/Seo'
 
 export default function AddDreamPage() {
   const { i18n } = useTranslation()
@@ -327,6 +328,7 @@ export default function AddDreamPage() {
 
   return (
     <div className="min-h-screen bg-[#050711] text-white overflow-x-hidden pb-24">
+      <Seo title="Rüya Ekle" noindex />
       <div className="max-w-2xl mx-auto p-4 sm:p-6 mt-6">
         <div className="glass-card p-6 sm:p-8 rounded-[2.5rem] border border-white/10 bg-slate-900/40 shadow-[0_30px_100px_rgba(0,0,0,0.4)]">
           <div className="text-center mb-8">

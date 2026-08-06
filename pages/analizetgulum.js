@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Seo from '@/components/Seo'
 
 export default function AnalizeTgulumPage() {
   const [token, setToken] = useState('')
@@ -41,6 +42,7 @@ export default function AnalizeTgulumPage() {
 
   return (
     <div style={styles.page}>
+      <Seo title="Reanalyze Admin" noindex />
       <div style={styles.card}>
         <h1 style={styles.title}>Lunosfer Reanalyze Admin</h1>
         <p style={styles.text}>

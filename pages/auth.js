@@ -7,6 +7,7 @@ import { auth } from '../lib/supabase'
 import { getTranslation } from '../lib/translations'
 import LanguageSwitcher from '../components/LanguageSwitcher'
 import TextSkeleton from '../components/TextSkeleton'
+import Seo from '../components/Seo'
 
 const OAUTH_PROVIDERS = [
   { key: 'google', label: 'Google ile devam et', icon: 'G' },
@@ -127,6 +128,10 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
+      <Seo
+        title="Giriş Yap veya Kayıt Ol"
+        description="Lunosfer'e giriş yap ya da ücretsiz hesap oluştur; rüyalarını kaydet, yapay zekâ destekli Jung analizini gör ve küresel rüya haritasına katıl."
+      />
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="glass-card p-6">

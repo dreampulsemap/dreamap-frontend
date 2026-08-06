@@ -18,6 +18,23 @@ import DiaryComposer from '@/components/DiaryComposer'
 import TextSkeleton from '@/components/TextSkeleton'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
+import Seo, { SITE_NAME, SITE_URL } from '@/components/Seo'
+
+const HOME_JSON_LD = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE_NAME,
+    url: SITE_URL,
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: SITE_NAME,
+    url: SITE_URL,
+    logo: `${SITE_URL}/logo.png`,
+  },
+]
 
 // DreamCard kendi başına bir modal değil (onClose almıyor) — burada onu bir
 // modal kabuğuna sarıyoruz. GoalDetailModal ile aynı desen: useModalA11y
@@ -171,6 +188,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
+      <Seo jsonLd={HOME_JSON_LD} />
+
       {mounted && user && (
         <DiaryStoryRow
           lang={lang}
@@ -185,24 +204,26 @@ export default function HomePage() {
       </div>
 
       <div className="pt-4 px-3 sm:px-4 max-w-xl mx-auto pb-24">
-        {!mounted ? (
-          <div className="space-y-6">
-            <TextSkeleton />
-            <TextSkeleton />
+        {/* Hero artık dıştaki `mounted` bayrağının arkasında değil. `user`
+            başlangıç değeri (useState(null)) hem sunucuda hem de istemcinin
+            hydration-öncesi ilk renderında aynı olduğu için `!user` kontrolü
+            burada hydration mismatch riski taşımıyor. Önceki haliyle Hero
+            tamamen `mounted`'a bağlıydı ve SSR/ilk HTML'de (Google,
+            WhatsApp/Twitter link önizlemesi gibi JS çalıştırmayan ya da geç
+            çalıştıran taramalarda) hiç görünmüyordu — anasayfanın tek gerçek
+            metin içeriği bu şekilde arama motorlarına ulaşmıyordu. */}
+        {!user && <Hero />}
+
+        {!mounted || loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => <TextSkeleton key={i} />)}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-gray-400">{getTranslation('common.noDreams', lang)}</p>
           </div>
         ) : (
-          <>
-            {!user && <Hero />}
-            {loading ? (
-              <div className="space-y-4">
-                {Array.from({ length: 3 }).map((_, i) => <TextSkeleton key={i} />)}
-              </div>
-            ) : items.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-gray-400">{getTranslation('common.noDreams', lang)}</p>
-              </div>
-            ) : (
-              items.map((item, idx) => (
+          items.map((item, idx) => (
                 <div key={`${item.feed_type}-${item.id}`} ref={idx === items.length - 1 ? lastElementRef : null}>
                   {item.feed_type === 'dream' ? (
                     <DreamFeedCard dream={item} lang={lang} onOpen={setActiveDream} />
@@ -211,10 +232,8 @@ export default function HomePage() {
                   )}
                 </div>
               ))
-            )}
-            {loadingMore && <TextSkeleton />}
-          </>
         )}
+        {loadingMore && <TextSkeleton />}
       </div>
 
       {/* Rastgele bir vizyonla Reels akışını açan sürpriz kısayol */}
