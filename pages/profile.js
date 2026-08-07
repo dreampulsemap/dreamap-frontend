@@ -18,6 +18,7 @@ import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import DiaryStoryViewer from '@/components/DiaryStoryViewer'
 import PsycheMap from '@/components/PsycheMap'
+import Seo from '@/components/Seo'
 
 const BATCH_SIZE = 12;
 
@@ -447,6 +448,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
+      <Seo title={lang === 'tr' ? 'Profilim' : 'My Profile'} noindex lang={lang} />
       <div className="max-w-4xl mx-auto px-4 py-8">
         
         {/* INSTAGRAM TARZI PROFİL BAŞLIĞI */}

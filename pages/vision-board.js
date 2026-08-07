@@ -13,6 +13,7 @@ import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
+import Seo from '@/components/Seo'
 
 export default function VisionBoardPage() {
   const router = useRouter()
@@ -142,6 +143,7 @@ export default function VisionBoardPage() {
 
   return (
     <div className="min-h-screen bg-black">
+      <Seo title={lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board'} noindex lang={lang} />
       <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8 pb-16">
         <div className={`mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           <div>
