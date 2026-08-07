@@ -2,6 +2,15 @@ import { useState, useRef, useEffect } from 'react'
 import { Camera, AlertTriangle, Eye } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
+// Not: bu component önceden 3 örtük/algı-eşiği-altı teknik içeriyordu —
+// basılı tutmanın %90-95'inde 28ms süreyle bilinçaltına kelime flaşlama,
+// "...basılı tutmaya devam ettikçe her sabah buraya geleceksin" gibi gömülü
+// komut cümlesi, ve gerçekte var olmayan bir "Ayarlar > Akış Tercihleri"ne
+// işaret eden, bilerek okunamayacak kadar küçük/soluk yapılmış sahte bir
+// "24 saatte arşive devrolur" uyarısı. Üçü de kaldırıldı — kullanıcının
+// bilgilendirilmiş rızası dışında çalışan tekniklerdi. Basılı-tut-aç
+// ritüeli, günlük AI okuması ve paylaşım kendi başına tamamen iyi bir
+// mekanik, o yüzden hepsi aynen duruyor; sadece dürüst bir haliyle.
 export default function DailyCompass({ lang }) {
   const [holding, setHolding] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -10,13 +19,9 @@ export default function DailyCompass({ lang }) {
   const [alreadyUsed, setAlreadyUsed] = useState(false)
   const [timeLeft, setTimeLeft] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
-  
-  // 1. TEKNİK: Subliminal Öncülleme için Flaş State'i
-  const [subliminalWord, setSubliminalWord] = useState('')
 
   const timerRef = useRef(null)
-  const HOLD_DURATION = 2000 
-  const SUBLIMINAL_WORDS = ['PAYLAŞ', 'DEVAM ET', 'HİZALAN', 'YENİDEN GEL']
+  const HOLD_DURATION = 2000
 
   useEffect(() => {
     if (!alreadyUsed) return;
@@ -111,13 +116,6 @@ export default function DailyCompass({ lang }) {
       const perc = Math.min((elapsed / HOLD_DURATION) * 100, 100)
       setProgress(perc)
 
-      // 1. TEKNİK: Subliminal Mikro Flaş (%90 - %95 İlerlemede 28ms Görünürlük)
-      if (perc >= 90 && perc <= 95 && !subliminalWord) {
-        const randomWord = SUBLIMINAL_WORDS[Math.floor(Math.random() * SUBLIMINAL_WORDS.length)]
-        setSubliminalWord(randomWord)
-        setTimeout(() => setSubliminalWord(''), 28)
-      }
-      
       if (perc >= 100) {
         clearInterval(timerRef.current)
         timerRef.current = null
@@ -133,7 +131,6 @@ export default function DailyCompass({ lang }) {
       timerRef.current = null
     }
     setHolding(false)
-    setSubliminalWord('')
     if (progress < 100) setProgress(0)
   }
 
@@ -157,11 +154,10 @@ export default function DailyCompass({ lang }) {
   }
 
   const title = lang === 'tr' ? 'Bilinçaltı Pusulası' : 'Daily Compass'
-  
-  // 4. TEKNİK: Gömülü Komut Dili (Embedded Commands)
-  const instruction = lang === 'tr' 
-    ? '...basılı tutmaya devam ettikçe, her sabah buraya geleceksin' 
-    : '...as you hold down, you will return here every morning'
+
+  const instruction = lang === 'tr'
+    ? 'Basılı tut ve günün okumasını aç'
+    : 'Hold to reveal today\'s reading'
 
   if (compassData) {
     return (
@@ -189,15 +185,6 @@ export default function DailyCompass({ lang }) {
 
   return (
     <div className="glass-card relative overflow-hidden rounded-[24px] p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[200px] select-none">
-      
-      {/* 1. TEKNİK: Subliminal Flaş Görünümü */}
-      {subliminalWord && (
-        <div className="absolute top-3 right-4 pointer-events-none z-50">
-          <span className="text-[10px] font-mono tracking-widest text-white/15 uppercase">
-            {subliminalWord}
-          </span>
-        </div>
-      )}
 
       <div className={`absolute inset-0 transition-opacity duration-1000 ${holding ? 'opacity-100' : 'opacity-0'}`}>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-astral-gold/15 blur-[50px] rounded-full" />
@@ -217,12 +204,10 @@ export default function DailyCompass({ lang }) {
           <p className="text-astral-gold font-mono text-xl font-bold mt-1 tracking-wider">
             {timeLeft}
           </p>
-          
-          {/* 2. TEKNİK: Gizli Bilgi Konumlandırması (Hidden Information) */}
-          <p className="mt-4 text-[9px] text-slate-600/60 max-w-[260px] leading-snug">
-            {lang === 'tr' 
-              ? '*Görüler 24 saat içinde kaydedilmediğinde arşive devredilir. Haklar her gece 00:00 UTC sıfırlanır (Detaylar: Ayarlar > Akış Tercihleri)'
-              : '*Readings archive automatically after 24h. Quotas reset at 00:00 UTC (Details: Settings > Stream Preferences)'}
+          <p className="mt-3 text-slate-500 text-[11px] leading-snug">
+            {lang === 'tr'
+              ? 'Her gece 00:00 UTC\'de yenileniyor.'
+              : 'Refreshes nightly at 00:00 UTC.'}
           </p>
         </div>
       ) : (
@@ -257,4 +242,4 @@ export default function DailyCompass({ lang }) {
       )}
     </div>
   )
-        }
+}
