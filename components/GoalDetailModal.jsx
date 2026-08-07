@@ -403,7 +403,12 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
       <div ref={modalRef} role="dialog" aria-modal="true" aria-label={goal.title} className="glass-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto animate-scale-in">
         <div className="flex items-start justify-between mb-4">
           <div className="min-w-0">
-            <AuthorHeader owner={initialGoal.owner || goal.owner} lang={lang} className="mb-2.5" />
+            <AuthorHeader
+              owner={initialGoal.owner || goal.owner || (initialGoal.user_id ? { id: initialGoal.user_id } : null)}
+              lang={lang}
+              className="mb-2.5"
+              onNavigate={onClose}
+            />
             <h2 className="text-white font-bold text-lg">{goal.title}</h2>
             {goal.description && <p className="text-slate-400 text-sm mt-1">{goal.description}</p>}
           </div>

@@ -31,6 +31,7 @@ export default function AuthorHeader({
   nameClassName = 'text-white',
   subtleName = false,
   className = '',
+  onNavigate,
 }) {
   if (!owner || !owner.id) return null
 
@@ -40,7 +41,14 @@ export default function AuthorHeader({
   return (
     <Link
       href={`/u/${owner.id}`}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation()
+        // Zaten bu kullanıcının profilindeysek (ör. onun bir rüyasını
+        // açtıysak) hedef URL şu anki sayfayla aynı olur ve Link hiçbir şey
+        // yapmaz — modal'ı kapatan üst bileşenin verdiği onNavigate ile
+        // altındaki profili görünür kılıyoruz.
+        onNavigate?.()
+      }}
       className={`group/author inline-flex items-center gap-2 min-w-0 ${className}`}
     >
       <span

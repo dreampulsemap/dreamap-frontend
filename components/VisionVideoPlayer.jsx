@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { Bookmark, Flag, MessageCircle, MoreHorizontal, Pause, Pencil, Play, Send, Share2, Sparkles, Trash2, Volume2, VolumeX, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
@@ -512,16 +513,21 @@ export default function VisionVideoPlayer({ goal, lang, currentUserId, onClose, 
           </button>
         )}
 
-        {/* Sahip çipi */}
-        <button
-          onClick={(e) => { e.stopPropagation(); onOpenDetails?.(currentGoal) }}
+        {/* Sahip çipi — üstteki başlık butonundan (video detaylarını açar)
+            AYRI: buraya dokununca artık profile gidiyor, Instagram'daki
+            gibi. Aynı sayfadaysak (ör. zaten bu kişinin profilindeyken)
+            Link'in kendisi bir şey yapmayabilir, o yüzden oynatıcıyı da
+            kapatıp altındaki profili görünür kılıyoruz. */}
+        <Link
+          href={`/u/${currentGoal.owner?.id || currentGoal.user_id}`}
+          onClick={(e) => { e.stopPropagation(); onClose?.() }}
           className="absolute left-4 bottom-40 z-10 flex items-center gap-2"
         >
           <span className="w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold overflow-hidden shrink-0 ring-2 ring-white/20">
             {currentGoal.owner?.avatar_url ? <img src={currentGoal.owner.avatar_url} alt="" className="w-full h-full object-cover" /> : initialsOf(ownerName)}
           </span>
           <span className="text-white text-sm font-semibold drop-shadow-md">{ownerName}</span>
-        </button>
+        </Link>
 
         {/* Aksiyon şeridi */}
         <div className="absolute right-3 bottom-24 z-10 flex flex-col items-center gap-4">

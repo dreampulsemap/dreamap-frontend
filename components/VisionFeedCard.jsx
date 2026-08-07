@@ -22,6 +22,9 @@ export default function VisionFeedCard({ goal, lang = 'en', onOpen }) {
     : goal.status === 'abandoned'
       ? (lang === 'tr' ? 'Bırakıldı' : 'Abandoned')
       : null
+  // owner join'i eşleşmese bile en azından user_id'den minimal, tıklanabilir
+  // bir başlık kur (bkz. DreamFeedCard'daki aynı önlem).
+  const headerOwner = goal.owner || (goal.user_id ? { id: goal.user_id } : null)
 
   return (
     <article
@@ -66,19 +69,19 @@ export default function VisionFeedCard({ goal, lang = 'en', onOpen }) {
           {/* Instagram tarzı gönderi başlığı — DreamFeedCard'daki aynı
               overlay deseni. Altındaki durum/tür rozetleri çakışmaması için
               biraz aşağı kaydırıldı. */}
-          {goal.owner && (
+          {headerOwner && (
             <div className="absolute top-0 inset-x-0 z-20 flex items-center px-3 py-2.5 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
               <div className="pointer-events-auto">
-                <AuthorHeader owner={goal.owner} lang={lang} />
+                <AuthorHeader owner={headerOwner} lang={lang} />
               </div>
             </div>
           )}
           {statusLabel && (
-            <span className={`absolute ${goal.owner ? 'top-12' : 'top-3'} left-3 z-[2] text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-black/60 backdrop-blur text-slate-200 border border-white/10`}>
+            <span className={`absolute ${headerOwner ? 'top-12' : 'top-3'} left-3 z-[2] text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-black/60 backdrop-blur text-slate-200 border border-white/10`}>
               {statusLabel}
             </span>
           )}
-          <span className={`absolute ${goal.owner ? 'top-12' : 'top-3'} right-3 z-[2] text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-black/60 backdrop-blur text-brand-secondary-200 border border-brand-secondary-300/20`}>
+          <span className={`absolute ${headerOwner ? 'top-12' : 'top-3'} right-3 z-[2] text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-black/60 backdrop-blur text-brand-secondary-200 border border-brand-secondary-300/20`}>
             {lang === 'tr' ? 'Vizyon' : 'Vision'}
           </span>
         </div>

@@ -317,7 +317,7 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
           <div className="flex items-center gap-2 min-w-0">
             <Link
               href={`/u/${group.userId}`}
-              onClick={(e) => { e.stopPropagation(); setPaused(true) }}
+              onClick={(e) => { e.stopPropagation(); setPaused(true); onClose?.() }}
               className="group/author flex items-center gap-2 min-w-0"
             >
               <span className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-brand-primary-500 to-brand-secondary-500 flex items-center justify-center text-white text-xs font-bold shrink-0">

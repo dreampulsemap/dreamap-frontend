@@ -16,6 +16,11 @@ export default function DreamFeedCard({ dream, lang = 'en', onOpen }) {
   const deepTeaser = hasDeepAnalysis
     ? getSafeVal(dream.premium_deep_analysis?.summary || dream.premium_deep_analysis?.symbolic_reading, lang)
     : ''
+  // owner join'i eşleşmese bile (ör. bazı görselsiz/eski rüyalarda profil
+  // satırı bulunamıyor) user_id'den minimal, yine de tıklanabilir bir
+  // başlık kur — "hiç profil görünmüyor" yerine en kötü ihtimalle jenerik
+  // avatar + "Bilinmeyen" gösterir.
+  const headerOwner = dream.owner || (dream.user_id ? { id: dream.user_id } : null)
 
   return (
     <article
@@ -26,10 +31,10 @@ export default function DreamFeedCard({ dream, lang = 'en', onOpen }) {
           overlay (VisionReelsFeed/DiaryStoryViewer'daki aynı desen), panel
           içeriğinin swipe/height mekaniğine dokunmadan. Tıklanınca paylaşımı
           açan alttaki onClick'i tetiklemeden doğrudan profile gider. */}
-      {dream.owner && (
+      {headerOwner && (
         <div className="absolute top-0 inset-x-0 z-20 flex items-center px-3 py-2.5 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
           <div className="pointer-events-auto">
-            <AuthorHeader owner={dream.owner} lang={lang} />
+            <AuthorHeader owner={headerOwner} lang={lang} />
           </div>
         </div>
       )}

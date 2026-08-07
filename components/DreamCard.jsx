@@ -21,7 +21,7 @@ import AuthorHeader from '@/components/AuthorHeader'
 
 const GUMROAD_PRODUCT_URL = 'https://shop.lunosfer.com'
 
-export default function DreamCard({ dream, lang, onTranslate, translating, translated, translatedContent, translatedAnalysis, currentUserId, onImageChanged, owner }) {
+export default function DreamCard({ dream, lang, onTranslate, translating, translated, translatedContent, translatedAnalysis, currentUserId, onImageChanged, owner, onClose }) {
   const { i18n } = useTranslation()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -439,11 +439,17 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
           onChange={onCoverFileInputChange}
         />
         {(() => {
-          const postOwner = owner || effectiveDream?.owner
+          // owner join'i (ör. eski/görselsiz bazı rüyalarda profil satırı
+          // eşleşmemiş) boş dönerse bile en azından user_id'den minimal,
+          // yine de /u/[userId]'e tıklanabilir bir başlık kur — "hiç profil
+          // görünmüyor" yerine en kötü ihtimalle jenerik avatar + "Bilinmeyen"
+          // gösterir.
+          const rawOwner = owner || effectiveDream?.owner
+          const postOwner = rawOwner || (effectiveDream?.user_id ? { id: effectiveDream.user_id } : null)
           if (!postOwner && !isOwner) return null
           return (
             <div className="flex items-center justify-between mb-3 -mt-1">
-              {postOwner ? <AuthorHeader owner={postOwner} lang={lang} /> : <span />}
+              {postOwner ? <AuthorHeader owner={postOwner} lang={lang} onNavigate={onClose} /> : <span />}
               {isOwner && (
                 <button
                   type="button"

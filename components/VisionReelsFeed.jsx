@@ -94,6 +94,9 @@ export default function VisionReelsFeed({ goals, lang, t, currentUserId, initial
         {localGoals.map((goal, i) => {
           const isOwner = currentUserId && goal.user_id === currentUserId
           const isActive = i === activeIndex
+          // owner join'i eşleşmese bile en azından user_id'den minimal,
+          // tıklanabilir bir başlık kur (bkz. DreamFeedCard'daki aynı önlem).
+          const headerOwner = goal.owner || (goal.user_id ? { id: goal.user_id } : null)
 
           return (
             <div
@@ -115,7 +118,7 @@ export default function VisionReelsFeed({ goals, lang, t, currentUserId, initial
                     destesini/vizyonu açar */}
                 <div className="absolute left-4 right-20 bottom-24">
                   <AuthorHeader
-                    owner={goal.owner}
+                    owner={headerOwner}
                     lang={lang}
                     className="mb-2"
                     nameClassName="text-white drop-shadow-md"
