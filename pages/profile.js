@@ -835,6 +835,8 @@ export default function ProfilePage() {
               dream={activeDream} 
               lang={lang} 
               currentUserId={user?.id}
+              owner={profile}
+              onClose={() => setActiveDream(null)}
               onTranslate={() => {}}
               translating={false}
               translated={false}
