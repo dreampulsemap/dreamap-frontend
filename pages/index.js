@@ -15,6 +15,7 @@ import VisionReelsFeed from '@/components/VisionReelsFeed'
 import DiaryStoryRow from '@/components/DiaryStoryRow'
 import DiaryStoryViewer from '@/components/DiaryStoryViewer'
 import DiaryComposer from '@/components/DiaryComposer'
+import DailyCompass from '@/components/DailyCompass'
 import TextSkeleton from '@/components/TextSkeleton'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
@@ -213,6 +214,11 @@ export default function HomePage() {
             çalıştıran taramalarda) hiç görünmüyordu — anasayfanın tek gerçek
             metin içeriği bu şekilde arama motorlarına ulaşmıyordu. */}
         {!user && <Hero />}
+        {user && (
+          <div className="mb-4">
+            <DailyCompass lang={lang} />
+          </div>
+        )}
 
         {!mounted || loading ? (
           <div className="space-y-4">
