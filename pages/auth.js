@@ -111,6 +111,22 @@ export default function AuthPage() {
     }
   }
 
+  // Google/GitHub OAuth: OAUTH_PROVIDERS ve oauthLoading state'i zaten
+  // vardı ama hiçbir yerde render edilmiyordu — buton UI'ı aşağıda geri eklendi.
+  async function handleOAuth(provider) {
+    setError('')
+    setOauthLoading(provider)
+    try {
+      await auth.signInWithOAuth(provider)
+      // Başarılı olursa tarayıcı sağlayıcının ekranına yönlendirilip
+      // /auth/callback'e dönüyor; buraya geri dönüş olmadığı için
+      // loading'i burada kapatmaya gerek yok.
+    } catch (err) {
+      setError(err.message || 'Bir hata oluştu')
+      setOauthLoading('')
+    }
+  }
+
   if (checkingUser) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -146,6 +162,29 @@ export default function AuthPage() {
                 {error}
               </div>
             )}
+
+            <div className="space-y-2 mb-4">
+              {OAUTH_PROVIDERS.map((provider) => (
+                <button
+                  key={provider.key}
+                  type="button"
+                  onClick={() => handleOAuth(provider.key)}
+                  disabled={!!oauthLoading}
+                  className="w-full flex items-center justify-center gap-2 rounded border border-white/15 bg-white/5 hover:bg-white/10 py-2 text-sm font-medium text-white disabled:opacity-50 transition-colors"
+                >
+                  <span className="w-4 text-center">{provider.icon}</span>
+                  {oauthLoading === provider.key
+                    ? (getTranslation('auth.loading', lang) || 'Yükleniyor...')
+                    : provider.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3 mb-4 text-xs text-white/40">
+              <div className="flex-1 h-px bg-white/10" />
+              veya
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
 
             <form className="space-y-4" onSubmit={handleSubmit}>
               {!isLogin && (
