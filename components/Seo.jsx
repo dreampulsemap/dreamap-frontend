@@ -14,7 +14,7 @@ import { useRouter } from 'next/router'
 // jsonLd değerini geçiyor; canonical URL, Open Graph, Twitter Card ve robots
 // meta burada tek yerden, tutarlı biçimde üretiliyor.
 export const SITE_NAME = 'Lunosfer'
-export const SITE_URL = 'https://lunosfer.com'
+export const SITE_URL = 'https://www.lunosfer.com'
 
 const DEFAULT_TITLE = 'Lunosfer — Rüya Nabız Ağı | AI Destekli Jung Rüya Analizi'
 const DEFAULT_DESCRIPTION =

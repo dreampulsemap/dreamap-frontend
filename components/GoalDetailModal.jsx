@@ -259,7 +259,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   // görünür (ve dolayısıyla daha güçlü) kılar — davranış psikolojisinde
   // "public commitment" ilkesi.
   async function handleShare() {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lunosfer.com'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.lunosfer.com'
     const text = t.shareText(goal.title)
     if (navigator.share) {
       try { await navigator.share({ title: goal.title, text, url: appUrl }); return } catch (_) { return }
