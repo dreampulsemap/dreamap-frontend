@@ -56,6 +56,10 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
 
   const group = groups[groupIndex]
   const isSelfGroup = group?.userId === currentUserId
+  const current = cache[group?.userId]
+  const entries = current?.entries || []
+  const entry = entries[entryIndex]
+  const isPlaying = !paused
 
   const loadGroup = useCallback(async (userId) => {
     setCache((prev) => ({ ...prev, [userId]: { ...(prev[userId] || {}), status: 'loading' } }))
@@ -96,11 +100,6 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
     img.src = prefetchUrl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entryIndex, entries, groupIndex, groups, cache])
-
-  const current = cache[group?.userId]
-  const entries = current?.entries || []
-  const entry = entries[entryIndex]
-  const isPlaying = !paused
 
   // Grup açılınca "görüldü" işaretle (kendi günceni işaretlemenin bir
   // anlamı yok) — DiaryStoryRow'daki halkanın altın->gri dönmesi için event.
