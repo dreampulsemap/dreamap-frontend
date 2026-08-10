@@ -11,7 +11,19 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'method_not_allowed' })
 
   try {
+    // GEÇİCİ TEŞHİS LOGU: Android'den gelen isteklerde Authorization
+    // header'ının Vercel'e gerçekten ulaşıp ulaşmadığını görmek için.
+    // Token'ın tamamını asla loglamıyoruz (güvenlik) — sadece varlığını
+    // ve ilk 15 karakterini. Kök neden bulununca bu satırlar kaldırılacak.
+    const authHeader = req.headers.authorization
+    console.log('[DIAG conversations] authorization header:', authHeader ? `VAR (${authHeader.slice(0, 15)}...)` : 'YOK')
+    console.log('[DIAG conversations] tüm header anahtarları:', Object.keys(req.headers).join(', '))
+    console.log('[DIAG conversations] user-agent:', req.headers['user-agent'] || 'YOK')
+
     const user = await getAuthedUser(req)
+
+    console.log('[DIAG conversations] getAuthedUser sonucu:', user ? `VAR (id=${user.id.slice(0, 8)}...)` : 'NULL')
+
     if (!user) return res.status(401).json({ error: 'unauthorized' })
 
     const { data: rows, error } = await supabaseAdmin
