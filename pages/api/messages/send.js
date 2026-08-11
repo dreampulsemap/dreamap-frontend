@@ -22,9 +22,6 @@ export default async function handler(req, res) {
       if (!['image', 'video', 'file'].includes(attachmentType)) {
         return res.status(400).json({ error: 'invalid_attachment_type' })
       }
-      // Ekin gerçekten BİZİM bucket'ımızda ve gönderenin kendi klasöründe
-      // olduğunu doğrula — istemcinin rastgele bir dış URL'i "ek" diye
-      // gönderip mesajı bir yönlendirici gibi kullanmasını engeller.
       const expectedPrefix = `/storage/v1/object/public/message-attachments/${user.id}/`
       let isOwnAttachment = false
       try {
@@ -56,16 +53,10 @@ export default async function handler(req, res) {
     const { data: message, error: insertError } = await supabaseAdmin
       .from('messages')
       .insert({ sender_id: user.id, recipient_id: recipientId, content: cleanContent, ...attachment })
-      .select('id, sender_id, recipient_id, content, is_read, created_at, attachment_url, attachment_type, attachment_name, attachment_mime, attachment_size')
+      .select('id, sender_id, recipient_id, content, is_read, created_at, attachment_url, attachment_type, attachment_name, attachment_mime, attachment_size, reaction')
       .single()
 
     if (insertError) throw insertError
-
-    // Zile ayrıca "yeni mesaj" girdisi EKLEMİYORUZ. Okunmamış mesaj sayısı
-    // zaten messages.is_read üzerinden tek kaynaktan hesaplanıp Mesaj
-    // ikonunun rozetinde gösteriliyor (bkz. /api/messages/unread-count).
-    // Aynı bilgiyi iki farklı ikonda tekrarlamak yerine, her ikonun tek ve
-    // net bir anlamı olması kullanıcının rozetlere güvenini korur.
 
     const isTr = (lang || 'tr') === 'tr'
     const { data: senderProfile } = await supabaseAdmin
