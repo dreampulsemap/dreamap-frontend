@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 import { notifyFollowAccepted } from '@/lib/notify'
 
 export default async function handler(req, res) {
@@ -6,9 +6,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { friendshipId, userId, action } = req.body
+  // GÜVENLİK DÜZELTMESİ: yanıt veren kişinin kimliği artık body'den değil,
+  // doğrulanmış Bearer token'dan geliyor — aksi halde biri BAŞKASINA gelen
+  // bir takip isteğini onaylayıp/reddedebiliyordu.
+  const authedUser = await getAuthedUser(req)
+  if (!authedUser) return res.status(401).json({ error: 'unauthorized' })
+  const userId = authedUser.id
 
-  if (!friendshipId || !userId || !action) {
+  const { friendshipId, action } = req.body
+
+  if (!friendshipId || !action) {
     return res.status(400).json({ error: 'Eksik parametreler' })
   }
 
@@ -16,12 +23,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Geçersiz işlem' })
   }
 
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
+  const supabase = supabaseAdmin
 
   try {
     const { data: friendship, error: fetchError } = await supabase

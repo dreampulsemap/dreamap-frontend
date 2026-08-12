@@ -1,22 +1,25 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { query, userId } = req.query
+  // GÜVENLİK DÜZELTMESİ: friendshipStatus artık query'deki HERHANGİ BİR
+  // userId'ye göre değil, doğrulanmış Bearer token'a göre hesaplanıyor —
+  // aksi halde biri başka bir kullanıcının kiminle takip ilişkisi olduğunu
+  // (üçüncü taraflar için) sorgulayabiliyordu.
+  const authedUser = await getAuthedUser(req)
+  if (!authedUser) return res.status(401).json({ error: 'unauthorized' })
+  const userId = authedUser.id
 
-  if (!query || !userId) {
+  const { query } = req.query
+
+  if (!query) {
     return res.status(400).json({ error: 'Eksik parametreler' })
   }
 
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
+  const supabase = supabaseAdmin
 
   try {
     const { data: users, error } = await supabase

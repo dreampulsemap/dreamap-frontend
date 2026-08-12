@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 import { notifyFollow } from '@/lib/notify'
 
 export default async function handler(req, res) {
@@ -6,9 +6,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { userId, friendId } = req.body
+  // GÜVENLİK DÜZELTMESİ: "kimin adına" istek gönderileceği (userId) artık
+  // body'den değil, doğrulanmış Bearer token'dan geliyor — aksi halde biri
+  // başka bir kullanıcı adına sahte takip isteği oluşturabilirdi.
+  const authedUser = await getAuthedUser(req)
+  if (!authedUser) return res.status(401).json({ error: 'unauthorized' })
+  const userId = authedUser.id
 
-  if (!userId || !friendId) {
+  const { friendId } = req.body
+
+  if (!friendId) {
     return res.status(400).json({ error: 'Eksik parametreler' })
   }
 
@@ -16,12 +23,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Kendine rezonans kuramazsın' })
   }
 
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
+  const supabase = supabaseAdmin
 
   try {
     // 1. Zaten takip edilip edilmediğini kontrol et (Takip sistemi tek yönlüdür: user_id takip eder friend_id)

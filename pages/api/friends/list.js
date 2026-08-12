@@ -1,22 +1,22 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { userId, type } = req.query
+  // GÜVENLİK DÜZELTMESİ: bu route daha önce query'deki HERHANGİ BİR userId
+  // için sonuç dönüyordu — Authorization kontrolü yoktu, yani herkesin
+  // arkadaş listesi VE bekleyen (henüz kabul edilmemiş) istekleri
+  // görülebiliyordu. Artık yalnızca giriş yapmış kullanıcının kendi listesi
+  // dönüyor; query'deki userId artık kullanılmıyor.
+  const user = await getAuthedUser(req)
+  if (!user) return res.status(401).json({ error: 'unauthorized' })
+  const userId = user.id
 
-  if (!userId) {
-    return res.status(400).json({ error: 'Eksik parametreler' })
-  }
+  const { type } = req.query
 
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
+  const supabase = supabaseAdmin
 
   try {
     // requester = takibi başlatan taraf (user_id), target = takip edilen taraf (friend_id).
