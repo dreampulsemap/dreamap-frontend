@@ -1,7 +1,10 @@
+import { getAuthHeader } from '../lib/supabase'
+
 export async function getFriends(userId) {
+  const authHeader = await getAuthHeader()
   const [friendsRes, pendingRes] = await Promise.all([
-    fetch(`/api/friends/list?userId=${userId}&type=accepted`),
-    fetch(`/api/friends/list?userId=${userId}&type=pending`),
+    fetch(`/api/friends/list?userId=${userId}&type=accepted`, { headers: authHeader }),
+    fetch(`/api/friends/list?userId=${userId}&type=pending`, { headers: authHeader }),
   ])
 
   const friendsData = await friendsRes.json()
@@ -18,7 +21,8 @@ export async function getFriends(userId) {
 
 export async function searchUsers(query, userId) {
   const res = await fetch(
-    `/api/friends/search?query=${encodeURIComponent(query)}&userId=${userId}`
+    `/api/friends/search?query=${encodeURIComponent(query)}&userId=${userId}`,
+    { headers: await getAuthHeader() }
   )
   const data = await res.json()
 
@@ -29,7 +33,7 @@ export async function searchUsers(query, userId) {
 export async function sendFriendRequest(userId, friendId) {
   const res = await fetch('/api/friends/request', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
     body: JSON.stringify({ userId, friendId }),
   })
 
@@ -41,7 +45,7 @@ export async function sendFriendRequest(userId, friendId) {
 export async function respondToFriendRequest(friendshipId, userId, action) {
   const res = await fetch('/api/friends/respond', {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
     body: JSON.stringify({ friendshipId, userId, action }),
   })
 

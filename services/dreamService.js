@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase'
+import { supabase, getAuthHeader } from '../lib/supabase'
 
 export async function getUserDreams(userId) {
   if (!userId) return []
@@ -25,7 +25,7 @@ export async function getUserDreams(userId) {
 export async function removeDreamFromFeed(dreamId, userId) {
   const res = await fetch('/api/delete-dream', {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
     body: JSON.stringify({
       dreamId,
       userId,
@@ -41,7 +41,7 @@ export async function removeDreamFromFeed(dreamId, userId) {
 export async function deleteDreamPermanently(dreamId, userId) {
   const res = await fetch('/api/delete-dream', {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
     body: JSON.stringify({
       dreamId,
       userId,
@@ -57,7 +57,7 @@ export async function deleteDreamPermanently(dreamId, userId) {
 export async function updateDream(dreamId, userId, updates) {
   const res = await fetch('/api/update-dream', {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
     body: JSON.stringify({
       dreamId,
       userId,
