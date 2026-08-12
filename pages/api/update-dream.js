@@ -1,13 +1,21 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
 export default async function handler(req, res) {
   if (req.method !== 'PUT') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { dreamId, userId, content, location_name, visibility, map_detail, in_feed, tags, ai_image_url, image_source, image_width, image_height } = req.body
+  // GÜVENLİK DÜZELTMESİ: bu route daha önce sahiplik kontrolünü body'den
+  // gelen userId'ye göre yapıyordu — Authorization header hiç
+  // doğrulanmıyordu, yani dreamId + gerçek sahibin userId'sini bilen
+  // HERKES o rüyayı düzenleyebiliyordu. Artık kimlik Bearer token'dan
+  // (getAuthedUser) doğrulanıyor, body'deki userId artık kullanılmıyor.
+  const user = await getAuthedUser(req)
+  if (!user) return res.status(401).json({ error: 'unauthorized' })
 
-  if (!dreamId || !userId) {
+  const { dreamId, content, location_name, visibility, map_detail, in_feed, tags, ai_image_url, image_source, image_width, image_height } = req.body
+
+  if (!dreamId) {
     return res.status(400).json({ error: 'Eksik parametreler' })
   }
 
@@ -23,22 +31,8 @@ export default async function handler(req, res) {
       .map((t) => t.slice(0, 30))
   }
 
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({ error: 'Service role key eksik' })
-  }
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  })
-
   try {
-    const { data: dream, error: fetchError } = await supabase
+    const { data: dream, error: fetchError } = await supabaseAdmin
       .from('dreams')
       .select('user_id')
       .eq('id', dreamId)
@@ -48,7 +42,7 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Rüya bulunamadı' })
     }
 
-    if (dream.user_id !== userId) {
+    if (dream.user_id !== user.id) {
       return res.status(403).json({ error: 'Bu rüyayı düzenleme yetkiniz yok' })
     }
 
@@ -73,7 +67,7 @@ export default async function handler(req, res) {
       updates.image_checked_at = new Date().toISOString()
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('dreams')
       .update(updates)
       .eq('id', dreamId)

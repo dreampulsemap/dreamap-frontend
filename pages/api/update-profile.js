@@ -1,10 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-)
+import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
 const ALLOWED_LANGUAGES = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja'] // YENİ
 const ALLOWED_GENDERS = ['female', 'male', 'unspecified']                  // YENİ
@@ -21,11 +15,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, username, display_name, avatar_url, is_private, language, gender } = req.body || {}
+    // GÜVENLİK DÜZELTMESİ: bu route daha önce body'deki userId'ye güveniyordu
+    // — Authorization header hiç kontrol edilmiyordu, yani HERKESİN
+    // kullanıcı adını/avatarını/gizlilik ayarını değiştirmek mümkündü.
+    // Artık kimlik Bearer token'dan doğrulanıyor.
+    const user = await getAuthedUser(req)
+    if (!user) return res.status(401).json({ error: 'unauthorized' })
+    const userId = user.id
 
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' })
-    }
+    const { username, display_name, avatar_url, is_private, language, gender } = req.body || {}
 
     const cleanUsername = normalize(username)
     const cleanDisplayName = normalize(display_name)
@@ -56,7 +54,7 @@ export default async function handler(req, res) {
     }
 
     if (cleanUsername) {
-      const { data: existingUser, error: usernameCheckError } = await supabase
+      const { data: existingUser, error: usernameCheckError } = await supabaseAdmin
         .from('user_profiles')
         .select('id, username')
         .eq('username', cleanUsername)
@@ -83,7 +81,7 @@ export default async function handler(req, res) {
     // NOT: public.user_profiles satırı, auth.users'a INSERT olunca
     // on_auth_user_created trigger'ı (handle_new_user()) tarafından
     // otomatik oluşturuluyor, bu yüzden .update() güvenle kullanılabilir.
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('user_profiles')
       .update(updates)
       .eq('id', userId)
