@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Bookmark, Heart, MessageCircle, Moon, Sparkles, Users } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
-import { supabase, auth } from '@/lib/supabase'
+import { supabase, auth, getAuthHeader } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
@@ -319,9 +319,10 @@ export default function ProfilePage() {
 
   async function loadFriends(userId) {
     try {
+      const authHeader = await getAuthHeader()
       const [friendsRes, pendingRes] = await Promise.all([
-        fetch(`/api/friends/list?userId=${userId}&type=accepted`),
-        fetch(`/api/friends/list?userId=${userId}&type=pending`),
+        fetch(`/api/friends/list?userId=${userId}&type=accepted`, { headers: authHeader }),
+        fetch(`/api/friends/list?userId=${userId}&type=pending`, { headers: authHeader }),
       ])
 
       const friendsData = await friendsRes.json()
@@ -358,7 +359,7 @@ export default function ProfilePage() {
 
       const res = await fetch('/api/update-profile', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
         body: JSON.stringify({
           userId: user.id,
           username: profileUsername,
@@ -408,7 +409,9 @@ export default function ProfilePage() {
   async function handleSearch() {
     if (!searchQuery.trim() || !user) return
     try {
-      const res = await fetch(`/api/friends/search?query=${encodeURIComponent(searchQuery)}&userId=${user.id}`)
+      const res = await fetch(`/api/friends/search?query=${encodeURIComponent(searchQuery)}&userId=${user.id}`, {
+        headers: await getAuthHeader(),
+      })
       const data = await res.json()
       setSearchResults(Array.isArray(data.users) ? data.users : [])
       setShowSearch(true)
@@ -420,7 +423,7 @@ export default function ProfilePage() {
   async function handleSendRequest(friendId) {
     const res = await fetch('/api/friends/request', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
       body: JSON.stringify({ userId: user.id, friendId }),
     })
     const data = await res.json()
@@ -437,7 +440,7 @@ export default function ProfilePage() {
   async function handleRespondRequest(friendshipId, action) {
     const res = await fetch('/api/friends/respond', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
       body: JSON.stringify({ friendshipId, userId: user.id, action }),
     })
     if (res.ok) {

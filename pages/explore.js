@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Bird, Heart, MessageCircle, Moon, Search, Target, Trophy, X } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { supabase, getAuthHeader } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
@@ -158,7 +158,9 @@ export default function ExplorePage() {
     setSearchError('')
     const timeout = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/friends/search?query=${encodeURIComponent(q)}&userId=${user.id}`)
+        const res = await fetch(`/api/friends/search?query=${encodeURIComponent(q)}&userId=${user.id}`, {
+          headers: await getAuthHeader(),
+        })
         const json = await res.json()
         if (!res.ok) {
           setSearchError(json.error || 'error')
@@ -183,7 +185,7 @@ export default function ExplorePage() {
     try {
       const res = await fetch('/api/friends/request', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
         body: JSON.stringify({ userId: user.id, friendId: targetUser.id }),
       })
       const json = await res.json()
