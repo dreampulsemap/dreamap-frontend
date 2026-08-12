@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { MessageCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { supabase } from '@/lib/supabase'
+import { supabase, getAuthHeader } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
@@ -113,7 +113,7 @@ export default function PublicProfilePage() {
     try {
       const res = await fetch('/api/friends/request', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
         body: JSON.stringify({ userId: viewer.id, friendId: userId }),
       })
       const json = await res.json()
