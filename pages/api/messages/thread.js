@@ -27,18 +27,23 @@ export default async function handler(req, res) {
       .or(`and(sender_id.eq.${user.id},recipient_id.eq.${otherId}),and(sender_id.eq.${otherId},recipient_id.eq.${user.id})`)
 
     if (after) {
+      // Polling: bu zamandan SONRAKİ mesajları getir.
       query = query.gt('created_at', after).order('created_at', { ascending: true }).limit(PAGE_SIZE)
     } else if (before) {
+      // "Daha eski mesajları yükle": bu zamandan ÖNCEKİ mesajları getir.
       query = query.lt('created_at', before).order('created_at', { ascending: false }).limit(PAGE_SIZE)
     } else {
+      // İlk yükleme: en son mesajlar.
       query = query.order('created_at', { ascending: false }).limit(PAGE_SIZE)
     }
 
     const { data: rows, error } = await query
     if (error) throw error
 
+    // before/ilk-yükleme DESC geldiği için ekranda eskiden-yeniye göstermek üzere ters çeviriyoruz.
     const messages = after ? (rows || []) : (rows || []).slice().reverse()
 
+    // Bu thread'i açan kişi, karşı taraftan gelen okunmamış mesajları görmüş sayılır.
     const { error: markReadError } = await supabaseAdmin
       .from('messages')
       .update({ is_read: true })
