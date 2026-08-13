@@ -1,15 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
-  }
-
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({ error: 'Supabase env eksik' })
   }
 
   const { id } = req.query
@@ -18,16 +11,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'id zorunlu' })
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  })
-
-  const { data, error } = await supabase
+  // goals(title) — dreams.goal_id FK'sine dayanan bir PostgREST embed'i
+  // (Faz 10). Sonucu düz alanlara (goal_title) indiriyoruz ki istemci
+  // tarafında iç içe bir nesneyle uğraşmaya gerek kalmasın.
+  const { data, error } = await supabaseAdmin
     .from('dreams')
-    .select('*')
+    .select('*, goals(title)')
     .eq('id', id)
     .single()
 
@@ -35,5 +24,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error.message })
   }
 
-  return res.status(200).json({ dream: data })
+  const { goals, ...dream } = data
+  dream.goal_title = goals?.title || null
+
+  return res.status(200).json({ dream })
 }
