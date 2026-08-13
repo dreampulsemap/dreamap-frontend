@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Bookmark, Heart, MessageCircle, Moon, Sparkles, Users } from 'lucide-react'
+import { Bookmark, BookOpen, Heart, MessageCircle, Moon, Sparkles, Users } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { supabase, auth, getAuthHeader } from '@/lib/supabase'
@@ -17,6 +17,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import DiaryStoryViewer from '@/components/DiaryStoryViewer'
+import DiaryJournal from '@/components/DiaryJournal'
 import PsycheMap from '@/components/PsycheMap'
 import Seo from '@/components/Seo'
 
@@ -73,7 +74,7 @@ export default function ProfilePage() {
 
   // PROFİL SEKMELERİ — Instagram'ın grid/tagged sekmeleri gibi. Vizyon Panosu
   // varsayılan (ilk açılan), Rüyalar (DreamCard grid'i) yan sekme.
-  const [profileTab, setProfileTab] = useState('vision') // 'vision' | 'dreams'
+  const [profileTab, setProfileTab] = useState('vision') // 'vision' | 'dreams' | 'gunce' | 'saved'
 
   useEffect(() => {
     // Sayfa yenilendiğinde en son hangi sekmedeysem (Vizyon/Rüyalar) onda
@@ -215,6 +216,15 @@ export default function ProfilePage() {
       setDiaryEntries([])
     }
   }, [])
+
+  // Günce sekmesinden (ya da açık duran story görüntüleyiciden) girdi
+  // eklenip silinince avatar etrafındaki halka da senkron kalsın.
+  useEffect(() => {
+    if (!user?.id) return
+    function handleUpdated() { loadOwnDiary(user.id) }
+    window.addEventListener('diary-entries-updated', handleUpdated)
+    return () => window.removeEventListener('diary-entries-updated', handleUpdated)
+  }, [user?.id, loadOwnDiary])
 
   function openOwnDiary() {
     if (!diaryEntries || diaryEntries.length === 0 || !user) return
@@ -634,6 +644,14 @@ export default function ProfilePage() {
             <Moon size={13} /> {mounted ? (lang === 'tr' ? 'Rüyalar' : 'Dreams') : <TextSkeleton width="w-14" />}
           </button>
           <button
+            onClick={() => handleSelectTab('gunce')}
+            className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
+              profileTab === 'gunce' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            <BookOpen size={13} /> {mounted ? (lang === 'tr' ? 'Günce' : 'Diary') : <TextSkeleton width="w-14" />}
+          </button>
+          <button
             onClick={() => handleSelectTab('saved')}
             className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
               profileTab === 'saved' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -725,6 +743,10 @@ export default function ProfilePage() {
           </div>
         )}
         </>
+        ) : profileTab === 'gunce' ? (
+          <div className={`transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
+            <DiaryJournal lang={lang} currentUser={user} />
+          </div>
         ) : (
           <div className={`transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
             {savedLoading && !savedLoaded ? (
