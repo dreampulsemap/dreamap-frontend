@@ -59,12 +59,22 @@ export default async function handler(req, res) {
 
     // Kişi başına grupla — arkadaşlar için 'private' görünürlüğündekiler
     // sayılmaz (kendi girdilerinde hepsi sayılır).
+    //
+    // HALKA YALNIZCA SON 24 SAATİ YANSITIR (Instagram hikayesi gibi söner) —
+    // ownDates bundan MUAF, çünkü seri (streak) hesaplaması günler öncesine
+    // bakmak zorunda. Girdilerin kendisi asla silinmiyor: 24 saati geçince
+    // sadece bu halkadan düşüyor, profildeki kalıcı Günce sekmesinde
+    // (list-for-user) durmaya devam ediyor.
+    const RING_WINDOW_MS = 24 * 60 * 60 * 1000
+    const ringCutoff = Date.now() - RING_WINDOW_MS
     const byUser = new Map()
     const ownDates = []
     for (const e of entries || []) {
       const isSelf = e.user_id === user.id
       if (isSelf) ownDates.push(e.created_at)
       else if (e.visibility === 'private') continue
+
+      if (new Date(e.created_at).getTime() < ringCutoff) continue
 
       const bucket = byUser.get(e.user_id) || { count: 0, latestAt: null }
       bucket.count += 1
