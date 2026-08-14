@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from "@/lib/supabase";
 
 export default function VerifyPage() {
   const [msg, setMsg] = useState("Confirming your email…");
@@ -16,7 +11,7 @@ export default function VerifyPage() {
     const p = new URLSearchParams(window.location.search);
     const token = p.get("token");
     const type = (p.get("type") as any) || "signup";
-    const redirectTo = p.get("redirect_to") || "/welcome";
+    const redirectTo = p.get("redirect_to") || "/profile";
 
     if (!token) { setMsg("Link is missing a token."); return; }
 
@@ -41,4 +36,4 @@ export default function VerifyPage() {
       </div>
     </main>
   );
-        }
+}
