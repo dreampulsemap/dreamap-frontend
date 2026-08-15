@@ -25,8 +25,7 @@ const QUICK_TAGS = {
   en: ['dreams', 'goals', 'motivation', 'nature', 'travel', 'success', 'meditation'],
 }
 
-// TODO: uygulama içi bir /premium sayfası oluşunca buradaki direkt Gumroad
-// linki yerine o sayfaya yönlendirilebilir.
+// TODO: When an in-app /premium page exists, replace the direct Gumroad link with an internal premium flow. See issue #9.
 const PREMIUM_UPGRADE_URL = 'https://elsuilgen.gumroad.com/l/dmtasl'
 
 function formatNextAvailable(iso, lang) {
