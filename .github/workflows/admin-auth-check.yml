@@ -1,0 +1,19 @@
+name: Admin auth check
+
+on:
+  push:
+    branches: [ main, "**" ]
+  pull_request:
+    paths: [ '**' ]
+
+jobs:
+  check-admin-auth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Run admin auth check script
+        run: node scripts/check-admin-auth.js
