@@ -103,8 +103,9 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
     const dreamId = dream.id
 
     const poll = async () => {
-      try {
-        const res = await fetch(`/api/get-dream?id=${dreamId}`)
+              const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch(`/api/get-dream?id=${dreamId}`, {
+          headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
         if (!active || !res.ok) return
         const { dream: fresh } = await res.json()
         if (!active || !fresh) return
