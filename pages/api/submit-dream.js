@@ -1,16 +1,7 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error('Missing Supabase Environment Variables')
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
-
-// Hard Limit (Maliyet Güvenliği İçin Karakter Sınırı)
-const MAX_CHARACTERS = 12000; 
+// Hard Limit (Maliyet Guvenligi Icin Karakter Siniri)
+const MAX_CHARACTERS = 12000;
 
 function normalizeText(value) {
   if (typeof value !== 'string') return null
@@ -22,15 +13,23 @@ function getBaseUrl(req) {
   const forwardedProto = req.headers['x-forwarded-proto']
   const forwardedHost = req.headers['x-forwarded-host']
   const host = forwardedHost || req.headers.host
-  const proto = typeof forwardedProto === 'string' && forwardedProto.length ? forwardedProto : process.env.NODE_ENV === 'development' ? 'http' : 'https'
+  const proto = typeof forwardedProto === 'string' && forwardedProto.length
+    ? forwardedProto
+    : process.env.NODE_ENV === 'development' ? 'http' : 'https'
   return `${proto}://${host}`
 }
 
+// GUVENLIK DUZELTMESI: user_id daha once body'den okunup dogrulanmadan
+// insert ediliyordu - yani herkes baskasi adina ruya olusturabiliyordu.
+// Artik kimlik Bearer token'dan dogrulaniyor ve user_id oradan aliniyor.
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST'])
     return res.status(405).json({ error: `Method ${req.method} not allowed` })
   }
+
+  const user = await getAuthedUser(req)
+  if (!user) return res.status(401).json({ error: 'unauthorized' })
 
   try {
     const {
@@ -40,7 +39,6 @@ export default async function handler(req, res) {
       location_name,
       original_language,
       user_selected_sentiment,
-      user_id,
       visibility,
       map_detail,
       in_feed,
@@ -48,27 +46,26 @@ export default async function handler(req, res) {
       longitude,
     } = req.body || {}
 
-    // 1. BACKEND MALİYET KORUMASI (Spam Engelleme)
+    // 1. BACKEND MALIYET KORUMASI (Spam Engelleme)
     if (content && content.length > MAX_CHARACTERS) {
-      return res.status(413).json({ 
-        error: 'payload_too_large', 
-        message: `Dream text exceeds the maximum allowed length of ${MAX_CHARACTERS} characters.` 
+      return res.status(413).json({
+        error: 'payload_too_large',
+        message: `Dream text exceeds the maximum allowed length of ${MAX_CHARACTERS} characters.`
       });
     }
 
     const cleanContent = normalizeText(content);
-
     if (!cleanContent) {
       return res.status(400).json({ error: 'content is required' })
     }
 
     const insertPayload = {
-      user_id: normalizeText(user_id) || null,
+      user_id: user.id,
       content: cleanContent,
       original_language: normalizeText(original_language) || 'en',
       location_name: normalizeText(location_name),
       dream_date: dream_date || null,
-      user_selected_sentiment: normalizeText(user_selected_sentiment), // Artık virgülle ayrılmış çoklu duygu tutar
+      user_selected_sentiment: normalizeText(user_selected_sentiment),
       ai_title: normalizeText(title),
       visibility: ['public', 'friends', 'private'].includes(visibility) ? visibility : 'public',
       map_detail: ['full', 'summary'].includes(map_detail) ? map_detail : 'full',
@@ -79,7 +76,7 @@ export default async function handler(req, res) {
       updated_at: new Date().toISOString(),
     }
 
-    const { data: insertedDream, error: insertError } = await supabase
+    const { data: insertedDream, error: insertError } = await supabaseAdmin
       .from('dreams')
       .insert(insertPayload)
       .select('*')
@@ -90,7 +87,6 @@ export default async function handler(req, res) {
     }
 
     let analyzedDream = insertedDream
-
     try {
       const baseUrl = getBaseUrl(req)
       const analyzeResponse = await fetch(`${baseUrl}/api/analyze-dream`, {
@@ -98,7 +94,6 @@ export default async function handler(req, res) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dreamId: insertedDream.id }),
       })
-
       if (analyzeResponse.ok) {
         const analyzeData = await analyzeResponse.json();
         analyzedDream = analyzeData?.dream || insertedDream;
