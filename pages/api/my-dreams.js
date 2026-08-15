@@ -1,35 +1,22 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
+// GUVENLIK DUZELTMESI: bu route daha once body'deki userId'ye guveniyordu -
+// Authorization header hic kontrol edilmiyordu, yani HERKES
+// baska bir kullanicinin ozel (private) ruyalarini bu userId'yi vererek okuyabiliyordu.
+// Artik kimlik Bearer token'dan dogrulaniyor ve sadece kendi ruyalarin donuyor.
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { userId } = req.body
-
-  if (!userId) {
-    return res.status(400).json({ error: 'Eksik userId' })
-  }
-
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({ error: 'Service role key eksik' })
-  }
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  })
+  const user = await getAuthedUser(req)
+  if (!user) return res.status(401).json({ error: 'unauthorized' })
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('dreams')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
     if (error) {
