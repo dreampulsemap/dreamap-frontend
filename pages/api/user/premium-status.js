@@ -1,4 +1,4 @@
-import { getAuthedUser } from '@/lib/supabaseAdmin'
+import { getAuthedUser, supabaseAdmin } from '@/lib/supabaseAdmin'
 import { getPremiumVideoStatus } from '@/lib/premiumVideoStatus'
 
 export default async function handler(req, res) {
@@ -9,7 +9,20 @@ export default async function handler(req, res) {
 
   try {
     const status = await getPremiumVideoStatus(user.id)
-    return res.status(200).json(status)
+
+    // Mobil "Buy Aura" ekranı gerçek bakiyeyi gösterebilsin diye eklendi —
+    // getPremiumVideoStatus'a dokunmadık (web tarafında başka çağıranları
+    // da var), bakiyeyi burada ayrıca okuyup response'a ekliyoruz.
+    const { data: profile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('premium_analysis_auras')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    return res.status(200).json({
+      ...status,
+      auraBalance: Number(profile?.premium_analysis_auras || 0),
+    })
   } catch (error) {
     console.error('user/premium-status error:', error)
     return res.status(500).json({ error: error.message || 'internal_error' })
