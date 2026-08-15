@@ -25,7 +25,7 @@ export default function AdminAuthGate({ children }) {
   const [verifying, setVerifying] = useState(false)
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY)
+    const saved = window.sessionStorage.getItem(STORAGE_KEY)
     if (saved) {
       verify(saved)
     } else {
@@ -43,7 +43,7 @@ export default function AdminAuthGate({ children }) {
       })
       if (res.status === 401) {
         setError('Token geçersiz.')
-        window.localStorage.removeItem(STORAGE_KEY)
+        window.sessionStorage.removeItem(STORAGE_KEY)
         setToken(null)
         return
       }
@@ -51,7 +51,7 @@ export default function AdminAuthGate({ children }) {
         setError('Bağlantı hatası, tekrar dene.')
         return
       }
-      window.localStorage.setItem(STORAGE_KEY, candidate)
+      window.sessionStorage.setItem(STORAGE_KEY, candidate)
       setToken(candidate)
     } catch {
       setError('Bağlantı hatası, tekrar dene.')
@@ -68,7 +68,7 @@ export default function AdminAuthGate({ children }) {
   }
 
   function logout() {
-    window.localStorage.removeItem(STORAGE_KEY)
+    window.sessionStorage.removeItem(STORAGE_KEY)
     setToken(null)
     setInput('')
   }

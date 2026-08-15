@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useEffect } from 'react'
+﻿import { useCallback, useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, ImageOff, Loader2, Pencil, Search, Upload } from 'lucide-react'
 import AdminAuthGate, { useAdminAuth } from '@/components/admin/AdminAuthGate'
@@ -20,7 +20,7 @@ function DreamThumb({ dream }) {
   return (
     <div className="w-full h-full flex flex-col justify-between p-2.5 bg-gradient-to-br from-slate-800/60 to-black">
       <span className={`text-[9px] uppercase tracking-widest font-bold ${broken ? 'text-rose-400' : 'text-slate-500'}`}>
-        {broken ? 'Bozuk' : 'Görselsiz'}
+        {broken ? 'Bozuk' : 'GÃ¶rselsiz'}
       </span>
       <p className="text-[10px] text-white/60 leading-snug line-clamp-4 font-light">{dream.content}</p>
     </div>
@@ -28,7 +28,7 @@ function DreamThumb({ dream }) {
 }
 
 function DreamCard({ dream, onOpenPicker, onTriggerUpload, onEdit, busy }) {
-  const displayName = dream.user?.display_name || dream.user?.username || 'Bilinmeyen kullanıcı'
+  const displayName = dream.user?.display_name || dream.user?.username || 'Bilinmeyen kullanÄ±cÄ±'
   const title = dream.title || dream.content?.slice(0, 60)
 
   return (
@@ -38,7 +38,7 @@ function DreamCard({ dream, onOpenPicker, onTriggerUpload, onEdit, busy }) {
         <button
           type="button"
           onClick={() => onEdit(dream)}
-          aria-label="Rüyayı düzenle"
+          aria-label="RÃ¼yayÄ± dÃ¼zenle"
           className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
         >
           <Pencil size={12} />
@@ -71,7 +71,7 @@ function DreamCard({ dream, onOpenPicker, onTriggerUpload, onEdit, busy }) {
             disabled={busy}
             className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] font-semibold hover:bg-amber-500/20 disabled:opacity-40"
           >
-            {busy ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />} Yükle
+            {busy ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />} YÃ¼kle
           </button>
         </div>
       </div>
@@ -104,11 +104,12 @@ function DreamImages() {
     (url, options = {}) =>
       fetch(url, {
         ...options,
+        
         headers: {
           ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-          Authorization: `Bearer ${token}`,
           ...options.headers,
         },
+
       }),
     [token]
   )
@@ -126,7 +127,7 @@ function DreamImages() {
         setTotal(json.total)
         setPage(pageNum)
       } catch (err) {
-        setError(err.message || 'Yüklenemedi.')
+        setError(err.message || 'YÃ¼klenemedi.')
       } finally {
         setLoading(false)
         setLoadingMore(false)
@@ -172,11 +173,11 @@ function DreamImages() {
     if (!file || !dreamId) return
 
     if (!file.type?.startsWith('image/')) {
-      setError('Lütfen bir görsel dosyası seç.')
+      setError('LÃ¼tfen bir gÃ¶rsel dosyasÄ± seÃ§.')
       return
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      setError('Görsel çok büyük (maks. 15MB).')
+      setError('GÃ¶rsel Ã§ok bÃ¼yÃ¼k (maks. 15MB).')
       return
     }
 
@@ -196,12 +197,12 @@ function DreamImages() {
       })
       const json = await res.json()
       if (!res.ok || !json.ok) {
-        setError(json.error === 'image_too_large' ? 'Görsel çok büyük (maks. 15MB).' : 'Yükleme başarısız oldu.')
+        setError(json.error === 'image_too_large' ? 'GÃ¶rsel Ã§ok bÃ¼yÃ¼k (maks. 15MB).' : 'YÃ¼kleme baÅŸarÄ±sÄ±z oldu.')
         return
       }
       patchDreamImage(dreamId, { ai_image_url: json.url, image_status: 'ok' })
     } catch {
-      setError('Yükleme başarısız oldu.')
+      setError('YÃ¼kleme baÅŸarÄ±sÄ±z oldu.')
     } finally {
       setUploadingDreamId(null)
     }
@@ -256,7 +257,7 @@ function DreamImages() {
 
   return (
     <div className="min-h-screen bg-[#0c0e14] text-white">
-      <Seo title="Rüya Görselleri — Yönetim" noindex />
+      <Seo title="RÃ¼ya GÃ¶rselleri â€” YÃ¶netim" noindex />
       <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -264,12 +265,12 @@ function DreamImages() {
               <ArrowLeft size={18} />
             </Link>
             <div>
-              <h1 className="text-lg font-bold">Rüya Yönetimi</h1>
-              <p className="text-slate-500 text-xs mt-0.5">{total !== null ? `${total} rüya` : '\u00A0'}</p>
+              <h1 className="text-lg font-bold">RÃ¼ya YÃ¶netimi</h1>
+              <p className="text-slate-500 text-xs mt-0.5">{total !== null ? `${total} rÃ¼ya` : '\u00A0'}</p>
             </div>
           </div>
           <button onClick={logout} className="text-xs text-slate-500 hover:text-slate-300 uppercase tracking-widest transition-colors">
-            Çıkış
+            Ã‡Ä±kÄ±ÅŸ
           </button>
         </div>
 
@@ -280,7 +281,7 @@ function DreamImages() {
               filter === 'missing' ? 'bg-amber-500 text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10'
             }`}
           >
-            Görselsiz / Bozuk
+            GÃ¶rselsiz / Bozuk
           </button>
           <button
             onClick={() => setFilter('all')}
@@ -288,7 +289,7 @@ function DreamImages() {
               filter === 'all' ? 'bg-amber-500 text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10'
             }`}
           >
-            Tümü
+            TÃ¼mÃ¼
           </button>
         </div>
 
@@ -301,7 +302,7 @@ function DreamImages() {
         ) : dreams.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-2 text-center">
             <ImageOff size={28} className="text-slate-700" />
-            <p className="text-slate-500 text-sm">{filter === 'missing' ? 'Görselsiz/bozuk rüya kalmadı 🎉' : 'Hiç rüya yok.'}</p>
+            <p className="text-slate-500 text-sm">{filter === 'missing' ? 'GÃ¶rselsiz/bozuk rÃ¼ya kalmadÄ± ğŸ‰' : 'HiÃ§ rÃ¼ya yok.'}</p>
           </div>
         ) : (
           <>
@@ -325,7 +326,7 @@ function DreamImages() {
                   disabled={loadingMore}
                   className="px-6 py-2.5 rounded-full bg-white/5 text-slate-300 text-xs font-bold uppercase tracking-widest hover:bg-white/10 disabled:opacity-40"
                 >
-                  {loadingMore ? 'Yükleniyor…' : 'Daha Fazla'}
+                  {loadingMore ? 'YÃ¼kleniyorâ€¦' : 'Daha Fazla'}
                 </button>
               </div>
             )}
@@ -360,3 +361,8 @@ export default function DreamImagesPage() {
     </AdminAuthGate>
   )
 }
+
+
+
+
+

@@ -65,15 +65,17 @@ export default function Seo({
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={image} />
 
-      {jsonLdList.map((schema, i) => (
-        <script
-          key={i}
-          type="application/ld+json"
-          // JSON.stringify burada kullanıcıdan gelen serbest metin değil,
-          // sayfaların kendi ürettiği sabit şema nesnelerini basıyor.
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-        />
-      ))}
+      {jsonLdList.map((schema, i) => {
+        // Sanitize closing </script> so injected strings can't break out of the JSON-LD script
+        const safeJson = JSON.stringify(schema).replace(/<\/script>/gi, '<\\/script>')
+        return (
+          <script
+            key={i}
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: safeJson }}
+          />
+        )
+      })}
     </Head>
   )
 }
