@@ -1,13 +1,20 @@
-import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
+// GUVENLIK DUZELTMESI: userId daha once body'den okunuyordu, dogrulanmiyordu -
+// yani herkes baskasi adina begeni ekleyip kaldirabiliyordu.
+// Artik kimlik Bearer token'dan dogrulaniyor.
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'DELETE') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { dreamId, userId } = req.body
+  const user = await getAuthedUser(req)
+  if (!user) return res.status(401).json({ error: 'unauthorized' })
+  const userId = user.id
 
-  if (!dreamId || !userId) {
+  const { dreamId } = req.body
+
+  if (!dreamId) {
     return res.status(400).json({ error: 'Missing parameters' })
   }
 
@@ -49,7 +56,6 @@ export default async function handler(req, res) {
 
       if (error) throw error
 
-      // Get updated count - single query
       const { data: countResult, error: countError } = await supabaseAdmin
         .from('dreams')
         .select('likes_count')
