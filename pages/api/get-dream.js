@@ -1,11 +1,12 @@
-import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser, getAcceptedFriendIds } from '@/lib/supabaseAdmin'
 
 // GUVENLIK DUZELTMESI: bu route hicbir visibility (public/friends/private)
 // kontrolu yapmadan herhangi bir id icin ruyayi donduruyordu - yani ruya
 // id'sini bilen herkes private bir ruyayi okuyabiliyordu.
-// Artik public olmayan ruyalar icin kimlik dogrulaniyor ve sadece sahibi
-// erisebiliyor (friends gorunurlugu de simdilik sahiplik ile sinirli,
-// ileride arkadaslik kontrolu eklenebilir).
+// Artik public olmayan ruyalar icin kimlik dogrulaniyor: sahibi her zaman
+// erisebilir, 'friends' gorunurlugunde kabul edilmis arkadaslar da
+// erisebilir (canViewGoal'daki ile ayni desen), 'private' ise sadece sahibi
+// erisebilir.
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -36,7 +37,15 @@ export default async function handler(req, res) {
 
   if (data.visibility && data.visibility !== 'public') {
     const user = await getAuthedUser(req)
-    if (!user || user.id !== data.user_id) {
+    const isOwner = !!user && user.id === data.user_id
+
+    let isAcceptedFriend = false
+    if (!isOwner && user && data.visibility === 'friends') {
+      const friendIds = await getAcceptedFriendIds(data.user_id)
+      isAcceptedFriend = friendIds.includes(user.id)
+    }
+
+    if (!isOwner && !isAcceptedFriend) {
       return res.status(403).json({ error: 'not_visible' })
     }
   }
