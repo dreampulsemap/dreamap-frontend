@@ -3,28 +3,38 @@ import { useEffect, useState } from 'react'
 import DreamAnalysisView from '@/components/DreamAnalysisView'
 import Seo from '@/components/Seo'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { getAuthHeader } from '@/lib/supabase'
 
 // SEO NOTU: Bu sayfa bilerek noindex. `premium_deep_analysis` alanı
 // shadow_focus / core_conflict / hidden_self gibi oldukça kişisel,
-// psikolojik içerik barındırıyor ve pages/api/get-dream.js herhangi bir
-// sahiplik/görünürlük kontrolü yapmadan id ile herkese döndürüyor — yani bu
-// içeriğin Google'da arama sonucuna düşmesini istemiyoruz. Yine de bir
-// kullanıcı kendi linkini paylaştığında WhatsApp/Twitter'da düzgün bir
-// önizleme (başlık/açıklama) çıksın diye getServerSideProps ile sunucu
-// tarafında hafif bir veri çekiyoruz — mevcut istemci tarafı fetch (aşağıdaki
-// useEffect) elle dokunulmadan aynen duruyor, asıl ekrana basılan içeriği o
-// besliyor; SSR verisi yalnızca <Seo> için kullanılıyor.
+// psikolojik içerik barındırıyor. GÜVENLİK DÜZELTMESİ (bkz. get-dream.js):
+// artık public olmayan rüyalar için o route Authorization: Bearer token'ı
+// zorunlu kılıyor, bu yüzden istemci fetch'i de (aşağıdaki useEffect) artık
+// getAuthHeader() ile token gönderiyor. getServerSideProps de aynı şekilde
+// yalnızca visibility === 'public' rüyalar için içerik-özel SEO verisi
+// üretiyor, aksi halde SSR meta etiketleri üzerinden (view-source ile)
+// private içerik sızabilirdi. Yine de arama motorları indekslemesin diye
+// noindex bilerek korunuyor. Kullanıcı kendi linkini paylaştığında
+// WhatsApp/Twitter'da düzgün bir önizleme (başlık/açıklama) çıksın diye
+// getServerSideProps ile sunucu tarafında hafif bir veri çekiliyor; asıl
+// ekrana basılan içeriği istemci tarafı fetch besliyor, SSR verisi yalnızca
+// <Seo> için kullanılıyor.
 export async function getServerSideProps({ params }) {
   const { id } = params
 
   try {
     const { data: dream } = await supabaseAdmin
       .from('dreams')
-      .select('ai_title, content, premium_deep_analysis, premium_deep_analysis_lang')
+      .select('ai_title, content, premium_deep_analysis, premium_deep_analysis_lang, visibility')
       .eq('id', id)
       .single()
 
-    if (!dream) return { props: {} }
+    // service-role client RLS'i bypass eder; bu yüzden görünürlüğü burada
+    // elle kontrol ediyoruz. public olmayan bir rüya için içerik-özel
+    // başlık/özet üretmiyoruz (aşağıdaki <Seo> zaten generic bir varsayılana
+    // düşüyor) — aksi halde bu veri, oturum kontrolünün olmadığı SSR HTML
+    // içinde (view-source ile) herkese açık kalırdı.
+    if (!dream || dream.visibility !== 'public') return { props: {} }
 
     const lang = dream.premium_deep_analysis_lang || 'tr'
     const getVal = (v) => {
@@ -62,7 +72,7 @@ export default function DreamDetailPage({ seoTitle, seoDescription }) {
         setLoading(true)
         setError('')
 
-        const res = await fetch(`/api/get-dream?id=${id}`)
+        const res = await fetch(`/api/get-dream?id=${id}`, { headers: await getAuthHeader() })
         const data = await res.json()
 
         if (!res.ok) {
