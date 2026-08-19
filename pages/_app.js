@@ -3,6 +3,7 @@ import '@/lib/i18n'
 import Navbar from '@/components/Navbar'
 import BottomNav from '@/components/BottomNav'
 import Sidebar from '@/components/Sidebar'
+import AppDownloadBanner from '@/components/AppDownloadBanner'
 import { useRouter } from 'next/router'
 
 export default function App({ Component, pageProps }) {
@@ -10,11 +11,14 @@ export default function App({ Component, pageProps }) {
   
   // Tam ekran olan Küre, hata sayfaları veya WhatsApp-tarzı tam ekran
   // mesajlaşma sayfasında menüleri gizle
-  const hideNavbarPaths = ['/globe', '/auth/callback', '/verify', '/analizetgulum', '/messages']
+  const hideNavbarPaths = ['/globe', '/auth/callback', '/verify', '/analizetgulum', '/messages', '/app']
   const shouldHideNavbar = hideNavbarPaths.includes(router.pathname)
 
   return (
     <>
+      {/* Navbar'dan ÖNCE, sticky DEĞİL: sayfayla birlikte kaydırılıp gider,
+          Navbar'ın kendi sticky top-0 davranışıyla çakışmaz. */}
+      {!shouldHideNavbar && <AppDownloadBanner />}
       {!shouldHideNavbar && <Navbar />}
       {!shouldHideNavbar && <Sidebar />}
       

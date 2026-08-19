@@ -625,11 +625,14 @@ export default function ProfilePage() {
           </Link>
         )}
 
-        {/* PROFİL SEKMELERİ (Instagram grid/tagged tarzı) — Vizyon Panosu varsayılan */}
-        <div className="flex items-center justify-center gap-8 border-t border-white/10 mb-4">
+        {/* PROFİL SEKMELERİ (Instagram grid/tagged tarzı) — Vizyon Panosu varsayılan.
+            4 sekme dar ekranlarda sığmıyordu (metin iki satıra bölünüyor / son
+            sekme kırpılıyordu) — artık yatay kaydırılabilir; sm ve üzeri
+            genişlikte zaten sığdığı için ortalanmış düzene geri dönüyor. */}
+        <div className="flex items-center gap-6 sm:gap-8 sm:justify-center overflow-x-auto no-scrollbar scroll-smooth scroll-fade-x border-t border-white/10 mb-4">
           <button
             onClick={() => handleSelectTab('vision')}
-            className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px whitespace-nowrap transition-colors ${
               profileTab === 'vision' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
@@ -637,7 +640,7 @@ export default function ProfilePage() {
           </button>
           <button
             onClick={() => handleSelectTab('dreams')}
-            className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px whitespace-nowrap transition-colors ${
               profileTab === 'dreams' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
@@ -645,7 +648,7 @@ export default function ProfilePage() {
           </button>
           <button
             onClick={() => handleSelectTab('gunce')}
-            className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px whitespace-nowrap transition-colors ${
               profileTab === 'gunce' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
@@ -653,7 +656,7 @@ export default function ProfilePage() {
           </button>
           <button
             onClick={() => handleSelectTab('saved')}
-            className={`flex items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px whitespace-nowrap transition-colors ${
               profileTab === 'saved' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
