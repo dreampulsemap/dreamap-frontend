@@ -183,10 +183,28 @@ h1, h2, h3, h4, .font-serif {
 }
 .animate-fade-in { animation: fade-in 0.18s ease-out; }
 
+/* AppDownloadBanner girişi: sayfa açılır açılmaz "zıplamasın" diye üstten
+   kayarak belirir (component tarafında zaten gecikmeli gösteriliyor). Hareket
+   azaltma tercihi olan kullanıcıda animasyonu tamamen kapatıyoruz. */
+@keyframes banner-slide-in { from { opacity: 0; transform: translateY(-100%); } to { opacity: 1; transform: translateY(0); } }
+.animate-banner-in { animation: banner-slide-in 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .animate-banner-in { animation: none; }
+}
+
 /* SwipePanels (ana akış: rüya/vizyon kartları içi yatay kaydırma) — kaydırma
    çubuğunu görsel olarak gizler, snap davranışını etkilemez. */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Yatay kaydırılabilir sekme/chip satırları (ör. profil sekmeleri) için sağ
+   kenarda ince bir soluklaşma — içeriğin kırpılıp bittiği değil, kaydırmayla
+   devam ettiği hissini verir. Sığdığı (kaydırmaya gerek kalmadığı) genişlikte
+   sağda zaten boşluk kaldığından metni görünür şekilde etkilemez. */
+.scroll-fade-x {
+  -webkit-mask-image: linear-gradient(to right, black 92%, transparent 100%);
+  mask-image: linear-gradient(to right, black 92%, transparent 100%);
+}
 
 /* Vizyon Slaytları — Oto-Oynatan Sinematik Görüntüleyici (Ken Burns).
    Durağan görsellere de hareket hissi vermek için 4 varyant tanımlı, slayt
