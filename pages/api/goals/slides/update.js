@@ -2,7 +2,7 @@ import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
 const MIN_DURATION = 1
 const MAX_DURATION = 15
-const ALLOWED_FONTS = ['sans', 'serif', 'mono']
+const ALLOWED_FONTS = ['sans', 'serif', 'mono', 'elegant', 'display', 'handwritten']
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
 
 function clampNum(v, min, max) {
