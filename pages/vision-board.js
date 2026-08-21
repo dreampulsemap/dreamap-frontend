@@ -13,6 +13,7 @@ import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
+import VisionReelsFeed from '@/components/VisionReelsFeed'
 import Seo from '@/components/Seo'
 
 export default function VisionBoardPage() {
@@ -33,6 +34,7 @@ export default function VisionBoardPage() {
   const [activeGoal, setActiveGoal] = useState(null)
   const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
   const [activeVideoGoal, setActiveVideoGoal] = useState(null)
+  const [reelsGoalId, setReelsGoalId] = useState(null)
   const [ownActiveGoals, setOwnActiveGoals] = useState([])
   const [loadError, setLoadError] = useState('')
   const [authChecked, setAuthChecked] = useState(false)
@@ -129,16 +131,14 @@ export default function VisionBoardPage() {
   }
 
   // Bir vizyon kartına dokununca: video varsa doğrudan oto-oynayan
-  // VisionVideoPlayer'a gir, yoksa (henüz video oluşturmamış eski hedef)
-  // eski slaytı varsa SlidesViewer'a gir — ikisi de yoksa (henüz hiçbir
-  // vizyon içeriği yok) detay modalına düş. vision_video_url kontrolü
-  // slide_count'tan ÖNCE geliyor: bir hedefte hem eski slaytlar hem yeni
-  // video olabilir (video oluşturma eski slaytları silmiyor), o durumda
-  // güncel olan videoyu göstermek doğru olan.
+  // VisionVideoPlayer'a gir (Reels beslemesi video oynatmıyor, sadece kapak
+  // görselini gösteriyor) — geri kalan HER ŞEY (slaytlı ya da düz görselli)
+  // artık dikey kaydırmalı, tam ekran VisionReelsFeed'den açılıyor;
+  // slayt/detay görüntüleyicileri beslemenin İÇİNDEN ikincil eylem olarak
+  // tetikleniyor.
   function handleOpenGoal(goal) {
     if (goal.vision_video_url) setActiveVideoGoal(goal)
-    else if (goal.slide_count > 0) setActiveSlidesGoal(goal)
-    else setActiveGoal(goal)
+    else setReelsGoalId(goal.id)
   }
 
   return (
@@ -243,6 +243,23 @@ export default function VisionBoardPage() {
           onClose={() => setActiveGoal(null)}
           onChanged={handleGoalUpdated}
           onDeleted={handleGoalDeleted}
+        />
+      )}
+
+      {reelsGoalId && (
+        <VisionReelsFeed
+          goals={goals}
+          lang={lang}
+          t={t}
+          currentUserId={user?.id}
+          initialGoalId={reelsGoalId}
+          onLoadMore={() => loadGoals(tab, page + 1, false)}
+          hasMore={hasMore}
+          loading={loading}
+          onClose={() => setReelsGoalId(null)}
+          onOpenGoal={(g) => { setReelsGoalId(null); setActiveGoal(g) }}
+          onOpenSlides={(g) => { setReelsGoalId(null); setActiveSlidesGoal(g) }}
+          onReacted={() => {}}
         />
       )}
 

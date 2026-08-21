@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Shuffle, X } from 'lucide-react'
+import { Shuffle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
 import Hero from '@/components/Hero'
-import DreamCard from '@/components/DreamCard'
 import DreamFeedCard from '@/components/DreamFeedCard'
 import VisionFeedCard from '@/components/VisionFeedCard'
 import HomeFeedFilter from '@/components/HomeFeedFilter'
@@ -12,13 +11,13 @@ import GoalDetailModal from '@/components/GoalDetailModal'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import VisionReelsFeed from '@/components/VisionReelsFeed'
+import DreamReelsFeed from '@/components/DreamReelsFeed'
 import DiaryStoryRow from '@/components/DiaryStoryRow'
 import DiaryStoryViewer from '@/components/DiaryStoryViewer'
 import DiaryComposer from '@/components/DiaryComposer'
 import DailyCompass from '@/components/DailyCompass'
 import TextSkeleton from '@/components/TextSkeleton'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
-import { useModalA11y } from '@/lib/useModalA11y'
 import Seo, { SITE_NAME, SITE_URL } from '@/components/Seo'
 
 const HOME_JSON_LD = [
@@ -36,45 +35,6 @@ const HOME_JSON_LD = [
     logo: `${SITE_URL}/logo.png`,
   },
 ]
-
-// DreamCard kendi başına bir modal değil (onClose almıyor) — burada onu bir
-// modal kabuğuna sarıyoruz. GoalDetailModal ile aynı desen: useModalA11y
-// (Escape + fiziksel GERİ tuşu desteği) + her zaman görünür bir kapatma
-// butonu. Önceden yalnızca karartılmış arka plana tıklayarak kapanıyordu —
-// görünür bir buton yoktu ve GERİ tuşu sayfadan tamamen çıkarıyordu.
-function DreamCardModal({ dream, lang, currentUserId, onClose }) {
-  const modalRef = useRef(null)
-  useModalA11y(modalRef, onClose)
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
-      onClick={onClose}
-    >
-      <div ref={modalRef} className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <button
-          onClick={onClose}
-          aria-label={lang === 'tr' ? 'Kapat' : 'Close'}
-          className="sticky top-2 left-full -mr-1 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-sm"
-        >
-          <X size={18} />
-        </button>
-        <div className="-mt-9">
-          <DreamCard
-            dream={dream}
-            lang={lang}
-            currentUserId={currentUserId}
-            onTranslate={() => {}}
-            translating={false}
-            translated={false}
-            translatedContent=""
-            translatedAnalysis=""
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export default function HomePage() {
   const { i18n } = useTranslation()
@@ -176,15 +136,17 @@ export default function HomePage() {
   )
 
   const visionItems = items.filter((it) => it.feed_type === 'vision')
+  const dreamItems = items.filter((it) => it.feed_type === 'dream')
 
   // Bir vizyon kartına ya da Shuffle'a dokununca: video varsa doğrudan
-  // oto-oynayan VisionVideoPlayer'a gir, yoksa (henüz video oluşturmamış
-  // eski hedef) eski slaytı varsa SlidesViewer'a gir, ikisi de yoksa detay
-  // modalına düş — vision-board.js'teki aynı öncelik sırası.
+  // oto-oynayan VisionVideoPlayer'a gir (Reels beslemesi video oynatmıyor,
+  // sadece kapak görselini gösteriyor) — geri kalan HER ŞEY (slaytlı ya da
+  // düz görselli) artık dikey kaydırmalı, tam ekran VisionReelsFeed'den
+  // açılıyor; slayt/detay görüntüleyicileri beslemenin İÇİNDEN ikincil eylem
+  // olarak tetikleniyor (onOpenSlides/onOpenGoal prop'ları).
   function handleOpenGoal(goal) {
     if (goal.vision_video_url) setActiveVideoGoal(goal)
-    else if (goal.slide_count > 0) setActiveSlidesGoal(goal)
-    else setActiveGoal(goal)
+    else setReelsGoalId(goal.id)
   }
 
   return (
@@ -345,10 +307,13 @@ export default function HomePage() {
       )}
 
       {activeDream && (
-        <DreamCardModal
-          dream={activeDream}
+        <DreamReelsFeed
+          dreams={dreamItems}
           lang={lang}
           currentUserId={user?.id}
+          initialDreamId={activeDream.id}
+          hasMore={false}
+          loading={false}
           onClose={() => setActiveDream(null)}
         />
       )}

@@ -6,13 +6,13 @@ import { supabase, getAuthHeader } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
-import DreamCard from '@/components/DreamCard'
 import ExploreImageTile from '@/components/ExploreImageTile'
 import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import VisionReelsFeed from '@/components/VisionReelsFeed'
+import DreamReelsFeed from '@/components/DreamReelsFeed'
 import Seo from '@/components/Seo'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -72,15 +72,13 @@ export default function ExplorePage() {
   const [reelsGoalId, setReelsGoalId] = useState(null)
 
   // Bir karoya dokununca: video varsa doğrudan oto-oynayan
-  // VisionVideoPlayer'a gir, yoksa (henüz video oluşturmamış eski hedef)
-  // eski slaytı varsa SlidesViewer'a gir, ikisi de yoksa detay modalına
-  // düş — vision-board.js'teki aynı öncelik sırası. Reels beslemesi artık
-  // buradan tetiklenmiyor (aşağıdaki VisionReelsFeed bloğu, o akışın
-  // içindeki "detaylara dön" gibi ikincil eylemler için hâlâ duruyor).
+  // VisionVideoPlayer'a gir (Reels beslemesi video oynatmıyor, sadece kapak
+  // görselini gösteriyor) — geri kalan HER ŞEY artık dikey kaydırmalı, tam
+  // ekran VisionReelsFeed'den açılıyor; slayt/detay görüntüleyicileri
+  // beslemenin İÇİNDEN ikincil eylem olarak tetikleniyor.
   function handleOpenGoal(goal) {
     if (goal.vision_video_url) setActiveVideoGoal(goal)
-    else if (goal.slide_count > 0) setActiveSlidesGoal(goal)
-    else setActiveGoal(goal)
+    else setReelsGoalId(goal.id)
   }
 
   const HUB_STATUS = { vision: 'active', victory: 'completed', phoenix: 'abandoned' }
@@ -504,52 +502,20 @@ export default function ExplorePage() {
         )}
       </main>
 
-      {/* INSTAGRAM EXPLORE TARZI ARALIKSIZ GEÇİŞLİ MODAL ALTYAPISI */}
+      {/* Eskiden yatay ok-tabanlı "Instagram Explore" modalıydı — artık
+          rüyalar da vizyonlarla aynı, dikey kaydırmalı (reels tarzı) tam
+          ekran beslemeden açılıyor. */}
       {activeDreamIndex !== null && dreams[activeDreamIndex] && (
-        <div 
-          className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
-          onClick={() => setActiveDreamIndex(null)}
-        >
-          {/* SOL GEÇİŞ OKU (Instagram Explore Style) */}
-          {activeDreamIndex > 0 && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setActiveDreamIndex(activeDreamIndex - 1); }}
-              className="fixed left-4 z-[200] inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white backdrop-blur hover:bg-white/15 transition-all text-xl"
-              title={lang === 'tr' ? 'Önceki Rüya' : 'Previous Dream'}
-            >
-              ←
-            </button>
-          )}
-
-          <div 
-            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto" 
-            onClick={(e) => e.stopPropagation()}
-          >
-            <DreamCard 
-              dream={dreams[activeDreamIndex]} 
-              lang={lang} 
-              currentUserId={user?.id}
-              onTranslate={() => {}}
-              translating={false}
-              translated={false}
-              translatedContent=""
-              translatedAnalysis=""
-            />
-          </div>
-
-          {/* SAĞ GEÇİŞ OKU (Instagram Explore Style) */}
-          {activeDreamIndex < dreams.length - 1 && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setActiveDreamIndex(activeDreamIndex + 1); }}
-              className="fixed right-4 z-[200] inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white backdrop-blur hover:bg-white/15 transition-all text-xl"
-              title={lang === 'tr' ? 'Sonraki Rüya' : 'Next Dream'}
-            >
-              →
-            </button>
-          )}
-        </div>
+        <DreamReelsFeed
+          dreams={dreams}
+          lang={lang}
+          currentUserId={user?.id}
+          initialDreamId={dreams[activeDreamIndex].id}
+          onLoadMore={loadMore}
+          hasMore={hasMore}
+          loading={loadingMore}
+          onClose={() => setActiveDreamIndex(null)}
+        />
       )}
       {activeGoal && (
         <GoalDetailModal

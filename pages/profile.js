@@ -6,10 +6,11 @@ import { supabase, auth, getAuthHeader } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
-import DreamCard from '@/components/DreamCard'
 import ProfileDreamTile from '@/components/ProfileDreamTile'
 import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
+import VisionReelsFeed from '@/components/VisionReelsFeed'
+import DreamReelsFeed from '@/components/DreamReelsFeed'
 import CreateGoalModal from '@/components/CreateGoalModal'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import TextSkeleton from '@/components/TextSkeleton'
@@ -105,13 +106,14 @@ export default function ProfilePage() {
   const [activeGoal, setActiveGoal] = useState(null)
   const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
   const [activeVideoGoal, setActiveVideoGoal] = useState(null)
-  // Video varsa oynatıcıya, yoksa eski slaytı varsa SlidesViewer'a, o da
-  // yoksa detay modalına düş. vision_video_url kontrolü slide_count'tan
-  // önce: bir hedefte ikisi de olabilir, güncel olan (video) gösterilmeli.
+  const [reelsGoalId, setReelsGoalId] = useState(null)
+  // Video varsa oynatıcıya (Reels beslemesi video oynatmıyor, sadece kapak
+  // görselini gösteriyor) — geri kalan HER ŞEY artık dikey kaydırmalı, tam
+  // ekran VisionReelsFeed'den açılıyor; slayt/detay görüntüleyicileri
+  // beslemenin İÇİNDEN ikincil eylem olarak tetikleniyor.
   function handleOpenGoal(goal) {
     if (goal.vision_video_url) setActiveVideoGoal(goal)
-    else if (goal.slide_count > 0) setActiveSlidesGoal(goal)
-    else setActiveGoal(goal)
+    else setReelsGoalId(goal.id)
   }
   const [showCreateGoal, setShowCreateGoal] = useState(false)
 
@@ -851,28 +853,32 @@ export default function ProfilePage() {
       )}
 
       {activeDream && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
-          onClick={() => setActiveDream(null)}
-        >
-          <div 
-            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto" 
-            onClick={(e) => e.stopPropagation()}
-          >
-            <DreamCard 
-              dream={activeDream} 
-              lang={lang} 
-              currentUserId={user?.id}
-              owner={profile}
-              onClose={() => setActiveDream(null)}
-              onTranslate={() => {}}
-              translating={false}
-              translated={false}
-              translatedContent=""
-              translatedAnalysis=""
-            />
-          </div>
-        </div>
+        <DreamReelsFeed
+          dreams={dreams}
+          lang={lang}
+          currentUserId={user?.id}
+          initialDreamId={activeDream.id}
+          owner={profile}
+          onLoadMore={loadMoreDreams}
+          hasMore={hasMore}
+          loading={loadingMore}
+          onClose={() => setActiveDream(null)}
+        />
+      )}
+      {reelsGoalId && (
+        <VisionReelsFeed
+          goals={profileTab === 'saved' ? savedGoals : goals}
+          lang={lang}
+          t={tVision}
+          currentUserId={user?.id}
+          initialGoalId={reelsGoalId}
+          hasMore={false}
+          loading={false}
+          onClose={() => setReelsGoalId(null)}
+          onOpenGoal={(g) => { setReelsGoalId(null); setActiveGoal(g) }}
+          onOpenSlides={(g) => { setReelsGoalId(null); setActiveSlidesGoal(g) }}
+          onReacted={() => {}}
+        />
       )}
       {activeGoal && (
         <GoalDetailModal
