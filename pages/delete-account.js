@@ -12,9 +12,8 @@
 // aynı sisteme bağlayabilirsin.
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/router'
-import Head from 'next/head'
 import { auth, getAuthHeader } from '@/lib/supabase'
+import Seo from '@/components/Seo'
 
 const COPY = {
   tr: {
@@ -34,6 +33,9 @@ const COPY = {
     passwordLabel: 'Şifre',
     signInBtn: 'Giriş yap',
     signingIn: 'Giriş yapılıyor…',
+    orDivider: 'veya',
+    googleBtn: 'Google ile giriş yap',
+    githubBtn: 'GitHub ile giriş yap',
     loggedInAs: (email) => `${email} olarak giriş yaptın.`,
     notYou: 'Bu sen değil misin? Çıkış yap',
     confirmCheckbox:
@@ -62,6 +64,9 @@ const COPY = {
     passwordLabel: 'Password',
     signInBtn: 'Sign in',
     signingIn: 'Signing in…',
+    orDivider: 'or',
+    googleBtn: 'Sign in with Google',
+    githubBtn: 'Sign in with GitHub',
     loggedInAs: (email) => `Signed in as ${email}.`,
     notYou: 'Not you? Sign out',
     confirmCheckbox:
@@ -76,7 +81,6 @@ const COPY = {
 }
 
 export default function DeleteAccountPage() {
-  const router = useRouter()
   const [lang, setLang] = useState('tr')
   useEffect(() => {
     const browserLang = (navigator.language || 'tr').slice(0, 2)
@@ -89,6 +93,7 @@ export default function DeleteAccountPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [signingIn, setSigningIn] = useState(false)
+  const [oauthLoading, setOauthLoading] = useState('')
   const [confirmed, setConfirmed] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [done, setDone] = useState(false)
@@ -116,6 +121,25 @@ export default function DeleteAccountPage() {
       setError(err.message || t.errorGeneric)
     } finally {
       setSigningIn(false)
+    }
+  }
+
+  // OAuth-only hesaplar (sadece Google/GitHub ile açılmış, hiç şifre
+  // belirlenmemiş — Android/web auth ekranı ikisini de destekliyor) e-posta/
+  // şifre formunu kullanamaz. redirectTo'ya eklenen ?next=/delete-account,
+  // pages/auth/callback.js tarafından okunup giriş sonrası buraya geri
+  // dönülmesini sağlıyor.
+  async function handleOAuth(provider) {
+    setError('')
+    setOauthLoading(provider)
+    try {
+      const redirectTo = `${window.location.origin}/auth/callback?next=/delete-account`
+      await auth.signInWithOAuth(provider, redirectTo)
+      // Başarılıysa tarayıcı zaten sağlayıcıya yönlendirilir; buraya geri
+      // dönülmez. finally bloğu yalnızca hata durumunda anlamlı olur.
+    } catch (err) {
+      setError(err.message || t.errorGeneric)
+      setOauthLoading('')
     }
   }
 
@@ -148,9 +172,7 @@ export default function DeleteAccountPage() {
 
   return (
     <div className="min-h-screen bg-void-950 text-white px-4 py-16">
-      <Head>
-        <title>{t.title} — Lunosfer</title>
-      </Head>
+      <Seo title={t.title} description={t.intro} lang={lang} />
 
       <div className="max-w-md mx-auto">
         <button
@@ -188,35 +210,60 @@ export default function DeleteAccountPage() {
             )}
 
             {checkingUser ? null : !user ? (
-              <form onSubmit={handleSignIn} className="space-y-3 mb-6">
-                <div>
-                  <label className="text-xs text-white/50 block mb-1">{t.emailLabel}</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded px-3 py-2 bg-black/40"
-                    required
-                  />
+              <>
+                <form onSubmit={handleSignIn} className="space-y-3 mb-4">
+                  <div>
+                    <label className="text-xs text-white/50 block mb-1">{t.emailLabel}</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full rounded px-3 py-2 bg-black/40"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-white/50 block mb-1">{t.passwordLabel}</label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full rounded px-3 py-2 bg-black/40"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={signingIn}
+                    className="w-full rounded bg-violet-600 py-2 text-white font-semibold disabled:opacity-50"
+                  >
+                    {signingIn ? t.signingIn : t.signInBtn}
+                  </button>
+                </form>
+
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-px flex-1 bg-white/10" />
+                  <span className="text-xs text-white/40">{t.orDivider}</span>
+                  <div className="h-px flex-1 bg-white/10" />
                 </div>
-                <div>
-                  <label className="text-xs text-white/50 block mb-1">{t.passwordLabel}</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded px-3 py-2 bg-black/40"
-                    required
-                  />
+
+                <div className="space-y-2 mb-6">
+                  <button
+                    onClick={() => handleOAuth('google')}
+                    disabled={!!oauthLoading}
+                    className="w-full rounded border border-white/15 py-2 text-sm font-medium disabled:opacity-50"
+                  >
+                    {t.googleBtn}
+                  </button>
+                  <button
+                    onClick={() => handleOAuth('github')}
+                    disabled={!!oauthLoading}
+                    className="w-full rounded border border-white/15 py-2 text-sm font-medium disabled:opacity-50"
+                  >
+                    {t.githubBtn}
+                  </button>
                 </div>
-                <button
-                  type="submit"
-                  disabled={signingIn}
-                  className="w-full rounded bg-violet-600 py-2 text-white font-semibold disabled:opacity-50"
-                >
-                  {signingIn ? t.signingIn : t.signInBtn}
-                </button>
-              </form>
+              </>
             ) : (
               <>
                 <p className="text-sm text-white/70 mb-2">{t.loggedInAs(user.email)}</p>

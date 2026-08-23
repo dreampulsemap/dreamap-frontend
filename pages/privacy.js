@@ -7,11 +7,11 @@
 // bunlar gerçek şirket/iletişim bilgisi, ben üretemem.
 
 import { useState, useEffect } from 'react'
-import Head from 'next/head'
+import Seo from '@/components/Seo'
 
-const COMPANY_NAME = '[ŞİRKET / GELİŞTİRİCİ ADI]'
-const CONTACT_EMAIL = '[İLETİŞİM E-POSTASI]'
-const LAST_UPDATED = '[TARİH]'
+const COMPANY_NAME = 'Lunosfer'
+const CONTACT_EMAIL = 'support@lunosfer.com'
+const LAST_UPDATED = '22 Ağustos 2026'
 
 const SECTIONS = {
   tr: [
@@ -151,9 +151,7 @@ export default function PrivacyPolicyPage() {
 
   return (
     <div className="min-h-screen bg-void-950 text-white px-4 py-16">
-      <Head>
-        <title>{title}</title>
-      </Head>
+      <Seo title={title} lang={lang} />
 
       <div className="max-w-2xl mx-auto">
         <button onClick={() => setLang(lang === 'tr' ? 'en' : 'tr')} className="text-xs text-white/50 mb-6 underline">
