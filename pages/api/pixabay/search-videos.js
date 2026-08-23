@@ -42,6 +42,11 @@ export default async function handler(req, res) {
       // görsel kalite vizyon panosu için yeterli). 'large' kasıtlı kullanılmıyor
       // — storage maliyetini kontrol altında tutmak için.
       downloadURL: h.videos?.small?.url || h.videos?.medium?.url || h.videos?.tiny?.url,
+      // Statik poster/thumbnail JPG — web tarafı previewURL'i <video> olarak oynatıp
+      // önizleme yaptığı için buna ihtiyaç duymuyordu, ama Android tarafı grid
+      // önizlemesini bir <img>/AsyncImage ile gösteriyor ve .mp4 çözemiyor. Bu alan
+      // olmadan Android'de video kartları siyah ve seçilemez kalıyordu.
+      thumbnailURL: h.videos?.medium?.thumbnail || h.videos?.small?.thumbnail || h.videos?.large?.thumbnail || h.videos?.tiny?.thumbnail,
       width: h.videos?.small?.width,
       height: h.videos?.small?.height,
       duration: h.duration,
