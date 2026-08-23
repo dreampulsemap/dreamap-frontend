@@ -42,11 +42,12 @@ Rules:
 - focus on triggering intellectual excitement and emotional resonance (curiosity-inducing).
 - suggest that this threshold leads into a deeper, highly personal psychic territory that can be fully mapped in a premium analysis.
 - motiv must be one short poetic, striking sentence.
+- symbol must be ONE concrete image or object actually present in the dream (e.g. "a foggy lighthouse", "a locked door", "the flooded staircase") — 2-5 words, not an abstract concept. This is shown on its own as the dream's "key symbol", so it must be identifiable and evocative on its own, without the rest of the analysis around it.
 - archetypes should contain 1 to 3 items max, always written in English (e.g. "The Shadow", "The Wanderer").
 - sentiment should be a short lowercase word like: hopeful, anxious, mysterious, tender, restless, heavy, luminous.
 
 Primary output language: ${lang}
-This product ships in 8 languages. You MUST fill in "title", "summary" and "motiv"
+This product ships in 8 languages. You MUST fill in "title", "summary", "motiv" and "symbol"
 for EVERY one of these language keys, with no blanks and no literal machine
 translation, just natural idiomatic writing in each language: ${SUPPORTED_LANGS.join(', ')}.
 
@@ -61,6 +62,7 @@ ${JSON.stringify(
     title: emptyLangMap(),
     summary: emptyLangMap(),
     motiv: emptyLangMap(),
+    symbol: emptyLangMap(),
     sentiment: '',
     archetypes: [],
   },
@@ -244,6 +246,7 @@ export default async function handler(req, res) {
       title: normalizeMultiLangField(analysis.title),
       summary: normalizeMultiLangField(analysis.summary),
       motiv: normalizeMultiLangField(analysis.motiv),
+      symbol: normalizeMultiLangField(analysis.symbol),
       sentiment: analysis.sentiment ? String(analysis.sentiment).toLowerCase() : null,
       archetypes: normalizeArray(analysis.archetypes, 3),
     }
@@ -261,6 +264,10 @@ export default async function handler(req, res) {
       ai_motiv_en: normalized.motiv.en || null,
       ai_motiv_tr: normalized.motiv.tr || null,
 
+      ai_symbol: normalized.symbol.en || null,
+      ai_symbol_en: normalized.symbol.en || null,
+      ai_symbol_tr: normalized.symbol.tr || null,
+
       ai_sentiment: normalized.sentiment || null,
       ai_archetypes: normalized.archetypes,
 
@@ -268,6 +275,7 @@ export default async function handler(req, res) {
         title: normalized.title,
         summary: normalized.summary,
         motiv: normalized.motiv,
+        symbol: normalized.symbol,
         sentiment: normalized.sentiment,
         archetypes: normalized.archetypes,
         teaser: true,
