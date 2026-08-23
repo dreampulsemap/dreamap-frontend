@@ -23,7 +23,12 @@ export default function AuthCallbackPage() {
         return
       }
 
-      router.replace('/profile')
+      // İsteğe bağlı: signInWithOAuth çağrısına redirectTo ile bir "?next=…"
+      // eklenmişse (ör. delete-account.js OAuth-only kullanıcıları giriş
+      // sonrası kendi sayfasına geri döndürmek için kullanıyor), oraya git.
+      // Verilmemişse eski davranış aynen korunuyor: /profile.
+      const next = currentUrl.searchParams.get('next')
+      router.replace(next && next.startsWith('/') ? next : '/profile')
     }
 
     completeAuth()
