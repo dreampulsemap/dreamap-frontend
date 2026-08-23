@@ -53,6 +53,20 @@ export default async function handler(req, res) {
 
     if (recipientError || !recipientProfile) return res.status(404).json({ error: 'recipient_not_found' })
 
+    // Google Play UGC politikası: engellenen kullanıcılar birbirine mesaj
+    // gönderemez — her iki yön de kontrol edilir (ya alıcı göndereni
+    // engellemiş, ya gönderen alıcıyı engellemiş).
+    const { data: blockRows, error: blockError } = await supabaseAdmin
+      .from('user_blocks')
+      .select('blocker_id')
+      .or(
+        `and(blocker_id.eq.${user.id},blocked_id.eq.${recipientId}),and(blocker_id.eq.${recipientId},blocked_id.eq.${user.id})`
+      )
+    if (blockError) throw blockError
+    if (blockRows && blockRows.length > 0) {
+      return res.status(403).json({ error: 'blocked' })
+    }
+
     const { data: message, error: insertError } = await supabaseAdmin
       .from('messages')
       .insert({ sender_id: user.id, recipient_id: recipientId, content: cleanContent, ...attachment })
