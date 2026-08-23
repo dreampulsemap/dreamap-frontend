@@ -54,6 +54,17 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Hedef profil bulunamadı' })
     }
 
+    // Google Play UGC politikası: engellenen kullanıcılar birbirine
+    // rezonans/takip isteği gönderemez.
+    const { data: blockRows, error: blockError } = await supabase
+      .from('user_blocks')
+      .select('blocker_id')
+      .or(`and(blocker_id.eq.${userId},blocked_id.eq.${friendId}),and(blocker_id.eq.${friendId},blocked_id.eq.${userId})`)
+    if (blockError) throw blockError
+    if (blockRows && blockRows.length > 0) {
+      return res.status(403).json({ error: 'blocked' })
+    }
+
     // Açık profil ise anında 'accepted', gizli profil ise onay için 'pending'
     const status = targetProfile.is_private === true ? 'pending' : 'accepted'
 
