@@ -27,6 +27,10 @@ export default function AddDreamPage() {
   const [location, setLocation] = useState('')
   const [inFeed, setInFeed] = useState(true)
   const [visibility, setVisibility] = useState('public')
+  // Kullanıcının profil gizliliği (public/friends/private) — paylaşım
+  // gizliliği seçenekleri buna göre kısıtlanır. Yüklenene kadar en
+  // kısıtlayıcı varsayımla ('private') başlıyoruz.
+  const [profileVisibility, setProfileVisibility] = useState('private')
   const [selectedEmotions, setSelectedEmotions] = useState([])
   const [tags, setTags] = useState([])
   const [coverImage, setCoverImage] = useState(null) // { url, width, height, source: 'pixabay' | 'user_upload' }
@@ -78,6 +82,17 @@ export default function AddDreamPage() {
         if (!active) return
         setUser(currentUser)
         fetchLocationFromIP()
+
+        // Paylaşım gizliliği seçenekleri profil gizliliğine göre kısıtlanır
+        // (bkz. clampVisibilityToProfile / 013 migration'daki DB trigger).
+        supabase
+          .from('user_profiles')
+          .select('profile_visibility')
+          .eq('id', currentUser.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (active && data?.profile_visibility) setProfileVisibility(data.profile_visibility)
+          })
       } catch (err) {
         router.push('/auth')
       }
@@ -97,6 +112,20 @@ export default function AddDreamPage() {
       console.error('Location could not be fetched:', err)
     }
   }
+
+  const allowedVisibilityOptions =
+    profileVisibility === 'private' ? ['private']
+    : profileVisibility === 'friends' ? ['friends', 'private']
+    : ['public', 'friends', 'private']
+
+  // Profil yüklendikten sonra, o an seçili değer artık izin verilmiyorsa
+  // otomatik olarak izin verilen en açık seçeneğe düşür.
+  useEffect(() => {
+    if (!allowedVisibilityOptions.includes(visibility)) {
+      setVisibility(allowedVisibilityOptions[0])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVisibility])
 
   // Sesli Giriş Motoru (Web Speech API)
   const toggleSpeech = () => {
@@ -487,10 +516,20 @@ export default function AddDreamPage() {
                   onChange={(e) => setVisibility(e.target.value)}
                   className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:border-brand-primary-500/50 focus:outline-none appearance-none"
                 >
-                  <option value="public">{tAddDream('dream.public', lang)}</option>
-                  <option value="friends">{tAddDream('dream.friends', lang)}</option>
+                  {allowedVisibilityOptions.includes('public') && (
+                    <option value="public">{tAddDream('dream.public', lang)}</option>
+                  )}
+                  {allowedVisibilityOptions.includes('friends') && (
+                    <option value="friends">{tAddDream('dream.friends', lang)}</option>
+                  )}
                   <option value="private">{tAddDream('dream.private', lang)}</option>
                 </select>
+                {profileVisibility === 'private' && (
+                  <p className="mt-2 text-[10px] text-slate-600">{tAddDream('dream.visibilityLockedPrivateNote', lang)}</p>
+                )}
+                {profileVisibility === 'friends' && (
+                  <p className="mt-2 text-[10px] text-slate-600">{tAddDream('dream.visibilityRestrictedFriendsNote', lang)}</p>
+                )}
               </div>
             </div>
 

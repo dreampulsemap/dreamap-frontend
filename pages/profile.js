@@ -52,7 +52,7 @@ export default function ProfilePage() {
   const [profileUsername, setProfileUsername] = useState('')
   const [profileDisplayName, setProfileDisplayName] = useState('')
   const [profileAvatarUrl, setProfileAvatarUrl] = useState('')
-  const [profileIsPrivate, setProfileIsPrivate] = useState(false)
+  const [profileVisibility, setProfileVisibility] = useState('public')
   const [profileGender, setProfileGender] = useState('') // YENİ
   const [profileLanguage, setProfileLanguage] = useState('en') // YENİ
   const [profileSaving, setProfileSaving] = useState(false)
@@ -284,7 +284,11 @@ export default function ProfilePage() {
         setProfileUsername(fetchedProfile?.username || '')
         setProfileDisplayName(fetchedProfile?.display_name || '')
         setProfileAvatarUrl(fetchedProfile?.avatar_url || '')
-        setProfileIsPrivate(fetchedProfile?.is_private === true)
+        // profile_visibility 013 migration'dan geliyor; eski/önbelleklenmiş bir
+        // profil nesnesinde henüz yoksa is_private'tan türetiyoruz.
+        setProfileVisibility(
+          fetchedProfile?.profile_visibility || (fetchedProfile?.is_private === true ? 'private' : 'public')
+        )
         setProfileGender(fetchedProfile?.gender || '') // YENİ
         setProfileLanguage(fetchedProfile?.language || i18n.language || 'en') // YENİ
 
@@ -377,7 +381,7 @@ export default function ProfilePage() {
           username: profileUsername,
           display_name: profileDisplayName,
           avatar_url: uploadedAvatarUrl || profileAvatarUrl,
-          is_private: profileIsPrivate,
+          profile_visibility: profileVisibility,
           language: profileLanguage, // YENİ
           gender: profileGender, // YENİ
         }),
@@ -507,9 +511,14 @@ export default function ProfilePage() {
 
             <div className="text-sm font-medium text-slate-200 mt-2">
               <p className="font-bold text-white">{profile?.display_name || displayUsername}</p>
-              {profile?.is_private && (
+              {(profile?.profile_visibility === 'private' || profile?.is_private) && (
                 <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-brand-primary-300 border border-brand-primary-500/20 mt-1 uppercase tracking-widest">
                   🔒 {lang === 'tr' ? 'Gizli Profil' : 'Private Profile'}
+                </span>
+              )}
+              {profile?.profile_visibility === 'friends' && (
+                <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-brand-primary-300 border border-brand-primary-500/20 mt-1 uppercase tracking-widest">
+                  👥 {lang === 'tr' ? 'Sadece Arkadaşlar' : 'Friends Only'}
                 </span>
               )}
               <p className="text-xs text-slate-400 mt-1.5">{dreams.length} {getTranslation('profile.totalDreams', lang)}</p>
@@ -795,20 +804,50 @@ export default function ProfilePage() {
               <input value={profileDisplayName} onChange={e => setProfileDisplayName(e.target.value)} className="w-full bg-black/40 border border-white/20 rounded p-3 text-white text-sm" placeholder="Display Name" />
             </div>
 
-            {/* PROFİL GİZLİLİK SEÇENEĞİ (Yeni Mistik İstek) */}
+            {/* PROFİL GİZLİLİĞİ — herkese açık / sadece arkadaşlar / tamamen gizli.
+                Bu seçim, rüya/vizyon/günce oluştururken sunulan gizlilik
+                seçeneklerini kısıtlar (013 migration'daki DB trigger + ilgili
+                API route'ları). */}
             <div className="mb-4">
-              <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={profileIsPrivate}
-                  onChange={(e) => setProfileIsPrivate(e.target.checked)}
-                  className="w-4 h-4 rounded text-brand-primary-500 focus:ring-0 focus:outline-none"
-                />
-                <div>
-                  <span className="text-sm font-semibold text-white block">🔒 {lang === 'tr' ? 'Rüya Defterimi Gizli Yap' : 'Make Dream Journal Private'}</span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5">{lang === 'tr' ? 'Aktif olduğunda sadece onay verdiğiniz dostlar rüyalarınızı okuyabilir.' : 'When active, only approved friends can see your dream gallery.'}</span>
-                </div>
+              <label className="text-xs text-white/50 block mb-2 uppercase tracking-widest">
+                {lang === 'tr' ? 'Profil Gizliliği' : 'Profile Visibility'}
               </label>
+              <div className="space-y-2">
+                {[
+                  {
+                    value: 'public',
+                    title: lang === 'tr' ? '🌍 Herkese Açık' : '🌍 Public',
+                    desc: lang === 'tr' ? 'Profilini ve paylaşımlarını herkes görebilir.' : 'Anyone can see your profile and posts.',
+                  },
+                  {
+                    value: 'friends',
+                    title: lang === 'tr' ? '👥 Sadece Arkadaşlar' : '👥 Friends Only',
+                    desc: lang === 'tr' ? 'Profilini ve paylaşımlarını sadece onayladığın dostların görebilir.' : 'Only your approved friends can see your profile and posts.',
+                  },
+                  {
+                    value: 'private',
+                    title: lang === 'tr' ? '🔒 Tamamen Gizli' : '🔒 Fully Private',
+                    desc: lang === 'tr' ? 'Profilini sadece sen görebilirsin; tüm paylaşımların da otomatik olarak gizli olur.' : 'Only you can see your profile; all your posts become private too.',
+                  },
+                ].map((option) => (
+                  <label
+                    key={option.value}
+                    className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4 cursor-pointer select-none"
+                  >
+                    <input
+                      type="radio"
+                      name="profileVisibility"
+                      checked={profileVisibility === option.value}
+                      onChange={() => setProfileVisibility(option.value)}
+                      className="mt-1 w-4 h-4 text-brand-primary-500 focus:ring-0 focus:outline-none"
+                    />
+                    <div>
+                      <span className="text-sm font-semibold text-white block">{option.title}</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">{option.desc}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
             </div>
 
             {/* YENİ: DİL SEÇİMİ */}
