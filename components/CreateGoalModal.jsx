@@ -35,6 +35,10 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
   const [description, setDescription] = useState('')
   const [targetDate, setTargetDate] = useState('')
   const [visibility, setVisibility] = useState('public')
+  // Kullanıcının profil gizliliği (public/friends/private) — paylaşım
+  // gizliliği seçenekleri buna göre kısıtlanır. Yüklenene kadar en
+  // kısıtlayıcı varsayımla ('private') başlıyoruz.
+  const [profileVisibility, setProfileVisibility] = useState('private')
   const [roadmapInput, setRoadmapInput] = useState('')
   const [roadmap, setRoadmap] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -50,6 +54,39 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
   const imageInputRef = useRef(null)
 
   useModalA11y(modalRef, onClose)
+
+  // Profil gizliliğini çek — paylaşım gizliliği seçenekleri buna göre
+  // kısıtlanır (bkz. VALID_VISIBILITY / clampVisibilityToProfile backend
+  // tarafında, DB trigger'ı zaten nihai güvence).
+  useEffect(() => {
+    let active = true
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user || !active) return
+      supabase
+        .from('user_profiles')
+        .select('profile_visibility')
+        .eq('id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (active && data?.profile_visibility) setProfileVisibility(data.profile_visibility)
+        })
+    })
+    return () => { active = false }
+  }, [])
+
+  const allowedVisibilityOptions =
+    profileVisibility === 'private' ? ['private']
+    : profileVisibility === 'friends' ? ['friends', 'private']
+    : ['public', 'friends', 'private']
+
+  // Profil yüklendikten sonra, o an seçili değer artık izin verilmiyorsa
+  // (örn. varsayılan 'public' ama profil 'friends' çıktı) otomatik düşür.
+  useEffect(() => {
+    if (!allowedVisibilityOptions.includes(visibility)) {
+      setVisibility(allowedVisibilityOptions[0])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVisibility])
 
   // PixabayPicker'ın video sekmesindeki kilit/haftalık-hak UI'ı için —
   // VisionVideoEditor'daki aynı fetch (bkz. o dosyadaki aynı yorum).
@@ -357,10 +394,20 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
                 onChange={(e) => setVisibility(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-brand-primary-500/50"
               >
-                <option value="public" className="bg-black">{t.visibilityPublic}</option>
-                <option value="friends" className="bg-black">{t.visibilityFriends}</option>
+                {allowedVisibilityOptions.includes('public') && (
+                  <option value="public" className="bg-black">{t.visibilityPublic}</option>
+                )}
+                {allowedVisibilityOptions.includes('friends') && (
+                  <option value="friends" className="bg-black">{t.visibilityFriends}</option>
+                )}
                 <option value="private" className="bg-black">{t.visibilityPrivate}</option>
               </select>
+              {profileVisibility === 'private' && (
+                <p className="text-[10px] text-slate-400 mt-1">{t.visibilityLockedPrivateNote}</p>
+              )}
+              {profileVisibility === 'friends' && (
+                <p className="text-[10px] text-slate-400 mt-1">{t.visibilityRestrictedFriendsNote}</p>
+              )}
             </div>
           </div>
 

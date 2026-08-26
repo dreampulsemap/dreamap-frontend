@@ -28,6 +28,10 @@ export default function DiaryComposer({ lang = 'en', currentUser, onClose, onCre
   const [previewUrl, setPreviewUrl] = useState(null)
   const [caption, setCaption] = useState('')
   const [visibility, setVisibility] = useState('private')
+  // Kullanıcının profil gizliliği (public/friends/private) — paylaşım
+  // gizliliği seçenekleri buna göre kısıtlanır. Yüklenene kadar en
+  // kısıtlayıcı varsayımla ('private') başlıyoruz — zaten varsayılan da bu.
+  const [profileVisibility, setProfileVisibility] = useState('private')
   const [goalId, setGoalId] = useState('')
   const [myGoals, setMyGoals] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -42,9 +46,34 @@ export default function DiaryComposer({ lang = 'en', currentUser, onClose, onCre
         .then((r) => r.json())
         .then((json) => { if (active) setMyGoals(json.goals || []) })
         .catch(() => {})
+
+      // Paylaşım gizliliği seçenekleri profil gizliliğine göre kısıtlanır
+      // (bkz. clampVisibilityToProfile / 013 migration'daki DB trigger).
+      supabase
+        .from('user_profiles')
+        .select('profile_visibility')
+        .eq('id', session.user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (active && data?.profile_visibility) setProfileVisibility(data.profile_visibility)
+        })
     })
     return () => { active = false }
   }, [])
+
+  const allowedVisibilityOptions =
+    profileVisibility === 'private' ? ['private']
+    : profileVisibility === 'friends' ? ['friends', 'private']
+    : ['public', 'friends', 'private']
+
+  // Profil yüklendikten sonra, o an seçili değer artık izin verilmiyorsa
+  // otomatik olarak izin verilen en açık seçeneğe düşür.
+  useEffect(() => {
+    if (!allowedVisibilityOptions.includes(visibility)) {
+      setVisibility(allowedVisibilityOptions[0])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVisibility])
 
   // Önizleme URL'ini bellek sızıntısı olmadan temizle.
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
@@ -217,9 +246,19 @@ export default function DiaryComposer({ lang = 'en', currentUser, onClose, onCre
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-brand-primary-500/50"
               >
                 <option value="private" className="bg-black">{t.visibilityPrivate}</option>
-                <option value="friends" className="bg-black">{t.visibilityFriends}</option>
-                <option value="public" className="bg-black">{t.visibilityPublic}</option>
+                {allowedVisibilityOptions.includes('friends') && (
+                  <option value="friends" className="bg-black">{t.visibilityFriends}</option>
+                )}
+                {allowedVisibilityOptions.includes('public') && (
+                  <option value="public" className="bg-black">{t.visibilityPublic}</option>
+                )}
               </select>
+              {profileVisibility === 'private' && (
+                <p className="mt-1.5 text-[10px] text-slate-600">{t.visibilityLockedPrivateNote}</p>
+              )}
+              {profileVisibility === 'friends' && (
+                <p className="mt-1.5 text-[10px] text-slate-600">{t.visibilityRestrictedFriendsNote}</p>
+              )}
             </div>
 
             {myGoals.length > 0 && (
