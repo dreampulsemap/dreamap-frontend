@@ -1,4 +1,4 @@
-import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser, clampVisibilityToProfile } from '@/lib/supabaseAdmin'
 
 const MAX_TITLE_LENGTH = 120
 const MAX_DESCRIPTION_LENGTH = 2000
@@ -48,7 +48,10 @@ export default async function handler(req, res) {
       cover_image_url: normalizeText(cover_image_url),
       cover_image_source: VALID_COVER_SOURCES.includes(cover_image_source) ? cover_image_source : 'ai_generated',
       target_date: target_date || null,
-      visibility: VALID_VISIBILITY.includes(visibility) ? visibility : 'public',
+      // 013 migration: profil gizliliği "friends"/"private" ise, DB trigger'ı
+      // zaten aynı kısıtlamayı uygular; burada da uyguluyoruz ki insert
+      // sonucunda dönen satırda istemci net/tutarlı bir değer görsün.
+      visibility: await clampVisibilityToProfile(user.id, VALID_VISIBILITY.includes(visibility) ? visibility : 'public'),
     }
 
     const { data: goal, error: insertError } = await supabaseAdmin
