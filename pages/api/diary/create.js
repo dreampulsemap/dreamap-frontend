@@ -1,4 +1,4 @@
-import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser, clampVisibilityToProfile } from '@/lib/supabaseAdmin'
 
 // goal_slides/create.js ve goals/create.js ile aynı desen: medya zaten
 // istemci tarafında Storage'a yüklenmiş oluyor (bkz. lib/uploadDiaryMedia.js),
@@ -45,7 +45,10 @@ export default async function handler(req, res) {
         media_url: mediaType === 'text' ? null : mediaUrl.trim(),
         poster_url: mediaType === 'video' && posterUrl ? posterUrl : null,
         caption: cleanCaption,
-        visibility,
+        // 013 migration: profil gizliliği "friends"/"private" ise DB trigger'ı
+        // zaten aynı kısıtlamayı uygular; API'de de uyguluyoruz ki dönen
+        // satırda istemci net/tutarlı bir değer görsün.
+        visibility: await clampVisibilityToProfile(user.id, visibility),
         goal_id: goalId || null,
       })
       .select('*')
