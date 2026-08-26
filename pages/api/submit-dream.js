@@ -1,4 +1,4 @@
-import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser, clampVisibilityToProfile } from '@/lib/supabaseAdmin'
 
 // Hard Limit (Maliyet Guvenligi Icin Karakter Siniri)
 const MAX_CHARACTERS = 12000;
@@ -67,7 +67,11 @@ export default async function handler(req, res) {
       dream_date: dream_date || null,
       user_selected_sentiment: normalizeText(user_selected_sentiment),
       ai_title: normalizeText(title),
-      visibility: ['public', 'friends', 'private'].includes(visibility) ? visibility : 'public',
+      // 013 migration: profil gizliliği "friends"/"private" ise DB trigger'ı
+      // zaten aynı kısıtlamayı uygular (dreams tablosu ayrıca client-side
+      // doğrudan insert'e de açık — trigger o yol için nihai güvence);
+      // burada da uyguluyoruz ki bu route'tan dönen satır tutarlı olsun.
+      visibility: await clampVisibilityToProfile(user.id, ['public', 'friends', 'private'].includes(visibility) ? visibility : 'public'),
       map_detail: ['full', 'summary'].includes(map_detail) ? map_detail : 'full',
       in_feed: typeof in_feed === 'boolean' ? in_feed : true,
       latitude: typeof latitude === 'number' ? latitude : null,

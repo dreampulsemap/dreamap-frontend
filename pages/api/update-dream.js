@@ -1,4 +1,4 @@
-import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser, clampVisibilityToProfile } from '@/lib/supabaseAdmin'
 
 export default async function handler(req, res) {
   if (req.method !== 'PUT') {
@@ -58,7 +58,10 @@ export default async function handler(req, res) {
     const updates = {}
     if (content !== undefined) updates.content = content
     if (location_name !== undefined) updates.location_name = location_name
-    if (visibility !== undefined) updates.visibility = visibility
+    // 013 migration: profil gizliliği "friends"/"private" ise DB trigger'ı
+    // zaten aynı kısıtlamayı uygular; API'de de uyguluyoruz ki bu isteğe
+    // verilen 200 yanıtı gerçek/nihai değeri yansıtsın.
+    if (visibility !== undefined) updates.visibility = await clampVisibilityToProfile(user.id, visibility)
     if (map_detail !== undefined) updates.map_detail = map_detail
     if (in_feed !== undefined) updates.in_feed = in_feed
     if (cleanTags !== undefined) updates.tags = cleanTags

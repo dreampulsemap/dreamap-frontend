@@ -2,6 +2,7 @@ import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
 const ALLOWED_LANGUAGES = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja'] // YENİ
 const ALLOWED_GENDERS = ['female', 'male', 'unspecified']                  // YENİ
+const VALID_PROFILE_VISIBILITY = ['public', 'friends', 'private']          // YENİ (013 migration)
 
 function normalize(value) {
   if (typeof value !== 'string') return null
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
     if (!user) return res.status(401).json({ error: 'unauthorized' })
     const userId = user.id
 
-    const { username, display_name, avatar_url, is_private, language, gender } = req.body || {}
+    const { username, display_name, avatar_url, is_private, profile_visibility, language, gender } = req.body || {}
 
     const cleanUsername = normalize(username)
     const cleanDisplayName = normalize(display_name)
@@ -52,6 +53,10 @@ export default async function handler(req, res) {
     if (cleanGender && !ALLOWED_GENDERS.includes(cleanGender)) {
       return res.status(400).json({ error: 'Invalid gender' })
     }
+    // YENİ: profile_visibility doğrulaması (013 migration'daki CHECK ile birebir)
+    if (profile_visibility !== undefined && !VALID_PROFILE_VISIBILITY.includes(profile_visibility)) {
+      return res.status(400).json({ error: 'Invalid profile_visibility' })
+    }
 
     if (cleanUsername) {
       const { data: existingUser, error: usernameCheckError } = await supabaseAdmin
@@ -74,9 +79,23 @@ export default async function handler(req, res) {
     if (cleanUsername !== null) updates.username = cleanUsername
     if (cleanDisplayName !== null) updates.display_name = cleanDisplayName
     if (cleanAvatarUrl !== null) updates.avatar_url = cleanAvatarUrl
-    if (typeof is_private === 'boolean') updates.is_private = is_private
     if (cleanLanguage !== null) updates.language = cleanLanguage // YENİ
     if (cleanGender !== null) updates.gender = cleanGender       // YENİ
+
+    // YENİ: profile_visibility artık asıl kaynak (public/friends/private).
+    // is_private, "takip isteği otomatik onaylansın mı" mantığını yönettiği
+    // için (bkz. api/friends/request.js) profile_visibility'den TÜRETİLİYOR:
+    // 'public' değilse (friends/private) takip isteği onay bekler; 'public'
+    // ise otomatik kabul edilir. İstemci ayrıca ham is_private gönderirse
+    // (eski istemciler için geriye dönük uyumluluk) o değer, profile_visibility
+    // gönderilmediyse hâlâ kullanılabilir.
+    if (profile_visibility !== undefined) {
+      updates.profile_visibility = profile_visibility
+      updates.is_private = profile_visibility !== 'public'
+    } else if (typeof is_private === 'boolean') {
+      updates.is_private = is_private
+      updates.profile_visibility = is_private ? 'private' : 'public'
+    }
 
     // NOT: public.user_profiles satırı, auth.users'a INSERT olunca
     // on_auth_user_created trigger'ı (handle_new_user()) tarafından
