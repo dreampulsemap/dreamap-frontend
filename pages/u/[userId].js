@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import Image from 'next/image'
 import Link from 'next/link'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, MoreHorizontal, Flag, Ban, ShieldOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase, getAuthHeader } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
+import { REPORT_REASONS } from '@/lib/reportReasons'
 import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import DreamCard from '@/components/DreamCard'
@@ -34,6 +35,16 @@ export default function PublicProfilePage() {
   const [friendshipStatus, setFriendshipStatus] = useState(null)
   const [followsViewer, setFollowsViewer] = useState(false)
   const [followBusy, setFollowBusy] = useState(false)
+  // Google Play UGC politikası: kullanıcı engelleme + şikayet etme.
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [blockedByMe, setBlockedByMe] = useState(false)
+  const [blockBusy, setBlockBusy] = useState(false)
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false)
+  const [showReportSheet, setShowReportSheet] = useState(false)
+  const [reportReason, setReportReason] = useState(null)
+  const [reportNote, setReportNote] = useState('')
+  const [submittingReport, setSubmittingReport] = useState(false)
+  const [reportSubmitted, setReportSubmitted] = useState(false)
   const [activeDream, setActiveDream] = useState(null)
   const [activeGoal, setActiveGoal] = useState(null)
   const [activeSlidesGoal, setActiveSlidesGoal] = useState(null)
@@ -83,6 +94,17 @@ export default function PublicProfilePage() {
         return
       }
 
+      // Engelleme durumu — Google Play UGC politikası. Hata olursa
+      // sessizce yutulur, buton "Engelle" varsayılanında kalır.
+      try {
+        const blockHeaders = await getAuthHeader()
+        if (blockHeaders?.Authorization) {
+          const statusRes = await fetch(`/api/blocks/status?targetUserId=${userId}`, { headers: blockHeaders })
+          const statusJson = await statusRes.json()
+          if (statusRes.ok) setBlockedByMe(!!statusJson.blockedByMe)
+        }
+      } catch (_) {}
+
       const goalsJson = await goalsRes.json()
       if (goalsRes.ok) setGoals(goalsJson.goals || [])
 
@@ -122,6 +144,51 @@ export default function PublicProfilePage() {
       // sessiz
     } finally {
       setFollowBusy(false)
+    }
+  }
+
+  // Google Play UGC politikası: kullanıcı engelleme.
+  async function handleToggleBlock() {
+    if (!viewer) { router.push('/auth'); return }
+    setBlockBusy(true)
+    try {
+      const res = await fetch(blockedByMe ? '/api/blocks/unblock' : '/api/blocks/block', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
+        body: JSON.stringify({ blockedUserId: userId }),
+      })
+      if (res.ok) setBlockedByMe((prev) => !prev)
+    } catch (_) {
+      // sessiz — buton eski durumunda kalır, kullanıcı tekrar deneyebilir
+    } finally {
+      setBlockBusy(false)
+      setShowBlockConfirm(false)
+    }
+  }
+
+  // Google Play UGC politikası: kullanıcı şikayeti.
+  async function handleSubmitReport() {
+    if (!reportReason || submittingReport) return
+    setSubmittingReport(true)
+    try {
+      const headers = await getAuthHeader()
+      if (!headers.Authorization) { router.push('/auth'); return }
+      const res = await fetch('/api/reports/user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ userId, reason: reportReason, note: reportNote.trim() || undefined }),
+      })
+      if (res.ok) {
+        setReportSubmitted(true)
+        setTimeout(() => {
+          setShowReportSheet(false)
+          setReportSubmitted(false)
+          setReportReason(null)
+          setReportNote('')
+        }, 1600)
+      }
+    } catch (_) {} finally {
+      setSubmittingReport(false)
     }
   }
 
@@ -203,6 +270,47 @@ export default function PublicProfilePage() {
                     <MessageCircle size={13} />
                     {lang === 'tr' ? 'Mesaj' : 'Message'}
                   </Link>
+
+                  {/* Google Play UGC politikası: "..." menüsü — Bildir / Engelle. */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowMoreMenu((v) => !v)}
+                      aria-label={lang === 'tr' ? 'Diğer seçenekler' : 'More options'}
+                      className="flex items-center justify-center w-9 h-9 rounded-full bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white transition-all"
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+                    {showMoreMenu && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+                        <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-white/10 bg-void-900 shadow-2xl z-50 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => { setShowMoreMenu(false); setShowReportSheet(true) }}
+                            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-200 hover:bg-white/5 transition-colors"
+                          >
+                            <Flag size={15} className="text-shadowWork-rose shrink-0" />
+                            {lang === 'tr' ? 'Kullanıcıyı Şikayet Et' : 'Report User'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setShowMoreMenu(false); setShowBlockConfirm(true) }}
+                            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-200 hover:bg-white/5 transition-colors border-t border-white/5"
+                          >
+                            {blockedByMe ? (
+                              <ShieldOff size={15} className="text-shadowWork-rose shrink-0" />
+                            ) : (
+                              <Ban size={15} className="text-shadowWork-rose shrink-0" />
+                            )}
+                            {blockedByMe
+                              ? (lang === 'tr' ? 'Engeli Kaldır' : 'Unblock')
+                              : (lang === 'tr' ? 'Kullanıcıyı Engelle' : 'Block User')}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -332,6 +440,101 @@ export default function PublicProfilePage() {
         >
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <DreamCard dream={activeDream} lang={lang} currentUserId={viewer?.id} owner={profile} onClose={() => setActiveDream(null)} onTranslate={() => {}} translating={false} translated={false} />
+          </div>
+        </div>
+      )}
+
+      {/* Kullanıcı Engelleme onay diyaloğu — Google Play UGC politikası. */}
+      {showBlockConfirm && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={() => setShowBlockConfirm(false)}>
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-void-900 p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white font-bold mb-2">
+              {blockedByMe
+                ? (lang === 'tr' ? 'Engeli kaldırmak istiyor musunuz?' : 'Unblock this user?')
+                : (lang === 'tr' ? 'Bu kullanıcıyı engellemek istiyor musunuz?' : 'Block this user?')}
+            </h3>
+            <p className="text-sm text-slate-400 mb-6">
+              {blockedByMe
+                ? (lang === 'tr' ? 'Birbirinizin paylaşımlarını ve mesajlarını tekrar görebileceksiniz.' : "You'll be able to see each other's public content and messages again.")
+                : (lang === 'tr' ? 'Size mesaj gönderemez ve paylaşımlarınızı göremez, siz de onunkileri göremezsiniz.' : "They won't be able to message you or see your public content, and you won't see theirs.")}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowBlockConfirm(false)}
+                className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-white transition-colors"
+              >
+                {lang === 'tr' ? 'Vazgeç' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={handleToggleBlock}
+                disabled={blockBusy}
+                className="px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest bg-shadowWork-rose text-white hover:brightness-110 disabled:opacity-50 transition-all"
+              >
+                {blockedByMe ? (lang === 'tr' ? 'Engeli Kaldır' : 'Unblock') : (lang === 'tr' ? 'Engelle' : 'Block')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kullanıcı Şikayeti sheet'i — Google Play UGC politikası. Aynı
+          REPORT_REASONS listesi ve tasarım dili SlidesViewer/VisionVideoPlayer
+          ile paylaşılıyor. */}
+      {showReportSheet && (
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md" onClick={() => !submittingReport && setShowReportSheet(false)}>
+          <div className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border border-white/10 bg-void-900 p-6" onClick={(e) => e.stopPropagation()}>
+            {reportSubmitted ? (
+              <p className="text-center text-sm text-slate-200 py-6">
+                {lang === 'tr' ? 'Şikayetiniz alındı. Teşekkürler.' : "Report submitted. Thank you."}
+              </p>
+            ) : (
+              <>
+                <h3 className="text-white font-bold mb-1">{lang === 'tr' ? 'Kullanıcıyı Şikayet Et' : 'Report User'}</h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  {lang === 'tr' ? 'Bu kullanıcıyı neden şikayet ettiğinizin sebebini seçin.' : 'Select a reason why you are reporting this user.'}
+                </p>
+                <div className="flex flex-col gap-1.5 mb-4">
+                  {REPORT_REASONS.map((r) => (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => setReportReason(r.value)}
+                      className={`text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                        reportReason === r.value ? 'bg-astral-gold/15 text-astral-gold' : 'text-slate-300 hover:bg-white/5'
+                      }`}
+                    >
+                      {lang === 'tr' ? r.tr : r.en}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={reportNote}
+                  onChange={(e) => setReportNote(e.target.value)}
+                  placeholder={lang === 'tr' ? 'Ek ayrıntı (opsiyonel)…' : 'Additional details (optional)…'}
+                  rows={2}
+                  className="w-full rounded-lg bg-black/30 border border-white/10 text-sm text-white px-3 py-2 mb-4 resize-none focus:outline-none focus:border-astral-gold/50"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowReportSheet(false)}
+                    className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-white transition-colors"
+                  >
+                    {lang === 'tr' ? 'Vazgeç' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitReport}
+                    disabled={!reportReason || submittingReport}
+                    className="px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest bg-astral-gold text-void-950 hover:brightness-110 disabled:opacity-40 transition-all"
+                  >
+                    {lang === 'tr' ? 'Gönder' : 'Submit'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
