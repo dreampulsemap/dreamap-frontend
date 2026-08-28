@@ -991,6 +991,25 @@ export default function ProfilePage() {
           onCreated={(goal) => setGoals((g) => [goal, ...g])}
         />
       )}
+
+      {/* Google Play Console "App content" formunun zorunlu kıldığı,
+          uygulama içinden (mobil web dahil) erişilebilir Gizlilik
+          Politikası + Kullanım Koşulları linki. Masaüstünde aynısı
+          Sidebar.jsx'te de var; burası Sidebar'ın görünmediği mobil web
+          için. */}
+      <div className="mx-auto max-w-4xl px-4 pb-10 pt-6 text-center text-[11px] text-slate-600">
+        <Link href="/privacy" className="hover:text-slate-400 transition-colors">
+          {lang === 'tr' ? 'Gizlilik Politikası' : 'Privacy Policy'}
+        </Link>
+        <span className="mx-2">·</span>
+        <Link href="/terms" className="hover:text-slate-400 transition-colors">
+          {lang === 'tr' ? 'Kullanım Koşulları' : 'Terms of Service'}
+        </Link>
+        <span className="mx-2">·</span>
+        <Link href="/delete-account" className="hover:text-slate-400 transition-colors">
+          {lang === 'tr' ? 'Hesabı Sil' : 'Delete Account'}
+        </Link>
+      </div>
     </div>
   )
 }
