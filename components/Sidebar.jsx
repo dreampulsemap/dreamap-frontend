@@ -20,11 +20,12 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const router = useRouter()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [mounted, setMounted] = useState(false)
   const [user, setUser] = useState(null)
 
   useEffect(() => { setMounted(true) }, [])
+  const currentLang = mounted ? (i18n?.language || 'en').split('-')[0] : 'en'
 
   // Sadece "giriş yapılmış mı" bilgisi lazım (CTA'ları /auth'a yönlendirmek
   // için) — mana/aura/bildirim gibi zaten Navbar.jsx'te yönetilen state'i
@@ -101,6 +102,19 @@ export default function Sidebar() {
           )
         })}
       </nav>
+
+      {/* Google Play Console "App content" formunun zorunlu kıldığı,
+          uygulama içinden (bu durumda web'den) erişilebilir Gizlilik
+          Politikası + Kullanım Koşulları linki. Daha önce hiçbir yerden
+          linklenmiyordu (sadece doğrudan URL ile erişilebiliyordu). */}
+      <div className="mt-auto flex flex-col gap-0.5 pt-6 text-[11px] text-slate-600">
+        <Link href="/privacy" className="hover:text-slate-400 transition-colors">
+          {currentLang === 'tr' ? 'Gizlilik Politikası' : 'Privacy Policy'}
+        </Link>
+        <Link href="/terms" className="hover:text-slate-400 transition-colors">
+          {currentLang === 'tr' ? 'Kullanım Koşulları' : 'Terms of Service'}
+        </Link>
+      </div>
     </aside>
   )
 }
