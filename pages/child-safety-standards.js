@@ -13,7 +13,7 @@
 import Seo from '@/components/Seo'
 
 const COMPANY_NAME = 'Lunosfer'
-const CONTACT_EMAIL = 'support@lunosfer.com'
+const CONTACT_EMAIL = 'lunosfer@hotmail.com'
 const LAST_UPDATED = 'September 4, 2026'
 
 export default function ChildSafetyStandardsPage() {
