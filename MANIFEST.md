@@ -1,68 +1,80 @@
-# MANIFEST — Kullanım Koşulları + Engelleme/Şikayet UI (Web)
+# MANIFEST — Pixabay Görsel/Kapak Kaybolma Sorunu (Kök Neden + Onarım)
 
-Tarih: 27 Ağustos 2026
-Kapsam: Play Store checklist madde 2 (ToS eksikti, Privacy hiçbir yerden
-linklenmiyordu) + madde 4'ün web tarafı (backend hazırdı, UI yoktu)
+Tarih: 5 Eylül 2026
+Kapsam: "Ruyalara ve vizyonlara Pixabay'den eklenen görseller 2-3 gün
+içinde kayboluyor" raporu — kök neden bulundu, canlı veri onarıldı,
+kalıcı önleme eklendi.
 
-## Ne yapıldı
+## Kök neden
 
-### Yeni dosyalar
-- `pages/terms.js` — Kullanım Koşulları / EULA, tr+en (tarayıcı diline
-  göre otomatik, sağ üstte manuel değiştirme linki de var). Madde 4
-  "Yasak Davranışlar" bölümü nefret söylemi, müstehcen/cinsel içerik
-  (özellikle reşit olmayanlarla ilgili net bir cümle), taciz, şiddet
-  çağrısı gibi Google Play'in UGC politikasında zorunlu tuttuğu maddeleri
-  içeriyor. Madde 5-6'da bildirme/engelleme mekanizmasından ve
-  yaptırımlardan (içerik kaldırma, hesap askıya alma) bahsediyor.
-  **Play Console > App content formuna gireceğin URL:**
-  `https://www.lunosfer.com/terms`
+Pixabay'in çıplak `pixabay.com/get/...` linki birkaç gün içinde kalıcı
+olarak geçersiz oluyor (yeniden de üretilemiyor). Web kodunun tamamı
+(PixabayPicker, CreateGoalModal, GoalDetailModal, DreamCard,
+DreamEditModal, add-dream.js) `cachePixabayImage()` ile bu linki doğru
+şekilde indirip `image-library` bucket'ına kaydediyordu — orada hata
+yoktu.
 
-### Değiştirilen dosyalar
-- `components/Sidebar.jsx` — masaüstü sol menünün en altına Gizlilik
-  Politikası + Kullanım Koşulları linkleri eklendi (`mt-auto` ile en alta
-  yapışık). Daha önce `/privacy` hiçbir yerden linklenmiyordu, sadece
-  doğrudan URL ile erişilebiliyordu — bu artık düzeldi.
-- `pages/profile.js` — Sidebar'ın görünmediği mobil web için aynı linkler
-  (Gizlilik / Kullanım Koşulları / Hesabı Sil) sayfanın en altına, ortalı
-  küçük bir footer olarak eklendi.
-- `pages/u/[userId].js` — bir başkasının profilinde artık Takip Et /
-  Mesaj butonlarının yanında "..." menüsü var:
-  - **Kullanıcıyı Şikayet Et** → `/api/reports/user`'a gerçek çağrı,
-    `lib/reportReasons.js`'teki paylaşılan 6 sebep listesini kullanıyor
-    (SlidesViewer/VisionVideoPlayer'daki rapor sheet'iyle aynı tasarım
-    dili ve aynı sebep listesi).
-  - **Kullanıcıyı Engelle / Engeli Kaldır** → `/api/blocks/block` ve
-    `/api/blocks/unblock`'a gerçek çağrı, sayfa açılışında
-    `/api/blocks/status` ile mevcut durum çekiliyor. Onay dialog'u var
-    (yanlışlıkla engellemeyi önlemek için).
+Asıl kırık nokta üç API route'uydu: `update-dream.js` (rüya kapağı),
+`goals/create.js` ve `goals/set-cover.js` (vizyon kapağı). Bu route'lar,
+kendilerine gelen URL'in **zaten cache'lenmiş olduğunu varsayıp**
+doğrulamadan direkt DB'ye yazıyordu (`update-dream.js` içindeki yorum:
+"Yeni URL zaten kalıcı... bu yüzden doğrudan 'ok'"). `dreams` tablosu
+ayrıca client-side doğrudan insert'e de açık (submit-dream.js'teki not)
+— yani bu üç route'u hiç kullanmayan bir yazar (ör. Android) çıplak
+Pixabay linkini bu varsayımı tamamen es geçerek kaydedebiliyordu.
 
-## Nasıl uygulanır
-Bu zip'teki dosyaları aynı göreli yollara (repo kökünden `pages/...`,
-`components/...`) kopyala — `pages/u/[userId].js` ve `pages/profile.js`
-tam değiştirilmiş dosyalar, elle merge gerekmiyor.
+## Canlı veri onarımı (Supabase'e doğrudan uygulandı — kod değil)
 
-## Test edilmedi (npm/Next.js build erişimim yok)
-- Gerçek bir `next build` çalıştırılmadı — ağ erişimim olmadığı için
-  bağımlılıkları kuramadım. `pages/u/[userId].js` dosyasını satır satır
-  elle inceledim, JSX/parantez dengesi script ile de doğrulandı, ama
-  gerçek bir derlemenin yerini tutmaz. Vercel'e push ettiğinde önce
-  preview deploy'un build loglarına bak.
-- Kullandığım Tailwind sınıfları (`bg-astral-gold`, `bg-shadowWork-rose`
-  vb.) `tailwind.config.js`'de tanımlı olduğunu doğruladım, ama tarayıcıda
-  görsel olarak test edilmedi.
+- 1 rüya (id 852) ve 5 vizyon kapağı gerçekten çıplak Pixabay linkiyle
+  kayıtlı bulundu.
+- **4 vizyon kapağı düzeltildi**: zaten kalıcı bir galeri görselleri
+  vardı, onu kapak yaptık ("being a great cook", "to live in england",
+  "learn spanish", "lunosferi yayinlamak").
+- **1 vizyon ("Tus calismak") + 1 rüya (852) kurtarılamadı**: orijinal
+  Pixabay linki gerçekten ölmüş (tarayıcı header'larıyla bile
+  indirilemiyor), yedek görsel de yoktu — alan `null`'a çekildi.
+- Bonus: aynı taramada ~35 rüyanın (bugünkü konuyla ilgisiz,
+  `replicate.delivery` kaynaklı) görseli de kalıcı depoya taşındı;
+  ~14 tanesi zaten ölmüştü (404), dokunulmadı — bu ayrı, önceden
+  bilinen bir konu (`persistRemoteImage.js` yorumunda belgeli).
 
-## Bilinçli kapsam dışı bırakılanlar
-- **Rüya ve mesaj bazlı rapor UI'ı web'e eklenmedi** — sadece kullanıcı
-  raporu (profil sayfasından) yapıldı. Sebep: Google Play sadece Android
-  uygulamasını inceliyor, web sitesini incelemiyor; bu yüzden önceliği
-  Android'e verdim (aynı teslimat serisinin ilk mesajında tamamlandı).
-  İstersen `DreamCard.jsx`'e ve `messages.js`'e de aynı deseni (paylaşılan
-  `REPORT_REASONS` + `/api/reports/dream` ve `/api/reports/message`)
-  ekleyebilirim.
-- **Engellenen Kullanıcılar listesi web'e eklenmedi** — `/api/blocks/list`
-  hazır ama profile.js'te bir liste ekranı yok. Android'de bu var
-  (BlockedUsersScreen). İstersen ekleyebilirim.
+## Kalıcı önleme — DB tarafı (Supabase'e doğrudan uygulandı)
 
-## Bir sonraki adım
-`npm run build` (veya Vercel preview deploy) ile derleme hatası var mı
-kontrol et. Sorun çıkarsa bana logu yapıştır.
+- `dreams` tablosuna trigger: `ai_image_url` kalıcı depoda değilse
+  otomatik `image_status='needs_persist'` işaretler.
+- `goals` tablosuna yeni kolonlar (`image_status`, `image_checked_at`,
+  `image_repair_attempts` — dreams ile birebir aynı desen) + aynı
+  mantıkta trigger (`cover_image_url` veya `gallery_image_urls`).
+- Kaynaktan bağımsız çalışır (web API, Android'in doğrudan Supabase
+  insert'i, admin panel) — `013_profile_visibility_and_post_clamp.sql`'de
+  görünürlük kısıtlaması için kullanılan aynı desen.
+
+## Yeni dosyalar
+
+- `lib/repairGoalImage.js` — `repairDreamImage.js`'in vizyon karşılığı.
+  Kapak kalıcı değilse taşımayı dener; olmazsa galeriden kalıcı bir
+  görseli kapak yapar; o da yoksa `broken` işaretler. AI ile yeniden
+  üretim YAPMAZ (Aura kredisi harcamasın diye — zaten Pixabay linki
+  yeniden üretilemez).
+- `pages/api/cron/repair-broken-goal-images.js` —
+  `repair-broken-images.js`'in vizyon karşılığı, günlük tarar.
+
+## Değiştirilen dosyalar
+
+- `vercel.json` — yeni cron eklendi (12:15, dreams cron'undan 15 dk
+  sonra).
+- `pages/api/update-dream.js` — `ai_image_url` yazılmadan önce kalıcı
+  olup olmadığı kontrol ediliyor, değilse anında indirip cache'leniyor.
+- `pages/api/goals/set-cover.js` — aynı kontrol `coverImageUrl` için.
+  Yanlış varsayıma dayanan eski yorum kaldırıldı.
+- `pages/api/goals/create.js` — aynı kontrol, oluşturma anında gönderilen
+  `cover_image_url` için.
+
+## Yapman gerekenler
+
+1. Bu dosyaları repona uygula, commit'le, Vercel'e deploy et.
+2. Supabase tarafı zaten canlı — yeni migration'a gerek yok.
+3. İstersen Android tarafında da rüya/vizyon oluştururken Pixabay'in
+   çıplak linkini doğrudan kaydeden yeri bulup düzelt — ama artık DB
+   trigger'ı + bu üç route sayesinde Android düzeltilmese bile görseller
+   kaybolmayacak, en geç ertesi günkü cron'da otomatik onarılacak.

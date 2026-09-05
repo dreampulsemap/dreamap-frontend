@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/repair-broken-images",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/repair-broken-goal-images",
+      "schedule": "15 12 * * *"
     }
   ]
 }
