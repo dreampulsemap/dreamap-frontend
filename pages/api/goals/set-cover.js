@@ -1,4 +1,6 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { persistRemoteImage } from '@/lib/persistRemoteImage'
+import { isPersistedImageUrl } from '@/lib/imageUrlUtils'
 
 // Vizyon oluşturma akışında artık kapak, kullanıcının videoya eklediği
 // GÖRSELLER arasından SONRADAN seçiliyor (bkz. CreateGoalModal.jsx +
@@ -29,11 +31,28 @@ export default async function handler(req, res) {
     if (fetchError || !goal) return res.status(404).json({ error: 'goal_not_found' })
     if (goal.user_id !== user.id) return res.status(403).json({ error: 'not_owner' })
 
+    // GÜVENLİK AĞI: bu endpoint önceden gelen URL'in zaten kalıcı olduğunu
+    // varsayıyordu (yorum: "Pixabay'den gelenler zaten kalıcı (https:),
+    // dokunmuyoruz") — bu varsayım yanlıştı, CoverPickerModal'a farklı bir
+    // yoldan (ör. ileride eklenecek bir akış, ya da doğrudan API çağrısı)
+    // henüz cache'lenmemiş bir Pixabay linki gelirse burada yakalanmıyordu.
+    // Artık kalıcı değilse burada indirip image-library'e kaydediyoruz.
+    let finalCoverUrl = coverImageUrl.trim()
+    if (!isPersistedImageUrl(finalCoverUrl) && !finalCoverUrl.startsWith('blob:')) {
+      finalCoverUrl = await persistRemoteImage(finalCoverUrl, {
+        bucket: 'image-library',
+        path: `pixabay/legacy-goal-${goalId}-${Date.now()}.jpg`,
+      })
+    }
+    const stillTemp = !isPersistedImageUrl(finalCoverUrl) && !finalCoverUrl.startsWith('blob:')
+
     const { data: updatedGoal, error: updateError } = await supabaseAdmin
       .from('goals')
       .update({
-        cover_image_url: coverImageUrl.trim(),
+        cover_image_url: finalCoverUrl,
         cover_image_source: VALID_COVER_SOURCES.includes(coverImageSource) ? coverImageSource : 'user_upload',
+        image_status: stillTemp ? 'needs_persist' : 'ok',
+        image_checked_at: stillTemp ? null : new Date().toISOString(),
       })
       .eq('id', goalId)
       .select('*')

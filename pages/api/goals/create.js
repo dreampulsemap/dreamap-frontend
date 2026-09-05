@@ -1,4 +1,6 @@
 import { supabaseAdmin, getAuthedUser, clampVisibilityToProfile } from '@/lib/supabaseAdmin'
+import { persistRemoteImage } from '@/lib/persistRemoteImage'
+import { isPersistedImageUrl } from '@/lib/imageUrlUtils'
 
 const MAX_TITLE_LENGTH = 120
 const MAX_DESCRIPTION_LENGTH = 2000
@@ -41,11 +43,25 @@ export default async function handler(req, res) {
       return res.status(413).json({ error: 'description_too_long', max: MAX_DESCRIPTION_LENGTH })
     }
 
+    // GÜVENLİK AĞI: web akışı (CreateGoalModal) burayı her zaman
+    // cover_image_url=null ile çağırıyor (kapak CoverPickerModal ile sonradan
+    // seçiliyor) — ama bu endpoint genel bir API route, doğrudan çağıran
+    // başka bir client (Android) çıplak bir Pixabay linkini burada
+    // gönderebilir. Kalıcı değilse insert'ten önce indirip cache'liyoruz;
+    // flag_goal_image_for_persist trigger'ı zaten bir yedek olarak devrede.
+    let cleanCoverUrl = normalizeText(cover_image_url)
+    if (cleanCoverUrl && !isPersistedImageUrl(cleanCoverUrl)) {
+      cleanCoverUrl = await persistRemoteImage(cleanCoverUrl, {
+        bucket: 'image-library',
+        path: `pixabay/legacy-goal-${user.id}-${Date.now()}.jpg`,
+      })
+    }
+
     const insertPayload = {
       user_id: user.id,
       title: cleanTitle,
       description: cleanDescription,
-      cover_image_url: normalizeText(cover_image_url),
+      cover_image_url: cleanCoverUrl,
       cover_image_source: VALID_COVER_SOURCES.includes(cover_image_source) ? cover_image_source : 'ai_generated',
       target_date: target_date || null,
       // 013 migration: profil gizliliği "friends"/"private" ise, DB trigger'ı
