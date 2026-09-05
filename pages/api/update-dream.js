@@ -1,4 +1,6 @@
 import { supabaseAdmin, getAuthedUser, clampVisibilityToProfile } from '@/lib/supabaseAdmin'
+import { persistRemoteImage } from '@/lib/persistRemoteImage'
+import { isPersistedImageUrl } from '@/lib/imageUrlUtils'
 
 export default async function handler(req, res) {
   if (req.method !== 'PUT') {
@@ -67,17 +69,32 @@ export default async function handler(req, res) {
     if (cleanTags !== undefined) updates.tags = cleanTags
     if (goalId !== undefined) updates.goal_id = goalId || null
     if (ai_image_url !== undefined) {
-      updates.ai_image_url = ai_image_url
-      updates.image_source = ai_image_url ? (image_source || 'pixabay') : null
-      updates.image_width = ai_image_url ? (image_width || null) : null
-      updates.image_height = ai_image_url ? (image_height || null) : null
-      // Kullanıcı elle yeni bir görsel seçti/kaldırdı — sağlık durumunu
-      // sıfırla. Yeni URL zaten kalıcı (Pixabay import her zaman
-      // image-library bucket'ına indirip kaydeder), bu yüzden doğrudan 'ok';
-      // görsel tamamen kaldırıldıysa da 'ok' (Explore filtresi zaten
-      // ai_image_url IS NOT NULL şartını ayrıca arıyor).
-      updates.image_status = 'ok'
-      updates.image_checked_at = new Date().toISOString()
+      // GÜVENLİK AĞI: bu endpoint önceden "gönderen taraf zaten Pixabay
+      // cache'ini kullanmıştır" varsayımıyla ai_image_url'i doğrudan
+      // yazıyordu. dreams tablosu client-side doğrudan insert'e de açık
+      // olduğundan (bkz. submit-dream.js notu) bu varsayım Android gibi
+      // Next.js API'sini atlayan yazarlar için hiç geçerli değildi — çıplak
+      // Pixabay linkleri birkaç gün içinde ölüyordu. Artık kalıcı değilse
+      // (supabase.co değilse) burada, DB'ye yazmadan önce indirip
+      // image-library bucket'ına kaydediyoruz.
+      let finalUrl = ai_image_url
+      if (finalUrl && !isPersistedImageUrl(finalUrl)) {
+        finalUrl = await persistRemoteImage(finalUrl, {
+          bucket: 'image-library',
+          path: `pixabay/legacy-dream-${dreamId}-${Date.now()}.jpg`,
+        })
+      }
+      const stillTemp = finalUrl && !isPersistedImageUrl(finalUrl)
+
+      updates.ai_image_url = finalUrl
+      updates.image_source = finalUrl ? (image_source || 'pixabay') : null
+      updates.image_width = finalUrl ? (image_width || null) : null
+      updates.image_height = finalUrl ? (image_height || null) : null
+      // persistRemoteImage indiremezse (link zaten ölmüş) sessizce orijinal
+      // URL'e döner — bu durumda 'ok' DEMİYORUZ, cron onu tekrar denesin/pes
+      // etsin diye 'needs_persist' işaretliyoruz.
+      updates.image_status = stillTemp ? 'needs_persist' : 'ok'
+      updates.image_checked_at = stillTemp ? null : new Date().toISOString()
     }
 
     const { error } = await supabaseAdmin
