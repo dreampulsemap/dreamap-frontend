@@ -82,7 +82,10 @@ export default async function handler(req, res) {
     // başarısız göstermesini engelliyor.
     await notifyFollow(supabase, { userId: friendId, actorId: userId, accepted: status === 'accepted' })
 
-    return res.status(200).json({ success: true, status, data })
+    // Android tarafı "data" alanını tek obje olarak parse ediyor;
+    // .insert().select() her zaman array döndürdüğü için burada ilk
+    // (ve tek) satırı çıkarıyoruz.
+    return res.status(200).json({ success: true, status, data: data?.[0] ?? null })
   } catch (error) {
     return res.status(500).json({ error: error.message })
   }

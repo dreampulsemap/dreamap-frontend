@@ -54,7 +54,9 @@ export default async function handler(req, res) {
       await notifyFollowAccepted(supabase, { userId: friendship.user_id, actorId: userId })
     }
 
-    return res.status(200).json({ success: true, data })
+    // request.js'deki ile aynı sebep: .update().select() array döner,
+    // Android tarafı "data" alanını tek obje olarak bekliyor.
+    return res.status(200).json({ success: true, data: data?.[0] ?? null })
   } catch (error) {
     return res.status(500).json({ error: error.message })
   }
