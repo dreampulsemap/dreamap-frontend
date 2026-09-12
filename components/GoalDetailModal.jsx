@@ -250,7 +250,18 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.lunosfer.com'
     const text = t.shareText(goal.title)
     if (navigator.share) {
-      try { await navigator.share({ title: goal.title, text, url: appUrl }); return } catch (_) { return }
+      try {
+        await navigator.share({ title: goal.title, text, url: appUrl })
+        return
+      } catch (err) {
+        // Kullanıcı paylaşım sayfasını kendi iptal ettiyse (AbortError) sessizce
+        // çık — bu bir hata değil. Başka herhangi bir sebeple (izin reddi,
+        // API var ama gerçekte desteklenmiyor vb.) başarısız olursa aşağıdaki
+        // panoya kopyalama yedeğine düş; ÖNCEDEN her durumda sessizce
+        // vazgeçiliyordu, bu yüzden PAYLAŞ butonu bazı tarayıcılarda hiçbir
+        // görünür tepki vermiyordu.
+        if (err?.name === 'AbortError') return
+      }
     }
     try {
       await navigator.clipboard.writeText(`${text} ${appUrl}`)
@@ -628,16 +639,15 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
             ))}
           </ul>
           {isOwner && goal.status === 'active' && (
-            <div className="flex gap-2 mt-2">
+            <form onSubmit={(e) => { e.preventDefault(); addStep() }} className="flex gap-2 mt-2">
               <input
                 value={newStep}
                 onChange={(e) => setNewStep(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') addStep() }}
                 placeholder={t.addStepPlaceholder}
                 className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none"
               />
-              <button onClick={addStep} className="px-3 rounded-lg bg-white/10 text-white text-sm hover:bg-white/20">+</button>
-            </div>
+              <button type="submit" className="px-3 rounded-lg bg-white/10 text-white text-sm hover:bg-white/20">+</button>
+            </form>
           )}
         </div>
 
@@ -777,16 +787,15 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
             </h3>
           </div>
 
-          <div className="flex gap-2 mb-3">
+          <form onSubmit={(e) => { e.preventDefault(); postComment() }} className="flex gap-2 mb-3">
             <input
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') postComment() }}
               placeholder="..."
               className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none"
             />
-            <button onClick={postComment} aria-label={lang === 'tr' ? 'Yorum gönder' : 'Send comment'} className="px-3 rounded-lg bg-white/10 text-white hover:bg-white/20 flex items-center justify-center"><ArrowUp size={16} /></button>
-          </div>
+            <button type="submit" aria-label={lang === 'tr' ? 'Yorum gönder' : 'Send comment'} className="px-3 rounded-lg bg-white/10 text-white hover:bg-white/20 flex items-center justify-center"><ArrowUp size={16} /></button>
+          </form>
           <ul className="space-y-2 max-h-48 overflow-y-auto">
             {comments.map((c) => (
               <li key={c.id} className="text-sm">

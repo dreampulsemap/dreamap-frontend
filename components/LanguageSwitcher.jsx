@@ -13,7 +13,7 @@ const languages = [
   { code: 'ja', flag: '🇯🇵', name: '日本語' },
 ]
 
-export default function LanguageSwitcher({ onLanguageChange }) {
+export default function LanguageSwitcher({ onLanguageChange, applyImmediately = true, selectedCode }) {
   const { i18n } = useTranslation()
   const [mounted, setMounted] = useState(false)
   const [open, setOpen] = useState(false)
@@ -42,7 +42,12 @@ export default function LanguageSwitcher({ onLanguageChange }) {
   }, [open])
 
   // i18n?. optional chaining ile çökme tamamen engellenmiştir
-  const currentCode = mounted ? (i18n?.resolvedLanguage || i18n?.language || 'en') : 'en'
+  // selectedCode verilmişse (applyImmediately=false ile birlikte, taslak
+  // form senaryosu) gösterilen/işaretli dil site genelindeki gerçek i18n
+  // dilinden DEĞİL, bu taslak değerden geliyor — yoksa kullanıcı bir dil
+  // seçtiğinde (henüz Kaydet'e basmadan) buton hâlâ eski dili işaretli
+  // gösterirdi.
+  const currentCode = selectedCode || (mounted ? (i18n?.resolvedLanguage || i18n?.language || 'en') : 'en')
   const currentLang = languages.find((l) => l.code === currentCode) || languages[0]
 
   return (
@@ -67,7 +72,12 @@ export default function LanguageSwitcher({ onLanguageChange }) {
               key={lang.code}
               type="button"
               onClick={() => {
-                i18n?.changeLanguage(lang.code)
+                // applyImmediately=false: profile düzenleme formu gibi
+                // "Kaydet'e basana kadar hiçbir şey değişmesin" bağlamlarında
+                // kullanılıyor — önceden bu buton her zaman siteyi ANINDA o
+                // dile çeviriyordu, formun kendi taslak durumundan bağımsız
+                // olarak (bkz. pages/profile.js handleSaveProfile).
+                if (applyImmediately) i18n?.changeLanguage(lang.code)
                 onLanguageChange?.(lang.code) // YENİ
                 setOpen(false)
               }}

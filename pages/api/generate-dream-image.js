@@ -423,7 +423,13 @@ export default async function handler(req, res) {
     // expire olur — DB'ye kaydetmeden önce kalıcı depolamaya kopyalıyoruz.
     const rawProviderUrl = imageUrl;
     imageUrl = await persistRemoteImage(imageUrl, {
-      bucket: 'dream-images',
+      // KÖK NEDEN DÜZELTMESİ: Supabase Storage'daki gerçek bucket adı
+      // alt çizgili "dream_images" — burada tireli "dream-images" yazılmıştı,
+      // bu yüzden persistRemoteImage her seferinde "Bucket not found" ile
+      // başarısız olup sessizce geçici sağlayıcı URL'sine geri dönüyordu
+      // (bkz. Vercel logları). Sonuç: rüya görselleri hiç kalıcı depoya
+      // taşınmıyor, saatler/günler içinde kırılıyordu.
+      bucket: 'dream_images',
       path: `${user.id}/${dreamId}-${Date.now()}.jpg`,
     });
     // persistRemoteImage yükleme başarısız olursa sessizce orijinal geçici

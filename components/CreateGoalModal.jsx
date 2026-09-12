@@ -413,23 +413,21 @@ export default function CreateGoalModal({ lang = 'en', onClose, onCreated }) {
 
           <div>
             <label className="text-xs uppercase tracking-widest text-slate-400 mb-1.5 block">{t.roadmapLabel}</label>
-            <div className="flex gap-2">
+            <form onSubmit={(e) => { e.preventDefault(); addRoadmapStep() }} className="flex gap-2">
               <input
                 value={roadmapInput}
                 onChange={(e) => setRoadmapInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRoadmapStep() } }}
                 placeholder={t.roadmapPlaceholder}
                 maxLength={200}
                 className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-brand-primary-500/50"
               />
               <button
-                onClick={addRoadmapStep}
-                type="button"
+                type="submit"
                 className="px-4 rounded-xl bg-white/10 text-white hover:bg-white/20"
               >
                 +
               </button>
-            </div>
+            </form>
             {roadmap.length > 0 && (
               <ul className="mt-2 space-y-1.5">
                 {roadmap.map((step, i) => (

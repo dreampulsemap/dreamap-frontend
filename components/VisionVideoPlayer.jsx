@@ -676,22 +676,24 @@ export default function VisionVideoPlayer({ goal, lang, currentUserId, onClose, 
                   ))
                 )}
               </div>
-              <div className="flex items-center gap-2 px-4 py-3 border-t border-white/10">
+              <form
+                onSubmit={(e) => { e.preventDefault(); handlePostComment() }}
+                className="flex items-center gap-2 px-4 py-3 border-t border-white/10"
+              >
                 <input
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handlePostComment() }}
                   placeholder={tr ? 'Yorum yaz...' : 'Write a comment...'}
                   className="flex-1 bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none"
                 />
                 <button
-                  onClick={handlePostComment}
+                  type="submit"
                   disabled={!commentText.trim() || postingComment}
                   className="w-9 h-9 rounded-full bg-fuchsia-500 flex items-center justify-center text-white disabled:opacity-40"
                 >
                   <Send size={15} />
                 </button>
-              </div>
+              </form>
             </div>
           </div>
         )}

@@ -69,6 +69,21 @@ export default function ProfilePage() {
     setMounted(true)
   }, [])
 
+  // Navbar bildirim menüsündeki "Akış & Frekans Tercihlerini Yönet" linki
+  // /profile#stream-preferences'a gidiyordu ama bu sayfada o id'ye sahip
+  // hiçbir eleman yoktu (link her zaman işlevsizdi) VE hedef, kapalı
+  // durumdaki profil düzenleme modalının İÇİNDE — modal kapalıyken o
+  // eleman DOM'da bile yok, browser'ın kendi #hash scroll'u onu asla
+  // bulamaz. Modalı otomatik açıp içine kaydırıyoruz.
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.location.hash !== '#stream-preferences') return
+    setShowProfileEditor(true)
+    const timeout = setTimeout(() => {
+      document.getElementById('stream-preferences')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+    return () => clearTimeout(timeout)
+  }, [])
+
   const lang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
   const tCard = getDreamCardText(lang)
   const tVision = getVisionBoardText(lang)
@@ -290,7 +305,15 @@ export default function ProfilePage() {
           fetchedProfile?.profile_visibility || (fetchedProfile?.is_private === true ? 'private' : 'public')
         )
         setProfileGender(fetchedProfile?.gender || '') // YENİ
-        setProfileLanguage(fetchedProfile?.language || i18n.language || 'en') // YENİ
+        // KÖK NEDEN DÜZELTMESİ: önceden `fetchedProfile?.language` önce
+        // geliyordu — bu DB'de kayıtlı (çoğu hesapta hiç değiştirilmemiş,
+        // varsayılan 'en') değer, kullanıcının O AN GÖRDÜĞÜ dille aynı
+        // olmak zorunda değil. Sonuç: kullanıcı dil alanına hiç dokunmadan
+        // Kaydet'e basınca handleSaveProfile'daki i18n.changeLanguage
+        // çağrısı siteyi sessizce İngilizce'ye çeviriyordu. "Hiçbir şey
+        // değiştirmedim" durumunun doğru varsayılanı, DB'deki değer değil,
+        // o an ekranda görünen dildir.
+        setProfileLanguage((i18n.language || fetchedProfile?.language || 'en').split('-')[0])
 
         await Promise.all([
           loadDreams(currentUser.id, 0, false),
@@ -562,19 +585,18 @@ export default function ProfilePage() {
         {/* SOSYAL ARKADAŞLIK ALANI */}
         {showFriends && (
           <div className="glass-card p-4 sm:p-6 mb-6 animate-fade-in">
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleSearch() }} className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder={getTranslation('friends.searchPlaceholder', lang)}
                 className="flex-1 bg-black/40 border border-white/20 rounded px-4 py-2.5 text-white text-sm"
               />
-              <button onClick={handleSearch} className="glass-card px-4 py-2 hover:bg-brand-accent-500/20 text-sm">
+              <button type="submit" className="glass-card px-4 py-2 hover:bg-brand-accent-500/20 text-sm">
                 {getTranslation('friends.search', lang) || 'Ara'}
               </button>
-            </div>
+            </form>
 
             {/* Arama Sonuçları */}
             {showSearch && searchResults.length > 0 && (
@@ -841,7 +863,7 @@ export default function ProfilePage() {
                 Bu seçim, rüya/vizyon/günce oluştururken sunulan gizlilik
                 seçeneklerini kısıtlar (013 migration'daki DB trigger + ilgili
                 API route'ları). */}
-            <div className="mb-4">
+            <div id="stream-preferences" className="mb-4 scroll-mt-6">
               <label className="text-xs text-white/50 block mb-2 uppercase tracking-widest">
                 {lang === 'tr' ? 'Profil Gizliliği' : 'Profile Visibility'}
               </label>
@@ -886,7 +908,16 @@ export default function ProfilePage() {
             {/* YENİ: DİL SEÇİMİ */}
             <div className="mb-4">
               <label className="text-xs text-white/50 block mb-2 uppercase tracking-widest">{getTranslation('profile.language', lang)}</label>
-              <LanguageSwitcher onLanguageChange={(code) => setProfileLanguage(code)} />
+              {/* applyImmediately=false: burada bir dil seçmek sadece taslak
+                  profileLanguage state'ini günceller — siteyi ANINDA o dile
+                  çevirmiyor. Gerçek değişiklik yalnızca "Kaydet"e basılınca
+                  (handleSaveProfile içindeki i18n.changeLanguage çağrısıyla)
+                  uygulanıyor, tıpkı diğer tüm form alanları gibi. */}
+              <LanguageSwitcher
+                selectedCode={profileLanguage}
+                applyImmediately={false}
+                onLanguageChange={(code) => setProfileLanguage(code)}
+              />
             </div>
 
             {/* YENİ: CİNSİYET SEÇİMİ */}
@@ -918,7 +949,7 @@ export default function ProfilePage() {
 
             <div className="flex gap-3">
               <button onClick={() => setShowProfileEditor(false)} className="flex-1 glass-card py-2.5 text-sm">{getTranslation('profile.cancel', lang)}</button>
-              <button onClick={handleSaveProfile} disabled={profileSaving} className="flex-1 glass-card py-2.5 bg-brand-accent-500/20 text-sm">{profileSaving ? 'Saving...' : 'Save'}</button>
+              <button onClick={handleSaveProfile} disabled={profileSaving} className="flex-1 glass-card py-2.5 bg-brand-accent-500/20 text-sm">{profileSaving ? getTranslation('profile.saving', lang) : getTranslation('profile.saveProfile', lang)}</button>
             </div>
           </div>
         </div>

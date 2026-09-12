@@ -293,7 +293,9 @@ async function buildDreamUpdate({ dreamId, content, language, analysis, existing
     // indirip kendi kalıcı depomuza (dream-images bucket) kopyalıyoruz —
     // böylece ai_image_url her zaman kalıcı, statik bir dosyayı gösteriyor.
     const imageUrl = await persistRemoteImage(liveImageUrl, {
-      bucket: 'dream-images',
+      // Gerçek Supabase Storage bucket adı alt çizgili "dream_images" —
+      // bkz. generate-dream-image.js'deki aynı düzeltme notu.
+      bucket: 'dream_images',
       path: `${dreamId}-${Date.now()}.jpg`,
     })
     const persisted = imageUrl !== liveImageUrl
