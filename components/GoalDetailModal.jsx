@@ -336,7 +336,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
     }
   }
 
-  async function postComment() {
+    async function postComment() {
     const clean = newComment.trim()
     if (!clean) return
     const headers = await authHeader()
@@ -353,6 +353,58 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
       setNewComment('')
     } catch {
       setError('network_error')
+    }
+  }
+
+  async function handleReact() {
+    if (reacting || liked) return
+
+    const headers = await authHeader()
+    if (!headers) {
+      setError(t.loginRequired)
+      return
+    }
+
+    setReacting(true)
+    try {
+      const res = await fetch('/api/goals/react', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ goalId: goal.id }),
+      })
+      const json = await res.json()
+
+      if (!res.ok) {
+        setError(json.error || 'reaction_failed')
+        return
+      }
+
+      setLiked(true)
+      setBelieversCount((count) => count + 1)
+
+      if (typeof json.manaBalance === 'number') {
+        window.dispatchEvent(
+          new CustomEvent('mana-balance-updated', {
+            detail: { balance: json.manaBalance },
+          })
+        )
+      }
+
+      const updated = {
+        ...goal,
+        has_reacted: true,
+        believers_count:
+          typeof json.believersCount === 'number'
+            ? json.believersCount
+            : believersCount + 1,
+      }
+
+      setGoal(updated)
+      onChanged?.(updated)
+    } catch {
+      setError('network_error')
+    } finally {
+      setReacting(false)
     }
   }
 
