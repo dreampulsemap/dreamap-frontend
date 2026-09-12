@@ -39,26 +39,30 @@ export default async function handler(req, res) {
         }
       }
 
-      const { data, error } = await supabaseAdmin
+      // DUZELTME: asagidaki gibi ayri sorgularla birlestirme, comments/
+      // user_profiles arasinda PostgREST'in taniyacagi bir FK iliskisi
+      // olmasa bile calisir (bkz. POST tarafindaki ayni duzeltme).
+      const { data: rows, error } = await supabaseAdmin
         .from('comments')
-        .select(`
-          id,
-          content,
-          created_at,
-          user_id,
-          user_profiles(
-            id,
-            username,
-            display_name,
-            avatar_url
-          )
-        `)
+        .select('id, content, created_at, user_id')
         .eq('dream_id', dreamId)
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
-      return res.status(200).json({ comments: data || [] })
+      const userIds = [...new Set((rows || []).map((r) => r.user_id))]
+      let profilesById = {}
+      if (userIds.length) {
+        const { data: profiles } = await supabaseAdmin
+          .from('user_profiles')
+          .select('id, username, display_name, avatar_url')
+          .in('id', userIds)
+        profilesById = Object.fromEntries((profiles || []).map((p) => [p.id, p]))
+      }
+
+      const data = (rows || []).map((r) => ({ ...r, user_profiles: profilesById[r.user_id] || null }))
+
+      return res.status(200).json({ comments: data })
     }
 
     const user = await getAuthedUser(req)
@@ -90,26 +94,30 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Comment is too long' })
       }
 
-      const { data, error } = await supabaseAdmin
+      // DUZELTME: insert + user_profiles join'ini tek sorguda yapmak, o
+      // iliski PostgREST'in schema cache'inde tanimli degilse ("could not
+      // find relationship...") hata firlatiyordu — yorum DB'ye ekleniyor
+      // ama API 500 donduruyor, arayuzde "gonderilemedi" gorunuyordu.
+      // Insert ve profil bilgisini ayri sorgulara bolerek bu bagimliligi
+      // ortadan kaldiriyoruz.
+      const { data: inserted, error } = await supabaseAdmin
         .from('comments')
         .insert([{ user_id: userId, dream_id: dreamId, content }])
-        .select(`
-          id,
-          content,
-          created_at,
-          user_id,
-          user_profiles(
-            id,
-            username,
-            display_name,
-            avatar_url
-          )
-        `)
+        .select('id, content, created_at, user_id')
         .single()
 
       if (error) throw error
 
-      return res.status(200).json({ success: true, comment: data })
+      const { data: profile } = await supabaseAdmin
+        .from('user_profiles')
+        .select('id, username, display_name, avatar_url')
+        .eq('id', userId)
+        .maybeSingle()
+
+      return res.status(200).json({
+        success: true,
+        comment: { ...inserted, user_profiles: profile || null },
+      })
     }
 
     const commentId = Number(req.body?.commentId)
