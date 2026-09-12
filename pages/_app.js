@@ -1,5 +1,8 @@
 import '@/styles/globals.css'
 import '@/lib/i18n'
+import Head from 'next/head'
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import Navbar from '@/components/Navbar'
 import BottomNav from '@/components/BottomNav'
 import Sidebar from '@/components/Sidebar'
@@ -8,7 +11,18 @@ import { useRouter } from 'next/router'
 
 export default function App({ Component, pageProps }) {
   const router = useRouter()
-  
+  const { i18n } = useTranslation()
+
+  // <html lang> SSR'da her zaman _document.js'teki sabit "tr" — burada
+  // i18next istemci tarafında farklı bir dil algılar/seçerse senkronize
+  // ediyoruz. Doğrudan DOM mutasyonu (React render'ının parçası değil),
+  // bu yüzden hydration mismatch riski taşımıyor.
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = (i18n.language || 'tr').split('-')[0]
+    }
+  }, [i18n.language])
+
   // Tam ekran olan Küre, hata sayfaları veya WhatsApp-tarzı tam ekran
   // mesajlaşma sayfasında menüleri gizle
   const hideNavbarPaths = ['/globe', '/auth/callback', '/verify', '/analizetgulum', '/messages', '/app']
@@ -16,6 +30,11 @@ export default function App({ Component, pageProps }) {
 
   return (
     <>
+      <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+        <meta name="theme-color" content="#04060E" />
+      </Head>
+
       {/* Navbar'dan ÖNCE, sticky DEĞİL: sayfayla birlikte kaydırılıp gider,
           Navbar'ın kendi sticky top-0 davranışıyla çakışmaz. */}
       {!shouldHideNavbar && <AppDownloadBanner />}

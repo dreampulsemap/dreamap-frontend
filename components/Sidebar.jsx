@@ -55,7 +55,7 @@ export default function Sidebar() {
   return (
     <aside
       className="hidden lg:flex lg:flex-col fixed left-0 top-0 z-40 h-screen w-64 overflow-y-auto border-r border-white/5 bg-void-950/70 px-4 pb-6 pt-24 backdrop-blur-2xl"
-      aria-label={t('nav.home')}
+      aria-label={mounted ? t('nav.home') : 'Home'}
     >
       {/* ODAK NOKTASI: birincil CTA — mevcut ?create=1 akışını kullanır
           (vision-board.js zaten bunu dinliyor, BottomNav.jsx ile aynı yol) */}

@@ -17,8 +17,10 @@ export const SITE_NAME = 'Lunosfer'
 export const SITE_URL = 'https://www.lunosfer.com'
 
 const DEFAULT_TITLE = 'Lunosfer — Rüya Nabız Ağı | AI Destekli Jung Rüya Analizi'
+// Google, SERP snippet'lerini ~155-160 karakterde kesiyor — önceki metin
+// 200 karakterdi ve cümle ortasında kırpılıyordu.
 const DEFAULT_DESCRIPTION =
-  'Lunosfer; rüyalarını Jung arketipleri ve yapay zekâ ile analiz eden, rüya sinyallerini canlı bir bilinçaltı ağına dönüştüren platform. Rüyanı paylaş, arketipini keşfet, küresel rüya haritasına bağlan.'
+  'Rüyalarını Jung arketipleri ve yapay zekâyla analiz et, küresel rüya haritasına katıl. Rüyanı paylaş, arketipini keşfet, bilinçaltı ağına bağlan.'
 const DEFAULT_IMAGE = `${SITE_URL}/logo.png`
 
 // Proje next-i18next değil, react-i18next + kendi lib/translations.js'ini

@@ -14,6 +14,7 @@ const nextConfig = {
       { protocol: 'https', hostname: 'replicate.delivery' },
       { protocol: 'https', hostname: '*.blob.core.windows.net' }, // DALL-E (Azure)
       { protocol: 'https', hostname: '*.supabase.co' }, // farklı Supabase projeleri/storage için genel
+      { protocol: 'https', hostname: '*.r2.cloudflarestorage.com' }, // AI Gateway (Vercel) çıktı depolama — whitelist'te yoktu, next/image tüm bu görselleri 400 ile reddediyordu
     ],
   },
 }

@@ -195,7 +195,7 @@ export default function AuthPage() {
 
   if (checkingUser) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-[calc(100dvh-4rem)] bg-black flex items-center justify-center">
         <TextSkeleton />
       </div>
     )
@@ -206,7 +206,15 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
+    <div className="min-h-[calc(100dvh-4rem)] bg-black text-white flex flex-col">
+      {/* NOT: burada BİLEREK min-h-screen (100dvh) değil, sticky Navbar'ın
+          yüksekliği düşülmüş bir değer kullanılıyor. Bu sayfa Navbar'ın
+          ALTINDA normal akışta render oluyor (hideNavbarPaths'te değil,
+          bkz. _app.js) — min-h-screen kullanılsaydı toplam yükseklik
+          (navbar + 100dvh) oluyordu ve kart, ekranın çok altında/ortasında
+          değil neredeyse ikinci "ekranın" ortasında kalıyordu; mobilde
+          Navbar ile kart arasında büyük, boş bir siyah alan olarak
+          görünüyordu. */}
       <Seo
         title="Giriş Yap veya Kayıt Ol"
         description="Lunosfer'e giriş yap ya da ücretsiz hesap oluştur; rüyalarını kaydet, yapay zekâ destekli Jung analizini gör ve küresel rüya haritasına katıl."
