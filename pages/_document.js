@@ -1,4 +1,5 @@
 import { Html, Head, Main, NextScript } from 'next/document'
+import Script from 'next/script'
 
 export default function Document() {
   return (
@@ -21,8 +22,19 @@ export default function Document() {
             ikisi birlikte yükleniyordu ve bu, konsolda "Multiple instances
             of Three.js being imported" uyarısına + r160'ta kaldırılacak
             deprecated non-module script uyarısına yol açıyordu (ayrıca her
-            sayfada ~600KB'lık gereksiz senkron bir script daha demekti). */}
-        <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.33.0/dist/globe.gl.min.js" />
+            sayfada ~600KB'lık gereksiz senkron bir script daha demekti).
+
+            ÖNEMLİ: next/document Head'inde ham <script> yerine next/script
+            kullanılıyor. Next.js'in kendi dokümantasyonu ham <script>
+            etiketini burada kullanmamayı söylüyor — tarayıcı bunu HTML
+            parse sırasında hemen, React'ın hydration zamanlamasından
+            habersiz şekilde çalıştırıyordu. strategy="beforeInteractive",
+            Next'in kendi script yükleme mekanizmasıyla senkronize çalışıp
+            hydration'dan hemen önce, öngörülebilir bir sırada çalışmasını
+            garanti ediyor — tüm sayfalarda gereken (MiniGlobe anasayfada
+            her zaman render oluyor) global bir script için Next'in önerdiği
+            tam olarak bu. */}
+        <Script src="https://cdn.jsdelivr.net/npm/globe.gl@2.33.0/dist/globe.gl.min.js" strategy="beforeInteractive" />
       </Head>
       <body>
         <Main />
