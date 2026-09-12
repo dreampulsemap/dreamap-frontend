@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Check, MessageCircle, Trash2, ArrowUp, Image as ImageIcon, Sparkles as SparklesIcon, Search as SearchIcon, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
@@ -25,7 +25,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   const [newStep, setNewStep] = useState('')
   const [comments, setComments] = useState([])
   const [newComment, setNewComment] = useState('')
-  const [resolveMode, setResolveMode] = useState(null) // 'completed' | 'abandoned' | null
+  const [resolveMode, setResolveMode] = useState(null)
   const [story, setStory] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -40,25 +40,23 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   const [showSlidesViewer, setShowSlidesViewer] = useState(false)
   const [showPixabayPicker, setShowPixabayPicker] = useState(false)
   const [videoStatus, setVideoStatus] = useState(null)
-    const [liked, setLiked] = useState(!!initialGoal.has_reacted)
+  const [liked, setLiked] = useState(!!initialGoal.has_reacted)
   const [believersCount, setBelieversCount] = useState(initialGoal.believers_count || 0)
   const [reacting, setReacting] = useState(false)
 
-  const AURA_COST = 2  // generate-cover.js ile aynı maliyet
-
+  const AURA_COST = 2
   const isOwner = currentUserId && goal.user_id === currentUserId
 
-  // GÜNLÜK PRATİK — her gün hedefe küçük bir adım attıran eğlenceli
-  // manifestation/oyun/alıştırma. Sadece aktif hedeflerde ve sahibi için
-  // anlamlı (başkasının hedefinde "bugünkü pratiğini yap" demek garip olur).
   const dailyPractice = getDailyPractice(goal.id, lang === 'tr' ? 'tr' : 'en')
   const practiceDoneKey = getPracticeDoneKey(goal.id, dailyPractice.dateKey)
   const [practiceDone, setPracticeDone] = useState(false)
+
   useEffect(() => {
     try {
       setPracticeDone(window.localStorage.getItem(practiceDoneKey) === '1')
     } catch (_) {}
   }, [practiceDoneKey])
+
   function togglePracticeDone() {
     const next = !practiceDone
     setPracticeDone(next)
@@ -79,9 +77,6 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
     return () => { active = false }
   }, [goal.id])
 
-  // Pixabay video sekmesinde doğru kilit durumunu gösterebilmek için, picker
-  // hiç açılmasa bile sahip görüntülediğinde premium/haftalık hak durumunu
-  // önceden çekiyoruz.
   useEffect(() => {
     if (!isOwner) return
     let active = true
@@ -93,7 +88,6 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
         .catch(() => {})
     })
     return () => { active = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOwner])
 
   async function generateCover() {
@@ -173,9 +167,6 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
     }
   }
 
-  // Pixabay picker'da bir görsele tıklandığında çağrılır. Gerçek indirme +
-  // kendi storage/DB'mize kaydetme işini sunucu tarafı yapar (bkz.
-  // /api/goals/add-image-from-pixabay). true dönerse picker kapanır.
   async function handlePixabayImagePick(hit) {
     if (!isOwner) return false
     setGalleryError('')
@@ -214,9 +205,6 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
     }
   }
 
-  // Video seçimi — aynı akış, ama /api/goals/add-video-from-pixabay premium/
-  // haftalık hak kontrolünü de yapıyor. Başarılı ekleme sonrası (ücretsiz
-  // kullanıcıysa) haftalık hakkı düşmüş olur, bu yüzden videoStatus'u tazeliyoruz.
   async function handlePixabayVideoPick(hit) {
     if (!isOwner) return false
     setGalleryError('')
@@ -258,9 +246,6 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
     }
   }
 
-  // MİKRO-TAAHHÜT: bir vizyonu paylaşmak, ona olan bağlılığı sosyal olarak
-  // görünür (ve dolayısıyla daha güçlü) kılar — davranış psikolojisinde
-  // "public commitment" ilkesi.
   async function handleShare() {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.lunosfer.com'
     const text = t.shareText(goal.title)
@@ -336,7 +321,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
     }
   }
 
-    async function postComment() {
+  async function postComment() {
     const clean = newComment.trim()
     if (!clean) return
     const headers = await authHeader()
@@ -379,8 +364,12 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
         return
       }
 
+      const nextBelieversCount = typeof json.believersCount === 'number'
+        ? json.believersCount
+        : believersCount + 1
+
       setLiked(true)
-      setBelieversCount((count) => count + 1)
+      setBelieversCount(nextBelieversCount)
 
       if (typeof json.manaBalance === 'number') {
         window.dispatchEvent(
@@ -393,12 +382,8 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
       const updated = {
         ...goal,
         has_reacted: true,
-        believers_count:
-          typeof json.believersCount === 'number'
-            ? json.believersCount
-            : believersCount + 1,
+        believers_count: nextBelieversCount,
       }
-
       setGoal(updated)
       onChanged?.(updated)
     } catch {
@@ -455,7 +440,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div ref={modalRef} role="dialog" aria-modal="true" aria-label={goal.title} className="glass-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto animate-scale-in">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label={goal.title} className="glass-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-6 max-h-[92dvh] overflow-y-auto overscroll-contain pb-8 animate-scale-in">
         <div className="flex items-start justify-between mb-4">
           <div className="min-w-0">
             <AuthorHeader
@@ -497,8 +482,6 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
           </div>
         )}
 
-        {/* GÖRSEL GALERİSİ — kapak görseli + kullanıcının cihazından
-            yüklediği görseller, yana kaydırarak gezilebilir. */}
         {(goal.cover_image_url || galleryImages.length > 0) && (
           <div className="mb-5 -mx-6 px-6">
             <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
@@ -551,7 +534,6 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
           />
         )}
 
-        {/* goal.vision_video_url henüz yoksa (video oluşturulmamış eski hedef) eski slayt gösterisine düş */}
         {showSlidesViewer && (
           <SlidesViewer
             goal={goal}
@@ -584,7 +566,7 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
                 className="flex-1 py-2.5 rounded-xl bg-white/5 text-slate-200 text-xs font-bold uppercase tracking-widest hover:bg-white/10 flex items-center justify-center gap-1.5"
               >
                 <SearchIcon size={14} />
-                {lang === 'tr' ? 'Pixabay\u2019dan Seç' : 'From Pixabay'}
+                {lang === 'tr' ? 'Pixabay’dan Seç' : 'From Pixabay'}
               </button>
             </div>
             {galleryError && <p className="text-semantic-danger-400 text-xs mt-1.5">{galleryError}</p>}
@@ -622,7 +604,6 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
           />
         )}
 
-        {/* YOL HARİTASI */}
         <div className="mb-5">
           <h3 className="text-xs uppercase tracking-widest text-slate-400 mb-2">{t.roadmapSectionTitle}</h3>
           {microGoals.length === 0 && <p className="text-slate-500 text-sm">{t.noSteps}</p>}
@@ -660,7 +641,6 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
           )}
         </div>
 
-        {/* GÜNLÜK PRATİK — eğlenceli manifestation / oyun / alıştırma */}
         {goal.status === 'active' && (
           <div className="mb-5 p-4 rounded-xl bg-gradient-to-br from-brand-primary-500/10 via-brand-accent-500/10 to-brand-secondary-500/10 border border-white/10">
             <h3 className="text-xs uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5">
@@ -691,7 +671,6 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
           </div>
         )}
 
-        {/* AI KAPAK GÖRSELİ ÜRETİMİ (image_credits harcar) */}
         {isOwner && goal.status === 'active' && (
           <div className="mb-5">
             <button
@@ -702,13 +681,12 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
               <ImageIcon size={14} />
               {generatingCover
                 ? (lang === 'tr' ? 'Görsel Üretiliyor...' : 'Generating Image...')
-                : (lang === 'tr' ? `AI Kapak Üret (${AURA_COST} Aura)` : `Generate AI Cover (${AURA_COST} Auras)`)}
+                : (lang === 'tr' ? `AI Kapak Üret (${AURA_COST} Aura)` : `Generate AI Cover (${AURA_COST} Auras)`) }
             </button>
             {coverError && <p className="text-semantic-danger-400 text-xs mt-1.5">{coverError}</p>}
           </div>
         )}
 
-        {/* SAHİP AKSİYONLARI */}
         {isOwner && goal.status === 'active' && (
           <div className="flex gap-2 mb-5">
             <button
@@ -772,9 +750,33 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
 
         {error && <p className="text-semantic-danger-400 text-sm mb-3">{error}</p>}
 
-        {/* YORUMLAR */}
-        <div>
-          <h3 className="text-xs uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5"><MessageCircle size={14} /> {comments.length}</h3>
+        <div className="border-t border-white/10 pt-4">
+          <div className="flex items-center gap-3 mb-3">
+            <button
+              type="button"
+              onClick={handleReact}
+              disabled={reacting || liked}
+              aria-pressed={liked}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                liked
+                  ? 'bg-brand-primary-500/15 text-brand-primary-200 cursor-default'
+                  : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-brand-primary-200'
+              } disabled:opacity-70`}
+            >
+              <SparklesIcon
+                size={15}
+                className={liked ? 'fill-brand-primary-300 text-brand-primary-300' : ''}
+              />
+              <span>{believersCount}</span>
+              <span>{lang === 'tr' ? 'Destekle' : 'Support'}</span>
+            </button>
+
+            <h3 className="text-xs uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+              <MessageCircle size={14} />
+              {comments.length}
+            </h3>
+          </div>
+
           <div className="flex gap-2 mb-3">
             <input
               value={newComment}
