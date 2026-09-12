@@ -1,13 +1,7 @@
 import { supabaseAdmin, getAuthedUser, getAcceptedFriendIds } from '@/lib/supabaseAdmin'
 
-// GUVENLIK DUZELTMESI: POST ve DELETE'de userId daha once body'den
-// okunuyordu, dogrulanmiyordu - yani herkes baskasi adina yorum atabiliyor
-// veya baskasinin yorumunu (kendi user_id'sini vererek) silebiliyordu.
-// Artik kimlik Bearer token'dan dogrulaniyor.
-// GET icin de ayri bir sizinti vardi: dreamId'yi bilen herkes, ruyanin
-// gorunurlugune bakilmaksizin yorumlari (ve yorumcularin kimliklerini)
-// okuyabiliyordu. Artik get-dream.js'teki ile ayni gorunurluk kontrolu
-// (sahibi / kabul edilmis arkadas / public) burada da uygulaniyor.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'DELETE') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -15,10 +9,10 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const { dreamId } = req.query
+      const dreamId = Number(req.query?.dreamId)
 
-      if (!dreamId) {
-        return res.status(400).json({ error: 'dreamId required' })
+      if (!Number.isSafeInteger(dreamId) || dreamId <= 0) {
+        return res.status(400).json({ error: 'Invalid dreamId' })
       }
 
       const { data: dream, error: dreamError } = await supabaseAdmin
@@ -45,7 +39,6 @@ export default async function handler(req, res) {
         }
       }
 
-      // Optimized: select only needed columns
       const { data, error } = await supabaseAdmin
         .from('comments')
         .select(`
@@ -68,18 +61,38 @@ export default async function handler(req, res) {
       return res.status(200).json({ comments: data || [] })
     }
 
-    if (req.method === 'POST') {
-      const user = await getAuthedUser(req)
-      if (!user) return res.status(401).json({ error: 'unauthorized' })
+    const user = await getAuthedUser(req)
+    const userId = user?.id
 
-      const { dreamId, content } = req.body
-      if (!dreamId || !content) {
-        return res.status(400).json({ error: 'Missing parameters' })
+    if (!userId || !UUID_PATTERN.test(userId)) {
+      return res.status(401).json({
+        error: 'Invalid authenticated user',
+        userIdType: typeof userId,
+      })
+    }
+
+    if (req.method === 'POST') {
+      const dreamId = Number(req.body?.dreamId)
+      const content = String(req.body?.content || '').trim()
+
+      if (!Number.isSafeInteger(dreamId) || dreamId <= 0) {
+        return res.status(400).json({
+          error: 'Invalid dreamId',
+          receivedDreamId: req.body?.dreamId ?? null,
+        })
+      }
+
+      if (!content) {
+        return res.status(400).json({ error: 'Comment cannot be empty' })
+      }
+
+      if (content.length > 500) {
+        return res.status(400).json({ error: 'Comment is too long' })
       }
 
       const { data, error } = await supabaseAdmin
         .from('comments')
-        .insert([{ user_id: user.id, dream_id: dreamId, content }])
+        .insert([{ user_id: userId, dream_id: dreamId, content }])
         .select(`
           id,
           content,
@@ -99,27 +112,25 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, comment: data })
     }
 
-    if (req.method === 'DELETE') {
-      const user = await getAuthedUser(req)
-      if (!user) return res.status(401).json({ error: 'unauthorized' })
-
-      const { commentId } = req.body
-      if (!commentId) {
-        return res.status(400).json({ error: 'Missing parameters' })
-      }
-
-      const { error } = await supabaseAdmin
-        .from('comments')
-        .delete()
-        .eq('id', commentId)
-        .eq('user_id', user.id)
-
-      if (error) throw error
-
-      return res.status(200).json({ success: true })
+    const commentId = Number(req.body?.commentId)
+    if (!Number.isSafeInteger(commentId) || commentId <= 0) {
+      return res.status(400).json({ error: 'Invalid commentId' })
     }
+
+    const { error } = await supabaseAdmin
+      .from('comments')
+      .delete()
+      .eq('id', commentId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+
+    return res.status(200).json({ success: true })
   } catch (error) {
     console.error('Comment error:', error)
-    return res.status(500).json({ error: error.message })
+    return res.status(500).json({
+      error: error?.message || 'Failed to update comment',
+      code: error?.code || null,
+    })
   }
 }
