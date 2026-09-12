@@ -155,7 +155,7 @@ export default function DiaryComposer({ lang = 'en', currentUser, onClose, onCre
         role="dialog"
         aria-modal="true"
         aria-label={t.composerTitle}
-        className="glass-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+        className="glass-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-6 max-h-[92dvh] overflow-y-auto overscroll-contain pb-8"
       >
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-bold text-lg">{t.composerTitle}</h2>

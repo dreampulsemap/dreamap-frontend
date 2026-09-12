@@ -366,7 +366,7 @@ export default function DreamGlobe() {
       {selectedDream && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
           <div className="absolute inset-0 bg-black/70" onClick={() => setSelectedDream(null)} />
-          <div className="relative glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="relative glass-card p-6 max-w-2xl w-full max-h-[92dvh] overflow-y-auto overscroll-contain pb-8">
             <button onClick={() => setSelectedDream(null)} className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white">×</button>
 
             {getDreamImage(selectedDream) && (
@@ -440,7 +440,7 @@ export default function DreamGlobe() {
       {selectedPrediction && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
           <div className="absolute inset-0 bg-black/70" onClick={() => setSelectedPrediction(null)} />
-          <div className="relative glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="relative glass-card p-6 max-w-2xl w-full max-h-[92dvh] overflow-y-auto overscroll-contain pb-8">
             <button onClick={() => setSelectedPrediction(null)} className="absolute top-4 right-4 text-2xl text-white/60 hover:text-white">×</button>
             <h2 className="text-2xl font-bold gold-gradient-text mb-4">
               🔮 {selectedPrediction[`title_${lang}`] || selectedPrediction.title_en || selectedPrediction.title}

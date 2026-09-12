@@ -25,7 +25,7 @@ export default function AdminDreamEditModal({ dream, onClose, onSave, saving, on
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md">
-      <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#141822] p-6">
+      <div className="relative w-full max-w-xl max-h-[92dvh] overflow-y-auto overscroll-contain pb-8 rounded-2xl border border-white/10 bg-[#141822] p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.26em] text-slate-500">Rüya Düzenleyici</p>

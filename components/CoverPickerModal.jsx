@@ -64,7 +64,7 @@ export default function CoverPickerModal({ lang = 'en', goalId, images, onDone }
         role="dialog"
         aria-modal="true"
         aria-label={lang === 'tr' ? 'Kapak Seç' : 'Choose Cover'}
-        className="glass-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+        className="glass-card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-6 max-h-[92dvh] overflow-y-auto overscroll-contain pb-8"
       >
         <div className="flex items-start justify-between mb-1">
           <h2 className="text-white font-bold text-lg">{lang === 'tr' ? 'Kapak Fotoğrafını Seç' : 'Choose a Cover Photo'}</h2>

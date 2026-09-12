@@ -389,7 +389,7 @@ export default function SlideEditor({ goal, lang = 'en', onClose }) {
         ref={modalRef}
         role="dialog"
         aria-modal="true"
-        className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-slate-900 border border-white/10 p-6"
+        className="w-full sm:max-w-lg max-h-[92dvh] overflow-y-auto overscroll-contain pb-8 rounded-t-2xl sm:rounded-2xl bg-slate-900 border border-white/10 p-6"
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-white font-bold text-lg">

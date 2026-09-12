@@ -112,7 +112,7 @@ export default function DreamComposer({ lang, onDreamCreated, endpoint = '/api/s
       {/* Analiz Sonucu Modali (Orijinal Kod) */}
       {showAnalysisView && analysisDream && (
          <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4" onClick={() => setShowAnalysisView(false)}>
-            <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-void-950 border border-white/10 rounded-card p-6" onClick={e=>e.stopPropagation()}>
+            <div className="w-full max-w-4xl max-h-[92dvh] overflow-y-auto overscroll-contain pb-8 bg-void-950 border border-white/10 rounded-card p-6" onClick={e=>e.stopPropagation()}>
                 <DreamAnalysisView analysis={analysisDream?.ai_jungian_analysis} lang={currentLang} />
             </div>
          </div>

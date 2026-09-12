@@ -192,7 +192,7 @@ export default function PixabayPicker({ lang = 'en', videoStatus, videoEnabled =
         role="dialog"
         aria-modal="true"
         aria-label="Pixabay"
-        className="glass-card w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto animate-scale-in"
+        className="glass-card w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl p-6 max-h-[92dvh] overflow-y-auto overscroll-contain pb-8 animate-scale-in"
       >
         <div className="flex items-start justify-between mb-4">
           <div>
