@@ -2,6 +2,30 @@ import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+// DUZELTME: dreams.likes_count sutunu artik burada elle senkronize ediliyor.
+// Onceki kod bu sutunu hic guncellemiyor, sadece okuyordu — DB tarafinda
+// otomatik bir trigger olmadigi icin sayac hep 0'da kaliyordu ve arayuzdeki
+// iyimser (+1) guncelleme, API cevabiyla tekrar 0'a donuyordu.
+async function syncLikesCount(dreamId) {
+  const { count, error: countError } = await supabaseAdmin
+    .from('likes')
+    .select('id', { count: 'exact', head: true })
+    .eq('dream_id', dreamId)
+
+  if (countError) throw countError
+
+  const realCount = count || 0
+
+  const { error: updateError } = await supabaseAdmin
+    .from('dreams')
+    .update({ likes_count: realCount })
+    .eq('id', dreamId)
+
+  if (updateError) throw updateError
+
+  return realCount
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'DELETE') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -38,18 +62,12 @@ export default async function handler(req, res) {
         throw error
       }
 
-      const { data: countResult, error: countError } = await supabaseAdmin
-        .from('dreams')
-        .select('likes_count')
-        .eq('id', dreamId)
-        .single()
-
-      if (countError) throw countError
+      const count = await syncLikesCount(dreamId)
 
       return res.status(200).json({
         success: true,
         liked: true,
-        count: countResult?.likes_count || 0,
+        count,
       })
     }
 
@@ -61,18 +79,12 @@ export default async function handler(req, res) {
 
     if (error) throw error
 
-    const { data: countResult, error: countError } = await supabaseAdmin
-      .from('dreams')
-      .select('likes_count')
-      .eq('id', dreamId)
-      .single()
-
-    if (countError) throw countError
+    const count = await syncLikesCount(dreamId)
 
     return res.status(200).json({
       success: true,
       liked: false,
-      count: countResult?.likes_count || 0,
+      count,
     })
   } catch (error) {
     console.error('Like error:', error)
