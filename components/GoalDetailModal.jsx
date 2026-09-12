@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Check, MessageCircle, Trash2, ArrowUp, Image as ImageIcon, Sparkles as SparklesIcon, Search as SearchIcon, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
