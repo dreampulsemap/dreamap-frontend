@@ -40,6 +40,9 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   const [showSlidesViewer, setShowSlidesViewer] = useState(false)
   const [showPixabayPicker, setShowPixabayPicker] = useState(false)
   const [videoStatus, setVideoStatus] = useState(null)
+    const [liked, setLiked] = useState(!!initialGoal.has_reacted)
+  const [believersCount, setBelieversCount] = useState(initialGoal.believers_count || 0)
+  const [reacting, setReacting] = useState(false)
 
   const AURA_COST = 2  // generate-cover.js ile aynı maliyet
 
