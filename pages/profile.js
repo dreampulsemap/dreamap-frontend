@@ -422,6 +422,31 @@ export default function ProfilePage() {
     }
   }
 
+  // YENİ: Çıkış Yap — Supabase oturumunu kapatır ve kullanıcıyı /auth
+  // sayfasına yönlendirir. Onay istenerek yanlışlıkla çıkış yapılması
+  // engellenir.
+  async function handleSignOut() {
+    const confirmed = window.confirm(
+      lang === 'tr'
+        ? 'Hesabından çıkmak istediğine emin misin?'
+        : 'Are you sure you want to sign out?'
+    )
+
+    if (!confirmed) return
+
+    try {
+      await auth.signOut()
+      router.replace('/auth')
+    } catch (err) {
+      console.error('Sign out error:', err)
+      alert(
+        lang === 'tr'
+          ? 'Çıkış yapılırken bir hata oluştu. Lütfen tekrar deneyin.'
+          : 'An error occurred while signing out. Please try again.'
+      )
+    }
+  }
+
   async function handleSearch() {
     if (!searchQuery.trim() || !user) return
     try {
@@ -470,7 +495,7 @@ export default function ProfilePage() {
       <Seo title={lang === 'tr' ? 'Profilim' : 'My Profile'} noindex lang={lang} />
       <div className="max-w-4xl mx-auto px-4 py-8">
         
-        {/* INSTAGRAM TARZI PROFİL BAŞLIĞI */}
+        {/* INSTAGRAM TARZI PROFİL BAŞLIĞI */}
         <div className={`flex flex-col sm:flex-row items-center gap-6 sm:gap-10 border-b border-white/10 pb-8 mb-6 relative transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           <div className="shrink-0 relative group">
             <button
@@ -505,6 +530,14 @@ export default function ProfilePage() {
                   className="rounded-lg bg-slate-900 border border-white/10 px-4 py-1.5 text-xs font-semibold hover:bg-slate-800 transition-all"
                 >
                   <Users size={13} className="inline -mt-0.5 mr-1" /> {friends.length} {tCard.followingLabel}
+                </button>
+                {/* YENİ: Çıkış Yap butonu */}
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-all"
+                >
+                  {lang === 'tr' ? 'Çıkış Yap' : 'Sign Out'}
                 </button>
               </div>
             </div>
@@ -788,7 +821,7 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* PROFİL EDİTÖRÜ MODALI (Gizlilik Toggleri Dahil) */}
+      {/* PROFİL EDİTÖRÜ MODALI (Gizlilik Toggleri Dahil) */}
       {showProfileEditor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
           <div className="glass-card p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
