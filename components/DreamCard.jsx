@@ -773,7 +773,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
 
         {/* YENI: Begeni + Yorum bolumu — DB/API zaten hazirdi, sadece arayuz
             baglanmamisti. */}
-        <div className="flex items-center gap-5 border-t border-white/10 pt-4 mt-1">
+        <div className="sticky bottom-0 z-10 -mx-6 mt-1 flex items-center gap-5 border-t border-white/10 bg-slate-900/95 px-6 pt-4 pb-3 backdrop-blur">
           <button
             type="button"
             onClick={handleLike}
