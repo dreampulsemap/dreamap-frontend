@@ -35,6 +35,34 @@ export default function Document() {
             her zaman render oluyor) global bir script için Next'in önerdiği
             tam olarak bu. */}
         <Script src="https://cdn.jsdelivr.net/npm/globe.gl@2.33.0/dist/globe.gl.min.js" strategy="beforeInteractive" />
+        {/* GEÇİCİ TEŞHİS SCRIPT'İ — production'daki hydration hatasının
+            (#418/#423/#425) tam mesajını/args[]'ını yakalamak için.
+            window.__hydrationDebug altında topluyor. Bu commit hemen
+            ardından geri alınacak, kalıcı değil. */}
+        <Script id="hydration-debug" strategy="beforeInteractive">
+          {`
+            window.__hydrationDebug = [];
+            window.addEventListener('error', function (e) {
+              window.__hydrationDebug.push({
+                type: 'error-event',
+                message: e.message,
+                stack: e.error && e.error.stack,
+              });
+            });
+            var __origConsoleError = console.error;
+            console.error = function () {
+              try {
+                window.__hydrationDebug.push({
+                  type: 'console-error',
+                  args: Array.prototype.slice.call(arguments).map(function (a) {
+                    try { return typeof a === 'string' ? a : JSON.stringify(a); } catch (e) { return String(a); }
+                  }),
+                });
+              } catch (err) {}
+              return __origConsoleError.apply(console, arguments);
+            };
+          `}
+        </Script>
       </Head>
       <body>
         <Main />
