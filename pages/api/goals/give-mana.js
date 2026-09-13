@@ -1,4 +1,5 @@
 import { supabaseAdmin, getAuthedUser, canViewGoal } from '@/lib/supabaseAdmin'
+import { notifyManaReceived } from '@/lib/notify'
 
 const DEFAULT_AMOUNT = 1
 const MAX_AMOUNT_PER_ACTION = 5 // tek seferde verilebilecek üst sınır (spam koruması)
@@ -83,6 +84,10 @@ export default async function handler(req, res) {
       .select('mana_balance')
       .eq('id', user.id)
       .single()
+
+    // Trigger (notify_mana_received) zil bildirimini zaten ekledi — burada
+    // sadece gerçek push'u gönderiyoruz (bkz. lib/notify.js, bug #10).
+    await notifyManaReceived(supabaseAdmin, { goalOwnerId: goal.user_id, actorId: user.id, goalId })
 
     return res.status(200).json({
       reaction,

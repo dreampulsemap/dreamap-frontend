@@ -22,10 +22,15 @@ export default async function handler(req, res) {
   const supabase = supabaseAdmin
 
   try {
+    // Kullanıcı arama sonuçları kelimenin İÇİNDE geçen herhangi bir yerde
+    // değil, BAŞTAN itibaren eşleşmeli (örn. "ahmet" adlı biri "m" veya "hm"
+    // aratıldığında değil, yalnızca "a"/"ah"/"ahm" gibi baştan başlayan
+    // aramalarda çıkmalı) — bu yüzden sondaki "%" kalıyor ama baştaki
+    // kaldırıldı.
     const { data: users, error } = await supabase
       .from('user_profiles')
       .select('id, username, display_name, avatar_url')
-      .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
+      .or(`username.ilike.${query}%,display_name.ilike.${query}%`)
       .neq('id', userId)
       .limit(10)
 

@@ -12,6 +12,16 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const LANG_NAME = { en: 'English', tr: 'Turkish' }
 
+// Android tarafındaki DailySeedItem modeli "seed_text" alanını (zorunlu,
+// varsayılansız) bekliyor ama tablodaki gerçek kolon adı "content" —
+// bu eşleşmezlik yüzünden JSON deserialize her seferinde sessizce
+// başarısız oluyor ve "Adımı Öner" butonu hiçbir şey yapmıyormuş gibi
+// görünüyordu. Yanıta "seed_text" alanını da ekleyerek düzeltiyoruz.
+function withSeedText(row) {
+  if (!row) return row
+  return { ...row, seed_text: row.content }
+}
+
 function todayDateString() {
   return new Date().toISOString().split('T')[0]
 }
@@ -59,7 +69,7 @@ export default async function handler(req, res) {
       .maybeSingle()
 
     if (existingSeed) {
-      return res.status(200).json({ seed: existingSeed, alreadyExisted: true })
+      return res.status(200).json({ seed: withSeedText(existingSeed), alreadyExisted: true })
     }
 
     const langName = LANG_NAME[lang] || LANG_NAME.en
@@ -112,12 +122,12 @@ export default async function handler(req, res) {
           .eq('goal_id', goalId)
           .eq('seed_date', today)
           .maybeSingle()
-        if (raceSeed) return res.status(200).json({ seed: raceSeed, alreadyExisted: true })
+        if (raceSeed) return res.status(200).json({ seed: withSeedText(raceSeed), alreadyExisted: true })
       }
       throw insertError
     }
 
-    return res.status(200).json({ seed, alreadyExisted: false })
+    return res.status(200).json({ seed: withSeedText(seed), alreadyExisted: false })
   } catch (error) {
     console.error('daily-seeds/generate error:', error)
     return res.status(500).json({ error: error.message || 'internal_error' })

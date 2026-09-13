@@ -1,5 +1,14 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
+// Android tarafındaki DailySeedItem modeli "seed_text" alanını (zorunlu,
+// varsayılansız) bekliyor ama tablodaki gerçek kolon adı "content" —
+// bu eşleşmezlik yüzünden JSON deserialize sessizce başarısız oluyordu.
+// Yanıta "seed_text" alanını da ekleyerek düzeltiyoruz.
+function withSeedText(row) {
+  if (!row) return row
+  return { ...row, seed_text: row.content }
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
@@ -17,7 +26,7 @@ export default async function handler(req, res) {
         .order('created_at', { ascending: true })
 
       if (error) throw error
-      return res.status(200).json({ seeds: data || [] })
+      return res.status(200).json({ seeds: (data || []).map(withSeedText) })
     }
 
     if (req.method === 'POST') {
@@ -44,7 +53,7 @@ export default async function handler(req, res) {
         .single()
 
       if (updateError) throw updateError
-      return res.status(200).json({ seed: updated })
+      return res.status(200).json({ seed: withSeedText(updated) })
     }
 
     return res.status(405).json({ error: 'method_not_allowed' })

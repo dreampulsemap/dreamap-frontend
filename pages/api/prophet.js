@@ -8,7 +8,22 @@ const supabase = createClient(
 const MAX_DREAMS = 50 // Reasonable limit
 const MAX_DURATION_MS = 45000 // 45s timeout (Vercel limit is 60s)
 
+// Bug #5 kök nedeni: bu route `daily_prophecy` tablosuna INSERT/UPDATE
+// yaparken var OLMAYAN kolon adları kullanıyordu ("prophecy_content",
+// "dominant_archetype", "dominant_emotion") — gerçek tablo şeması
+// (bkz. content_{lang} çok-dilli kolonlar, archetype, sentiment) tamamen
+// farklı. Var olmayan bir kolona INSERT etmek Postgres'te "column does not
+// exist" hatası fırlatıyor, bu da her çağrıda 500 ile sonuçlanıyordu.
+// Ayrıca Android'in gönderdiği "lang" parametresi hiç okunmuyordu.
+const SUPPORTED_LANGS = ['en', 'tr', 'ru', 'ar', 'es', 'hi', 'zh', 'de']
+
+function contentColumn(lang) {
+  return `content_${SUPPORTED_LANGS.includes(lang) ? lang : 'en'}`
+}
+
 export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
+
   const GROQ_KEY = process.env.GROQ_KEY
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
   const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -16,6 +31,10 @@ export default async function handler(req, res) {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     return res.status(500).json({ error: 'Supabase info missing' })
   }
+
+  const { lang: rawLang = 'tr' } = req.body || {}
+  const lang = String(rawLang).toLowerCase().split('-')[0]
+  const col = contentColumn(lang)
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -25,12 +44,13 @@ export default async function handler(req, res) {
       .from('daily_prophecy')
       .select('*')
       .eq('prophecy_date', today)
-      .single()
+      .maybeSingle()
 
-    if (existing) {
+    if (existing && existing[col]) {
       return res.status(200).json({
+        ok: true,
         success: true,
-        prophecy: existing,
+        prophecy: existing[col],
         message: 'Today\'s prophecy already generated'
       })
     }
@@ -86,6 +106,12 @@ export default async function handler(req, res) {
 
     console.log(`📊 Analysis: ${recentDreams.length} dreams, ${totalArchetypes} archetypes`)
 
+    const LANG_NAME = {
+      en: 'English', tr: 'Turkish', ru: 'Russian', ar: 'Arabic',
+      es: 'Spanish', hi: 'Hindi', zh: 'Chinese', de: 'German'
+    }
+    const langName = LANG_NAME[lang] || LANG_NAME.en
+
     // Call Groq with timeout
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), MAX_DURATION_MS)
@@ -102,11 +128,11 @@ export default async function handler(req, res) {
           messages: [
             {
               role: 'system',
-              content: 'You are Prophet AI, a Jungian oracle. Return ONLY valid JSON.'
+              content: `You are Prophet AI, a Jungian oracle. Respond ONLY in ${langName}, written as a native speaker would. Return ONLY valid JSON: {"prophecy": "..."}`
             },
             {
               role: 'user',
-              content: `Dominant archetype: ${dominantArchetypeName} (${archetypePercentage}%). Emotion: ${dominantEmotionName}. Create a prophecy.`
+              content: `Dominant archetype: ${dominantArchetypeName} (${archetypePercentage}%). Emotion: ${dominantEmotionName}. Create a short prophecy in ${langName}.`
             }
           ]
         }),
@@ -117,26 +143,75 @@ export default async function handler(req, res) {
 
       if (!response.ok) {
         const errorText = await response.text()
-        throw new Error(`Groq error: ${response.status}`)
+        throw new Error(`Groq error: ${response.status} ${errorText}`)
       }
 
       const data = await response.json()
-      const prophecyContent = data?.choices?.[0]?.message?.content || 'A mystery unfolds...'
+      const rawContent = data?.choices?.[0]?.message?.content || ''
+      let prophecyContent
+      try {
+        prophecyContent = JSON.parse(rawContent.replace(/```json|```/g, '').trim()).prophecy
+      } catch {
+        prophecyContent = rawContent.trim()
+      }
+      if (!prophecyContent) prophecyContent = 'A mystery unfolds...'
 
-      const { data: savedProphecy, error: saveError } = await supabase
-        .from('daily_prophecy')
-        .insert({
-          prophecy_date: today,
-          prophecy_content: prophecyContent,
-          dominant_archetype: dominantArchetypeName,
-          dominant_emotion: dominantEmotionName
-        })
-        .select()
-        .single()
+      let savedProphecy
+      if (existing) {
+        // Row for today already exists (another language was generated
+        // earlier today) — fill in this language's column instead of
+        // inserting a duplicate row (prophecy_date is unique per day).
+        const { data: updated, error: updateError } = await supabase
+          .from('daily_prophecy')
+          .update({ [col]: prophecyContent })
+          .eq('id', existing.id)
+          .select()
+          .single()
+        if (updateError) throw updateError
+        savedProphecy = updated
+      } else {
+        const { data: inserted, error: insertError } = await supabase
+          .from('daily_prophecy')
+          .insert({
+            prophecy_date: today,
+            [col]: prophecyContent,
+            archetype: dominantArchetypeName,
+            sentiment: dominantEmotionName,
+            dream_count: recentDreams.length
+          })
+          .select()
+          .single()
+        if (insertError) {
+          // prophecy_date UNIQUE çakışması: eş zamanlı bir istek bugünün
+          // satırını az önce oluşturmuş olabilir — o satırı bu dil için
+          // güncelleyerek devam ediyoruz.
+          if (insertError.code === '23505') {
+            const { data: raceRow } = await supabase
+              .from('daily_prophecy')
+              .select('*')
+              .eq('prophecy_date', today)
+              .single()
+            if (raceRow) {
+              const { data: updated, error: updateError } = await supabase
+                .from('daily_prophecy')
+                .update({ [col]: prophecyContent })
+                .eq('id', raceRow.id)
+                .select()
+                .single()
+              if (updateError) throw updateError
+              savedProphecy = updated
+            } else {
+              throw insertError
+            }
+          } else {
+            throw insertError
+          }
+        } else {
+          savedProphecy = inserted
+        }
+      }
 
-      if (saveError) throw saveError
-
-      return res.status(200).json({ success: true, prophecy: savedProphecy })
+      return res.status(200).json({ ok: true, success: true, prophecy: savedProphecy[col] || prophecyContent })
     } catch (err) {
       clearTimeout(timeoutId)
       if (err.name === 'AbortError') {

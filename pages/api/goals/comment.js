@@ -1,4 +1,5 @@
 import { supabaseAdmin, getAuthedUser, canViewGoal } from '@/lib/supabaseAdmin'
+import { notifyGoalComment } from '@/lib/notify'
 
 const MAX_COMMENT_LENGTH = 1000
 
@@ -49,6 +50,9 @@ export default async function handler(req, res) {
 
       if (error) throw error
       // Trigger (handle_goal_comment_change) goals.comments_count'u zaten güncelledi
+      // Trigger (notify_goal_comment) zil bildirimini zaten ekledi — burada
+      // sadece gerçek push'u gönderiyoruz (bkz. lib/notify.js).
+      await notifyGoalComment(supabaseAdmin, { goalOwnerId: goal.user_id, actorId: user.id, goalId })
       return res.status(200).json({ comment: data })
     }
 

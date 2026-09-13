@@ -50,7 +50,19 @@ export default async function handler(req, res) {
     const { lang: rawLang = 'en' } = req.body;
     const lang = String(rawLang).toLowerCase().split('-')[0];
     const langName = LANG_NAME[lang] || LANG_NAME.en;
-    const prompt = `You are a mystical Jungian oracle. Provide a profound psychological advice written natively in ${langName} (not a translation, write as a native speaker would). Return ONLY JSON: {"reading": "...", "archetype": "...", "color": "#8b5cf6"}`;
+    // Kullanıcılar hâlâ ara sıra İngilizce yanıt bildiriyordu (bug #11) —
+    // tek satırlık "write in X" talimatı küçük/hızlı modeller tarafından
+    // bazen görmezden geliniyor. Talimatı başta ve sonda tekrarlayıp
+    // "İngilizce kullanma" uyarısı ekleyerek dil uyumunu güçlendiriyoruz
+    // (daily-seeds/generate.js ve mental-wall/generate.js için de geçerli
+    // olabilecek genel bir LLM güvenilirlik sorunu, burada önceliklendirildi).
+    const prompt = `Respond ONLY in ${langName}. Every field of your JSON output must be written entirely in ${langName} — do not use English unless ${langName} IS English.
+
+You are a mystical Jungian oracle. Provide a profound psychological advice written natively in ${langName} (not a translation, write as a native speaker of ${langName} would).
+
+Return ONLY JSON, no markdown fences: {"reading": "...", "archetype": "...", "color": "#8b5cf6"}
+
+Reminder: the "reading" and "archetype" text MUST be in ${langName}, not English.`;
 
     let compassData;
 
