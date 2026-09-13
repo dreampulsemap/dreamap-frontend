@@ -31,6 +31,17 @@ export default function AddDreamPage() {
   // gizliliği seçenekleri buna göre kısıtlanır. Yüklenene kadar en
   // kısıtlayıcı varsayımla ('private') başlıyoruz.
   const [profileVisibility, setProfileVisibility] = useState('private')
+  // KÖK NEDEN DÜZELTMESİ: profileVisibility'nin geçici 'private' başlangıç
+  // değeri yüzünden, aşağıdaki kısıtlama efekti profil verisi gelmeden ÖNCE
+  // bir kez çalışıp visibility'yi 'public'ten 'private'a düşürüyordu — sonra
+  // gerçek profil verisi 'public' olarak gelse bile 'private' hâlâ izin
+  // verilen bir seçenek olduğu için asla geri açılmıyordu. Sonuç: herkes,
+  // profili tamamen açık olsa dahi, formu açar açmaz sessizce "Özel"e
+  // düşüyordu — ve bununla senkronize olmayan "Herkese açık akışta paylaş"
+  // kutusu işaretli kalmaya devam ediyordu (bkz. çelişkili varsayılan
+  // gizlilik hata raporu). Bu flag, gerçek profil verisi gelene kadar
+  // kısıtlama efektinin çalışmasını erteler.
+  const [profileVisibilityLoaded, setProfileVisibilityLoaded] = useState(false)
   const [selectedEmotions, setSelectedEmotions] = useState([])
   const [tags, setTags] = useState([])
   const [coverImage, setCoverImage] = useState(null) // { url, width, height, source: 'pixabay' | 'user_upload' }
@@ -91,7 +102,9 @@ export default function AddDreamPage() {
           .eq('id', currentUser.id)
           .maybeSingle()
           .then(({ data }) => {
-            if (active && data?.profile_visibility) setProfileVisibility(data.profile_visibility)
+            if (!active) return
+            if (data?.profile_visibility) setProfileVisibility(data.profile_visibility)
+            setProfileVisibilityLoaded(true)
           })
       } catch (err) {
         router.push('/auth')
@@ -119,13 +132,27 @@ export default function AddDreamPage() {
     : ['public', 'friends', 'private']
 
   // Profil yüklendikten sonra, o an seçili değer artık izin verilmiyorsa
-  // otomatik olarak izin verilen en açık seçeneğe düşür.
+  // otomatik olarak izin verilen en açık seçeneğe düşür. profileVisibilityLoaded
+  // kontrolü olmadan bu efekt, gerçek profil verisi gelmeden önceki geçici
+  // 'private' varsayımına göre çalışıp visibility'yi kalıcı olarak 'private'a
+  // sabitliyordu (yukarıdaki KÖK NEDEN notuna bakın).
   useEffect(() => {
+    if (!profileVisibilityLoaded) return
     if (!allowedVisibilityOptions.includes(visibility)) {
       setVisibility(allowedVisibilityOptions[0])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileVisibility])
+  }, [profileVisibility, profileVisibilityLoaded])
+
+  // "Herkese açık akışta paylaş" seçeneği yalnızca rüya da herkese açıksa
+  // (visibility === 'public') anlamlıdır — özel/arkadaş-only bir rüyayı akışa
+  // koymak DB trigger'ı tarafından zaten reddediliyor olabilir, ama kullanıcıya
+  // Görünürlük "Özel" iken kutunun işaretli görünmesi (çelişkili varsayılan
+  // gizlilik) kafa karıştırıyordu. visibility 'public' olmadığında otomatik kapat.
+  useEffect(() => {
+    if (visibility !== 'public' && inFeed) setInFeed(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibility])
 
   // Sesli Giriş Motoru (Web Speech API)
   const toggleSpeech = () => {
@@ -418,7 +445,11 @@ export default function AddDreamPage() {
                     }`}
                   >
                     <span className="text-xl mb-1">{emotion.emoji}</span>
-                    <span className="text-[8px] font-bold uppercase tracking-wider text-slate-300 truncate w-full px-1 text-center">
+                    {/* KIRPILMA DÜZELTMESİ: truncate + tek satır, Türkçe gibi daha uzun
+                        dillerde ("HAYRANLIK", "KAFA KARIŞIKLIĞI") etiketi ortadan
+                        kesip "..." ile gösteriyordu. 4 sütunluk dar hücrede tek satıra
+                        sığdırmak yerine iki satıra sarmasına izin veriyoruz. */}
+                    <span className="text-[8px] leading-tight font-bold uppercase tracking-wider text-slate-300 w-full px-0.5 text-center line-clamp-2 break-words">
                       {emotion.label}
                     </span>
                   </button>
@@ -533,11 +564,12 @@ export default function AddDreamPage() {
               </div>
             </div>
 
-            {/* AKIŞ PAYLAŞIMI */}
-            <label className="flex items-center justify-center gap-3 p-4 border border-white/5 rounded-2xl bg-white/[0.01] cursor-pointer">
+            {/* AKIŞ PAYLAŞIMI — sadece visibility 'public' iken anlamlı, bkz. yukarıdaki senkron efekt */}
+            <label className={`flex items-center justify-center gap-3 p-4 border border-white/5 rounded-2xl bg-white/[0.01] ${visibility === 'public' ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}>
               <input
                 type="checkbox"
-                checked={inFeed}
+                checked={inFeed && visibility === 'public'}
+                disabled={visibility !== 'public'}
                 onChange={(e) => setInFeed(e.target.checked)}
                 className="w-5 h-5 rounded border-white/20 text-brand-primary-500 focus:ring-0 focus:ring-offset-0 bg-black"
               />

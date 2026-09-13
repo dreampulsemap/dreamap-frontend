@@ -51,6 +51,12 @@ export default async function handler(req, res) {
     const { imageUrl: rawImageUrl, details } = await generateOneImage(prompt)
 
     if (!rawImageUrl) {
+      // KÖK NEDEN NOTU: bu dal önceden hiçbir şey loglamadan doğrudan 502
+      // dönüyordu — Vercel'de bu 502'ler "AI Kapak Üret çalışmıyor" hata
+      // raporuna yol açtı ama loglarda `details` hiçbir yerde görünmüyordu,
+      // her seferinde gerçek nedeni (Replicate/OpenAI'nin neden reddettiği)
+      // kör noktada bırakıyordu. Artık console.error ile logluyoruz.
+      console.error('goals/generate-cover: both providers failed —', details)
       // Krediyi GERİ VER, kullanıcı karşılıksız harcamış olmasın.
       await supabaseAdmin
         .from('user_profiles')
