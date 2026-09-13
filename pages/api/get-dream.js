@@ -53,5 +53,15 @@ export default async function handler(req, res) {
   const { goals, ...dream } = data
   dream.goal_title = goals?.title || null
 
+  // Sahibin profilini de eklemesek istemci (Android) rüya sahibinin adı yerine
+  // "@author" yer tutucusunu gösteriyordu — explore/feed.js'deki attachOwners
+  // ile aynı desen, tek rüya için.
+  const { data: owner } = await supabaseAdmin
+    .from('user_profiles')
+    .select('id, username, display_name, avatar_url')
+    .eq('id', dream.user_id)
+    .maybeSingle()
+  dream.owner = owner || null
+
   return res.status(200).json({ dream })
 }

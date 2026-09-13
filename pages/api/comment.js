@@ -76,13 +76,16 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const dreamId = Number(req.body?.dreamId)
+      // Android istemcisi govdeyi snake_case (dream_id) ile gonderiyor, web
+      // istemcisi camelCase (dreamId) — ikisini de kabul et (bkz. like.js
+      // icin ayni duzeltme).
+      const dreamId = Number(req.body?.dreamId ?? req.body?.dream_id)
       const content = String(req.body?.content || '').trim()
 
       if (!Number.isSafeInteger(dreamId) || dreamId <= 0) {
         return res.status(400).json({
           error: 'Invalid dreamId',
-          receivedDreamId: req.body?.dreamId ?? null,
+          receivedDreamId: req.body?.dreamId ?? req.body?.dream_id ?? null,
         })
       }
 
@@ -120,7 +123,8 @@ export default async function handler(req, res) {
       })
     }
 
-    const commentId = Number(req.body?.commentId)
+    // Android istemcisi govdeyi snake_case (comment_id) ile gonderiyor.
+    const commentId = Number(req.body?.commentId ?? req.body?.comment_id)
     if (!Number.isSafeInteger(commentId) || commentId <= 0) {
       return res.status(400).json({ error: 'Invalid commentId' })
     }

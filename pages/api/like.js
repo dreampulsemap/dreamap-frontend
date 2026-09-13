@@ -34,7 +34,11 @@ export default async function handler(req, res) {
   try {
     const user = await getAuthedUser(req)
     const userId = user?.id
-    const dreamId = Number(req.body?.dreamId)
+    // Android istemcisi gövdeyi snake_case (dream_id) ile gönderiyor, web
+    // istemcisi camelCase (dreamId) — ikisini de kabul et. Bu alan adı
+    // uyuşmazlığı yüzünden Android'den atılan HER beğeni 400 ile
+    // başarısız oluyordu (iyimser +1 güncellemesi hemen 0'a geri dönüyordu).
+    const dreamId = Number(req.body?.dreamId ?? req.body?.dream_id)
 
     if (!userId || !UUID_PATTERN.test(userId)) {
       return res.status(401).json({
