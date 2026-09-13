@@ -89,8 +89,22 @@ export default async function handler(req, res) {
     })
 
     const aiResult = await generateWithAI(prompt)
-    const parsed = typeof aiResult === 'string' ? JSON.parse(aiResult) : aiResult
+    // response_format zorlanmadan önce model bazen çıktıyı ```json ... ```
+    // bloğuna sarabiliyordu ve ham JSON.parse() burada SyntaxError fırlatırdı
+    // (prophet.js'deki aynı sınıf sorunla aynı savunma deseni) — aiClient.js'e
+    // artık response_format:{type:'json_object'} eklendi, bu ek bir güvence.
+    const cleanedResult = typeof aiResult === 'string'
+      ? aiResult.replace(/```json|```/g, '').trim()
+      : aiResult
+    const parsed = typeof cleanedResult === 'string' ? JSON.parse(cleanedResult) : cleanedResult
 
+    // Bug #6'nın GERÇEK ve doğrulanmış kök nedeni (Vercel prod loglarında
+    // "PGRST204: Could not find the 'goal_ids' column of 'mental_wall_reports'
+    // in the schema cache" — 2026-07-29'dan beri her tek çağrıda tekrarlıyordu):
+    // gerçek kolon adı "goal_id" (TEKİL, uuid) — "goal_ids" (çoğul, dizi) diye
+    // var olmayan bir kolona INSERT her seferinde 500 ile patlıyordu. Ayrıca
+    // AURA_COST sabiti tanımlıydı ama hiçbir yerde kullanılmıyordu — aura_cost
+    // kolonu hep NULL kalıyordu.
     const { data: report, error: insertError } = await supabaseAdmin
       .from('mental_wall_reports')
       .insert({
@@ -98,7 +112,8 @@ export default async function handler(req, res) {
         detected_block: parsed.detected_block,
         report_content: parsed.report_content,
         dream_ids: dreams.map(d => d.id),
-        goal_ids: goals.map(g => g.id)
+        goal_id: goalId || goals[0]?.id,
+        aura_cost: AURA_COST
       })
       .select('*')
       .single()

@@ -80,7 +80,12 @@ export default async function handler(req, res) {
     // yarım kalmış bir bildirim isteği kesilmesin; notifyFollow içindeki
     // try/catch'ler zaten bir bildirim hatasının takip işlemini
     // başarısız göstermesini engelliyor.
-    await notifyFollow(supabase, { userId: friendId, actorId: userId, accepted: status === 'accepted' })
+    await notifyFollow(supabase, {
+      userId: friendId,
+      actorId: userId,
+      accepted: status === 'accepted',
+      friendshipId: data?.[0]?.id
+    })
 
     // Android tarafı "data" alanını tek obje olarak parse ediyor;
     // .insert().select() her zaman array döndürdüğü için burada ilk

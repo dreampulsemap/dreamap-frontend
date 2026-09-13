@@ -124,7 +124,13 @@ export default async function handler(req, res) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
+          // llama-3.1-8b-instant Groq'da 16 Ağustos 2026'da (free/developer
+          // tier) kullanımdan kaldırıldı — bu satır bug #5'in gerçek, hâlâ
+          // canlıda tekrar eden nedeniydi (kolon adı düzeltmesi sonrası bile
+          // her istek "model_not_found" 404 ile başarısız olmaya devam
+          // ediyordu). Groq'un resmi önerdiği yerine geçen model
+          // openai/gpt-oss-20b.
+          model: 'openai/gpt-oss-20b',
           messages: [
             {
               role: 'system',
