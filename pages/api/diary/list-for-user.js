@@ -33,12 +33,24 @@ export default async function handler(req, res) {
 
     const { data: entries, error } = await supabaseAdmin
       .from('diary_entries')
-      .select('id, media_type, media_url, poster_url, caption, goal_id, visibility, created_at')
+      .select('id, media_type, media_url, poster_url, caption, goal_id, visibility, created_at, likes_count, comments_count')
       .eq('user_id', userId)
       .in('visibility', allowedVisibility)
       .order('created_at', { ascending: true })
 
     if (error) throw error
+
+    // Bug #13: görüntüleyenin bu girdileri beğenip beğenmediğini tek
+    // sorguda çekip haritalıyoruz (her girdi için ayrı sorgu atmak yerine).
+    let likedEntryIds = new Set()
+    if (viewer && entries?.length) {
+      const { data: likedRows } = await supabaseAdmin
+        .from('diary_likes')
+        .select('diary_entry_id')
+        .eq('user_id', viewer.id)
+        .in('diary_entry_id', entries.map((e) => e.id))
+      likedEntryIds = new Set((likedRows || []).map((r) => r.diary_entry_id))
+    }
 
     // Bir hedefe bağlı girdiler varsa, viewer'da "şu vizyona bağlı" çipini
     // gösterebilmek için başlıklarını da tek seferde çekelim.
@@ -52,6 +64,7 @@ export default async function handler(req, res) {
     const enrichedEntries = (entries || []).map((e) => ({
       ...e,
       goal_title: e.goal_id ? goalTitleById[e.goal_id] || null : null,
+      is_liked: likedEntryIds.has(e.id),
     }))
 
     return res.status(200).json({ owner, entries: enrichedEntries, isSelf })
