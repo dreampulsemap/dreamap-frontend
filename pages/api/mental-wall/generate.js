@@ -1,5 +1,5 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
-import { generateWithAI } from '@/lib/aiClient'
+import { generateWithAI, stripJsonFence } from '@/lib/aiClient'
 
 const MAX_DREAMS_CONSIDERED = 20 // Add explicit limit
 const MAX_GOALS = 10
@@ -82,29 +82,53 @@ export default async function handler(req, res) {
     const dreamExcerpts = dreams.map(d => d.content.substring(0, 200)).filter(Boolean)
     const goalTitles = goals.map(g => g.title).filter(Boolean)
 
+    // Code-review fix: bu endpoint premium bir özellik olmasına rağmen Aura
+    // bakiyesini hiç kontrol/düşürmüyordu — AURA_COST sabiti tanımlıydı ve
+    // rapor satırına yazılıyordu ama kullanıcının bakiyesinden asla
+    // düşülmüyordu, yani sınırsız ücretsiz rapor üretilebiliyordu. Frontend
+    // (MentalWallPanel.jsx) zaten "insufficient_auras" hatasını bekliyordu;
+    // backend bunu hiç döndürmüyordu. generate-cover.js / generate-slide-image.js
+    // ile aynı atomik spend_auras + hata durumunda iade deseni kullanılıyor.
+    const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
+      p_user_id: user.id,
+      p_amount: AURA_COST,
+    })
+    if (spendError) throw spendError
+    const spend = spendResult?.[0]
+    if (!spend?.success) {
+      return res.status(402).json({ error: 'insufficient_auras', cost: AURA_COST })
+    }
+
     const prompt = buildPrompt({
       dreamExcerpts,
       goalTitles,
       langName: lang === 'tr' ? 'Turkish' : 'English'
     })
 
-    const aiResult = await generateWithAI(prompt)
-    // response_format zorlanmadan önce model bazen çıktıyı ```json ... ```
-    // bloğuna sarabiliyordu ve ham JSON.parse() burada SyntaxError fırlatırdı
-    // (prophet.js'deki aynı sınıf sorunla aynı savunma deseni) — aiClient.js'e
-    // artık response_format:{type:'json_object'} eklendi, bu ek bir güvence.
-    const cleanedResult = typeof aiResult === 'string'
-      ? aiResult.replace(/```json|```/g, '').trim()
-      : aiResult
-    const parsed = typeof cleanedResult === 'string' ? JSON.parse(cleanedResult) : cleanedResult
+    let parsed
+    try {
+      const aiResult = await generateWithAI(prompt)
+      // response_format zorlanmadan önce model bazen çıktıyı ```json ... ```
+      // bloğuna sarabiliyordu ve ham JSON.parse() burada SyntaxError fırlatırdı
+      // (prophet.js'deki aynı sınıf sorunla aynı savunma deseni, artık
+      // lib/aiClient.js'teki paylaşılan stripJsonFence() içinde) — aiClient.js'e
+      // ayrıca response_format:{type:'json_object'} eklendi, bu ek bir güvence.
+      const cleanedResult = stripJsonFence(aiResult)
+      parsed = typeof cleanedResult === 'string' ? JSON.parse(cleanedResult) : cleanedResult
+    } catch (aiError) {
+      // Krediyi GERİ VER, kullanıcı karşılıksız harcamış olmasın.
+      await supabaseAdmin
+        .from('user_profiles')
+        .update({ premium_analysis_auras: spend.remaining + AURA_COST })
+        .eq('id', user.id)
+      throw aiError
+    }
 
     // Bug #6'nın GERÇEK ve doğrulanmış kök nedeni (Vercel prod loglarında
     // "PGRST204: Could not find the 'goal_ids' column of 'mental_wall_reports'
     // in the schema cache" — 2026-07-29'dan beri her tek çağrıda tekrarlıyordu):
     // gerçek kolon adı "goal_id" (TEKİL, uuid) — "goal_ids" (çoğul, dizi) diye
-    // var olmayan bir kolona INSERT her seferinde 500 ile patlıyordu. Ayrıca
-    // AURA_COST sabiti tanımlıydı ama hiçbir yerde kullanılmıyordu — aura_cost
-    // kolonu hep NULL kalıyordu.
+    // var olmayan bir kolona INSERT her seferinde 500 ile patlıyordu.
     const { data: report, error: insertError } = await supabaseAdmin
       .from('mental_wall_reports')
       .insert({
@@ -118,9 +142,15 @@ export default async function handler(req, res) {
       .select('*')
       .single()
 
-    if (insertError) throw insertError
+    if (insertError) {
+      await supabaseAdmin
+        .from('user_profiles')
+        .update({ premium_analysis_auras: spend.remaining + AURA_COST })
+        .eq('id', user.id)
+      throw insertError
+    }
 
-    return res.status(200).json({ report })
+    return res.status(200).json({ report, aurasLeft: spend.remaining })
   } catch (error) {
     console.error('mental-wall/generate POST error:', error)
     return res.status(500).json({ error: error.message })

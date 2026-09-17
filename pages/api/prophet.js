@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { stripJsonFence } from '@/lib/aiClient'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -156,7 +157,7 @@ export default async function handler(req, res) {
       const rawContent = data?.choices?.[0]?.message?.content || ''
       let prophecyContent
       try {
-        prophecyContent = JSON.parse(rawContent.replace(/```json|```/g, '').trim()).prophecy
+        prophecyContent = JSON.parse(stripJsonFence(rawContent)).prophecy
       } catch {
         prophecyContent = rawContent.trim()
       }

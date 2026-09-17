@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { Eye, Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
-const AURA_COST = 8
+// Code-review fix: backend (pages/api/mental-wall/generate.js) now actually
+// enforces/deducts AURA_COST=5 (previously this UI showed 8 while the
+// backend never charged anything at all) — keep this in sync with that value.
+const AURA_COST = 5
 
 async function authHeader() {
   const { data: { session } } = await supabase.auth.getSession()
