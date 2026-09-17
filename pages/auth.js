@@ -63,6 +63,8 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState('')
   const [error, setError] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetNotice, setResetNotice] = useState('')
 
   const lang = mounted ? (i18n.language || 'en') : 'en'
 
@@ -116,6 +118,31 @@ export default function AuthPage() {
       router.replace('/profile')
     }
   }, [router, user])
+
+  async function handleForgotPassword() {
+    setError('')
+    setResetNotice('')
+
+    if (!email.trim()) {
+      setError(lang === 'tr'
+        ? 'Sıfırlama bağlantısı için önce e-posta adresini yaz.'
+        : 'Enter your email first to get a reset link.')
+      return
+    }
+
+    setResetLoading(true)
+    try {
+      await auth.resetPassword(email.trim())
+      // Hesabın var olup olmadığını sızdırmamak için mesaj her durumda aynı.
+      setResetNotice(lang === 'tr'
+        ? 'Bu adres kayıtlıysa sıfırlama bağlantısı gönderildi. E-postanı kontrol et.'
+        : 'If that address is registered, a reset link has been sent. Check your email.')
+    } catch (err) {
+      setError(err?.message || (lang === 'tr' ? 'Bağlantı gönderilemedi.' : 'Could not send the link.'))
+    } finally {
+      setResetLoading(false)
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -323,6 +350,27 @@ export default function AuthPage() {
                   minLength={6}
                   autoComplete={isLogin ? 'current-password' : 'new-password'}
                 />
+
+                {/* Şifresini unutan kullanıcının uygulamaya girmesinin hiçbir
+                    yolu yoktu — ne web'de ne Android'de sıfırlama akışı vardı. */}
+                {isLogin && (
+                  <div className="mt-2 text-right">
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      disabled={resetLoading}
+                      className="text-xs text-brand-accent-300 hover:text-brand-accent-200 disabled:opacity-50"
+                    >
+                      {resetLoading
+                        ? (lang === 'tr' ? 'Gönderiliyor…' : 'Sending…')
+                        : (lang === 'tr' ? 'Şifremi unuttum' : 'Forgot password?')}
+                    </button>
+                  </div>
+                )}
+
+                {resetNotice && (
+                  <p className="mt-2 text-xs text-emerald-400">{resetNotice}</p>
+                )}
               </div>
 
               {!isLogin && (
