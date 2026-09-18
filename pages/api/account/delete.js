@@ -58,9 +58,9 @@ import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 // persistRemoteImage.js yorumunda geçiyor ama kodda hiç .storage.from
 // çağrısı bulunamadı — var olup olmadığından emin değiliz, listede tutmak
 // zararsız (bucket yoksa veya boşsa list() sessizce boş döner).
-// Alt klasörlü olabilirler (ör. dream-images/{userId}/{dreamId}/dosya) —
+// Alt klasörlü olabilirler (ör. dream_images/{userId}/{dreamId}/dosya) —
 // bu yüzden recursive siliniyor.
-const USER_PREFIXED_BUCKETS = ['dream-images', 'goal-videos', 'diary-media', 'goal-covers', 'message-attachments', 'avatars']
+const USER_PREFIXED_BUCKETS = ['dream_images', 'goal-images', 'goal-videos', 'diary-media', 'goal-covers', 'message-attachments', 'avatars']
 
 async function deleteUserFolderRecursive(bucket, prefix) {
   const { data: entries, error } = await supabaseAdmin.storage.from(bucket).list(prefix, { limit: 1000 })
