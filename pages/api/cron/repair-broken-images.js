@@ -21,6 +21,18 @@ export const config = { maxDuration: 60 }
 const DEFAULT_BATCH_SIZE = 12
 const MAX_BATCH_SIZE = 40
 
+// DÜZELTME (Vercel prod logları — "Task timed out after 60 seconds",
+// son 60 günde 5 kez): tam yeniden üretim gerektiren onarımlar tahmin
+// edilenden daha uzun sürebiliyor; büyük bir ?limit= ile (veya "broken"
+// durumundaki rüyaların çoğu tam yeniden üretim gerektirdiğinde) toplam
+// süre 60sn'yi aşıp fonksiyonu Vercel'in kendisi sertçe kesiyordu — bu
+// durumda ne o anki rüyanın onarım denemesi sayısı artıyor ne de "remaining"
+// sayımı hiç dönüyordu. Şimdi her rüyadan sonra geçen süreyi kontrol edip,
+// bütçeye yaklaşınca kalanları BİR SONRAKİ çağrıya bırakacak şekilde temiz
+// bir şekilde durduruyoruz (yarım kalan yazım yok — her rüya kendi DB
+// güncellemesini tamamladıktan sonra kontrol ediliyor).
+const TIME_BUDGET_MS = 50_000
+
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'method_not_allowed' })
@@ -53,8 +65,16 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, processed: 0, results: [] })
     }
 
+    const startedAt = Date.now()
     const results = []
+    let timedOut = false
+
     for (const dream of dreams) {
+      if (Date.now() - startedAt > TIME_BUDGET_MS) {
+        timedOut = true
+        break
+      }
+
       try {
         const result = await repairDreamImage(dream)
         results.push(result)
@@ -71,7 +91,13 @@ export default async function handler(req, res) {
       .in('image_status', ['needs_persist', 'broken'])
       .lt('image_repair_attempts', 5)
 
-    return res.status(200).json({ ok: true, processed: results.length, remaining: remaining ?? null, results })
+    return res.status(200).json({
+      ok: true,
+      processed: results.length,
+      remaining: remaining ?? null,
+      timedOut,
+      results,
+    })
   } catch (error) {
     console.error('cron/repair-broken-images error:', error)
     return res.status(500).json({ error: error.message || 'internal_error' })
