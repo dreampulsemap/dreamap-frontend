@@ -24,13 +24,17 @@ export default async function handler(req, res) {
     if (!user) return res.status(401).json({ error: 'unauthorized' })
     const userId = user.id
 
-    const { username, display_name, avatar_url, is_private, profile_visibility, language, gender } = req.body || {}
+    const { username, display_name, avatar_url, bio, is_private, profile_visibility, language, gender } = req.body || {}
 
     const cleanUsername = normalize(username)
     const cleanDisplayName = normalize(display_name)
     const cleanAvatarUrl = normalize(avatar_url)
     const cleanLanguage = normalize(language)   // YENİ
     const cleanGender = normalize(gender)       // YENİ
+    // YENİ: bio. user_profiles.bio sütunu vardı ve profil ekranlarında
+    // GÖSTERİLİYORDU, ama hiçbir istemci (web veya Android) bunu
+    // düzenleyemiyordu — bu uç nokta alanı hiç kabul etmiyordu.
+    const cleanBio = bio === undefined ? null : (normalize(bio) ?? '')
 
     if (cleanUsername && cleanUsername.length < 3) {
       return res.status(400).json({ error: 'Username must be at least 3 characters' })
@@ -40,6 +44,9 @@ export default async function handler(req, res) {
     }
     if (cleanDisplayName && cleanDisplayName.length > 60) {
       return res.status(400).json({ error: 'Display name is too long' })
+    }
+    if (cleanBio && cleanBio.length > 300) {
+      return res.status(400).json({ error: 'Bio is too long' })
     }
     if (cleanAvatarUrl) {
       try { new URL(cleanAvatarUrl) } catch {
@@ -81,6 +88,7 @@ export default async function handler(req, res) {
     if (cleanAvatarUrl !== null) updates.avatar_url = cleanAvatarUrl
     if (cleanLanguage !== null) updates.language = cleanLanguage // YENİ
     if (cleanGender !== null) updates.gender = cleanGender       // YENİ
+    if (cleanBio !== null) updates.bio = cleanBio                // YENİ
 
     // YENİ: profile_visibility artık asıl kaynak (public/friends/private).
     // is_private, "takip isteği otomatik onaylansın mı" mantığını yönettiği
