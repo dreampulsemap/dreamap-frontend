@@ -1,4 +1,4 @@
-claude --continueimport { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
 const ALLOWED_LANGUAGES = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja'] // YENİ
 const ALLOWED_GENDERS = ['female', 'male', 'unspecified']                  // YENİ

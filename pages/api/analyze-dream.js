@@ -37,6 +37,9 @@ Do not wrap the answer in markdown.
 Do not include any explanation outside JSON.
 
 Rules:
+- simple is a SEPARATE, plain-language section shown BEFORE the Jungian analysis. About 250-350 words (roughly one page). Write it the way you would explain the dream to a friend with no psychology background: everyday words, short sentences, no jargon (no "archetype", "shadow", "anima", "unconscious", "psyche"). Break it into 2-4 short paragraphs.
+- simple MUST be grounded in THIS dream: name the concrete people, places, objects and actions the dreamer actually wrote. Never generic filler that would fit any dream, and never a reworded copy of "summary".
+- simple MUST NOT predict the future, claim anything about real events or real people, or give a medical/psychiatric diagnosis or advice. Phrase interpretations as possibilities ("this may reflect...", "it could be about..."), never as certainties.
 - summary must be at least 3-4 sentences of high-density Jungian insight. Provide genuine substance, identifying an actual unconscious tension or archetype.
 - keep it beautiful, evocative, and psychologically substantive (avoid sounding clinical or generic).
 - focus on triggering intellectual excitement and emotional resonance (curiosity-inducing).
@@ -59,6 +62,7 @@ ${content}
 JSON shape (keep exactly these keys):
 ${JSON.stringify(
   {
+    simple: emptyLangMap(),
     title: emptyLangMap(),
     summary: emptyLangMap(),
     motiv: emptyLangMap(),
@@ -243,6 +247,7 @@ export default async function handler(req, res) {
     }
 
     const normalized = {
+      simple: normalizeMultiLangField(analysis.simple),
       title: normalizeMultiLangField(analysis.title),
       summary: normalizeMultiLangField(analysis.summary),
       motiv: normalizeMultiLangField(analysis.motiv),
