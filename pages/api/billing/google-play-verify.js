@@ -75,22 +75,36 @@ export default async function handler(req, res) {
         status = 'not_purchased'
       } else {
         const auraCount = auraCountForProductId(productId)
-        const { data: profile, error: profileError } = await supabaseAdmin
-          .from('user_profiles')
-          .select('premium_analysis_auras')
-          .eq('id', user.id)
+
+        // "token'i claim et + bakiyeyi artir" TEK atomik islem (bkz. migration
+        // record_google_play_aura_purchase): oku-ekle-yaz iki es zamanli
+        // istekte auralari cift saydiriyordu. Bu RPC'nin kendi ic idempotency'si
+        // ana idempotency kontrolunden (dosya basi) BAGIMSIZ ve ondan daha
+        // guclu - o kontrol yalnizca ayni token'in ONCEDEN basariyla islenmis
+        // olmasina bakar, bu ise ES ZAMANLI iki ilk-istekten hangisinin
+        // kazandigini garanti eder.
+        const { data: rpcResult, error: rpcError } = await supabaseAdmin
+          .rpc('record_google_play_aura_purchase', {
+            p_user_id: user.id,
+            p_purchase_token: purchaseToken,
+            p_product_id: productId,
+            p_aura_count: auraCount,
+            p_raw_response: rawResponse,
+          })
           .single()
-        if (profileError) throw profileError
+        if (rpcError) throw rpcError
 
-        const nextAuras = Number(profile.premium_analysis_auras || 0) + auraCount
-        const { error: updateError } = await supabaseAdmin
-          .from('user_profiles')
-          .update({ premium_analysis_auras: nextAuras })
-          .eq('id', user.id)
-        if (updateError) throw updateError
+        if (!rpcResult.was_applied) {
+          // Es zamanli istek bizden once kazandi; bu ayni row'u BIR DAHA
+          // eklemeye calismasin diye asagidaki insert'i atlayip erken donuyoruz.
+          return res.status(200).json({ ok: true, duplicate: true, status: 'aura_added' })
+        }
 
-        aurasAdded = auraCount
-        status = 'aura_added'
+        // RPC kendi insert'ini zaten yapti; asagidaki genel insert'e
+        // dusersek ayni purchase_token icin ikinci kez insert denenir ve
+        // unique constraint'e carpar. Basariyla uygulanmis krediyi 500'e
+        // cevirmemek icin burada donuyoruz.
+        return res.status(200).json({ ok: true, status: 'aura_added', aurasAdded: auraCount })
       }
     } else {
       const subscription = await getSubscriptionPurchase(purchaseToken)
@@ -142,6 +156,10 @@ export default async function handler(req, res) {
       }
     }
 
+    // aura_pack dali RPC icinde erken donuyor (basarili claim) ya da
+    // duplicate icin yukarida erken donuyor; buraya yalnizca subscription
+    // ve "not_purchased"/"subscription_not_active" gibi kredi eklemeyen
+    // durumlar ulasir - onlar icin normal insert yeterli.
     const { error: insertError } = await supabaseAdmin.from('google_play_purchases').insert({
       purchase_token: purchaseToken,
       product_id: productId,
