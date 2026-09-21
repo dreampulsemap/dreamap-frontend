@@ -1,6 +1,7 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 import { generateWithAI, stripJsonFence } from '@/lib/aiClient'
 import { isPremiumMember, getAuraBalance } from '@/lib/premiumMembership'
+import { LANG_NAMES } from '@/lib/translator'
 
 // =====================================================================
 // ZIHIN DUVARI (Mental Wall)
@@ -38,6 +39,10 @@ function buildPrompt({ dreamExcerpts, goalTitles, langName, deep }) {
     : `Keep it short and plain. Phrase interpretations as possibilities, never certainties. No medical or psychiatric diagnosis.`
 
   return `You are a Jungian shadow-work analyst.
+
+Respond ONLY in ${langName}. Every value in your JSON output must be written
+entirely in ${langName}, as a native speaker would write it — not a translation.
+Do not use English unless ${langName} IS English.
 
 Recent dreams (excerpts):
 ${dreamExcerpts.map((d, i) => `${i + 1}. "${d}"`).join('\n')}
@@ -187,7 +192,9 @@ export default async function handler(req, res) {
     const prompt = buildPrompt({
       dreamExcerpts,
       goalTitles,
-      langName: lang === 'tr' ? 'Turkish' : 'English',
+      // 'tr' disindaki HER dil Ingilizce'ye dusuyordu: uygulama Almanca
+      // olsa bile rapor Ingilizce geliyordu. Ortak dil haritasi kullaniliyor.
+      langName: LANG_NAMES[String(lang || 'en').toLowerCase().split('-')[0]] || 'English',
       deep: wantsDeep,
     })
 

@@ -105,10 +105,10 @@ Do not wrap the answer in markdown.
 Do not include any explanation outside JSON.
 
 Rules:
-- simple is a SEPARATE, plain-language section shown BEFORE the Jungian analysis. 120-180 words, 2-3 short paragraphs.
+- simple is a SEPARATE, plain-language section shown BEFORE the Jungian analysis. Keep it SHORT: 60-90 words, one or two short paragraphs. Brevity matters more than completeness — pick the one or two things that matter most and leave the rest to the deeper analysis.
 - simple is the ONE part of this response that must NOT be poetic, evocative or literary. Every other instruction below about beauty, resonance and poetic language DOES NOT APPLY to simple. Write it the way you would explain the dream out loud to a friend who knows nothing about psychology: everyday words, short plain sentences, no metaphors, no jargon (never "archetype", "shadow", "anima", "unconscious", "psyche", "threshold", "psychic"). If a sentence sounds like literature, rewrite it plainer.
 - simple MUST be grounded in THIS dream: name the concrete people, places, objects and actions the dreamer actually wrote. Never generic filler that would fit any dream, and never a reworded copy of "summary".
-- simple must EXPLAIN, not retell. Do not open by summarising what happened — the dreamer already knows. Take each concrete image they wrote and say, in plain words, what it might be about in an ordinary life: what the feeling underneath it could be, where it might come from, what it might be asking of them. At least 120 words; a short retelling of the dream is a failed answer.
+- simple must EXPLAIN, not retell. Do not open by summarising what happened — the dreamer already knows. Take the one or two strongest images they wrote and say, in plain words, what they might be about in an ordinary life: what the feeling underneath could be, and what it might be asking of them. A retelling of the dream is a failed answer, and so is a wall of text.
 - simple MUST NOT predict the future, claim anything about real events or real people, or give a medical/psychiatric diagnosis or advice. Phrase interpretations as possibilities ("this may reflect...", "it could be about..."), never as certainties.
 - summary must be at least 3-4 sentences of high-density Jungian insight. Provide genuine substance, identifying an actual unconscious tension or archetype.
 - keep it beautiful, evocative, and psychologically substantive (avoid sounding clinical or generic).
