@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { translateFields } from '@/lib/translator'
 
 // Vercel fonksiyonunun 10 saniyede zaman aşımına uğramasını engeller (Max 60'a kadar izin verir)
 export const config = {
@@ -16,6 +17,59 @@ const supabaseAdmin = createClient(
 // dusuruyor ve model bu uc dili hic uretmiyordu.
 const SUPPORTED_LANGS = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja', 'hi', 'zh', 'ar']
 
+const LANG_LABELS = {
+  en: 'English', tr: 'Turkish', es: 'Spanish', fr: 'French', de: 'German',
+  pt: 'Portuguese', ru: 'Russian', ja: 'Japanese', hi: 'Hindi',
+  zh: 'Simplified Chinese', ar: 'Arabic',
+}
+
+function normalizeLang(raw) {
+  const lang = String(raw || 'en').toLowerCase().split('-')[0]
+  return SUPPORTED_LANGS.includes(lang) ? lang : 'en'
+}
+
+// Modelden gelen alan hem duz string hem de (eski istemciler/eski cevaplar
+// icin) {lang: text} haritasi olabilir; ikisini de tek bir stringe indirger.
+function asText(value, lang) {
+  if (typeof value === 'string') return value.trim()
+  if (value && typeof value === 'object') {
+    const pick = value[lang] || value.en || Object.values(value).find((v) => typeof v === 'string')
+    return typeof pick === 'string' ? pick.trim() : ''
+  }
+  return ''
+}
+
+/**
+ * Tek dilde uretilen alanlari desteklenen TUM dillere yayar.
+ *
+ * Model 11 dili birden uretemiyordu (bkz. buildTeaserPrompt notu): yalnizca
+ * Ingilizce + rüya dilini donduruyor, geri kalani normalizeMultiLangField
+ * sessizce Ingilizce'ye dolduruyordu. Artik tek dilde uretip Groq ile
+ * ceviriyoruz — dil basina TEK istek, hepsi paralel.
+ *
+ * Ceviri basarisiz olursa o dil kaynak metinle kaliyor: eskisiyle ayni
+ * davranis, yani hicbir regresyon yok.
+ */
+async function expandToAllLanguages(fields, srcLang) {
+  const maps = {}
+  for (const key of Object.keys(fields)) maps[key] = {}
+
+  for (const key of Object.keys(fields)) maps[key][srcLang] = fields[key]
+
+  const targets = SUPPORTED_LANGS.filter((l) => l !== srcLang)
+  const results = await Promise.all(
+    targets.map(async (lang) => [lang, await translateFields(fields, lang)])
+  )
+
+  for (const [lang, translated] of results) {
+    for (const key of Object.keys(fields)) {
+      maps[key][lang] = translated[key] || fields[key]
+    }
+  }
+
+  return maps
+}
+
 function emptyLangMap() {
   return SUPPORTED_LANGS.reduce((acc, l) => {
     acc[l] = ''
@@ -26,6 +80,7 @@ function emptyLangMap() {
 function buildTeaserPrompt(params) {
   const content = params && params.content ? params.content : ''
   const lang = params && params.lang ? params.lang : 'en'
+  const LANG_NAMES = LANG_LABELS
 
   return `
 Analyze the following dream from a profound Jungian perspective. 
@@ -42,6 +97,7 @@ Rules:
 - simple is a SEPARATE, plain-language section shown BEFORE the Jungian analysis. 120-180 words, 2-3 short paragraphs.
 - simple is the ONE part of this response that must NOT be poetic, evocative or literary. Every other instruction below about beauty, resonance and poetic language DOES NOT APPLY to simple. Write it the way you would explain the dream out loud to a friend who knows nothing about psychology: everyday words, short plain sentences, no metaphors, no jargon (never "archetype", "shadow", "anima", "unconscious", "psyche", "threshold", "psychic"). If a sentence sounds like literature, rewrite it plainer.
 - simple MUST be grounded in THIS dream: name the concrete people, places, objects and actions the dreamer actually wrote. Never generic filler that would fit any dream, and never a reworded copy of "summary".
+- simple must EXPLAIN, not retell. Do not open by summarising what happened — the dreamer already knows. Take each concrete image they wrote and say, in plain words, what it might be about in an ordinary life: what the feeling underneath it could be, where it might come from, what it might be asking of them. At least 120 words; a short retelling of the dream is a failed answer.
 - simple MUST NOT predict the future, claim anything about real events or real people, or give a medical/psychiatric diagnosis or advice. Phrase interpretations as possibilities ("this may reflect...", "it could be about..."), never as certainties.
 - summary must be at least 3-4 sentences of high-density Jungian insight. Provide genuine substance, identifying an actual unconscious tension or archetype.
 - keep it beautiful, evocative, and psychologically substantive (avoid sounding clinical or generic).
@@ -52,14 +108,14 @@ Rules:
 - archetypes should contain 1 to 3 items max, always written in English (e.g. "The Shadow", "The Wanderer").
 - sentiment should be a short lowercase word like: hopeful, anxious, mysterious, tender, restless, heavy, luminous.
 
-Primary output language: ${lang}
-This product ships in ${SUPPORTED_LANGS.length} languages. You MUST fill in "simple", "title", "summary",
-"motiv" and "symbol" for EVERY one of these language keys, with no blanks and no
-literal machine translation, just natural idiomatic writing in each language:
-${SUPPORTED_LANGS.join(', ')}.
-"simple" was previously missing from this list, so it came back in one language
-only and every other locale silently fell back to English — it is now required
-in all of them, which is why it is kept short.
+Write "title", "summary", "motiv", "symbol" and "simple" in ONE language only:
+${LANG_NAMES[lang] || 'English'}. Return each of them as a plain string, not an object.
+"archetypes" stays in English. "sentiment" stays a lowercase English word.
+
+Earlier versions of this prompt asked for all eleven languages at once. The model
+produced two and the rest were silently filled with the English text, so most
+users read an English analysis. Translation is now a separate step; put all your
+effort into this one language.
 
 Dream:
 """
@@ -253,12 +309,24 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'invalid_json_from_model' })
     }
 
+    const srcLang = normalizeLang(dream.original_language || lang)
+
+    const sourceFields = {
+      simple: asText(analysis.simple, srcLang),
+      title: asText(analysis.title, srcLang),
+      summary: asText(analysis.summary, srcLang),
+      motiv: asText(analysis.motiv, srcLang),
+      symbol: asText(analysis.symbol, srcLang),
+    }
+
+    const expanded = await expandToAllLanguages(sourceFields, srcLang)
+
     const normalized = {
-      simple: normalizeMultiLangField(analysis.simple),
-      title: normalizeMultiLangField(analysis.title),
-      summary: normalizeMultiLangField(analysis.summary),
-      motiv: normalizeMultiLangField(analysis.motiv),
-      symbol: normalizeMultiLangField(analysis.symbol),
+      simple: normalizeMultiLangField(expanded.simple),
+      title: normalizeMultiLangField(expanded.title),
+      summary: normalizeMultiLangField(expanded.summary),
+      motiv: normalizeMultiLangField(expanded.motiv),
+      symbol: normalizeMultiLangField(expanded.symbol),
       sentiment: analysis.sentiment ? String(analysis.sentiment).toLowerCase() : null,
       archetypes: normalizeArray(analysis.archetypes, 3),
     }
