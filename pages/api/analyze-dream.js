@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { translateFields } from '@/lib/translator'
+import { translateFieldsWithRetry } from '@/lib/translator'
 
 // Vercel fonksiyonunun 10 saniyede zaman aşımına uğramasını engeller (Max 60'a kadar izin verir)
 export const config = {
@@ -51,19 +51,30 @@ function asText(value, lang) {
  * davranis, yani hicbir regresyon yok.
  */
 async function expandToAllLanguages(fields, srcLang) {
+  const keys = Object.keys(fields)
   const maps = {}
-  for (const key of Object.keys(fields)) maps[key] = {}
+  for (const key of keys) maps[key] = { [srcLang]: fields[key] }
 
-  for (const key of Object.keys(fields)) maps[key][srcLang] = fields[key]
+  // Ingilizce PIVOT. Ceviri modeli (Groq gpt-oss-20b) Turkce -> Cince/Japonca
+  // gibi ciftlerde metni bazen cevirmeden aynen geri veriyordu; Ingilizce'den
+  // cevirmek her hedef dil icin belirgin sekilde daha guvenilir.
+  let pivot = fields
+  let pivotLang = srcLang
+  if (srcLang !== 'en') {
+    const en = await translateFieldsWithRetry(fields, 'en', { sourceLang: srcLang })
+    for (const key of keys) maps[key].en = en[key] || fields[key]
+    pivot = Object.fromEntries(keys.map((k) => [k, maps[k].en]))
+    pivotLang = 'en'
+  }
 
-  const targets = SUPPORTED_LANGS.filter((l) => l !== srcLang)
+  const targets = SUPPORTED_LANGS.filter((l) => l !== srcLang && l !== 'en')
   const results = await Promise.all(
-    targets.map(async (lang) => [lang, await translateFields(fields, lang)])
+    targets.map(async (lang) => [lang, await translateFieldsWithRetry(pivot, lang, { sourceLang: pivotLang })])
   )
 
   for (const [lang, translated] of results) {
-    for (const key of Object.keys(fields)) {
-      maps[key][lang] = translated[key] || fields[key]
+    for (const key of keys) {
+      maps[key][lang] = translated[key] || pivot[key]
     }
   }
 
