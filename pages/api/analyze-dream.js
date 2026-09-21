@@ -10,9 +10,11 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// Lunosfer serves 8 languages across web + future app. Keep this in sync
-// everywhere multi-language AI output is generated.
-const SUPPORTED_LANGS = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja']
+// Uygulama 11 dile hizmet veriyor (res/values-*). Burasi 8'de kalmisti:
+// hi/zh/ar kullanicilari title/summary/motiv/symbol alanlarinda her zaman
+// Ingilizce goruyordu, cunku normalizeMultiLangField eksik dilleri en'e
+// dusuruyor ve model bu uc dili hic uretmiyordu.
+const SUPPORTED_LANGS = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja', 'hi', 'zh', 'ar']
 
 function emptyLangMap() {
   return SUPPORTED_LANGS.reduce((acc, l) => {
@@ -37,7 +39,8 @@ Do not wrap the answer in markdown.
 Do not include any explanation outside JSON.
 
 Rules:
-- simple is a SEPARATE, plain-language section shown BEFORE the Jungian analysis. About 250-350 words (roughly one page). Write it the way you would explain the dream to a friend with no psychology background: everyday words, short sentences, no jargon (no "archetype", "shadow", "anima", "unconscious", "psyche"). Break it into 2-4 short paragraphs.
+- simple is a SEPARATE, plain-language section shown BEFORE the Jungian analysis. 120-180 words, 2-3 short paragraphs.
+- simple is the ONE part of this response that must NOT be poetic, evocative or literary. Every other instruction below about beauty, resonance and poetic language DOES NOT APPLY to simple. Write it the way you would explain the dream out loud to a friend who knows nothing about psychology: everyday words, short plain sentences, no metaphors, no jargon (never "archetype", "shadow", "anima", "unconscious", "psyche", "threshold", "psychic"). If a sentence sounds like literature, rewrite it plainer.
 - simple MUST be grounded in THIS dream: name the concrete people, places, objects and actions the dreamer actually wrote. Never generic filler that would fit any dream, and never a reworded copy of "summary".
 - simple MUST NOT predict the future, claim anything about real events or real people, or give a medical/psychiatric diagnosis or advice. Phrase interpretations as possibilities ("this may reflect...", "it could be about..."), never as certainties.
 - summary must be at least 3-4 sentences of high-density Jungian insight. Provide genuine substance, identifying an actual unconscious tension or archetype.
@@ -50,9 +53,13 @@ Rules:
 - sentiment should be a short lowercase word like: hopeful, anxious, mysterious, tender, restless, heavy, luminous.
 
 Primary output language: ${lang}
-This product ships in 8 languages. You MUST fill in "title", "summary", "motiv" and "symbol"
-for EVERY one of these language keys, with no blanks and no literal machine
-translation, just natural idiomatic writing in each language: ${SUPPORTED_LANGS.join(', ')}.
+This product ships in ${SUPPORTED_LANGS.length} languages. You MUST fill in "simple", "title", "summary",
+"motiv" and "symbol" for EVERY one of these language keys, with no blanks and no
+literal machine translation, just natural idiomatic writing in each language:
+${SUPPORTED_LANGS.join(', ')}.
+"simple" was previously missing from this list, so it came back in one language
+only and every other locale silently fell back to English — it is now required
+in all of them, which is why it is kept short.
 
 Dream:
 """
