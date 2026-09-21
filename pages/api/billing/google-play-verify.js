@@ -3,6 +3,8 @@ import {
   getSubscriptionPurchase,
   getOneTimeProductPurchase,
   isSubscriptionActive,
+  isBillingConfigured,
+  BillingNotConfiguredError,
 } from '@/lib/googlePlayBilling'
 import {
   AURA_PACK_PRODUCT_IDS,
@@ -44,6 +46,16 @@ export default async function handler(req, res) {
   }
   if (purchaseType === 'subscription' && productId !== PREMIUM_SUBSCRIPTION_PRODUCT_ID) {
     return res.status(400).json({ error: 'unknown_subscription_product' })
+  }
+
+  // Servis hesabi anahtari yoksa Google'a hic sorulamaz. Bunu BASTA
+  // yakalayip 503 + ayirt edilebilir bir kod donuyoruz: istemci
+  // acknowledge/consume ETMEZ, yani Google satin almayi 3 gun icinde
+  // otomatik iade eder ve kullanici para kaybetmez. Onceden bu durum
+  // dogrulama sirasinda ham 500 olarak patliyordu.
+  if (!isBillingConfigured()) {
+    console.error('google-play-verify: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON eksik')
+    return res.status(503).json({ ok: false, error: 'billing_not_configured', status: 'billing_not_configured' })
   }
 
   try {
@@ -174,6 +186,9 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, status, aurasAdded })
   } catch (error) {
     console.error('google-play-verify error:', error)
-    return res.status(500).json({ error: error.message || 'internal_error' })
+    if (error instanceof BillingNotConfiguredError || error.code === 'billing_not_configured') {
+      return res.status(503).json({ ok: false, error: 'billing_not_configured', status: 'billing_not_configured' })
+    }
+    return res.status(500).json({ ok: false, error: error.message || 'internal_error' })
   }
 }
