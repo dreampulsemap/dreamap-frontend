@@ -1,233 +1,239 @@
-import { createClient } from '@supabase/supabase-js'
-import { stripJsonFence } from '@/lib/aiClient'
+import { getAuthedUser, supabaseAdmin } from '@/lib/supabaseAdmin'
+import { isPremiumMember } from '@/lib/premiumMembership'
+import {
+  buildPersonalContext,
+  generateFreeProphecy,
+  generatePremiumProphecy
+} from '@/lib/prophetEngine'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+// =====================================================================
+// KAHIN
+//
+// ONCEKI HALI NE YAPIYORDU: Android `question` gonderiyordu ama route
+// sadece `lang` okuyordu (`const { lang: rawLang = 'tr' } = req.body`).
+// Uretilen sey aslinda "gunluk kolektif kehanet"ti: son 7 gunde TUM
+// kullanicilarin ruyalarindan baskin arketip cikarilip gunde bir metin
+// uretiliyor ve daily_prophecy'de tarihe gore onbellege aliniyordu. Yani
+// kullanici ne yazarsa yazsin o gun herkese verilen ayni metni aliyordu,
+// ustelik ayni gun tekrar sorunca birebir aynisini.
+//
+// SIMDI: istek kimlik dogrulamali ve KISISEL.
+//   mode=general -> kullanicinin KENDI ruya + vizyonlarindan kehanet
+//   mode=ask     -> kullanicinin yazdigi soruya, yine kendi materyali
+//                   uzerinden cevap
+// Onbellek yok; her istek taze uretiliyor.
+//
+// Ucretsiz kullanici mod basina gunde FREE_DAILY_LIMIT istek yapabilir
+// (sunucu tarafinda sayilir, bkz. 011_prophet_daily_quota.sql). Premium
+// uye sinirsiz ve Claude Opus 5 ile daha uzun/gerekceli cevap alir.
+//
+// GERIYE DONUK UYUMLULUK: token gondermeyen eski istemciler 401 yerine
+// eski davranisi (gunluk kolektif, onbellekli metin) almaya devam eder.
+// =====================================================================
 
-const MAX_DREAMS = 50 // Reasonable limit
-const MAX_DURATION_MS = 45000 // 45s timeout (Vercel limit is 60s)
+export const config = { maxDuration: 60 }
 
-// Bug #5 kök nedeni: bu route `daily_prophecy` tablosuna INSERT/UPDATE
-// yaparken var OLMAYAN kolon adları kullanıyordu ("prophecy_content",
-// "dominant_archetype", "dominant_emotion") — gerçek tablo şeması
-// (bkz. content_{lang} çok-dilli kolonlar, archetype, sentiment) tamamen
-// farklı. Var olmayan bir kolona INSERT etmek Postgres'te "column does not
-// exist" hatası fırlatıyor, bu da her çağrıda 500 ile sonuçlanıyordu.
-// Ayrıca Android'in gönderdiği "lang" parametresi hiç okunmuyordu.
-const SUPPORTED_LANGS = ['en', 'tr', 'ru', 'ar', 'es', 'hi', 'zh', 'de']
+const FREE_DAILY_LIMIT = 3
+const MAX_QUESTION_LENGTH = 500
+const RECENT_DREAMS = 12
+const RECENT_GOALS = 8
 
-function contentColumn(lang) {
-  return `content_${SUPPORTED_LANGS.includes(lang) ? lang : 'en'}`
+const SUPPORTED_LANGS = ['en', 'tr', 'ru', 'ar', 'es', 'hi', 'zh', 'de', 'fr', 'pt', 'ja']
+
+function normalizeLang(raw) {
+  const lang = String(raw || 'tr').toLowerCase().split('-')[0]
+  return SUPPORTED_LANGS.includes(lang) ? lang : 'en'
+}
+
+// AI cagrisi patlarsa dusulen hakki geri ver — kullanici hicbir sey
+// almadigi bir istek icin kota kaybetmesin.
+async function refundProphetQuota(userId, mode) {
+  try {
+    const today = new Date().toISOString().split('T')[0]
+    const { data: row } = await supabaseAdmin
+      .from('prophet_usage')
+      .select('used_count')
+      .eq('user_id', userId)
+      .eq('usage_date', today)
+      .eq('mode', mode)
+      .maybeSingle()
+
+    if (row && row.used_count > 0) {
+      await supabaseAdmin
+        .from('prophet_usage')
+        .update({ used_count: row.used_count - 1 })
+        .eq('user_id', userId)
+        .eq('usage_date', today)
+        .eq('mode', mode)
+    }
+  } catch (err) {
+    // Iade basarisiz olursa istegi patlatma; kullanici zaten hata aliyor.
+    console.error('prophet quota refund failed:', err)
+  }
+}
+
+// Token'siz eski istemciler icin: eski kolektif davranis, gune gore
+// onbellekli. Yeni AI maliyeti dogurmaz (gunde en fazla bir uretim).
+async function legacyCollectiveProphecy(lang, res) {
+  const col = `content_${lang}`
+  const today = new Date().toISOString().split('T')[0]
+
+  const { data: existing } = await supabaseAdmin
+    .from('daily_prophecy')
+    .select('*')
+    .eq('prophecy_date', today)
+    .maybeSingle()
+
+  if (existing && existing[col]) {
+    return res.status(200).json({ ok: true, success: true, prophecy: existing[col], mode: 'general' })
+  }
+
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+  const { data: recentDreams } = await supabaseAdmin
+    .from('dreams')
+    .select('content, ai_archetypes, ai_sentiment')
+    .gte('created_at', sevenDaysAgo.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(30)
+
+  if (!recentDreams || recentDreams.length === 0) {
+    return res.status(400).json({ error: 'not_enough_dreams' })
+  }
+
+  const context = buildPersonalContext({ dreams: recentDreams, goals: [] })
+  const prophecy = await generateFreeProphecy({ mode: 'general', question: null, lang, context })
+
+  if (existing) {
+    await supabaseAdmin.from('daily_prophecy').update({ [col]: prophecy }).eq('id', existing.id)
+  } else {
+    // prophecy_date UNIQUE: es zamanli bir istek satiri az once olusturmus
+    // olabilir, o yuzden catismayi yut ve yine de metni don.
+    await supabaseAdmin
+      .from('daily_prophecy')
+      .insert({ prophecy_date: today, [col]: prophecy, dream_count: recentDreams.length })
+  }
+
+  return res.status(200).json({ ok: true, success: true, prophecy, mode: 'general' })
 }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
 
-  const GROQ_KEY = process.env.GROQ_KEY
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const { mode: rawMode, question: rawQuestion, lang: rawLang } = req.body || {}
+  const lang = normalizeLang(rawLang)
 
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    return res.status(500).json({ error: 'Supabase info missing' })
-  }
-
-  const { lang: rawLang = 'tr' } = req.body || {}
-  const lang = String(rawLang).toLowerCase().split('-')[0]
-  const col = contentColumn(lang)
-
-  const today = new Date().toISOString().split('T')[0]
+  // Eski istemciler `mode` gondermiyor — varsayilan 'general'.
+  const mode = rawMode === 'ask' ? 'ask' : 'general'
 
   try {
-    // Check if today's prophecy exists
-    const { data: existing } = await supabase
-      .from('daily_prophecy')
-      .select('*')
-      .eq('prophecy_date', today)
-      .maybeSingle()
+    const user = await getAuthedUser(req)
+    if (!user) {
+      return await legacyCollectiveProphecy(lang, res)
+    }
 
-    if (existing && existing[col]) {
-      return res.status(200).json({
-        ok: true,
-        success: true,
-        prophecy: existing[col],
-        message: 'Today\'s prophecy already generated'
+    const question = String(rawQuestion || '').trim().slice(0, MAX_QUESTION_LENGTH)
+    if (mode === 'ask' && !question) {
+      return res.status(400).json({ error: 'question_required' })
+    }
+
+    const premium = await isPremiumMember(user.id)
+
+    // Kotayi AI cagrisindan ONCE ve atomik olarak dus (paralel istekler
+    // limiti asamasin). Premium uyede kota islemiyor.
+    let remaining = null
+    if (!premium) {
+      const { data: quota, error: quotaError } = await supabaseAdmin.rpc('consume_prophet_quota', {
+        p_user_id: user.id,
+        p_mode: mode,
+        p_limit: FREE_DAILY_LIMIT
       })
-    }
+      if (quotaError) throw quotaError
 
-    if (!GROQ_KEY) {
-      return res.status(500).json({ error: 'Groq API key missing' })
-    }
+      const row = quota?.[0]
+      remaining = row?.remaining ?? 0
 
-    // Get last 7 days of dreams - OPTIMIZED: select only needed columns
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-
-    const { data: recentDreams, error: fetchError } = await supabase
-      .from('dreams')
-      .select('id, ai_archetypes, ai_sentiment, content')
-      .gte('created_at', sevenDaysAgo.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(MAX_DREAMS) // Add explicit limit
-
-    if (fetchError || !recentDreams || recentDreams.length === 0) {
-      console.error('No recent dreams found:', fetchError)
-      return res.status(400).json({ error: 'not_enough_dreams' })
-    }
-
-    // Analyze archetypes and emotions efficiently
-    const archetypeCount = {}
-    const emotionCount = {}
-    let totalArchetypes = 0
-
-    recentDreams.forEach(dream => {
-      if (dream.ai_archetypes && Array.isArray(dream.ai_archetypes)) {
-        dream.ai_archetypes.forEach(arch => {
-          archetypeCount[arch] = (archetypeCount[arch] || 0) + 1
-          totalArchetypes++
+      if (!row?.allowed) {
+        return res.status(200).json({
+          ok: true,
+          success: false,
+          mode,
+          isPremium: false,
+          detailed: false,
+          limitReached: true,
+          remaining: 0,
+          dailyLimit: FREE_DAILY_LIMIT,
+          error: 'free_limit_reached'
         })
       }
-      if (dream.ai_sentiment) {
-        emotionCount[dream.ai_sentiment] = (emotionCount[dream.ai_sentiment] || 0) + 1
-      }
-    })
-
-    const dominantArchetype = Object.entries(archetypeCount)
-      .sort((a, b) => b[1] - a[1])[0]
-    const dominantArchetypeName = dominantArchetype ? dominantArchetype[0] : 'Shadow'
-    const dominantArchetypeCount = dominantArchetype ? dominantArchetype[1] : 0
-    const archetypePercentage = totalArchetypes > 0
-      ? Math.round((dominantArchetypeCount / totalArchetypes) * 100)
-      : 0
-
-    const dominantEmotion = Object.entries(emotionCount)
-      .sort((a, b) => b[1] - a[1])[0]
-    const dominantEmotionName = dominantEmotion ? dominantEmotion[0] : 'Mystery'
-
-    console.log(`📊 Analysis: ${recentDreams.length} dreams, ${totalArchetypes} archetypes`)
-
-    const LANG_NAME = {
-      en: 'English', tr: 'Turkish', ru: 'Russian', ar: 'Arabic',
-      es: 'Spanish', hi: 'Hindi', zh: 'Chinese', de: 'German'
     }
-    const langName = LANG_NAME[lang] || LANG_NAME.en
 
-    // Call Groq with timeout
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), MAX_DURATION_MS)
+    // Kullanicinin KENDI materyali.
+    const [{ data: dreams }, { data: goals }] = await Promise.all([
+      supabaseAdmin
+        .from('dreams')
+        .select('content, ai_archetypes, ai_sentiment')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(RECENT_DREAMS),
+      supabaseAdmin
+        .from('goals')
+        .select('title, description, status')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(RECENT_GOALS)
+    ])
 
-    try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${GROQ_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          // llama-3.1-8b-instant Groq'da 16 Ağustos 2026'da (free/developer
-          // tier) kullanımdan kaldırıldı — bu satır bug #5'in gerçek, hâlâ
-          // canlıda tekrar eden nedeniydi (kolon adı düzeltmesi sonrası bile
-          // her istek "model_not_found" 404 ile başarısız olmaya devam
-          // ediyordu). Groq'un resmi önerdiği yerine geçen model
-          // openai/gpt-oss-20b.
-          model: 'openai/gpt-oss-20b',
-          messages: [
-            {
-              role: 'system',
-              content: `You are Prophet AI, a Jungian oracle. Respond ONLY in ${langName}, written as a native speaker would. Return ONLY valid JSON: {"prophecy": "..."}`
-            },
-            {
-              role: 'user',
-              content: `Dominant archetype: ${dominantArchetypeName} (${archetypePercentage}%). Emotion: ${dominantEmotionName}. Create a short prophecy in ${langName}.`
-            }
-          ]
-        }),
-        signal: controller.signal
+    const context = buildPersonalContext({ dreams: dreams || [], goals: goals || [] })
+
+    if (context.dreamCount === 0 && context.goalCount === 0) {
+      if (!premium) await refundProphetQuota(user.id, mode)
+      return res.status(200).json({
+        ok: true,
+        success: false,
+        mode,
+        isPremium: premium,
+        detailed: false,
+        needsContent: true,
+        error: 'no_personal_content'
       })
-
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Groq error: ${response.status} ${errorText}`)
-      }
-
-      const data = await response.json()
-      const rawContent = data?.choices?.[0]?.message?.content || ''
-      let prophecyContent
-      try {
-        prophecyContent = JSON.parse(stripJsonFence(rawContent)).prophecy
-      } catch {
-        prophecyContent = rawContent.trim()
-      }
-      if (!prophecyContent) prophecyContent = 'A mystery unfolds...'
-
-      let savedProphecy
-      if (existing) {
-        // Row for today already exists (another language was generated
-        // earlier today) — fill in this language's column instead of
-        // inserting a duplicate row (prophecy_date is unique per day).
-        const { data: updated, error: updateError } = await supabase
-          .from('daily_prophecy')
-          .update({ [col]: prophecyContent })
-          .eq('id', existing.id)
-          .select()
-          .single()
-        if (updateError) throw updateError
-        savedProphecy = updated
-      } else {
-        const { data: inserted, error: insertError } = await supabase
-          .from('daily_prophecy')
-          .insert({
-            prophecy_date: today,
-            [col]: prophecyContent,
-            archetype: dominantArchetypeName,
-            sentiment: dominantEmotionName,
-            dream_count: recentDreams.length
-          })
-          .select()
-          .single()
-        if (insertError) {
-          // prophecy_date UNIQUE çakışması: eş zamanlı bir istek bugünün
-          // satırını az önce oluşturmuş olabilir — o satırı bu dil için
-          // güncelleyerek devam ediyoruz.
-          if (insertError.code === '23505') {
-            const { data: raceRow } = await supabase
-              .from('daily_prophecy')
-              .select('*')
-              .eq('prophecy_date', today)
-              .single()
-            if (raceRow) {
-              const { data: updated, error: updateError } = await supabase
-                .from('daily_prophecy')
-                .update({ [col]: prophecyContent })
-                .eq('id', raceRow.id)
-                .select()
-                .single()
-              if (updateError) throw updateError
-              savedProphecy = updated
-            } else {
-              throw insertError
-            }
-          } else {
-            throw insertError
-          }
-        } else {
-          savedProphecy = inserted
-        }
-      }
-
-      return res.status(200).json({ ok: true, success: true, prophecy: savedProphecy[col] || prophecyContent })
-    } catch (err) {
-      clearTimeout(timeoutId)
-      if (err.name === 'AbortError') {
-        return res.status(504).json({ error: 'prophecy_generation_timeout' })
-      }
-      throw err
     }
+
+    let prophecy
+    let detailed = false
+
+    if (premium) {
+      try {
+        prophecy = await generatePremiumProphecy({ mode, question, lang, context })
+        detailed = true
+      } catch (err) {
+        // Odeme yapan kullaniciyi bos ekranla birakma: ucretsiz uretece dus.
+        console.error('premium prophecy failed, falling back to free tier:', err)
+        prophecy = await generateFreeProphecy({ mode, question, lang, context })
+      }
+    } else {
+      try {
+        prophecy = await generateFreeProphecy({ mode, question, lang, context })
+      } catch (err) {
+        await refundProphetQuota(user.id, mode)
+        throw err
+      }
+    }
+
+    return res.status(200).json({
+      ok: true,
+      success: true,
+      mode,
+      prophecy,
+      isPremium: premium,
+      detailed,
+      limitReached: false,
+      remaining,
+      dailyLimit: premium ? null : FREE_DAILY_LIMIT
+    })
   } catch (error) {
     console.error('Prophet error:', error)
-    return res.status(500).json({ error: error.message })
+    return res.status(500).json({ ok: false, error: error.message || 'internal_error' })
   }
 }
