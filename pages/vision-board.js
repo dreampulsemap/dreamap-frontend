@@ -8,6 +8,7 @@ import CreateGoalModal from '@/components/CreateGoalModal'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import DailySeedsPanel from '@/components/DailySeedsPanel'
 import MentalWallPanel from '@/components/MentalWallPanel'
+import DeepAnalysisPanel from '@/components/DeepAnalysisPanel'
 import ReferralWidget from '@/components/ReferralWidget'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
@@ -160,6 +161,7 @@ export default function VisionBoardPage() {
 
         <DailySeedsPanel lang={lang} user={user} activeGoals={ownActiveGoals} />
         <MentalWallPanel lang={lang} user={user} />
+        <DeepAnalysisPanel lang={lang} user={user} />
         <ReferralWidget lang={lang} user={user} />
 
         <div className="flex items-center gap-2 mb-6">
