@@ -277,6 +277,11 @@ export default async function handler(req, res) {
       ai_archetypes: normalized.archetypes,
 
       ai_jungian_analysis: {
+        // `simple` yukarida normalize ediliyordu ama bu jsonb'ye HIC
+        // yazilmiyordu; Android DreamSimpleCardPage `simple[locale]`
+        // okudugu icin "Basitce ne anlama geliyor" sayfasi her ruyada
+        // bos gorunuyordu (prod'da simple iceren ruya sayisi: 0).
+        simple: normalized.simple,
         title: normalized.title,
         summary: normalized.summary,
         motiv: normalized.motiv,

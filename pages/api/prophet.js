@@ -1,5 +1,5 @@
 import { getAuthedUser, supabaseAdmin } from '@/lib/supabaseAdmin'
-import { isPremiumMember } from '@/lib/premiumMembership'
+import { isPremiumMember, getAuraBalance } from '@/lib/premiumMembership'
 import {
   buildPersonalContext,
   buildCollectiveContext,
@@ -35,6 +35,9 @@ import {
 export const config = { maxDuration: 60 }
 
 const FREE_DAILY_LIMIT = 3
+// "Daha derin bir yorum ister misin?" — premium uyeye bedava, degilse bu
+// kadar Aura. mental-wall/generate.js ile ayni fiyat ve ayni desen.
+const DEEP_AURA_COST = 10
 const MAX_QUESTION_LENGTH = 500
 const RECENT_DREAMS = 12
 const RECENT_GOALS = 8
@@ -125,7 +128,8 @@ async function legacyCollectiveProphecy(lang, res) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
 
-  const { mode: rawMode, question: rawQuestion, lang: rawLang } = req.body || {}
+  const { mode: rawMode, question: rawQuestion, lang: rawLang, deep: rawDeep } = req.body || {}
+  const wantsDeep = rawDeep === true || rawDeep === 'true'
   const lang = normalizeLang(rawLang)
 
   // Eski istemciler `mode` gondermiyor — varsayilan 'general'.
@@ -144,10 +148,33 @@ export default async function handler(req, res) {
 
     const premium = await isPremiumMember(user.id)
 
+    // Derin yorum istendiyse ve kullanici premium degilse: kota yerine
+    // Aura dusuyoruz. Yetersizse istegi hic uretmeden 402 donuyoruz ki
+    // kullanici karsiliksiz hak/para kaybetmesin.
+    let aurasSpent = 0
+    if (wantsDeep && !premium) {
+      const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
+        p_user_id: user.id,
+        p_amount: DEEP_AURA_COST
+      })
+      if (spendError) throw spendError
+      const spend = spendResult?.[0]
+      if (!spend?.success) {
+        return res.status(402).json({
+          ok: false,
+          error: 'insufficient_auras',
+          cost: DEEP_AURA_COST,
+          auras: await getAuraBalance(user.id)
+        })
+      }
+      aurasSpent = DEEP_AURA_COST
+    }
+
     // Kotayi AI cagrisindan ONCE ve atomik olarak dus (paralel istekler
-    // limiti asamasin). Premium uyede kota islemiyor.
+    // limiti asamasin). Premium uyede ve Aura ile alinan derin yorumda
+    // kota islemiyor.
     let remaining = null
-    if (!premium) {
+    if (!premium && !aurasSpent) {
       const { data: quota, error: quotaError } = await supabaseAdmin.rpc('consume_prophet_quota', {
         p_user_id: user.id,
         p_mode: mode,
@@ -192,7 +219,8 @@ export default async function handler(req, res) {
     const context = buildPersonalContext({ dreams: dreams || [], goals: goals || [] })
 
     if (context.dreamCount === 0 && context.goalCount === 0) {
-      if (!premium) await refundProphetQuota(user.id, mode)
+      if (aurasSpent) await supabaseAdmin.rpc('add_auras', { p_user_id: user.id, p_amount: aurasSpent })
+      else if (!premium) await refundProphetQuota(user.id, mode)
       return res.status(200).json({
         ok: true,
         success: false,
@@ -207,13 +235,19 @@ export default async function handler(req, res) {
     let prophecy
     let detailed = false
 
-    if (premium) {
+    if (premium || aurasSpent) {
       try {
         prophecy = await generatePremiumProphecy({ mode, question, lang, context })
         detailed = true
       } catch (err) {
-        // Odeme yapan kullaniciyi bos ekranla birakma: ucretsiz uretece dus.
-        console.error('premium prophecy failed, falling back to free tier:', err)
+        console.error('premium prophecy failed:', err)
+        if (aurasSpent) {
+          // Aura ile ODENMIS derin yorum uretilemedi: ucretsiz metne
+          // dusurup parayi yemek yerine iade et ve hatayi don.
+          await supabaseAdmin.rpc('add_auras', { p_user_id: user.id, p_amount: aurasSpent })
+          throw err
+        }
+        // Abonelikli uyeyi bos ekranla birakma: ucretsiz uretece dus.
         prophecy = await generateFreeProphecy({ mode, question, lang, context })
       }
     } else {
@@ -234,7 +268,9 @@ export default async function handler(req, res) {
       detailed,
       limitReached: false,
       remaining,
-      dailyLimit: premium ? null : FREE_DAILY_LIMIT
+      dailyLimit: premium ? null : FREE_DAILY_LIMIT,
+      deepCost: DEEP_AURA_COST,
+      aurasLeft: premium ? null : await getAuraBalance(user.id)
     })
   } catch (error) {
     console.error('Prophet error:', error)
