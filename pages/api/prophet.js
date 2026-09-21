@@ -2,6 +2,7 @@ import { getAuthedUser, supabaseAdmin } from '@/lib/supabaseAdmin'
 import { isPremiumMember } from '@/lib/premiumMembership'
 import {
   buildPersonalContext,
+  buildCollectiveContext,
   generateFreeProphecy,
   generatePremiumProphecy
 } from '@/lib/prophetEngine'
@@ -91,9 +92,12 @@ async function legacyCollectiveProphecy(lang, res) {
   const sevenDaysAgo = new Date()
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
+  // GIZLILIK: burada ruya ICERIGI cekilmiyor. Bu metin herkese ayni sekilde
+  // gosteriliyor; tek bir kullanicinin ozel ruya metni baskalarinin ekranina
+  // dusmesin diye yalnizca arketip/duygu etiketleri okunuyor.
   const { data: recentDreams } = await supabaseAdmin
     .from('dreams')
-    .select('content, ai_archetypes, ai_sentiment')
+    .select('ai_archetypes, ai_sentiment')
     .gte('created_at', sevenDaysAgo.toISOString())
     .order('created_at', { ascending: false })
     .limit(30)
@@ -102,7 +106,7 @@ async function legacyCollectiveProphecy(lang, res) {
     return res.status(400).json({ error: 'not_enough_dreams' })
   }
 
-  const context = buildPersonalContext({ dreams: recentDreams, goals: [] })
+  const context = buildCollectiveContext(recentDreams)
   const prophecy = await generateFreeProphecy({ mode: 'general', question: null, lang, context })
 
   if (existing) {
