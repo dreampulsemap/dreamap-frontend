@@ -1,4 +1,5 @@
 import { supabaseAdmin, getAuthedUser, getAcceptedFriendIds } from '@/lib/supabaseAdmin'
+import { signDiaryMedia } from '@/lib/diaryMediaUrl'
 
 // SlidesViewer'ın story görüntüleyicisi için veri kaynağı — tek bir
 // kullanıcının GÖRÜNÜR günce girdilerini kronolojik sırayla (eskiden
@@ -67,7 +68,13 @@ export default async function handler(req, res) {
       is_liked: likedEntryIds.has(e.id),
     }))
 
-    return res.status(200).json({ owner, entries: enrichedEntries, isSelf })
+    // Bucket private: saklanan public URL'ler artik calismaz, medyayi
+    // burada kisa omurlu imzali URL'e ceviriyoruz. Gorunurluk filtresi
+    // yukarida zaten uygulandigi icin yalnizca izin verilen girdiler
+    // imzalaniyor.
+    const signedEntries = await signDiaryMedia(enrichedEntries)
+
+    return res.status(200).json({ owner, entries: signedEntries, isSelf })
   } catch (error) {
     console.error('diary/list-for-user error:', error)
     return res.status(500).json({ error: error.message || 'internal_error' })
