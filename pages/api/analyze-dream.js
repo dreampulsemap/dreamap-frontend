@@ -15,12 +15,12 @@ const supabaseAdmin = createClient(
 // hi/zh/ar kullanicilari title/summary/motiv/symbol alanlarinda her zaman
 // Ingilizce goruyordu, cunku normalizeMultiLangField eksik dilleri en'e
 // dusuruyor ve model bu uc dili hic uretmiyordu.
-const SUPPORTED_LANGS = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja', 'hi', 'zh', 'ar']
+const SUPPORTED_LANGS = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja', 'hi', 'zh', 'ar', 'fi', 'ro', 'uk']
 
 const LANG_LABELS = {
   en: 'English', tr: 'Turkish', es: 'Spanish', fr: 'French', de: 'German',
   pt: 'Portuguese', ru: 'Russian', ja: 'Japanese', hi: 'Hindi',
-  zh: 'Simplified Chinese', ar: 'Arabic',
+  zh: 'Simplified Chinese', ar: 'Arabic', fi: 'Finnish', ro: 'Romanian', uk: 'Ukrainian',
 }
 
 function normalizeLang(raw) {

@@ -10,7 +10,12 @@ const getGeminiClient = () => {
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-const LANG_NAME = { en: 'English', tr: 'Turkish' }
+const LANG_NAME = {
+  en: 'English', tr: 'Turkish', es: 'Spanish', fr: 'French',
+  de: 'German', pt: 'Portuguese', ru: 'Russian', ja: 'Japanese',
+  ar: 'Arabic', hi: 'Hindi', zh: 'Chinese',
+  fi: 'Finnish', ro: 'Romanian', uk: 'Ukrainian',
+}
 
 // Android tarafındaki DailySeedItem modeli "seed_text" alanını (zorunlu,
 // varsayılansız) bekliyor ama tablodaki gerçek kolon adı "content" —

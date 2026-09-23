@@ -17,7 +17,9 @@ export default async function handler(req, res) {
     safesearch: 'true',
     per_page: String(PER_PAGE),
     page: String(pageNum),
-    lang: lang === 'tr' ? 'tr' : 'en',
+    // Arama kelimesi kullanicinin dilinde yaziliyor; Pixabay'in destekledigi
+    // her dili gecir (onceden sadece tr/en -> diger dillerde arama bos donuyordu).
+    lang: ['cs','da','de','en','es','fr','id','it','hu','nl','no','pl','pt','ro','sk','fi','sv','tr','vi','th','bg','ru','el','ja','ko','zh'].includes(String(lang).toLowerCase().split('-')[0]) ? String(lang).toLowerCase().split('-')[0] : 'en',
   })
 
   const cleanQuery = String(q || '').trim().slice(0, 100)

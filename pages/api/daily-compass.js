@@ -24,6 +24,7 @@ const LANG_NAME = {
   en: 'English', tr: 'Turkish', es: 'Spanish', fr: 'French',
   de: 'German', pt: 'Portuguese', ru: 'Russian', ja: 'Japanese',
   ar: 'Arabic', hi: 'Hindi', zh: 'Chinese',
+  fi: 'Finnish', ro: 'Romanian', uk: 'Ukrainian',
 };
 
 export default async function handler(req, res) {

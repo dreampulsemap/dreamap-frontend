@@ -9,6 +9,25 @@ const LANG_NAME = {
   en: 'English', tr: 'Turkish', es: 'Spanish', fr: 'French',
   de: 'German', pt: 'Portuguese', ru: 'Russian', ja: 'Japanese',
   ar: 'Arabic', hi: 'Hindi', zh: 'Chinese',
+  fi: 'Finnish', ro: 'Romanian', uk: 'Ukrainian',
+};
+
+// Donemde hic ruya yokken gosterilen sabit metin (modele gitmeden).
+const EMPTY_PERIOD_TEXT = {
+  en: "You haven't logged any dreams in this period yet. Set an intention tonight to take the first step.",
+  tr: 'Bu dönemde henüz bir rüya kaydetmemişsin. İlk adımı atmak için bu gece bir niyet belirle.',
+  es: 'Todavía no has registrado ningún sueño en este periodo. Fija una intención esta noche para dar el primer paso.',
+  fr: "Vous n'avez encore enregistré aucun rêve sur cette période. Fixez une intention ce soir pour faire le premier pas.",
+  de: 'Du hast in diesem Zeitraum noch keinen Traum festgehalten. Setze heute Nacht eine Absicht, um den ersten Schritt zu machen.',
+  pt: 'Você ainda não registrou nenhum sonho neste período. Defina uma intenção esta noite para dar o primeiro passo.',
+  ru: 'Вы ещё не записали ни одного сна за этот период. Задайте намерение этой ночью, чтобы сделать первый шаг.',
+  ja: 'この期間にはまだ夢が記録されていません。最初の一歩として、今夜ひとつ意図を決めてみましょう。',
+  ar: 'لم تسجّل أي حلم في هذه الفترة بعد. حدّد نيّة الليلة لتخطو الخطوة الأولى.',
+  hi: 'इस अवधि में आपने अभी तक कोई सपना दर्ज नहीं किया है। पहला कदम उठाने के लिए आज रात एक इरादा तय करें।',
+  zh: '这段时间你还没有记录任何梦。今晚设定一个意图，迈出第一步吧。',
+  fi: 'Et ole vielä kirjannut yhtään unta tällä jaksolla. Aseta tänä yönä aikomus ottaaksesi ensimmäisen askeleen.',
+  ro: 'Încă nu ai notat niciun vis în această perioadă. Stabilește-ți o intenție în seara asta ca să faci primul pas.',
+  uk: 'Ви ще не записали жодного сну за цей період. Визначте намір сьогодні вночі, щоб зробити перший крок.',
 };
 
 const WINDOW_DAYS = { weekly: 7, monthly: 30 };
@@ -101,9 +120,7 @@ export default async function handler(req, res) {
     const dreamCount = dreams?.length || 0;
 
     if (dreamCount === 0) {
-      const emptyText = lang === 'tr'
-        ? 'Bu dönemde henüz bir rüya kaydetmemişsin. İlk adımı atmak için bu gece bir niyet belirle.'
-        : "You haven't logged any dreams in this period yet. Set an intention tonight to take the first step.";
+      const emptyText = EMPTY_PERIOD_TEXT[lang] || EMPTY_PERIOD_TEXT.en;
 
       const { data: inserted, error: insertError } = await supabaseAdmin
         .from('user_period_summaries')

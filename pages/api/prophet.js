@@ -42,7 +42,7 @@ const MAX_QUESTION_LENGTH = 500
 const RECENT_DREAMS = 12
 const RECENT_GOALS = 8
 
-const SUPPORTED_LANGS = ['en', 'tr', 'ru', 'ar', 'es', 'hi', 'zh', 'de', 'fr', 'pt', 'ja']
+const SUPPORTED_LANGS = ['en', 'tr', 'ru', 'ar', 'es', 'hi', 'zh', 'de', 'fr', 'pt', 'ja', 'fi', 'ro', 'uk']
 
 function normalizeLang(raw) {
   const lang = String(raw || 'tr').toLowerCase().split('-')[0]

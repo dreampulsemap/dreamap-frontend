@@ -1,4 +1,5 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { recipientLang, pushText } from '@/lib/pushI18n'
 import { sendPushToUser } from '@/lib/webPush'
 
 const MAX_LEN = 4000
@@ -81,20 +82,21 @@ export default async function handler(req, res) {
     // Aynı bilgiyi iki farklı ikonda tekrarlamak yerine, her ikonun tek ve
     // net bir anlamı olması kullanıcının rozetlere güvenini korur.
 
-    const isTr = (lang || 'tr') === 'tr'
+    // Bildirim ALICININ dilinde (önceden gönderenin dilindeydi).
+    const rLang = await recipientLang(supabaseAdmin, recipientId)
     const { data: senderProfile } = await supabaseAdmin
       .from('user_profiles')
       .select('username, display_name')
       .eq('id', user.id)
       .maybeSingle()
-    const senderName = senderProfile?.display_name || senderProfile?.username || (isTr ? 'Biri' : 'Someone')
+    const senderName = senderProfile?.display_name || senderProfile?.username || pushText(rLang, 'someone')
 
     const attachmentLabel = attachment?.attachment_type === 'image'
-      ? (isTr ? '📷 Fotoğraf' : '📷 Photo')
+      ? pushText(rLang, 'photo')
       : attachment?.attachment_type === 'video'
-      ? (isTr ? '🎥 Video' : '🎥 Video')
+      ? pushText(rLang, 'video')
       : attachment?.attachment_type === 'file'
-      ? (isTr ? '📎 Dosya' : '📎 File')
+      ? pushText(rLang, 'file')
       : null
     const pushBody = cleanContent
       ? (cleanContent.length > 120 ? `${cleanContent.slice(0, 117)}...` : cleanContent)
@@ -104,7 +106,7 @@ export default async function handler(req, res) {
       // "url" web Service Worker'ı (public/sw.js notificationclick) içindir;
       // Android "type"+"id"yi öncelikli okuyup thread/{senderId}'e gider.
       await sendPushToUser(supabaseAdmin, recipientId, {
-        title: isTr ? `${senderName} 💬` : `${senderName} 💬`,
+        title: `${senderName} 💬`,
         body: pushBody,
         url: `/messages?with=${user.id}`,
         type: 'message',
