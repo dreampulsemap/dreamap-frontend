@@ -1,6 +1,6 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 
-const ALLOWED_LANGUAGES = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ja'] // YENİ
+const ALLOWED_LANGUAGES = ['en', 'tr', 'es', 'fr', 'de', 'pt', 'ru', 'ar', 'hi', 'zh', 'ja', 'fi', 'ro', 'uk'] // user_profiles_language_check ile birebir aynı
 const ALLOWED_GENDERS = ['female', 'male', 'unspecified']                  // YENİ
 const VALID_PROFILE_VISIBILITY = ['public', 'friends', 'private']          // YENİ (013 migration)
 
