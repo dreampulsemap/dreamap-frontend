@@ -101,14 +101,12 @@ export default async function handler(req, res) {
       : attachmentLabel || ''
 
     try {
-      // "type"+"id" (senderId), Android'in thread/{senderId} rotasına doğru
-      // yönlendirmesi için kullanılıyor — eskiden buradaki "url" alanı
-      // "/messages?with=..." gibi bir web rotası taşıyordu ama native tarafta
-      // hiçbir ekran o rotayla eşleşmiyordu (bkz. Screen.kt: "thread/{id}"),
-      // yani bildirime dokununca doğru sohbete gitmiyordu.
+      // "url" web Service Worker'ı (public/sw.js notificationclick) içindir;
+      // Android "type"+"id"yi öncelikli okuyup thread/{senderId}'e gider.
       await sendPushToUser(supabaseAdmin, recipientId, {
         title: isTr ? `${senderName} 💬` : `${senderName} 💬`,
         body: pushBody,
+        url: `/messages?with=${user.id}`,
         type: 'message',
         id: user.id,
         senderId: user.id,
