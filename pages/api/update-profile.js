@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     if (!user) return res.status(401).json({ error: 'unauthorized' })
     const userId = user.id
 
-    const { username, display_name, avatar_url, bio, is_private, profile_visibility, language, gender } = req.body || {}
+    const { username, display_name, avatar_url, bio, is_private, profile_visibility, language, gender, language_explicit } = req.body || {}
 
     const cleanUsername = normalize(username)
     const cleanDisplayName = normalize(display_name)
@@ -87,6 +87,9 @@ export default async function handler(req, res) {
     if (cleanDisplayName !== null) updates.display_name = cleanDisplayName
     if (cleanAvatarUrl !== null) updates.avatar_url = cleanAvatarUrl
     if (cleanLanguage !== null) updates.language = cleanLanguage // YENİ
+    // Sadece kullanıcı dili seçiciden BİLEREK değiştirdiğinde true; aksi halde
+    // Android uygulaması cihaz dilini izler (bkz. AppLanguage.syncWithProfile).
+    if (cleanLanguage !== null && language_explicit === true) updates.language_explicit = true
     if (cleanGender !== null) updates.gender = cleanGender       // YENİ
     if (cleanBio !== null) updates.bio = cleanBio                // YENİ
 
