@@ -1,4 +1,5 @@
 import { supabaseAdmin, getAuthedUser, clampVisibilityToProfile } from '@/lib/supabaseAdmin'
+import { captureServerEvent } from '@/lib/posthog-server'
 
 // Hard Limit (Maliyet Guvenligi Icin Karakter Siniri)
 const MAX_CHARACTERS = 12000;
@@ -105,6 +106,8 @@ export default async function handler(req, res) {
     } catch (analyzeError) {
       console.error('submit-dream teaser analysis error:', analyzeError)
     }
+
+    captureServerEvent(user.id, 'dream_submitted', { dream_id: insertedDream.id, visibility: insertedDream.visibility })
 
     return res.status(200).json({ dream: analyzedDream })
   } catch (error) {

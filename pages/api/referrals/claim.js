@@ -1,4 +1,5 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { captureServerEvent } from '@/lib/posthog-server'
 
 const REWARD_AMOUNT = 3 // "Arkadaşını davet et, 3 ekstra Flux görsel üretim kredisi kazan"
 
@@ -72,6 +73,9 @@ export default async function handler(req, res) {
       .from('referrals')
       .update({ reward_granted: true })
       .eq('id', referral.id)
+
+    captureServerEvent(invitedUser.id, 'referral_claimed', { inviter_id: inviter.id })
+    captureServerEvent(inviter.id, 'referral_rewarded', { invited_user_id: invitedUser.id, reward_amount: REWARD_AMOUNT })
 
     return res.status(200).json({ referral: { ...referral, reward_granted: true } })
   } catch (error) {

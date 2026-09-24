@@ -8,10 +8,21 @@ import BottomNav from '@/components/BottomNav'
 import Sidebar from '@/components/Sidebar'
 import AppDownloadBanner from '@/components/AppDownloadBanner'
 import { useRouter } from 'next/router'
+import { initPostHogClient, capturePageview } from '@/lib/posthog-client'
 
 export default function App({ Component, pageProps }) {
   const router = useRouter()
   const { i18n } = useTranslation()
+
+  useEffect(() => {
+    initPostHogClient()
+    capturePageview(window.location.href)
+
+    const handleRouteChange = (url) => capturePageview(url)
+    router.events.on('routeChangeComplete', handleRouteChange)
+    return () => router.events.off('routeChangeComplete', handleRouteChange)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // <html lang> SSR'da her zaman _document.js'teki sabit "tr" — burada
   // i18next istemci tarafında farklı bir dil algılar/seçerse senkronize

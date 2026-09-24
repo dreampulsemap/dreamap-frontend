@@ -1,4 +1,5 @@
 import { getAuthedUser, supabaseAdmin } from '@/lib/supabaseAdmin'
+import { captureServerEvent } from '@/lib/posthog-server'
 import {
   getSubscriptionPurchase,
   getOneTimeProductPurchase,
@@ -116,6 +117,7 @@ export default async function handler(req, res) {
         // dusersek ayni purchase_token icin ikinci kez insert denenir ve
         // unique constraint'e carpar. Basariyla uygulanmis krediyi 500'e
         // cevirmemek icin burada donuyoruz.
+        captureServerEvent(user.id, 'purchase_completed', { product_id: productId, purchase_type: 'aura_pack', auras_added: auraCount })
         return res.status(200).json({ ok: true, status: 'aura_added', aurasAdded: auraCount })
       }
     } else {
@@ -165,6 +167,7 @@ export default async function handler(req, res) {
         }
 
         status = 'premium_activated'
+        captureServerEvent(user.id, 'purchase_completed', { product_id: productId, purchase_type: 'subscription', plan: basePlanId })
       }
     }
 
