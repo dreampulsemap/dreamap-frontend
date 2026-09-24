@@ -1,6 +1,7 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 import { generateWithAI, stripJsonFence } from '@/lib/aiClient'
 import { isPremiumMember, getAuraBalance } from '@/lib/premiumMembership'
+import { checkPremiumQuota, refundPremiumQuota } from '@/lib/featureQuota'
 import { LANG_NAMES } from '@/lib/translator'
 
 // =====================================================================
@@ -143,11 +144,22 @@ export default async function handler(req, res) {
 
     const premium = await isPremiumMember(user.id)
 
+    // Derin yorum, premium icin de artik AYLIK bir ust sinira tabi (bkz.
+    // lib/featureQuota.js) — asilirsa Aura odemeli yola dusuluyor, sert
+    // bir hata donmuyor.
+    let premiumQuotaUsedBonus = false
+    let premiumForThisCall = false
+    if (wantsDeep && premium) {
+      const quota = await checkPremiumQuota(supabaseAdmin, user.id, 'mental_wall')
+      premiumForThisCall = quota.allowed
+      premiumQuotaUsedBonus = quota.usedBonus
+    }
+
     // --- Odeme / kota ---
-    // Derin yorum: premium bedava, degilse 10 Aura. Standart rapor: ucretsiz
-    // ama gunluk kotali (premium uyede kota islemiyor).
+    // Derin yorum: premium (kota dahilinde) bedava, degilse 10 Aura.
+    // Standart rapor: ucretsiz ama gunluk kotali (premium uyede kota islemiyor).
     let remaining = null
-    if (wantsDeep && !premium) {
+    if (wantsDeep && !premiumForThisCall) {
       const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
         p_user_id: user.id,
         p_amount: DEEP_AURA_COST,
@@ -205,6 +217,7 @@ export default async function handler(req, res) {
       parsed = typeof cleaned === 'string' ? JSON.parse(cleaned) : cleaned
     } catch (aiError) {
       if (aurasSpent) await supabaseAdmin.rpc('add_auras', { p_user_id: user.id, p_amount: aurasSpent })
+      else if (premiumForThisCall) await refundPremiumQuota(supabaseAdmin, user.id, 'mental_wall', premiumQuotaUsedBonus)
       if (quotaConsumed) await refundQuota(user.id)
       throw aiError
     }
@@ -230,6 +243,7 @@ export default async function handler(req, res) {
 
     if (insertError) {
       if (aurasSpent) await supabaseAdmin.rpc('add_auras', { p_user_id: user.id, p_amount: aurasSpent })
+      else if (premiumForThisCall) await refundPremiumQuota(supabaseAdmin, user.id, 'mental_wall', premiumQuotaUsedBonus)
       if (quotaConsumed) await refundQuota(user.id)
       throw insertError
     }

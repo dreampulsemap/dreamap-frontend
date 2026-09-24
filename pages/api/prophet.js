@@ -1,5 +1,6 @@
 import { getAuthedUser, supabaseAdmin } from '@/lib/supabaseAdmin'
 import { isPremiumMember, getAuraBalance } from '@/lib/premiumMembership'
+import { checkPremiumQuota, refundPremiumQuota } from '@/lib/featureQuota'
 import {
   buildPersonalContext,
   buildCollectiveContext,
@@ -148,11 +149,25 @@ export default async function handler(req, res) {
 
     const premium = await isPremiumMember(user.id)
 
+    // Premium uye oldugunda `premium || aurasSpent` her zaman DERIN (pahali)
+    // generatePremiumProphecy() yolunu tetikliyor — SINIRSIZ. Aylik makul bir
+    // ust sinir koyuyoruz (bkz. lib/featureQuota.js); asilirsa normal
+    // ucretsiz/kotali akisa (asagidaki !premiumForThisCall dallari) dusuyor,
+    // hata donmuyor.
+    let premiumQuotaOk = true
+    let premiumQuotaUsedBonus = false
+    if (premium) {
+      const quota = await checkPremiumQuota(supabaseAdmin, user.id, 'prophet')
+      premiumQuotaOk = quota.allowed
+      premiumQuotaUsedBonus = quota.usedBonus
+    }
+    const premiumForThisCall = premium && premiumQuotaOk
+
     // Derin yorum istendiyse ve kullanici premium degilse: kota yerine
     // Aura dusuyoruz. Yetersizse istegi hic uretmeden 402 donuyoruz ki
     // kullanici karsiliksiz hak/para kaybetmesin.
     let aurasSpent = 0
-    if (wantsDeep && !premium) {
+    if (wantsDeep && !premiumForThisCall) {
       const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
         p_user_id: user.id,
         p_amount: DEEP_AURA_COST
@@ -174,7 +189,7 @@ export default async function handler(req, res) {
     // limiti asamasin). Premium uyede ve Aura ile alinan derin yorumda
     // kota islemiyor.
     let remaining = null
-    if (!premium && !aurasSpent) {
+    if (!premiumForThisCall && !aurasSpent) {
       const { data: quota, error: quotaError } = await supabaseAdmin.rpc('consume_prophet_quota', {
         p_user_id: user.id,
         p_mode: mode,
@@ -220,7 +235,8 @@ export default async function handler(req, res) {
 
     if (context.dreamCount === 0 && context.goalCount === 0) {
       if (aurasSpent) await supabaseAdmin.rpc('add_auras', { p_user_id: user.id, p_amount: aurasSpent })
-      else if (!premium) await refundProphetQuota(user.id, mode)
+      else if (premiumForThisCall) await refundPremiumQuota(supabaseAdmin, user.id, 'prophet', premiumQuotaUsedBonus)
+      else await refundProphetQuota(user.id, mode)
       return res.status(200).json({
         ok: true,
         success: false,
@@ -235,7 +251,7 @@ export default async function handler(req, res) {
     let prophecy
     let detailed = false
 
-    if (premium || aurasSpent) {
+    if (premiumForThisCall || aurasSpent) {
       try {
         prophecy = await generatePremiumProphecy({ mode, question, lang, context })
         detailed = true
@@ -247,6 +263,7 @@ export default async function handler(req, res) {
           await supabaseAdmin.rpc('add_auras', { p_user_id: user.id, p_amount: aurasSpent })
           throw err
         }
+        if (premiumForThisCall) await refundPremiumQuota(supabaseAdmin, user.id, 'prophet', premiumQuotaUsedBonus)
         // Abonelikli uyeyi bos ekranla birakma: ucretsiz uretece dus.
         prophecy = await generateFreeProphecy({ mode, question, lang, context })
       }
@@ -268,9 +285,9 @@ export default async function handler(req, res) {
       detailed,
       limitReached: false,
       remaining,
-      dailyLimit: premium ? null : FREE_DAILY_LIMIT,
+      dailyLimit: premiumForThisCall ? null : FREE_DAILY_LIMIT,
       deepCost: DEEP_AURA_COST,
-      aurasLeft: premium ? null : await getAuraBalance(user.id)
+      aurasLeft: premiumForThisCall ? null : await getAuraBalance(user.id)
     })
   } catch (error) {
     console.error('Prophet error:', error)

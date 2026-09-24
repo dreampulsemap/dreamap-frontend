@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 import { persistRemoteImage } from '@/lib/persistRemoteImage';
 import { isPremiumMember, getAuraBalance } from '@/lib/premiumMembership';
+import { checkPremiumQuota, refundPremiumQuota } from '@/lib/featureQuota';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -347,9 +348,12 @@ export default async function handler(req, res) {
     }
 
     // Premium üye ise (Gumroad "Lunosfer Premium") 2 Aura'lık görsel ücreti
-    // alınmaz — bkz. lib/premiumMembership.js.
+    // alınmaz — bkz. lib/premiumMembership.js. Artık premium için de aylık
+    // bir üst sınır var (bkz. lib/featureQuota.js) — sınırsız otomatik
+    // görsel üretiminin maliyetini sonsuza kadar Lunosfer'e yıkmasını önler.
     const premiumMember = await isPremiumMember(user.id);
     let spend = { success: true, remaining: null };
+    let quotaUsedBonus = false;
 
     if (!premiumMember) {
       const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
@@ -363,15 +367,20 @@ export default async function handler(req, res) {
       if (!spend?.success) {
         return res.status(402).json({ error: 'no_auras' });
       }
+    } else {
+      const quota = await checkPremiumQuota(supabaseAdmin, user.id, 'dream_image');
+      if (!quota.allowed) {
+        return res.status(402).json({ error: 'monthly_limit_reached' });
+      }
+      quotaUsedBonus = quota.usedBonus;
     }
 
-    // Premium üyeden zaten harcama yapılmadığı için aşağıdaki hata
-    // durumlarında iade edilecek bir şey yok — bu yardımcı, sadece gerçekten
-    // ücret alınmışsa iade eder.
+    // Hangi ücretlendirme yolu kullanıldıysa (Aura ya da premium aylık
+    // kota), hata durumunda AYNI yolu iade eder.
     const maybeRefund = async () => {
-      if (premiumMember) return;
       try {
-        await refundAuras(user.id, 2);
+        if (premiumMember) await refundPremiumQuota(supabaseAdmin, user.id, 'dream_image', quotaUsedBonus);
+        else await refundAuras(user.id, 2);
       } catch (refundError) {
         console.error('Refund Error:', refundError);
       }

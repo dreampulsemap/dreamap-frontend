@@ -1,5 +1,6 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 import { isPremiumMember, getAuraBalance } from '@/lib/premiumMembership'
+import { checkPremiumQuota, refundPremiumQuota } from '@/lib/featureQuota'
 import { generateOneImage } from '@/lib/goalImageGen'
 import { persistRemoteImage } from '@/lib/persistRemoteImage'
 import { isPersistedImageUrl } from '@/lib/imageUrlUtils'
@@ -82,6 +83,17 @@ export default async function handler(req, res) {
 
   let reserved = 0
   let rowId = null
+  let usedPremiumQuota = false
+  let premiumQuotaUsedBonus = false
+  const refundWhicheverWasCharged = async () => {
+    if (reserved > 0) {
+      await refundAuras(user.id, reserved)
+      reserved = 0
+    } else if (usedPremiumQuota) {
+      await refundPremiumQuota(supabaseAdmin, user.id, 'deep_analysis_opus', premiumQuotaUsedBonus)
+      usedPremiumQuota = false
+    }
+  }
 
   try {
     // --- Kotuye kullanim / maliyet korumasi: saatte 3 deneme ---
@@ -142,6 +154,9 @@ export default async function handler(req, res) {
     const lang = dominantDreamLang(usableDreams, requestedLang)
 
     // --- Odeme ---
+    // Premium icin de artik aylik bir ust sinir var (bkz. lib/featureQuota.js)
+    // — bu route generateOneImage() ile bir gorsel de urettigi icin
+    // generate-deep-analysis.js'deki 8-Aura'lik analizden daha pahali.
     const premium = await isPremiumMember(user.id)
     if (!premium) {
       const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
@@ -158,6 +173,13 @@ export default async function handler(req, res) {
         })
       }
       reserved = DEEP_ANALYSIS_AURA_COST
+    } else {
+      const quota = await checkPremiumQuota(supabaseAdmin, user.id, 'deep_analysis_opus')
+      if (!quota.allowed) {
+        return res.status(402).json({ ok: false, error: 'monthly_limit_reached' })
+      }
+      usedPremiumQuota = true
+      premiumQuotaUsedBonus = quota.usedBonus
     }
 
     // Satiri ONCE 'pending' olarak yaz: istek Vercel tavaninda kesilse bile
@@ -195,8 +217,7 @@ export default async function handler(req, res) {
         .from('deep_analyses')
         .update({ status: 'failed', error: aiError.message })
         .eq('id', rowId)
-      await refundAuras(user.id, reserved)
-      reserved = 0
+      await refundWhicheverWasCharged()
 
       const known = ['anthropic_key_missing', 'claude_refusal', 'claude_truncated', 'invalid_json_from_model']
       return res.status(502).json({
@@ -265,7 +286,8 @@ export default async function handler(req, res) {
         .update({ status: 'failed', error: String(error.message).slice(0, 500) })
         .eq('id', rowId)
     }
-    await refundAuras(user.id, reserved)
-    return res.status(500).json({ ok: false, error: 'internal_error', refunded: reserved > 0 })
+    const hadCharge = reserved > 0 || usedPremiumQuota
+    await refundWhicheverWasCharged()
+    return res.status(500).json({ ok: false, error: 'internal_error', refunded: hadCharge })
   }
 }

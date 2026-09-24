@@ -10,6 +10,7 @@ import {
 import { notifyAnalysisOutcome } from '@/lib/notify'
 import { isPersistedImageUrl } from '@/lib/imageUrlUtils'
 import { isPremiumMember, getAuraBalance } from '@/lib/premiumMembership'
+import { checkPremiumQuota, refundPremiumQuota } from '@/lib/featureQuota'
 
 // =====================================================================
 // SADECE OpenAI, TAMAMEN SENKRON — kuyruk yok, cron yok, dış worker yok.
@@ -100,9 +101,13 @@ export default async function handler(req, res) {
 
     // Premium üye ise (Gumroad "Lunosfer Premium" aboneliği aktifse) Aura
     // harcanmaz — bkz. lib/premiumMembership.js. Değilse eski davranış aynen
-    // sürüyor: 8 Aura düşülür, yetmezse 402 döner.
+    // sürüyor: 8 Aura düşülür, yetmezse 402 döner. Premium üye için de artık
+    // GERÇEK bir üst sınır var (feature_usage_monthly, aylık) — sınırsız
+    // otomatik tekrarın AI maliyetini sonsuza kadar Lunosfer'e yıkmasını
+    // önlemek için (bkz. lib/featureQuota.js).
     const premiumMember = await isPremiumMember(user.id)
     let spend = { success: true, remaining: null }
+    let quotaUsedBonus = false
 
     if (!premiumMember) {
       const { data: spendResult, error: spendError } = await supabaseAdmin.rpc('spend_auras', {
@@ -116,6 +121,12 @@ export default async function handler(req, res) {
       if (!spend?.success) {
         return res.status(402).json({ error: 'no_auras' })
       }
+    } else {
+      const quota = await checkPremiumQuota(supabaseAdmin, user.id, 'deep_analysis')
+      if (!quota.allowed) {
+        return res.status(402).json({ error: 'monthly_limit_reached' })
+      }
+      quotaUsedBonus = quota.usedBonus
     }
 
     // ---- Tek deneme, tam bütçeyle ----
@@ -197,13 +208,14 @@ export default async function handler(req, res) {
     // ---- Deneme başarısız: 'pending'de takılı bırakma — direkt failed + iade ----
     console.error('generate-deep-analysis: OpenAI attempt failed:', lastError?.message)
 
-    // Premium üyeden zaten Aura düşülmediği için iade edilecek bir şey yok.
     if (!premiumMember) {
       const refundResult = await supabaseAdmin.rpc('refund_auras', {
         p_user_id: user.id,
         p_amount: 8
       })
       if (refundResult.error) console.error('refund error:', refundResult.error.message)
+    } else {
+      await refundPremiumQuota(supabaseAdmin, user.id, 'deep_analysis', quotaUsedBonus)
     }
 
     await supabaseAdmin
