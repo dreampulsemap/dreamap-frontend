@@ -1,4 +1,5 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { notifyDreamLike } from '@/lib/notify'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -67,6 +68,17 @@ export default async function handler(req, res) {
       }
 
       const count = await syncLikesCount(dreamId)
+
+      // Sahibine bildirim (zil + push) — bkz. lib/notify.js notifyDreamLike:
+      // bu tabloda DB trigger yok, hiç bildirim üretilmiyordu. Serverless
+      // fonksiyon yanıt dönünce dondurulabileceği için (fire-and-forget
+      // GÜVENLİ değil) diğer notify* çağrıları gibi await ediliyor; hata
+      // olsa bile (notify.js kendi içinde yutuyor) beğeninin kendisi başarılı
+      // dönmeye devam eder.
+      const { data: likedDream } = await supabaseAdmin.from('dreams').select('user_id').eq('id', dreamId).maybeSingle()
+      if (likedDream?.user_id) {
+        await notifyDreamLike(supabaseAdmin, { dreamOwnerId: likedDream.user_id, actorId: userId, dreamId })
+      }
 
       return res.status(200).json({
         success: true,

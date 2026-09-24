@@ -1,4 +1,5 @@
 import { supabaseAdmin, getAuthedUser, getAcceptedFriendIds } from '@/lib/supabaseAdmin'
+import { notifyDreamComment } from '@/lib/notify'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -116,6 +117,12 @@ export default async function handler(req, res) {
         .select('id, username, display_name, avatar_url')
         .eq('id', userId)
         .maybeSingle()
+
+      // Sahibine bildirim (zil + push) — bkz. lib/notify.js notifyDreamComment.
+      const { data: commentedDream } = await supabaseAdmin.from('dreams').select('user_id').eq('id', dreamId).maybeSingle()
+      if (commentedDream?.user_id) {
+        await notifyDreamComment(supabaseAdmin, { dreamOwnerId: commentedDream.user_id, actorId: userId, dreamId })
+      }
 
       return res.status(200).json({
         success: true,
