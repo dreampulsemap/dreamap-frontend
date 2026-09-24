@@ -1,17 +1,20 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { sendPushToUser } from '@/lib/webPush'
 
-// "Her an her şey olabilir" hissi: günde ÜÇ kez (vercel.json: 09/14/19 UTC),
+// "Her an her şey olabilir" hissi: günde bir kez (vercel.json: 16:40 UTC —
+// Hobby planda cron günde birden fazla ÇALIŞTIRILAMIYOR, denendi ve
+// "cron_jobs_limits_reached" ile reddedildi; Pro'ya geçilirse günde birkaç
+// kez farklı saatlerde çalıştırmak daha da güçlü bir "her an" hissi verir),
 // push-abone (FCM veya web push) KÜÇÜK rastgele bir kullanıcı örneklemine,
 // rastgele bir mesajla sürpriz bir bildirim gönderir. Bilinçli olarak
 // Aura/Mana gibi parasal değeri olan bir para birimi VERMİYOR — sadece
-// dikkat çekici, oyunlaştırma amaçlı bir push. Kim seçildiği, NE ZAMAN
-// (günün 3 farklı vaktinden biri) VE hangi mesajın çıktığı her çalıştırmada
-// rastgele olduğu için kullanıcı tarafında öngörülemez bir "değişken oranlı
-// ödül" (variable-ratio) hissi yaratıyor — parasal risk sıfır.
+// dikkat çekici, oyunlaştırma amaçlı bir push. Kim seçildiği VE hangi
+// mesajın çıktığı her çalıştırmada rastgele olduğu için kullanıcı
+// tarafında öngörülemez bir "değişken oranlı ödül" (variable-ratio) hissi
+// yaratıyor — parasal risk sıfır.
 export const config = { maxDuration: 30 }
 
-const SAMPLE_SIZE = 3
+const SAMPLE_SIZE = 5
 
 const MESSAGES = [
   { title: '✨ Bir şeyler oluyor', body: 'Explore\'da az önce yeni bir şey paylaşıldı. Bir göz atmaya ne dersin?' },

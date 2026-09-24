@@ -22,7 +22,7 @@
     },
     {
       "path": "/api/cron/surprise-moment",
-      "schedule": "10 9,14,19 * * *"
+      "schedule": "40 16 * * *"
     }
   ]
 }
