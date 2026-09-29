@@ -135,6 +135,7 @@ export default async function handler(req, res) {
     await safeDelete('fcm_tokens', 'user_id', userId)
     await safeDelete('image_credit_transactions', 'user_id', userId)
     await safeDelete('lunos_points_ledger', 'user_id', userId)
+    await safeDelete('user_progress', 'user_id', userId)
     await safeDelete('mental_wall_reports', 'user_id', userId)
     await safeDelete('messages', 'sender_id', userId)
     await safeDelete('messages', 'recipient_id', userId)
