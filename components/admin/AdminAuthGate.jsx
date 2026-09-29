@@ -1,12 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
-// pages/analizetgulum.js gibi diğer admin araçları token'ı her seferinde
-// elle yapıştırtıyordu. Burada bir kez doğrulanan token localStorage'da
-// tutuluyor (bu sayfa bir Claude artifact'i değil, gerçek bir Next.js
-// sayfası — tarayıcı storage'ı burada normal ve kalıcılık için doğru araç),
-// böylece /admin altındaki sayfalar arasında tekrar tekrar girmeye gerek
-// kalmıyor. Token hiçbir zaman koda gömülü değil, yalnızca kullanıcının
-// kendi tarayıcısında.
+// Token, /api/admin/login tarafından HttpOnly cookie olarak yazılır —
+// tarayıcı JS'i (ve dolayısıyla bir XSS) okuyamaz. Önceden localStorage'da
+// düz metin tutuluyordu, tüm admin yetkisini XSS'e açık bırakıyordu.
 const AdminAuthContext = createContext(null)
 
 export function useAdminAuth() {
@@ -15,62 +11,52 @@ export function useAdminAuth() {
   return ctx
 }
 
-const STORAGE_KEY = 'dreamap_admin_token'
-
 export default function AdminAuthGate({ children }) {
-  const [token, setToken] = useState(null)
+  const [authenticated, setAuthenticated] = useState(false)
   const [checking, setChecking] = useState(true)
   const [input, setInput] = useState('')
   const [error, setError] = useState('')
   const [verifying, setVerifying] = useState(false)
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      verify(saved)
-    } else {
-      setChecking(false)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetch('/api/admin/verify')
+      .then((res) => setAuthenticated(res.ok))
+      .catch(() => setAuthenticated(false))
+      .finally(() => setChecking(false))
   }, [])
 
-  async function verify(candidate) {
+  async function login(candidate) {
     setVerifying(true)
     setError('')
     try {
-      const res = await fetch('/api/admin/dreams/list?pageSize=1', {
-        headers: { Authorization: `Bearer ${candidate}` },
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: candidate }),
       })
-      if (res.status === 401) {
-        setError('Token geçersiz.')
-        window.localStorage.removeItem(STORAGE_KEY)
-        setToken(null)
-        return
-      }
       if (!res.ok) {
-        setError('Bağlantı hatası, tekrar dene.')
+        setError('Token geçersiz.')
         return
       }
-      window.localStorage.setItem(STORAGE_KEY, candidate)
-      setToken(candidate)
+      setAuthenticated(true)
     } catch {
       setError('Bağlantı hatası, tekrar dene.')
     } finally {
       setVerifying(false)
-      setChecking(false)
     }
   }
 
   function handleSubmit(e) {
     e.preventDefault()
     if (!input.trim() || verifying) return
-    verify(input.trim())
+    login(input.trim())
   }
 
   function logout() {
-    window.localStorage.removeItem(STORAGE_KEY)
-    setToken(null)
-    setInput('')
+    fetch('/api/admin/logout', { method: 'POST' }).finally(() => {
+      setAuthenticated(false)
+      setInput('')
+    })
   }
 
   if (checking) {
@@ -81,7 +67,7 @@ export default function AdminAuthGate({ children }) {
     )
   }
 
-  if (!token) {
+  if (!authenticated) {
     return (
       <div className="min-h-screen bg-[#0c0e14] flex items-center justify-center p-4">
         <form onSubmit={handleSubmit} className="w-full max-w-sm bg-[#141822] border border-white/10 rounded-2xl p-6">
@@ -111,5 +97,5 @@ export default function AdminAuthGate({ children }) {
     )
   }
 
-  return <AdminAuthContext.Provider value={{ token, logout }}>{children}</AdminAuthContext.Provider>
+  return <AdminAuthContext.Provider value={{ logout }}>{children}</AdminAuthContext.Provider>
 }

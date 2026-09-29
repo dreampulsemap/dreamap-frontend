@@ -149,7 +149,7 @@ function ReportCard({ report, onMarkStatus, onDeleteGoal, busy }) {
 }
 
 function ReportsManagement() {
-  const { token, logout } = useAdminAuth()
+  const { logout } = useAdminAuth()
 
   const [status, setStatus] = useState('pending')
   const [reports, setReports] = useState([])
@@ -167,11 +167,10 @@ function ReportsManagement() {
         ...options,
         headers: {
           ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-          Authorization: `Bearer ${token}`,
           ...options.headers,
         },
       }),
-    [token]
+    []
   )
 
   const load = useCallback(

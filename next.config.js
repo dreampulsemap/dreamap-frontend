@@ -4,15 +4,13 @@ const { withSentryConfig } = require('@sentry/nextjs/config')
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    // ÖNEMLİ: Bu liste önceden yalnızca pollinations.ai + tek bir Supabase
-    // proje domaini içeriyordu. Ama pages/api/generate-dream-image.js'e
-    // bakınca gerçek görsel kaynaklarının Replicate (Flux) ve OpenAI
-    // (DALL-E, fallback) olduğunu gördüm — ikisi de whitelist'te yoktu.
-    // Bu, next/image kullanılan yerlerde (globe.js, profile.js, auth.js)
-    // AI-üretilmiş görsellerin muhtemelen hiç yüklenmediği/hata verdiği
-    // anlamına geliyor. Ekliyorum.
-    domains: ['image.pollinations.ai', 'hhtoezrhvipiketlelqh.supabase.co'],
+    // ÖNEMLİ: next/image kullanılan yerlerde (globe.js, profile.js, auth.js)
+    // AI-üretilmiş görsellerin gerçek kaynakları Replicate (Flux) ve OpenAI
+    // (DALL-E, fallback), pollinations.ai ve Supabase storage. `domains` alanı
+    // deprecated olduğu için (Coolify build logunda uyarı basıyordu) hepsi
+    // remotePatterns'e taşındı.
     remotePatterns: [
+      { protocol: 'https', hostname: 'image.pollinations.ai' },
       { protocol: 'https', hostname: 'replicate.delivery' },
       { protocol: 'https', hostname: '*.blob.core.windows.net' }, // DALL-E (Azure)
       { protocol: 'https', hostname: '*.supabase.co' }, // farklı Supabase projeleri/storage için genel

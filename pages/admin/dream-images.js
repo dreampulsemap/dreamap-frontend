@@ -80,7 +80,7 @@ function DreamCard({ dream, onOpenPicker, onTriggerUpload, onEdit, busy }) {
 }
 
 function DreamImages() {
-  const { token, logout } = useAdminAuth()
+  const { logout } = useAdminAuth()
 
   const [filter, setFilter] = useState('missing')
   const [dreams, setDreams] = useState([])
@@ -106,11 +106,10 @@ function DreamImages() {
         ...options,
         headers: {
           ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-          Authorization: `Bearer ${token}`,
           ...options.headers,
         },
       }),
-    [token]
+    []
   )
 
   const load = useCallback(
