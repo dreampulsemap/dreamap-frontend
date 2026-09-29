@@ -93,48 +93,66 @@ export default async function handler(req, res) {
     // Aynı bilgiyi iki farklı ikonda tekrarlamak yerine, her ikonun tek ve
     // net bir anlamı olması kullanıcının rozetlere güvenini korur.
 
-    // Bildirim ALICININ dilinde (önceden gönderenin dilindeydi).
-    const rLang = await recipientLang(supabaseAdmin, recipientId)
-    const { data: senderProfile } = await supabaseAdmin
-      .from('user_profiles')
-      .select('username, display_name')
-      .eq('id', user.id)
-      .maybeSingle()
-    const senderName = senderProfile?.display_name || senderProfile?.username || pushText(rLang, 'someone')
-
-    const attachmentLabel = attachment?.attachment_type === 'image'
-      ? pushText(rLang, 'photo')
-      : attachment?.attachment_type === 'video'
-      ? pushText(rLang, 'video')
-      : attachment?.attachment_type === 'file'
-      ? pushText(rLang, 'file')
-      : null
-    const sharedLabel = sharedRef
-      ? pushText(rLang, `shared_${sharedRef.type}`, { title: sharedRef.title || '' }).replace(/[:：]\s*$/, '')
-      : null
-    const pushBody = cleanContent
-      ? (cleanContent.length > 120 ? `${cleanContent.slice(0, 117)}...` : cleanContent)
-      : sharedLabel || attachmentLabel || ''
-
-    try {
-      // "url" web Service Worker'ı (public/sw.js notificationclick) içindir;
-      // Android "type"+"id"yi öncelikli okuyup thread/{senderId}'e gider.
-      await sendPushToUser(supabaseAdmin, recipientId, {
-        title: `${senderName} 💬`,
-        body: pushBody,
-        url: `/messages?with=${user.id}`,
-        type: 'message',
-        id: user.id,
-        senderId: user.id,
-        senderName,
-        tag: `message-${user.id}`,
-      })
-    } catch (err) {
-      console.error('push notification error (message):', err)
-    }
-
     const [signedMessage] = await signSharedImages([message])
-    return res.status(200).json({ message: signedMessage })
+    res.status(200).json({ message: signedMessage })
+
+    // Yanıt gönderildikten SONRA: push (FCM + web push) ve okundu işareti
+    // gönderenin beklemesini uzatmasın. Coolify'daki kalıcı Node sürecinde
+    // yanıt sonrası iş güvenle tamamlanır. Bildirim çubuğundan cevap bu
+    // yüzden saniyelerce "gönderiliyor"da kalıyordu.
+    ;(async () => {
+      // Cevap yazan kişi karşının mesajlarını okumuş sayılır.
+      await supabaseAdmin
+        .from('messages')
+        .update({ is_read: true })
+        .eq('sender_id', recipientId)
+        .eq('recipient_id', user.id)
+        .eq('is_read', false)
+        .then(({ error }) => error && console.error('mark read on reply failed:', error.message))
+
+      // Bildirim ALICININ dilinde (önceden gönderenin dilindeydi).
+      const rLang = await recipientLang(supabaseAdmin, recipientId)
+      const { data: senderProfile } = await supabaseAdmin
+        .from('user_profiles')
+        .select('username, display_name')
+        .eq('id', user.id)
+        .maybeSingle()
+      const senderName = senderProfile?.display_name || senderProfile?.username || pushText(rLang, 'someone')
+
+      const attachmentLabel = attachment?.attachment_type === 'image'
+        ? pushText(rLang, 'photo')
+        : attachment?.attachment_type === 'video'
+        ? pushText(rLang, 'video')
+        : attachment?.attachment_type === 'file'
+        ? pushText(rLang, 'file')
+        : null
+      const sharedLabel = sharedRef
+        ? pushText(rLang, `shared_${sharedRef.type}`, { title: sharedRef.title || '' }).replace(/[:：]\s*$/, '')
+        : null
+      const pushBody = cleanContent
+        ? (cleanContent.length > 120 ? `${cleanContent.slice(0, 117)}...` : cleanContent)
+        : sharedLabel || attachmentLabel || ''
+
+      try {
+        // "url" web Service Worker'ı (public/sw.js notificationclick) içindir;
+        // Android "type"+"id"yi öncelikli okuyup thread/{senderId}'e gider.
+        await sendPushToUser(supabaseAdmin, recipientId, {
+          title: `${senderName} 💬`,
+          body: pushBody,
+          url: `/messages?with=${user.id}`,
+          type: 'message',
+          id: user.id,
+          senderId: user.id,
+          senderName,
+          tag: `message-${user.id}`,
+        })
+      } catch (err) {
+        console.error('push notification error (message):', err)
+      }
+
+    })().catch((err) => console.error('messages/send post-response error:', err))
+    return
+
   } catch (error) {
     console.error('messages/send error:', error)
     return res.status(500).json({ error: error.message || 'internal_error' })

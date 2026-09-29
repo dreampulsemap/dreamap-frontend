@@ -39,12 +39,17 @@ export default async function handler(req, res) {
     // Günlük limit kontrolü (sunucu tarafı - localStorage'a güvenilmez)
     const { data: profile } = await supabaseAdmin
       .from('user_profiles')
-      .select('last_compass_check_in')
+      .select('last_compass_check_in, last_compass_reading')
       .eq('id', user.id)
       .maybeSingle();
 
     const today = new Date().toISOString().split('T')[0];
     if (profile?.last_compass_check_in && profile.last_compass_check_in.split('T')[0] === today) {
+      // Bugünün okuması sunucuda saklı: cihaz önbelleği yoksa (yeniden kurulum,
+      // başka cihaz) kullanıcı yalnızca geri sayım görüyordu.
+      if (profile.last_compass_reading?.reading) {
+        return res.status(200).json({ ok: true, cached: true, data: profile.last_compass_reading });
+      }
       return res.status(429).json({ error: 'already_used_today' });
     }
 
@@ -89,7 +94,7 @@ Reminder: the "reading" and "archetype" text MUST be in ${langName}, not English
     // Günlük check-in'i kaydet
     await supabaseAdmin
       .from('user_profiles')
-      .update({ last_compass_check_in: new Date().toISOString() })
+      .update({ last_compass_check_in: new Date().toISOString(), last_compass_reading: compassData })
       .eq('id', user.id);
 
     return res.status(200).json({ ok: true, data: compassData });
