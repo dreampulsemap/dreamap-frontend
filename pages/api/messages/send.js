@@ -1,8 +1,10 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
 import { recipientLang, pushText } from '@/lib/pushI18n'
 import { sendPushToUser } from '@/lib/webPush'
+import { buildShareSnapshot, signSharedImages } from '@/lib/shareSnapshot'
 
 const MAX_LEN = 4000
+const MESSAGE_COLUMNS = 'id, sender_id, recipient_id, content, is_read, created_at, attachment_url, attachment_type, attachment_name, attachment_mime, attachment_size, reaction, shared_ref'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
@@ -11,7 +13,7 @@ export default async function handler(req, res) {
     const user = await getAuthedUser(req)
     if (!user) return res.status(401).json({ error: 'unauthorized' })
 
-    const { recipientId, content, lang, attachmentUrl, attachmentType, attachmentName, attachmentMime, attachmentSize } = req.body || {}
+    const { recipientId, content, lang, attachmentUrl, attachmentType, attachmentName, attachmentMime, attachmentSize, share } = req.body || {}
     if (!recipientId) return res.status(400).json({ error: 'recipientId_required' })
     if (recipientId === user.id) return res.status(400).json({ error: 'cannot_message_self' })
 
@@ -44,7 +46,16 @@ export default async function handler(req, res) {
       }
     }
 
-    if (!cleanContent && !attachment) return res.status(400).json({ error: 'content_required' })
+    // Rüya / günce / vizyon paylaşımı: istemci yalnızca {type, id} gönderir,
+    // kartın metnini ve yetki kontrolünü sunucu yapar (bkz. lib/shareSnapshot.js).
+    let sharedRef = null
+    if (share) {
+      const result = await buildShareSnapshot(supabaseAdmin, { type: share.type, id: share.id, sharerId: user.id })
+      if (!result.ok) return res.status(result.status).json({ error: result.error })
+      sharedRef = result.snapshot
+    }
+
+    if (!cleanContent && !attachment && !sharedRef) return res.status(400).json({ error: 'content_required' })
 
     const { data: recipientProfile, error: recipientError } = await supabaseAdmin
       .from('user_profiles')
@@ -70,8 +81,8 @@ export default async function handler(req, res) {
 
     const { data: message, error: insertError } = await supabaseAdmin
       .from('messages')
-      .insert({ sender_id: user.id, recipient_id: recipientId, content: cleanContent, ...attachment })
-      .select('id, sender_id, recipient_id, content, is_read, created_at, attachment_url, attachment_type, attachment_name, attachment_mime, attachment_size, reaction')
+      .insert({ sender_id: user.id, recipient_id: recipientId, content: cleanContent, ...attachment, shared_ref: sharedRef })
+      .select(MESSAGE_COLUMNS)
       .single()
 
     if (insertError) throw insertError
@@ -98,9 +109,12 @@ export default async function handler(req, res) {
       : attachment?.attachment_type === 'file'
       ? pushText(rLang, 'file')
       : null
+    const sharedLabel = sharedRef
+      ? pushText(rLang, `shared_${sharedRef.type}`, { title: sharedRef.title || '' }).replace(/[:：]\s*$/, '')
+      : null
     const pushBody = cleanContent
       ? (cleanContent.length > 120 ? `${cleanContent.slice(0, 117)}...` : cleanContent)
-      : attachmentLabel || ''
+      : sharedLabel || attachmentLabel || ''
 
     try {
       // "url" web Service Worker'ı (public/sw.js notificationclick) içindir;
@@ -119,7 +133,8 @@ export default async function handler(req, res) {
       console.error('push notification error (message):', err)
     }
 
-    return res.status(200).json({ message })
+    const [signedMessage] = await signSharedImages([message])
+    return res.status(200).json({ message: signedMessage })
   } catch (error) {
     console.error('messages/send error:', error)
     return res.status(500).json({ error: error.message || 'internal_error' })

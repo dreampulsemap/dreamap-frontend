@@ -36,7 +36,9 @@ export default function App({ Component, pageProps }) {
 
   // Tam ekran olan Küre, hata sayfaları veya WhatsApp-tarzı tam ekran
   // mesajlaşma sayfasında menüleri gizle
-  const hideNavbarPaths = ['/globe', '/auth/callback', '/verify', '/analizetgulum', '/messages', '/app']
+  // /share/...: dış platformlardan gelen paylaşım bağlantısının kendi
+  // "uygulamada aç / indir" düzeni var; site menüleri orada kafa karıştırıyor.
+  const hideNavbarPaths = ['/globe', '/auth/callback', '/verify', '/analizetgulum', '/messages', '/app', '/share/[type]/[id]']
   const shouldHideNavbar = hideNavbarPaths.includes(router.pathname)
 
   return (

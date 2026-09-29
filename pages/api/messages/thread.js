@@ -1,4 +1,5 @@
 import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { signSharedImages } from '@/lib/shareSnapshot'
 
 const PAGE_SIZE = 50
 
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
 
     let query = supabaseAdmin
       .from('messages')
-      .select('id, sender_id, recipient_id, content, is_read, created_at, attachment_url, attachment_type, attachment_name, attachment_mime, attachment_size, reaction')
+      .select('id, sender_id, recipient_id, content, is_read, created_at, attachment_url, attachment_type, attachment_name, attachment_mime, attachment_size, reaction, shared_ref')
       .or(`and(sender_id.eq.${user.id},recipient_id.eq.${otherId}),and(sender_id.eq.${otherId},recipient_id.eq.${user.id})`)
 
     if (after) {
@@ -41,7 +42,9 @@ export default async function handler(req, res) {
     if (error) throw error
 
     // before/ilk-yükleme DESC geldiği için ekranda eskiden-yeniye göstermek üzere ters çeviriyoruz.
-    const messages = after ? (rows || []) : (rows || []).slice().reverse()
+    const ordered = after ? (rows || []) : (rows || []).slice().reverse()
+    // Günce kartlarındaki görsel private bucket'ta: her okumada taze imza.
+    const messages = await signSharedImages(ordered)
 
     // Bu thread'i açan kişi, karşı taraftan gelen okunmamış mesajları görmüş sayılır.
     const { error: markReadError } = await supabaseAdmin

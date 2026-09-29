@@ -27,6 +27,25 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+const SHARED_TYPE_LABELS = {
+  dream: { tr: '🌙 Rüya', en: '🌙 Dream' },
+  diary: { tr: '📖 Günce', en: '📖 Diary' },
+  vision: { tr: '✨ Vizyon', en: '✨ Vision' },
+}
+
+function sharedTypeLabel(type, lang) {
+  const labels = SHARED_TYPE_LABELS[type]
+  if (!labels) return ''
+  return lang === 'tr' ? labels.tr : labels.en
+}
+
+// Paylaşılan rüya / günce / vizyon kartının konuşma listesindeki özeti.
+function sharedPreviewLabel(ref, lang) {
+  if (!ref) return ''
+  const label = sharedTypeLabel(ref.type, lang)
+  return ref.title ? `${label}: ${ref.title}` : label
+}
+
 function attachmentPreviewLabel(type, lang) {
   if (type === 'image') return lang === 'tr' ? '📷 Fotoğraf' : '📷 Photo'
   if (type === 'video') return lang === 'tr' ? '🎥 Video' : '🎥 Video'
@@ -390,7 +409,9 @@ export default function MessagesPage() {
                         {c.unreadCount > 0 && <span className="flex-shrink-0 w-2 h-2 rounded-full bg-brand-secondary-400" />}
                       </div>
                       <p className={`truncate text-xs ${c.unreadCount > 0 ? 'text-slate-300' : 'text-slate-500'}`}>
-                        {c.lastMessage?.content || attachmentPreviewLabel(c.lastMessage?.attachment_type, lang)}
+                        {c.lastMessage?.content ||
+                          sharedPreviewLabel(c.lastMessage?.shared_ref, lang) ||
+                          attachmentPreviewLabel(c.lastMessage?.attachment_type, lang)}
                       </p>
                     </div>
                   </button>
@@ -449,10 +470,36 @@ export default function MessagesPage() {
                         ) : (
                           messages.map((m) => {
                             const mine = m.sender_id === viewer?.id
-                            const hasAttachment = !!m.attachment_type
+                            const shared = m.shared_ref
+                            const hasAttachment = !!m.attachment_type || !!shared
                             return (
                               <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-[75%] rounded-2xl text-sm overflow-hidden ${mine ? 'bg-brand-secondary-500 text-black' : 'bg-white/10 text-white'}`}>
+                                  {shared && (
+                                    <a
+                                      href={`/share/${shared.type}/${shared.id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`block min-w-[220px] transition-colors ${mine ? 'hover:bg-black/10' : 'hover:bg-white/5'}`}
+                                    >
+                                      {shared.image_url && (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={shared.image_url} alt="" className="max-h-56 w-full object-cover" />
+                                      )}
+                                      <span className="block px-3.5 pt-2.5">
+                                        <span className={`block text-[10px] font-bold uppercase tracking-widest ${mine ? 'text-black/60' : 'text-amber-200/80'}`}>
+                                          {sharedTypeLabel(shared.type, lang)}
+                                        </span>
+                                        {shared.title && <span className="block font-semibold break-words">{shared.title}</span>}
+                                        {shared.excerpt && shared.excerpt !== shared.title && (
+                                          <span className={`block text-xs break-words line-clamp-3 ${mine ? 'text-black/70' : 'text-white/70'}`}>{shared.excerpt}</span>
+                                        )}
+                                        {shared.owner_name && (
+                                          <span className={`block text-[10px] mt-1 ${mine ? 'text-black/50' : 'text-white/40'}`}>{shared.owner_name}</span>
+                                        )}
+                                      </span>
+                                    </a>
+                                  )}
                                   {m.attachment_type === 'image' && (
                                     <a href={m.attachment_url} target="_blank" rel="noopener noreferrer" className="block">
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
