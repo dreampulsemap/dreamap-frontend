@@ -8,9 +8,8 @@ import {
   loadShareable,
   loadOwnerProfile,
   ownerDisplayName,
-  sharePath,
-  clip,
 } from '@/lib/shareSnapshot'
+import { clip, sharePath } from '@/lib/shareUtils'
 
 // Dış platformlarda (WhatsApp, X, Facebook, Telegram...) paylaşılan
 // rüya / günce / vizyon bağlantısının açılış sayfası.
