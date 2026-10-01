@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { X, Trash2, Target, Volume2, VolumeX, Pause } from 'lucide-react'
+import { X, Trash2, Target, Volume2, VolumeX, Pause, Share2 } from 'lucide-react'
+import ShareSheet from '@/components/ShareSheet'
 import { supabase } from '@/lib/supabase'
 import { useModalA11y } from '@/lib/useModalA11y'
 import { getDiaryText } from '@/lib/diaryTranslations'
@@ -42,6 +43,7 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
   const [entryIndex, setEntryIndex] = useState(0)
   const [cache, setCache] = useState({}) // userId -> { owner, entries, status }
   const [paused, setPaused] = useState(false)
+  const [shareEntry, setShareEntry] = useState(null)
   const [muted, setMuted] = useState(true)
   const [videoDurationS, setVideoDurationS] = useState(null)
   const [buffering, setBuffering] = useState(false)
@@ -346,6 +348,15 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
                 {confirmDelete && <span className="text-xs font-medium whitespace-nowrap">{deleting ? '...' : t.deleteConfirmBtn}</span>}
               </button>
             )}
+            {entry && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setPaused(true); setShareEntry(entry) }}
+                aria-label={lang === 'tr' ? 'Paylaş' : 'Share'}
+                className="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white"
+              >
+                <Share2 size={14} />
+              </button>
+            )}
             <button onClick={onClose} aria-label={t.close} className="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white">
               <X size={16} />
             </button>
@@ -386,6 +397,15 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
           </div>
         )}
       </div>
+      {shareEntry && (
+        <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+          <ShareSheet
+            content={{ type: 'diary', id: shareEntry.id, title: shareEntry.caption || '', isPublic: shareEntry.visibility === 'public' }}
+            lang={lang}
+            onClose={() => { setShareEntry(null); setPaused(false) }}
+          />
+        </div>
+      )}
     </div>
   )
 }

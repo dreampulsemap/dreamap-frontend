@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { usePushSubscription } from '@/hooks/usePushSubscription'
 import Image from 'next/image'
-import { Upload, Search as SearchIcon, Pencil, Heart, MessageCircle, Send, Trash2 } from 'lucide-react'
+import { Upload, Search as SearchIcon, Pencil, Heart, MessageCircle, Send, Trash2, Share2, Flag } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from 'next/router'
 import { getTranslation } from '@/lib/translations'
@@ -18,6 +18,9 @@ import StoryModeModal from '@/components/StoryModeModal'
 import PixabayPicker from '@/components/PixabayPicker'
 import DreamEditModal from '@/components/dreams/DreamEditModal'
 import AuthorHeader from '@/components/AuthorHeader'
+import ShareSheet from '@/components/ShareSheet'
+import ReportSheet from '@/components/ReportSheet'
+import DreamBoostBounty from '@/components/DreamBoostBounty'
 
 const GUMROAD_PRODUCT_URL = 'https://shop.lunosfer.com'
 
@@ -35,6 +38,8 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
   const t = getDreamCardText(currentLang)
 
   const [user, setUser] = useState(null)
+  const [showShare, setShowShare] = useState(false)
+  const [showReport, setShowReport] = useState(false)
   const [liked, setLiked] = useState(false)
   const [likesCount, setLikesCount] = useState(dream.likes_count || 0)
   const [showComments, setShowComments] = useState(false)
@@ -594,6 +599,25 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
           return (
             <div className="flex items-center justify-between mb-3 -mt-1">
               {postOwner ? <AuthorHeader owner={postOwner} lang={lang} onNavigate={onClose} /> : <span />}
+              <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowShare(true)}
+                aria-label={lang === 'tr' ? 'Paylaş' : 'Share'}
+                className="rounded-full p-1.5 text-slate-400 hover:bg-white/5 hover:text-white transition"
+              >
+                <Share2 size={14} />
+              </button>
+              {user && !isOwner && (
+                <button
+                  type="button"
+                  onClick={() => setShowReport(true)}
+                  aria-label={lang === 'tr' ? 'Rüyayı bildir' : 'Report dream'}
+                  className="rounded-full p-1.5 text-slate-400 hover:bg-white/5 hover:text-red-300 transition"
+                >
+                  <Flag size={14} />
+                </button>
+              )}
               {isOwner && (
                 <button
                   type="button"
@@ -604,6 +628,7 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
                   {lang === 'tr' ? 'Düzenle' : 'Edit'}
                 </button>
               )}
+              </div>
             </div>
           )
         })()}
@@ -665,6 +690,8 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
           </div>
         )}
         <p className="mb-6">{translated ? translatedContent : dream.content}</p>
+
+        {isOwner && <DreamBoostBounty dream={effectiveDream} lang={lang} onAurasChange={setPremiumAuras} />}
 
         {Array.isArray(effectiveDream.tags) && effectiveDream.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-5 -mt-3">
@@ -864,6 +891,22 @@ export default function DreamCard({ dream, lang, onTranslate, translating, trans
         )}
       </article>
 
+      {showShare && (
+        <ShareSheet
+          content={{ type: 'dream', id: dream.id, title: effectiveDream.ai_title || effectiveDream.content, isPublic: effectiveDream.visibility === 'public' }}
+          lang={currentLang}
+          onClose={() => setShowShare(false)}
+        />
+      )}
+      {showReport && (
+        <ReportSheet
+          lang={currentLang}
+          title={currentLang === 'tr' ? 'Rüyayı Bildir' : 'Report Dream'}
+          endpoint="/api/reports/dream"
+          buildBody={() => ({ dreamId: dream.id })}
+          onClose={() => setShowReport(false)}
+        />
+      )}
       {showConfirmModal && <DeepAnalysisConfirmationModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} auras={premiumAuras} isPremiumMember={isPremiumMember} onConfirm={handlePremiumAnalysisExecute} lang={currentLang} gumroadUrl={GUMROAD_PRODUCT_URL} isGift={!isOwner} isGenerating={premiumGenerating} />}
       {showEditModal && (
         <DreamEditModal

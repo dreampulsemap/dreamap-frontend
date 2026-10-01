@@ -3,7 +3,10 @@ import { useRouter } from 'next/router'
 import Seo from '@/components/Seo'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { ArrowLeft, MessageCircle, Send, Paperclip, X, FileText, Download, Home } from 'lucide-react'
+import { ArrowLeft, MessageCircle, Send, Paperclip, X, FileText, Download, Home, Flag } from 'lucide-react'
+import ReportSheet from '@/components/ReportSheet'
+
+const MESSAGE_REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏']
 import { supabase } from '@/lib/supabase'
 
 const POLL_INTERVAL_MS = 5000
@@ -79,6 +82,26 @@ export default function MessagesPage() {
   const [attachedPreviewUrl, setAttachedPreviewUrl] = useState('')
   const [attachmentError, setAttachmentError] = useState('')
   const [uploading, setUploading] = useState(false)
+  // Mesaja dokununca açılan tepki + bildir çubuğu (Android ThreadScreen ile aynı set).
+  const [activeMsgId, setActiveMsgId] = useState(null)
+  const [reportMsgId, setReportMsgId] = useState(null)
+
+  async function reactToMessage(message, emoji) {
+    const next = message.reaction === emoji ? '' : emoji
+    setActiveMsgId(null)
+    setMessages((list) => list.map((x) => (x.id === message.id ? { ...x, reaction: next || null } : x)))
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/messages/react', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ messageId: message.id, reaction: next }),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      setMessages((list) => list.map((x) => (x.id === message.id ? { ...x, reaction: message.reaction || null } : x)))
+    }
+  }
 
   const pollRef = useRef(null)
   const scrollRef = useRef(null)
@@ -473,8 +496,36 @@ export default function MessagesPage() {
                             const shared = m.shared_ref
                             const hasAttachment = !!m.attachment_type || !!shared
                             return (
-                              <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[75%] rounded-2xl text-sm overflow-hidden ${mine ? 'bg-brand-secondary-500 text-black' : 'bg-white/10 text-white'}`}>
+                              <div key={m.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+                                {activeMsgId === m.id && (
+                                  <div className="mb-1 flex items-center gap-1 rounded-full border border-white/10 bg-void-900 px-2 py-1 shadow-lg">
+                                    {MESSAGE_REACTIONS.map((emoji) => (
+                                      <button
+                                        key={emoji}
+                                        onClick={() => reactToMessage(m, emoji)}
+                                        className={`rounded-full px-1 text-lg leading-none hover:scale-125 transition ${m.reaction === emoji ? 'bg-white/15' : ''}`}
+                                      >
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                    {!mine && (
+                                      <button
+                                        onClick={() => { setActiveMsgId(null); setReportMsgId(m.id) }}
+                                        aria-label={lang === 'tr' ? 'Mesajı bildir' : 'Report message'}
+                                        className="ml-1 rounded-full p-1 text-slate-400 hover:text-red-300"
+                                      >
+                                        <Flag size={14} />
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                                <div
+                                  onClick={(e) => {
+                                    if (e.target.closest('a, video, button')) return
+                                    setActiveMsgId((cur) => (cur === m.id ? null : m.id))
+                                  }}
+                                  className={`relative max-w-[75%] rounded-2xl text-sm overflow-hidden cursor-pointer ${mine ? 'bg-brand-secondary-500 text-black' : 'bg-white/10 text-white'}`}
+                                >
                                   {shared && (
                                     <a
                                       href={`/share/${shared.type}/${shared.id}`}
@@ -533,6 +584,9 @@ export default function MessagesPage() {
                                     </p>
                                   </div>
                                 </div>
+                                {m.reaction && (
+                                  <span className="-mt-1.5 mx-2 rounded-full border border-white/10 bg-void-900 px-1.5 text-xs leading-5">{m.reaction}</span>
+                                )}
                               </div>
                             )
                           })
@@ -610,6 +664,15 @@ export default function MessagesPage() {
             </div>
           </div>
         </main>
+        {reportMsgId && (
+          <ReportSheet
+            lang={lang}
+            title={lang === 'tr' ? 'Mesajı Bildir' : 'Report Message'}
+            endpoint="/api/reports/message"
+            buildBody={() => ({ messageId: reportMsgId })}
+            onClose={() => setReportMsgId(null)}
+          />
+        )}
     </>
   )
 }

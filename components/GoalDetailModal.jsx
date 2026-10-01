@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Check, MessageCircle, Trash2, ArrowUp, Image as ImageIcon, Sparkles as SparklesIcon, Search as SearchIcon, Share2 } from 'lucide-react'
+import { X, Check, MessageCircle, Trash2, ArrowUp, Image as ImageIcon, Sparkles as SparklesIcon, Search as SearchIcon, Share2, Copy } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import { useModalA11y } from '@/lib/useModalA11y'
@@ -9,6 +9,8 @@ import VisionVideoPlayer from './VisionVideoPlayer'
 import SlidesViewer from './SlidesViewer'
 import PixabayPicker from './PixabayPicker'
 import AuthorHeader from './AuthorHeader'
+import ShareSheet from './ShareSheet'
+import VisionCollaborators from './VisionCollaborators'
 
 async function authHeader() {
   const { data: { session } } = await supabase.auth.getSession()
@@ -30,6 +32,9 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [shareCopied, setShareCopied] = useState(false)
+  const [showShareSheet, setShowShareSheet] = useState(false)
+  const [cloning, setCloning] = useState(false)
+  const [cloneMsg, setCloneMsg] = useState('')
   const [generatingCover, setGeneratingCover] = useState(false)
   const [coverError, setCoverError] = useState('')
   const [galleryImages, setGalleryImages] = useState(initialGoal.gallery_image_urls || [])
@@ -246,28 +251,34 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
     }
   }
 
-  async function handleShare() {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.lunosfer.com'
-    const text = t.shareText(goal.title)
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: goal.title, text, url: appUrl })
-        return
-      } catch (err) {
-        // Kullanıcı paylaşım sayfasını kendi iptal ettiyse (AbortError) sessizce
-        // çık — bu bir hata değil. Başka herhangi bir sebeple (izin reddi,
-        // API var ama gerçekte desteklenmiyor vb.) başarısız olursa aşağıdaki
-        // panoya kopyalama yedeğine düş; ÖNCEDEN her durumda sessizce
-        // vazgeçiliyordu, bu yüzden PAYLAŞ butonu bazı tarayıcılarda hiçbir
-        // görünür tepki vermiyordu.
-        if (err?.name === 'AbortError') return
-      }
-    }
+  // Android ShareSheet ile aynı: arkadaşa DM + dış platformlar + bağlantı.
+  function handleShare() {
+    setShowShareSheet(true)
+  }
+
+  // "Vizyonlarıma ekle" — başkasının vizyonunu kendi panona kopyalar
+  // (pages/api/goals/clone.js; aynı vizyonu ikinci kez eklemez).
+  async function cloneToMyVisions() {
+    if (cloning || isOwner || !currentUserId) return
+    setCloning(true)
+    setCloneMsg('')
     try {
-      await navigator.clipboard.writeText(`${text} ${appUrl}`)
-      setShareCopied(true)
-      setTimeout(() => setShareCopied(false), 2000)
-    } catch (_) {}
+      const headers = await authHeader()
+      const res = await fetch('/api/goals/clone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ goalId: goal.id }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error)
+      setCloneMsg(json.already_cloned
+        ? (lang === 'tr' ? 'Bu vizyonu zaten eklemiştiniz' : 'You already added this vision')
+        : (lang === 'tr' ? 'Vizyonlarınıza eklendi' : 'Added to your visions'))
+    } catch {
+      setCloneMsg(lang === 'tr' ? 'Vizyon eklenemedi' : "Vision couldn't be added")
+    } finally {
+      setCloning(false)
+    }
   }
 
   async function removeGalleryImage(imageUrl) {
@@ -463,8 +474,24 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
             <h2 className="text-white font-bold text-lg">{goal.title}</h2>
             {goal.description && <p className="text-slate-400 text-sm mt-1">{goal.description}</p>}
           </div>
-          <button onClick={onClose} aria-label={lang === 'tr' ? 'Kapat' : 'Close'} className="text-slate-400 hover:text-white shrink-0"><X size={20} /></button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={handleShare} aria-label={lang === 'tr' ? 'Paylaş' : 'Share'} className="text-slate-400 hover:text-white"><Share2 size={18} /></button>
+            <button onClick={onClose} aria-label={lang === 'tr' ? 'Kapat' : 'Close'} className="text-slate-400 hover:text-white"><X size={20} /></button>
+          </div>
         </div>
+
+        {currentUserId && !isOwner && (
+          <div className="mb-4">
+            <button
+              onClick={cloneToMyVisions}
+              disabled={cloning}
+              className="flex items-center gap-1.5 rounded-full border border-astral-gold/40 px-3 py-1.5 text-xs font-bold text-astral-gold hover:bg-astral-gold/10 disabled:opacity-50"
+            >
+              <Copy size={13} /> {lang === 'tr' ? 'Vizyonlarıma Ekle' : 'Add to My Visions'}
+            </button>
+            {cloneMsg && <p className="mt-1 text-[11px] text-slate-300" role="status">{cloneMsg}</p>}
+          </div>
+        )}
 
         {goal.status === 'active' && (
           <button
@@ -748,6 +775,8 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
           </div>
         )}
 
+        <VisionCollaborators goalId={goal.id} isOwner={!!isOwner} currentUserId={currentUserId} lang={lang} />
+
         {isOwner && (
           <button
             onClick={deleteGoal}
@@ -808,6 +837,13 @@ export default function GoalDetailModal({ goal: initialGoal, lang = 'en', curren
           </ul>
         </div>
       </div>
+      {showShareSheet && (
+        <ShareSheet
+          content={{ type: 'vision', id: goal.id, title: goal.title, isPublic: goal.visibility === 'public' }}
+          lang={lang}
+          onClose={() => setShowShareSheet(false)}
+        />
+      )}
     </div>
   )
 }

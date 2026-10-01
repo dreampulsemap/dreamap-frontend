@@ -16,6 +16,7 @@ import DiaryStoryRow from '@/components/DiaryStoryRow'
 import DiaryStoryViewer from '@/components/DiaryStoryViewer'
 import DiaryComposer from '@/components/DiaryComposer'
 import DailyCompass from '@/components/DailyCompass'
+import { DailyQuestsCard } from '@/components/game/GameUI'
 import TextSkeleton from '@/components/TextSkeleton'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import Seo, { SITE_NAME, SITE_URL } from '@/components/Seo'
@@ -179,6 +180,11 @@ export default function HomePage() {
         {user && (
           <div className="mb-4">
             <DailyCompass lang={lang} />
+          </div>
+        )}
+        {user && (
+          <div className="mb-4">
+            <DailyQuestsCard lang={lang} href="/journey" />
           </div>
         )}
 

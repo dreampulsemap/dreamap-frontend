@@ -20,6 +20,8 @@ import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import DiaryStoryViewer from '@/components/DiaryStoryViewer'
 import DiaryJournal from '@/components/DiaryJournal'
 import PsycheMap from '@/components/PsycheMap'
+import AISummariesCard from '@/components/AISummariesCard'
+import { JourneySummaryCard } from '@/components/game/GameUI'
 import Seo from '@/components/Seo'
 
 const BATCH_SIZE = 12;
@@ -669,6 +671,25 @@ export default function ProfilePage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Android profilindeki Yolculuğum özeti + AI özetleri + menü girişleri */}
+        {mounted && user && (
+          <div className="mb-4 space-y-3">
+            <JourneySummaryCard lang={lang} />
+            <div className="flex flex-wrap gap-2">
+              <Link href="/journey" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] hover:text-white">
+                🏆 {lang === 'tr' ? 'Yolculuğum' : 'My Journey'}
+              </Link>
+              <Link href="/shared-visions" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] hover:text-white">
+                🤝 {lang === 'tr' ? 'Paylaşılan Vizyonlar' : 'Shared Visions'}
+              </Link>
+              <Link href="/blocked-users" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] hover:text-white">
+                🚫 {lang === 'tr' ? 'Engellenen Kullanıcılar' : 'Blocked Users'}
+              </Link>
+            </div>
+            <AISummariesCard lang={lang} user={user} />
           </div>
         )}
 

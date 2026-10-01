@@ -10,6 +10,8 @@ import DailySeedsPanel from '@/components/DailySeedsPanel'
 import MentalWallPanel from '@/components/MentalWallPanel'
 import DeepAnalysisPanel from '@/components/DeepAnalysisPanel'
 import ReferralWidget from '@/components/ReferralWidget'
+import ProphetPanel from '@/components/ProphetPanel'
+import AISummariesCard from '@/components/AISummariesCard'
 import EmptyState from '@/components/EmptyState'
 import ErrorState from '@/components/ErrorState'
 import SlidesViewer from '@/components/SlidesViewer'
@@ -161,6 +163,8 @@ export default function VisionBoardPage() {
 
         <DailySeedsPanel lang={lang} user={user} activeGoals={ownActiveGoals} />
         <MentalWallPanel lang={lang} user={user} />
+        <ProphetPanel lang={lang} user={user} />
+        <AISummariesCard lang={lang} user={user} />
         <DeepAnalysisPanel lang={lang} user={user} />
         <ReferralWidget lang={lang} user={user} />
 

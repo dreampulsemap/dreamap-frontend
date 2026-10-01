@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
-import { Home, Compass, Target, MessageCircle, User, Moon, Plus } from 'lucide-react'
+import { Home, Compass, Target, MessageCircle, User, Moon, Plus, Trophy, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 
@@ -102,6 +102,27 @@ export default function Sidebar() {
           )
         })}
       </nav>
+
+      {/* Android ana menüsündeki ikincil girişler (Yolculuğum, Paylaşılan Vizyonlar) */}
+      {user && (
+        <nav className="mt-4 flex flex-col gap-1 border-t border-white/5 pt-4">
+          {[
+            { href: '/journey', icon: Trophy, label: currentLang === 'tr' ? 'Yolculuğum' : 'My Journey' },
+            { href: '/shared-visions', icon: Users, label: currentLang === 'tr' ? 'Paylaşılan Vizyonlar' : 'Shared Visions' },
+          ].map(({ href, icon: Icon, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
+                isActive(href) ? 'bg-white/5 text-astral-gold' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <Icon size={17} className="shrink-0" />
+              <span>{label}</span>
+            </Link>
+          ))}
+        </nav>
+      )}
 
       {/* Google Play Console "App content" formunun zorunlu kıldığı,
           uygulama içinden (bu durumda web'den) erişilebilir Gizlilik

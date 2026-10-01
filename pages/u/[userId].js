@@ -15,6 +15,7 @@ import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import DiaryStoryViewer from '@/components/DiaryStoryViewer'
 import Seo from '@/components/Seo'
+import { PublicRankRow } from '@/components/game/GameUI'
 
 export default function PublicProfilePage() {
   const router = useRouter()
@@ -238,6 +239,7 @@ export default function PublicProfilePage() {
               <div className="flex-1 text-center sm:text-left">
                 <h1 className="text-2xl font-bold text-white">{profile.display_name || profile.username}</h1>
                 {profile.username && <p className="text-slate-500 text-sm">@{profile.username}</p>}
+                <div className="flex sm:justify-start justify-center"><PublicRankRow userId={userId} lang={lang} /></div>
                 {followsViewer && (
                   <span className="inline-block mt-1 rounded-full bg-white/5 px-2.5 py-0.5 text-[10px] text-slate-400 uppercase tracking-widest">
                     {lang === 'tr' ? 'Seni takip ediyor' : 'Follows you'}
