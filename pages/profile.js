@@ -21,6 +21,7 @@ import DiaryStoryViewer from '@/components/DiaryStoryViewer'
 import DiaryJournal from '@/components/DiaryJournal'
 import PsycheMap from '@/components/PsycheMap'
 import AISummariesCard from '@/components/AISummariesCard'
+import ReferralWidget from '@/components/ReferralWidget'
 import { JourneySummaryCard } from '@/components/game/GameUI'
 import Seo from '@/components/Seo'
 
@@ -697,6 +698,7 @@ export default function ProfilePage() {
               </Link>
             </div>
             <AISummariesCard lang={lang} user={user} />
+            <div className="mt-4"><ReferralWidget lang={lang} user={user} /></div>
           </div>
         )}
 

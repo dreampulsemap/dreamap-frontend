@@ -1,19 +1,15 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { RefreshCw } from 'lucide-react'
 import { useRouter } from 'next/router'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
-import GoalCard from '@/components/GoalCard'
+import VisionGridCard from '@/components/VisionGridCard'
+import VisionCompassCard from '@/components/VisionCompassCard'
 import CreateGoalModal from '@/components/CreateGoalModal'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import DailySeedsPanel from '@/components/DailySeedsPanel'
-import MentalWallPanel from '@/components/MentalWallPanel'
-import DeepAnalysisPanel from '@/components/DeepAnalysisPanel'
-import ReferralWidget from '@/components/ReferralWidget'
-import ProphetPanel from '@/components/ProphetPanel'
 import AISummariesCard from '@/components/AISummariesCard'
-import EmptyState from '@/components/EmptyState'
-import ErrorState from '@/components/ErrorState'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import VisionReelsFeed from '@/components/VisionReelsFeed'
@@ -28,7 +24,6 @@ export default function VisionBoardPage() {
   const t = getVisionBoardText(lang)
 
   const [user, setUser] = useState(null)
-  const [tab, setTab] = useState('feed') // 'feed' | 'own'
   const [goals, setGoals] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
@@ -48,7 +43,6 @@ export default function VisionBoardPage() {
     if (!router.isReady || !authChecked) return
     if (router.query.create === '1') {
       if (user) {
-        setTab('own')
         setShowCreate(true)
       } else {
         router.replace('/auth')
@@ -122,8 +116,8 @@ export default function VisionBoardPage() {
   }, [])
 
   useEffect(() => {
-    loadGoals(tab, 0, true)
-  }, [tab, loadGoals])
+    loadGoals('feed', 0, true)
+  }, [loadGoals])
 
   function handleGoalUpdated(updatedGoal) {
     setGoals((list) => list.map((g) => (g.id === updatedGoal.id ? { ...g, ...updatedGoal } : g)))
@@ -144,99 +138,59 @@ export default function VisionBoardPage() {
     else setReelsGoalId(goal.id)
   }
 
+  const tr = lang === 'tr'
+  const observerRef = useRef(null)
+  const lastRef = useCallback((node) => {
+    if (loading || !hasMore) return
+    if (observerRef.current) observerRef.current.disconnect()
+    observerRef.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) loadGoals('feed', page + 1, false)
+    })
+    if (node) observerRef.current.observe(node)
+  }, [loading, hasMore, page, loadGoals])
+
+  // Android VisionScreen sırası: pusula > rüya özetleri > günün tohumları > herkese açık vizyonlar.
   return (
-    <div className="min-h-screen bg-black">
-      <Seo title={lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board'} noindex lang={lang} />
-      <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8 pb-16">
-        <div className={`mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
-          <div>
-            <h1 className="text-h1 text-white">{t.pageTitle}</h1>
-            <p className="text-slate-400 text-sm mt-1">{t.pageSubtitle}</p>
-          </div>
-          <button
-            onClick={() => (user ? setShowCreate(true) : (window.location.href = '/auth'))}
-            className="px-5 py-2.5 rounded-full bg-gradient-to-r from-brand-primary-500 to-brand-accent-500 text-white text-sm font-bold uppercase tracking-widest hover:opacity-90 self-start sm:self-auto"
-          >
-            + {t.createGoalBtn}
-          </button>
+    <div className="min-h-screen bg-void-950">
+      <Seo title={tr ? 'Vizyon' : 'Vision'} noindex lang={lang} />
+      {loadError && goals.length === 0 && !loading ? (
+        <div className="flex flex-col items-center px-6 py-24 text-center">
+          <p className="font-serif text-base text-white">{tr ? 'Vizyonlar yüklenemedi' : 'Visions could not be loaded'}</p>
+          <button onClick={() => loadGoals('feed', 0, true)} className="mt-4 flex items-center gap-2 rounded-full border border-astral-gold/40 px-5 py-2 text-sm text-astral-gold"><RefreshCw size={16} />{tr ? 'Tekrar Dene' : 'Retry'}</button>
         </div>
+      ) : (
+        <div className="flex flex-col gap-5 p-4">
+          {user && <VisionCompassCard lang={lang} />}
+          <AISummariesCard lang={lang} user={user} />
+          <DailySeedsPanel lang={lang} user={user} activeGoals={ownActiveGoals} onGoalClick={setActiveGoal} />
 
-        <DailySeedsPanel lang={lang} user={user} activeGoals={ownActiveGoals} />
-        <MentalWallPanel lang={lang} user={user} />
-        <ProphetPanel lang={lang} user={user} />
-        <AISummariesCard lang={lang} user={user} />
-        <DeepAnalysisPanel lang={lang} user={user} />
-        <ReferralWidget lang={lang} user={user} />
-
-        <div className="flex items-center gap-2 mb-6">
-          <button
-            onClick={() => setTab('feed')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-              tab === 'feed' ? 'bg-brand-primary-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
-            }`}
-          >
-            {t.feedTab}
-          </button>
-          <button
-            onClick={() => (user ? setTab('own') : (window.location.href = '/auth'))}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-              tab === 'own' ? 'bg-brand-secondary-500 text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10'
-            }`}
-          >
-            {t.myGoalsTab}
-          </button>
+          <h2 className="mb-1 mt-2 font-serif text-lg font-bold text-astral-gold">{tr ? 'Herkese Açık Vizyonlar' : 'Public Visions'}</h2>
+          {goals.length === 0 && !loading ? (
+            <div className="py-8 text-center">
+              <p className="font-serif text-base text-white">{tr ? 'Henüz herkese açık bir vizyon yok' : 'No public visions yet'}</p>
+              <p className="mt-2 text-xs text-slate-400">{tr ? 'İlk vizyonu sen oluşturabilirsin.' : 'You can create the first vision yourself.'}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {goals.map((goal, i) => (
+                <div key={goal.id} ref={i === goals.length - 1 ? lastRef : null}>
+                  <VisionGridCard goal={goal} lang={lang} onClick={() => handleOpenGoal(goal)} />
+                </div>
+              ))}
+            </div>
+          )}
+          {loading && (
+            <div className="flex justify-center py-6"><span className="h-8 w-8 animate-spin rounded-full border-4 border-astral-gold/25 border-t-astral-gold" /></div>
+          )}
         </div>
-
-        {loadError && !loading && (
-          <ErrorState lang={lang} onRetry={() => loadGoals(tab, 0, true)} />
-        )}
-
-        {!loadError && goals.length === 0 && !loading && (
-          <EmptyState
-            icon="🌠"
-            title={tab === 'own' ? t.emptyMyGoals : t.emptyFeed}
-            actionLabel={tab === 'own' ? `+ ${t.createGoalBtn}` : undefined}
-            onAction={tab === 'own' ? () => (user ? setShowCreate(true) : (window.location.href = '/auth')) : undefined}
-          />
-        )}
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {goals.map((goal) => (
-            <GoalCard
-              key={goal.id}
-              goal={goal}
-              lang={lang}
-              currentUserId={user?.id}
-              onOpenGoal={handleOpenGoal}
-              onReacted={() => {}}
-            />
-          ))}
-        </div>
-
-        {loading && (
-          <div className="flex justify-center py-8">
-            <span className="text-slate-500 text-xs uppercase tracking-widest animate-pulse">...</span>
-          </div>
-        )}
-
-        {!loading && hasMore && goals.length > 0 && (
-          <div className="flex justify-center mt-8">
-            <button
-              onClick={() => loadGoals(tab, page + 1, false)}
-              className="px-6 py-2.5 rounded-full bg-white/5 text-slate-300 text-xs font-bold uppercase tracking-widest hover:bg-white/10"
-            >
-              {lang === 'tr' ? 'Daha Fazla' : 'Load More'}
-            </button>
-          </div>
-        )}
-      </div>
+      )}
 
       {showCreate && (
         <CreateGoalModal
           lang={lang}
           onClose={() => setShowCreate(false)}
           onCreated={(goal) => {
-            if (tab === 'own') setGoals((g) => [goal, ...g])
+            if (goal?.status === 'active' || !goal?.status) setOwnActiveGoals((g) => [goal, ...g])
           }}
         />
       )}
@@ -259,7 +213,7 @@ export default function VisionBoardPage() {
           t={t}
           currentUserId={user?.id}
           initialGoalId={reelsGoalId}
-          onLoadMore={() => loadGoals(tab, page + 1, false)}
+          onLoadMore={() => loadGoals('feed', page + 1, false)}
           hasMore={hasMore}
           loading={loading}
           onClose={() => setReelsGoalId(null)}
