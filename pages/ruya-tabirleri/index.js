@@ -23,6 +23,7 @@ export default function DreamGuidesIndex() {
       <Seo
         title="Rüya Tabirleri — Jung Psikolojisine Göre Rüya Rehberleri"
         description="Rüyada yılan görmek, düşmek, kovalanmak, ölüm ve daha fazlası. Rüya sembollerinin Jung psikolojisine göre yorumları ve ücretsiz yapay zekâ rüya analizi."
+        keywords={['rüya tabirleri', 'rüya tabiri', 'rüya yorumu', 'rüyada görmek ne demek', 'jung rüya analizi', ...DREAM_GUIDES.map((g) => g.keywords[0])]}
         jsonLd={jsonLd}
       />
       <div className="max-w-3xl mx-auto">

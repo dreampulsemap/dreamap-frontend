@@ -29,11 +29,22 @@ export default function DreamGuidePage({ guide, related }) {
         { '@type': 'ListItem', position: 3, name: guide.title, item: url },
       ],
     },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: guide.title.split('?')[0] + '?',
+          acceptedAnswer: { '@type': 'Answer', text: (guide.sections[0].p || []).join(' ') },
+        },
+      ],
+    },
   ]
 
   return (
     <div className="min-h-screen bg-void-950 text-white px-4 py-16">
-      <Seo title={guide.title} description={guide.description} type="article" jsonLd={jsonLd} />
+      <Seo title={guide.title} description={guide.description} type="article" keywords={[...guide.keywords, 'rüya tabiri', 'jung rüya analizi', 'Lunosfer']} jsonLd={jsonLd} />
       <article className="max-w-2xl mx-auto">
         <nav className="text-xs text-white/40 mb-6">
           <Link href="/" className="hover:text-white/70">Lunosfer</Link>
