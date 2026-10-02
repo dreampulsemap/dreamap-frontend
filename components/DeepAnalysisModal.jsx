@@ -25,6 +25,7 @@ export default function DeepAnalysisModal({
   isPremiumMember = false,
   onBuyAuras,
   onAurasChanged,
+  inline = false,
 }) {
   const t = getDeepAnalysisText(lang)
   const modalRef = useRef(null)
@@ -38,7 +39,7 @@ export default function DeepAnalysisModal({
   const [needsAuras, setNeedsAuras] = useState(false)
   const [toast, setToast] = useState(null)
 
-  useModalA11y(modalRef, isOpen && !loading ? onClose : null)
+  useModalA11y(modalRef, isOpen && !loading && !inline ? onClose : null)
 
   const authHeaders = useCallback(
     () => ({
@@ -226,28 +227,7 @@ export default function DeepAnalysisModal({
 
   if (!isOpen) return null
 
-  return (
-    <div
-      className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
-      role="dialog"
-      aria-modal="true"
-      onClick={loading ? undefined : onClose}
-    >
-      <div
-        ref={modalRef}
-        className="relative w-full max-w-2xl max-h-[92dvh] overflow-y-auto overscroll-contain rounded-3xl border border-white/10 bg-[#070b14] p-6 pb-10 shadow-[0_30px_100px_rgba(0,0,0,0.65)] sm:p-8"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          onClick={onClose}
-          disabled={loading}
-          aria-label={t.close}
-          className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors disabled:opacity-30"
-        >
-          <X size={20} />
-        </button>
-
-        {result ? (
+  const body = result ? (
           <ResultView
             t={t}
             analysis={result}
@@ -347,7 +327,32 @@ export default function DeepAnalysisModal({
 
             <p className="text-[11px] leading-relaxed text-white/35">{t.disclaimer}</p>
           </div>
-        )}
+        )
+
+  // Android DeepAnalysisScreen: ayrı ekran (sayfa başlığını çağıran çiziyor).
+  if (inline) return <div className="p-4">{body}</div>
+
+  return (
+    <div
+      className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      onClick={loading ? undefined : onClose}
+    >
+      <div
+        ref={modalRef}
+        className="relative w-full max-w-2xl max-h-[92dvh] overflow-y-auto overscroll-contain rounded-3xl border border-white/10 bg-[#070b14] p-6 pb-10 shadow-[0_30px_100px_rgba(0,0,0,0.65)] sm:p-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          disabled={loading}
+          aria-label={t.close}
+          className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors disabled:opacity-30"
+        >
+          <X size={20} />
+        </button>
+        {body}
       </div>
     </div>
   )

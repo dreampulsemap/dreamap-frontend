@@ -1,28 +1,79 @@
+// Android MainScreen.kt TopBar'ının web karşılığı — aynı düzen, aynı menü.
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useState, useEffect, useRef } from 'react'
-import { User, LogIn, Bell, Droplet, Sparkles } from 'lucide-react'
+import { User, LogIn, Bell, Droplet, Star, MoreVertical, Trophy } from 'lucide-react'
 import { supabase, auth } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
-import { getDreamCardText } from '@/lib/dreamCardTranslations'
-import TextSkeleton from '@/components/TextSkeleton'
 import { usePushSubscription } from '@/hooks/usePushSubscription'
+import { useGameProgress } from '@/components/game/GameUI'
+import { REPLAY_TOUR_EVENT } from '@/components/game/OnboardingTour'
+import { rankColor, rankProgress, rankName } from '@/lib/game'
 
 const SHOP_URL = 'https://shop.lunosfer.com'
 
-// Not: 'globe' kaldırıldı (mockup'ta yok, /globe sayfası hâlâ duruyor ama
-// artık üst seviye nav'dan bağlı değil), 'message' eklendi (bkz. pages/messages.js
-// — backend'i yok, geçici "yakında" sayfası).
-const NAV_ITEMS = [
-  { href: '/', key: 'home' },
-  { href: '/explore', key: 'explore' },
-  { href: '/vision-board', key: 'vision' },
-  { href: '/messages', key: 'message' },
-]
-const NAV_LABELS = {
-  home: { tr: 'Ana Sayfa', en: 'Home' }, explore: { tr: 'Keşfet', en: 'Explore' },
-  vision: { tr: 'Vizyon', en: 'Vision' }, message: { tr: 'Mesaj', en: 'Messages' },
+const TEXT = {
+  tr: {
+    auras: (n) => `Auraların: ${n}`, buyAura: 'Aura Satın Al', login: 'Giriş Yap', notifications: 'Bildirimler', more: 'Diğer seçenekler',
+    profile: 'Profil', journey: 'Yolculuğum', guide: 'Uygulama Rehberi', globe: 'Küre', shared: 'Paylaşılan Vizyonlar',
+    spiritual: 'Ruhsal Araçlar', deep: 'Derin Analiz', settings: 'Ayarlar', help: 'Yardım ve Geri Bildirim',
+  },
+  en: {
+    auras: (n) => `Your Auras: ${n}`, buyAura: 'Buy Aura', login: 'Log In', notifications: 'Notifications', more: 'More options',
+    profile: 'Profile', journey: 'My Journey', guide: 'App guide', globe: 'Globe', shared: 'Shared Visions',
+    spiritual: 'Spiritual Tools', deep: 'Deep Analysis', settings: 'Settings', help: 'Help & Feedback',
+  },
 }
+
+function RankRingAvatar({ lang, label }) {
+  const p = useGameProgress()
+  const prog = p && !p.is_guest ? p : null
+  const rank = prog?.rank || 0
+  const color = rankColor(rank)
+  const frac = prog ? rankProgress(prog) : 0
+  const r = 16.75
+  const c = 2 * Math.PI * r
+  return (
+    <Link
+      href="/profile"
+      aria-label={prog ? `${label} · ${rankName(lang, rank)}` : label}
+      className="relative mr-2 flex h-9 w-9 shrink-0 items-center justify-center"
+    >
+      <svg viewBox="0 0 36 36" className="absolute inset-0 h-9 w-9 -rotate-90" aria-hidden="true">
+        <circle cx="18" cy="18" r={r} fill="none" stroke={color} strokeOpacity="0.22" strokeWidth="2.5" />
+        {prog && (
+          <circle
+            cx="18" cy="18" r={r} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round"
+            strokeDasharray={c} strokeDashoffset={c * (1 - frac)} style={{ transition: 'stroke-dashoffset 900ms' }}
+          />
+        )}
+      </svg>
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-void-800">
+        <User size={18} className="text-astral-gold" fill="currentColor" />
+      </span>
+      {prog && (
+        <span
+          className="absolute -bottom-0.5 -right-0.5 flex h-[15px] w-[15px] items-center justify-center rounded-full border border-void-950 text-[8px] font-bold leading-none text-void-950"
+          style={{ background: color }}
+        >
+          {rank + 1}
+        </span>
+      )}
+    </Link>
+  )
+}
+
+function useOutside(ref, open, close) {
+  useEffect(() => {
+    if (!open) return
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) close() }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [ref, open, close])
+}
+
+const menuCls = 'absolute top-full z-50 mt-1 min-w-[200px] overflow-hidden rounded-[4px] bg-[#1d2130] py-2 shadow-2xl'
+const itemCls = 'flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-100 hover:bg-white/5'
 
 export default function Navbar() {
   const router = useRouter()
@@ -30,239 +81,154 @@ export default function Navbar() {
   const [user, setUser] = useState(null)
   const [auras, setAuras] = useState(0)
   const [mana, setMana] = useState(0)
-  const [avatarUrl, setAvatarUrl] = useState('')
-  const [auraDropdownOpen, setAuraDropdownOpen] = useState(false)
-  const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false)
+  const [auraOpen, setAuraOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const auraDropdownRef = useRef(null)
-  const notifDropdownRef = useRef(null)
+  const auraRef = useRef(null)
+  const moreRef = useRef(null)
+  useOutside(auraRef, auraOpen, () => setAuraOpen(false))
+  useOutside(moreRef, moreOpen, () => setMoreOpen(false))
 
   const { i18n } = useTranslation()
-
   useEffect(() => { setMounted(true) }, [])
-  const currentLang = mounted ? (i18n?.language || 'en').split('-')[0] : 'en'
-  const dreamCardText = getDreamCardText(currentLang)
+  const lang = mounted && (i18n?.language || 'en').startsWith('tr') ? 'tr' : 'en'
+  const t = TEXT[lang]
 
   useEffect(() => {
     if (!mounted) return
     let active = true
 
-    async function checkUser() {
-      try {
-        const { data: { user: currentUser } } = await supabase.auth.getUser()
-        if (!active) return
-        setUser(currentUser || null)
-        if (currentUser) {
-          let { data: profile } = await supabase.from('user_profiles').select('avatar_url, premium_analysis_auras, mana_balance, username').eq('id', currentUser.id).maybeSingle()
-          // GÜVENLİK AĞI (KÖK NEDEN DÜZELTMESİ): user_profiles satırı sadece
-          // auth.signUp/signIn/exchangeCodeForSession çağrıldığında
-          // oluşturuluyordu (bkz. lib/supabase.js ensureProfile). Bir hesap
-          // bu akışların dışında (ör. Supabase panelinden elle, ya da bu
-          // kod eklenmeden önce) oluşturulmuşsa ve o zamandan beri sadece
-          // kalıcı oturumla giriş yapıyorsa, profili hiç oluşmamış oluyordu
-          // — bu da SlidesViewer, yorumlar, Explore gibi her yerde
-          // kullanıcı adı yerine "Bilinmeyen/Unknown" görünmesine yol
-          // açıyordu. username hâlâ boşsa (satır yok ya da username null)
-          // burada kendiliğinden oluşturup/tamamlıyoruz.
-          if (!profile || !profile.username) {
-            const created = await auth.ensureProfile(currentUser)
-            if (created) profile = created
-          }
-          setAvatarUrl(profile?.avatar_url || currentUser?.user_metadata?.avatar_url || '')
-          setAuras(Number(profile?.premium_analysis_auras || 0))
-          setMana(Number(profile?.mana_balance ?? 0))
-          loadNotifications()
-        }
-      } catch (error) { console.error(error) }
+    async function loadProfile(currentUser) {
+      let { data: profile } = await supabase.from('user_profiles').select('premium_analysis_auras, mana_balance, username').eq('id', currentUser.id).maybeSingle()
+      // user_profiles satırı eksik/username boşsa (eski veya panelden açılmış hesap) burada tamamlanıyor;
+      // yoksa her yerde kullanıcı adı yerine "Bilinmeyen" görünüyordu.
+      if (!profile || !profile.username) {
+        const created = await auth.ensureProfile(currentUser)
+        if (created) profile = created
+      }
+      if (!active) return
+      setAuras(Number(profile?.premium_analysis_auras || 0))
+      setMana(Number(profile?.mana_balance ?? 0))
     }
-    checkUser()
+
+    supabase.auth.getUser().then(({ data: { user: u } }) => {
+      if (!active) return
+      setUser(u || null)
+      if (u) loadProfile(u).catch(() => {})
+    })
 
     function handleManaUpdate(e) { if (typeof e.detail?.balance === 'number') setMana(e.detail.balance) }
     window.addEventListener('mana-balance-updated', handleManaUpdate)
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return
       if (session?.user) {
         setUser(session.user)
-        let { data: profile } = await supabase.from('user_profiles').select('avatar_url, premium_analysis_auras, mana_balance, username').eq('id', session.user.id).maybeSingle()
-        // Aynı güvenlik ağı — bkz. checkUser() içindeki not.
-        if (!profile || !profile.username) {
-          const created = await auth.ensureProfile(session.user)
-          if (created) profile = created
-        }
-        setAuras(Number(profile?.premium_analysis_auras || 0)); setMana(Number(profile?.mana_balance ?? 0)); setAvatarUrl(profile?.avatar_url || '')
+        loadProfile(session.user).catch(() => {})
       } else {
-        setUser(null); setAuras(0); setMana(0); setAvatarUrl('')
+        setUser(null); setAuras(0); setMana(0); setUnreadCount(0)
       }
     })
 
     return () => { active = false; subscription?.unsubscribe(); window.removeEventListener('mana-balance-updated', handleManaUpdate) }
   }, [mounted])
 
-  // Dışarı tıklandığında menüleri kapat
+  // Bildirimler ekranından dönünce rozet tazelensin diye her sayfa geçişinde.
   useEffect(() => {
-    if (!mounted) return
-    function handleClickOutside(event) {
-      if (auraDropdownRef.current && !auraDropdownRef.current.contains(event.target)) setAuraDropdownOpen(false)
-      if (notifDropdownRef.current && !notifDropdownRef.current.contains(event.target)) setNotifDropdownOpen(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [mounted])
-
-  const loadNotifications = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
+    if (!user) return
+    let active = true
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) return
-      const res = await fetch('/api/notifications', { headers: { Authorization: `Bearer ${session.access_token}` } })
-      const json = await res.json()
-      if (res.ok) { setNotifications(json.notifications || []); setUnreadCount(json.unreadCount || 0) }
-    } catch (err) {}
-  }
+      try {
+        const res = await fetch('/api/notifications', { headers: { Authorization: `Bearer ${session.access_token}` } })
+        const json = await res.json()
+        if (res.ok && active) setUnreadCount(json.unreadCount || 0)
+      } catch {}
+    })
+    return () => { active = false }
+  }, [user, router.asPath])
 
-  async function markAllRead() {
-    setUnreadCount(0)
-    setNotifications((list) => list.map((n) => ({ ...n, is_read: true })))
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      await fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({}) })
-    } catch (err) {}
-  }
+  const go = (href) => { setMoreOpen(false); router.push(href) }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/5 bg-void-950/80 backdrop-blur-2xl">
-      <div className="mx-auto grid max-w-[1200px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 px-3 py-2.5 sm:gap-2 sm:px-6 sm:py-3">
-
-        {/* SOL: MANA & AURA */}
-        <div className="flex min-w-0 items-center gap-1 sm:gap-2.5 font-sans">
+    <header className="sticky top-0 z-50 bg-void-950">
+      <div className="mx-auto grid h-16 max-w-2xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
+        <div className="flex min-w-0 items-center gap-2 pl-4">
           {user && (
-            <div
-              className="flex items-center gap-1 sm:gap-1.5 rounded-full border border-aether-cyan/30 bg-aether-cyan/10 px-2 py-1 sm:px-3.5 text-xs font-bold text-aether-cyan shadow-aether-glow"
-              title={currentLang === 'tr' ? 'Mana bakiyen' : 'Your Mana'}
-            >
-              <Droplet size={13} className="shrink-0" />
-              <span>{mana}</span>
-            </div>
-          )}
-
-          {/* AURA */}
-          {user && (
-            <div className="relative" ref={auraDropdownRef}>
-              <button
-                onClick={() => setAuraDropdownOpen(!auraDropdownOpen)}
-                aria-label={currentLang === 'tr' ? 'Aura bakiyen' : 'Your Auras'}
-                className="flex items-center gap-1 sm:gap-1.5 rounded-full border border-astral-gold/30 bg-astral-gold/10 px-2 py-1 sm:px-3.5 text-xs font-bold text-astral-gold shadow-astral-glow hover:border-astral-gold/50 transition-all"
-              >
-                <Sparkles size={13} className="shrink-0" />
-                <span>{auras}</span>
-              </button>
-              {auraDropdownOpen && (
-                <div className="absolute left-0 top-full mt-2 w-56 rounded-card border border-white/10 bg-void-900 p-4 shadow-2xl z-50 animate-fade-in">
-                  <p className="text-xs text-slate-400 mb-1">{currentLang === 'tr' ? 'Mevcut Aura:' : 'Your Auras:'}</p>
-                  <p className="text-lg font-black text-astral-gold mb-3 flex items-center gap-1"><Sparkles size={16} /> {auras}</p>
-                  <a href={SHOP_URL} target="_blank" rel="noopener noreferrer" className="block text-center rounded-xl bg-astral-gold text-void-950 px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition hover:brightness-110 shadow-astral-glow">{dreamCardText.buyAuraLabel}</a>
-                </div>
-              )}
-            </div>
+            <>
+              <span className="flex h-7 items-center gap-1 rounded-full border border-aether-cyan bg-aether-cyan/20 px-2 text-xs font-medium text-aether-cyan">
+                <Droplet size={14} fill="currentColor" />
+                {mana}
+              </span>
+              <div className="relative" ref={auraRef}>
+                <button
+                  onClick={() => setAuraOpen((o) => !o)}
+                  className="flex h-7 items-center gap-1 rounded-full border border-astral-gold bg-astral-gold/20 px-2 text-xs font-medium text-astral-gold"
+                >
+                  <Star size={14} fill="currentColor" />
+                  {auras}
+                </button>
+                {auraOpen && (
+                  <div className={`${menuCls} left-0`}>
+                    <button onClick={() => setAuraOpen(false)} className={itemCls}>{t.auras(auras)}</button>
+                    <a href={SHOP_URL} target="_blank" rel="noopener noreferrer" onClick={() => setAuraOpen(false)} className={itemCls}>{t.buyAura}</a>
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
 
-        {/* ORTA: LOGO & MARKA (sabit merkez) */}
-        <Link href="/" className="group flex items-center justify-center gap-2 sm:gap-3">
-          <span className="whitespace-nowrap text-[clamp(0.7rem,3.2vw,1.2rem)] font-black font-serif uppercase tracking-[clamp(0.06em,1.1vw,0.18em)] gold-gradient-text">
+        <Link href="/" className="px-1">
+          <span className="whitespace-nowrap font-serif text-[clamp(11px,4.4vw,18px)] font-bold tracking-[1.5px] bg-gradient-to-r from-astral-gold to-astral-amber bg-clip-text text-transparent">
             LUNOSFER
           </span>
         </Link>
 
-        {/* SAĞ: DİL, BİLDİRİM, PROFİL */}
-        <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 sm:gap-2.5 font-sans">
-          {/* BİLDİRİM & GİZLİ AKIŞ TERCİHLERİ */}
-          {user && (
-            <div className="relative" ref={notifDropdownRef}>
-              <button
-                type="button"
-                onClick={() => { setNotifDropdownOpen(!notifDropdownOpen); if (!notifDropdownOpen && unreadCount > 0) markAllRead(); subscribeToPush(); }}
-                aria-label={currentLang === 'tr' ? 'Bildirimler' : 'Notifications'}
-                className="relative flex items-center justify-center w-8 h-8 rounded-full text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
-              >
-                <Bell size={16} />
-                {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-shadowWork-rose px-1 text-[9px] font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>}
-              </button>
-
-              {notifDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 max-h-96 overflow-y-auto rounded-card border border-white/10 bg-void-900 shadow-2xl z-50 animate-fade-in">
-                  <div className="p-3 border-b border-white/5 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Bildirimler</span>
-                    <span className="text-[9px] text-aether-cyan font-mono">Otomatik Hizalı</span>
-                  </div>
-                  {notifications.length === 0 ? (
-                    <p className="text-center text-slate-500 text-sm py-6">{currentLang === 'tr' ? 'Henüz bildirim yok.' : 'No notifications yet.'}</p>
-                  ) : (
-                    notifications.map((n) => {
-                      const actorName = n.actor?.display_name || n.actor?.username || (currentLang === 'tr' ? 'Biri' : 'Someone')
-                      const messages = {
-                        mana_received: currentLang === 'tr' ? `${actorName} vizyonuna mana verdi 💧` : `${actorName} gave mana to your vision 💧`,
-                        goal_comment: currentLang === 'tr' ? `${actorName} vizyonuna yorum yaptı 💬` : `${actorName} commented on your vision 💬`,
-                        friend_request: currentLang === 'tr' ? `${actorName} sana takip isteği gönderdi 👋` : `${actorName} sent you a follow request 👋`,
-                        new_follower: currentLang === 'tr' ? `${actorName} seni takip etmeye başladı 🌙` : `${actorName} started following you 🌙`,
-                        follow_accepted: currentLang === 'tr' ? `${actorName} takip isteğini kabul etti ✅` : `${actorName} accepted your follow request ✅`,
-                        new_message: currentLang === 'tr' ? `${actorName} sana mesaj gönderdi 💬` : `${actorName} sent you a message 💬`,
-                        analysis_ready: currentLang === 'tr' ? 'Derinlemesine analiziniz hazır ✨' : 'Your deep analysis is ready ✨',
-                        analysis_failed: currentLang === 'tr' ? 'Analiz oluşturulamadı, auralarınız iade edildi' : 'Analysis could not be generated, your auras were refunded',
-                      }
-                      // Bildirim tipine göre nereye gidileceğini belirle. Önceden yalnızca
-                      // dream_id olan bildirimler tıklanabiliyordu; takip/mesaj bildirimleri
-                      // hiçbir yere götürmüyordu.
-                      const destination = n.dream_id
-                        ? `/dream/${n.dream_id}`
-                        : ['friend_request', 'new_follower', 'follow_accepted'].includes(n.type) && n.actor_id
-                        ? `/u/${n.actor_id}`
-                        : n.type === 'new_message' && n.actor_id
-                        ? `/messages?with=${n.actor_id}`
-                        : null
-                      return (
-                        <div key={n.id} onClick={() => { if (destination) router.push(destination) }} className={`px-4 py-3 border-b border-white/5 text-sm ${n.is_read ? 'text-slate-400' : 'text-white bg-aether-indigo/10'} ${destination ? 'cursor-pointer' : ''}`}>
-                          {messages[n.type] || n.type}
-                          <p className="text-[10px] text-slate-600 mt-0.5">{new Date(n.created_at).toLocaleDateString()}</p>
-                        </div>
-                      )
-                    })
-                  )}
-                  {/* ASİMETRİK AYAR */}
-                  <div className="p-2.5 border-t border-white/5 bg-void-950/50 text-center">
-                    <a href="/profile#stream-preferences" className="text-[9px] text-slate-600 hover:text-slate-400 transition-colors">
-                      {currentLang === 'tr' ? 'Akış & Frekans Tercihlerini Yönet' : 'Manage Stream & Frequency'}
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
+        <div className="flex min-w-0 items-center justify-end">
           {user ? (
-            <Link href="/profile" aria-label={currentLang === 'tr' ? 'Profilim' : 'My profile'} className="inline-flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full border border-astral-gold/30 bg-void-900 overflow-hidden hover:border-astral-gold transition-all">
-              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : <User size={15} className="text-astral-gold" />}
-            </Link>
+            <>
+              <Link
+                href="/notifications"
+                onClick={() => subscribeToPush()}
+                aria-label={t.notifications}
+                className="relative flex h-12 w-12 items-center justify-center rounded-full text-white hover:bg-white/5"
+              >
+                <Bell size={24} fill="currentColor" />
+                {unreadCount > 0 && (
+                  <span className="absolute right-2 top-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-semantic-danger-500 px-1 text-[10px] font-medium text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+              <RankRingAvatar lang={lang} label={t.profile} />
+              <div className="relative" ref={moreRef}>
+                <button onClick={() => setMoreOpen((o) => !o)} aria-label={t.more} className="flex h-12 w-12 items-center justify-center rounded-full text-white hover:bg-white/5">
+                  <MoreVertical size={24} />
+                </button>
+                {moreOpen && (
+                  <div className={`${menuCls} right-1`}>
+                    <button onClick={() => go('/journey')} className={itemCls}><Trophy size={20} className="text-astral-gold" fill="currentColor" />{t.journey}</button>
+                    <button onClick={() => { setMoreOpen(false); window.dispatchEvent(new Event(REPLAY_TOUR_EVENT)) }} className={itemCls}>{t.guide}</button>
+                    <button onClick={() => go('/globe')} className={itemCls}>{t.globe}</button>
+                    <button onClick={() => go('/shared-visions')} className={itemCls}>{t.shared}</button>
+                    <button onClick={() => go('/spiritual-tools')} className={itemCls}>{t.spiritual}</button>
+                    <button onClick={() => go('/deep-analysis')} className={itemCls}>{t.deep}</button>
+                    <button onClick={() => go('/profile?settings=1')} className={itemCls}>{t.settings}</button>
+                    <button onClick={() => go('/support')} className={itemCls}>{t.help}</button>
+                  </div>
+                )}
+              </div>
+            </>
           ) : (
-            <Link href="/auth" className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-astral-gold/30 bg-astral-gold/10 px-3 text-xs font-bold text-astral-gold transition-all hover:bg-astral-gold/20">
-              <LogIn size={13} />
-              <span className="hidden sm:inline">{mounted ? (currentLang === 'tr' ? 'Giriş' : 'Log In') : <TextSkeleton width="w-8" />}</span>
+            <Link href="/auth" className="mr-2 flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-white hover:bg-white/5">
+              <LogIn size={18} />
+              {t.login}
             </Link>
           )}
         </div>
       </div>
-
-      {/* MASAÜSTÜ İKİNCİL SATIR: metin linkleri (mobilde BottomNav ikonları karşılıyor) */}
-      <nav className="hidden lg:flex items-center justify-center gap-8 border-t border-white/5 px-6 py-2 font-sans">
-        {NAV_ITEMS.map(({ href, key }) => (
-          <Link key={key} href={href} className={`text-sm font-medium transition-colors ${router.pathname === href ? 'text-astral-gold' : 'text-slate-300 hover:text-astral-gold'}`}>
-            {mounted ? NAV_LABELS[key][currentLang === 'tr' ? 'tr' : 'en'] : <TextSkeleton width="w-14" />}
-          </Link>
-        ))}
-      </nav>
     </header>
   )
-    }
+}
