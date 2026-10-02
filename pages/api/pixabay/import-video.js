@@ -18,7 +18,9 @@ export default async function handler(req, res) {
   const user = await getAuthedUser(req)
   if (!user) return res.status(401).json({ error: 'unauthorized' })
 
-  const { pixabayId, videoUrl, tags, pixabayUser, width, height } = req.body || {}
+  const { pixabayId, videoUrl, tags, width, height } = req.body || {}
+  // Android `user` gonderiyor, web `pixabayUser`.
+  const pixabayUser = req.body?.pixabayUser ?? req.body?.user
   if (!pixabayId || typeof videoUrl !== 'string' || !videoUrl.trim()) {
     return res.status(400).json({ error: 'invalid_params' })
   }

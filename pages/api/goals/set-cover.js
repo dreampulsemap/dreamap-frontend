@@ -17,7 +17,9 @@ export default async function handler(req, res) {
     const user = await getAuthedUser(req)
     if (!user) return res.status(401).json({ error: 'unauthorized' })
 
-    const { goalId, coverImageUrl, coverImageSource } = req.body || {}
+    const { goalId, coverImageSource } = req.body || {}
+    // Android `imageUrl` gonderiyor, web `coverImageUrl`.
+    const coverImageUrl = req.body?.coverImageUrl ?? req.body?.imageUrl
     if (!goalId || typeof coverImageUrl !== 'string' || !coverImageUrl.trim()) {
       return res.status(400).json({ error: 'invalid_params' })
     }

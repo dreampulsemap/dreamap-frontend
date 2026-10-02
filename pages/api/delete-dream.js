@@ -10,7 +10,10 @@ export default async function handler(req, res) {
   const user = await getAuthedUser(req)
   if (!user) return res.status(401).json({ error: 'unauthorized' })
 
-  const { dreamId, softDelete } = req.body
+  // Android snake_case gonderiyor (dream_id/soft_delete), web camelCase.
+  const body = req.body || {}
+  const dreamId = body.dreamId ?? body.dream_id
+  const softDelete = body.softDelete ?? body.soft_delete
 
   if (!dreamId) {
     return res.status(400).json({ error: 'Eksik parametreler' })
