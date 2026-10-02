@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
+import { Loader2, RotateCcw } from 'lucide-react'
+import { REPLAY_TOUR_EVENT } from '@/components/game/OnboardingTour'
 import Seo from '@/components/Seo'
 import {
   useGameProgress, RankEmblem, XpBar, NextRankText, BadgeIcon, DailyQuestsCard, reasonIcon,
@@ -232,6 +233,20 @@ export default function JourneyPage() {
           )}
         </>
       )}
+
+      {(() => {
+        const reward = p?.rules?.find((r) => r.reason === 'onboarding_completed')?.xp
+        const bonus = !isGuest && p.onboarding_status !== 'completed' && reward
+        return (
+          <button
+            onClick={() => window.dispatchEvent(new Event(REPLAY_TOUR_EVENT))}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-astral-gold/50 py-2.5 text-sm font-bold text-astral-gold hover:bg-astral-gold/10"
+          >
+            <RotateCcw size={16} />
+            {bonus ? (lang === 'tr' ? `Turu oyna · +${reward} XP` : `Play the tour · +${reward} XP`) : (lang === 'tr' ? 'Turu tekrar oyna' : 'Replay the tour')}
+          </button>
+        )
+      })()}
 
       {selectedMeta && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" onClick={() => setSelectedBadge(null)} role="dialog" aria-modal="true">

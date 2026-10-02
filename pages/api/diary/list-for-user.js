@@ -11,7 +11,12 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'method_not_allowed' })
 
   try {
-    const { userId } = req.query
+    const { userId, recent } = req.query
+    // recent=1: yalnızca son 24 saat — hikâye görüntüleyicileri (ana sayfa
+    // halkası, profil avatar halkası) Instagram hikâyesi gibi 24 saatte
+    // söner. Parametresiz çağrı (profildeki kalıcı Günce) tüm arşivi döner;
+    // eski uygulama sürümleri parametre göndermediği için davranışları bozulmaz.
+    const recentOnly = recent === '1' || recent === 'true'
     if (!userId) return res.status(400).json({ error: 'invalid_params' })
 
     const viewer = await getAuthedUser(req)
@@ -32,12 +37,14 @@ export default async function handler(req, res) {
       if (friendIds.includes(userId)) allowedVisibility = ['public', 'friends']
     }
 
-    const { data: entries, error } = await supabaseAdmin
+    let entriesQuery = supabaseAdmin
       .from('diary_entries')
       .select('id, media_type, media_url, poster_url, caption, goal_id, visibility, created_at, likes_count, comments_count')
       .eq('user_id', userId)
       .in('visibility', allowedVisibility)
       .order('created_at', { ascending: true })
+    if (recentOnly) entriesQuery = entriesQuery.gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+    const { data: entries, error } = await entriesQuery
 
     if (error) throw error
 

@@ -227,7 +227,8 @@ export default function ProfilePage() {
   // halka olarak göster, DiaryStoryRow'daki ile aynı görsel dil.
   const loadOwnDiary = useCallback(async (userId) => {
     try {
-      const res = await fetch(`/api/diary/list-for-user?userId=${userId}`)
+      // Avatar halkası yalnızca son 24 saat (hikâye); kalıcı arşiv Günce sekmesinde.
+      const res = await fetch(`/api/diary/list-for-user?userId=${userId}&recent=1`, { headers: await getAuthHeader() })
       const json = await res.json()
       if (res.ok) setDiaryEntries(json.entries || [])
     } catch (err) {
@@ -684,6 +685,12 @@ export default function ProfilePage() {
               </Link>
               <Link href="/shared-visions" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] hover:text-white">
                 🤝 {lang === 'tr' ? 'Paylaşılan Vizyonlar' : 'Shared Visions'}
+              </Link>
+              <Link href="/spiritual-tools" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] hover:text-white">
+                ✨ {lang === 'tr' ? 'Ruhsal Araçlar' : 'Spiritual Tools'}
+              </Link>
+              <Link href="/support" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] hover:text-white">
+                ❓ {lang === 'tr' ? 'Yardım' : 'Help'}
               </Link>
               <Link href="/blocked-users" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] hover:text-white">
                 🚫 {lang === 'tr' ? 'Engellenen Kullanıcılar' : 'Blocked Users'}

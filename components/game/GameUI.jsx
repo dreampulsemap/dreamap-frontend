@@ -38,13 +38,14 @@ const QUEST_ICONS = { post_dream: Moon, post_diary: BookOpen, comment_2: Message
 export const reasonIcon = (reason) => REASON_ICONS[reason] || Sparkles
 
 /** Rütbe amblemi: rütbe yükseldikçe ay evresi dolar (0 = ince hilal, 9 = dolunay). */
-export function RankEmblem({ rank = 0, size = 48 }) {
+export function RankEmblem({ rank = 0, size = 48, lit: litOverride }) {
   const maskId = useId().replace(/:/g, '')
   const color = rankColor(rank)
-  const lit = (Math.min(9, Math.max(0, rank)) + 1) / 10
+  // lit verilirse evre ondan alınır (tanıtım turundaki "ayı uyandır" sahnesi).
+  const lit = litOverride ?? (Math.min(9, Math.max(0, rank)) + 1) / 10
   const r = 40
   // Karanlık daire sağa kaydıkça aydınlık kısım büyür; lit=1'de tamamen dışarıda.
-  const shadowCx = 50 - r * 0.35 + lit * 2 * r * 1.05
+  const shadowCx = 50 - r * 0.35 + lit * 2 * r * 1.2
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className="shrink-0">
       <defs>

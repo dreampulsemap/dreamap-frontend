@@ -76,7 +76,7 @@ export default function PublicProfilePage() {
       const [profileRes, goalsRes, diaryRes] = await Promise.all([
         fetch(`/api/public-profile/${userId}`, { headers }),
         fetch(`/api/goals/list?mode=user&userId=${userId}`, { headers }),
-        fetch(`/api/diary/list-for-user?userId=${userId}`, { headers }),
+        fetch(`/api/diary/list-for-user?userId=${userId}&recent=1`, { headers }),
       ])
 
       const profileJson = await profileRes.json()

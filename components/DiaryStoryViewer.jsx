@@ -67,7 +67,7 @@ export default function DiaryStoryViewer({ groups, startIndex = 0, lang = 'en', 
     setCache((prev) => ({ ...prev, [userId]: { ...(prev[userId] || {}), status: 'loading' } }))
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(`/api/diary/list-for-user?userId=${userId}`, {
+      const res = await fetch(`/api/diary/list-for-user?userId=${userId}&recent=1`, {
         headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
       })
       if (!res.ok) throw new Error('load_failed')

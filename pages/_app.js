@@ -8,6 +8,7 @@ import BottomNav from '@/components/BottomNav'
 import Sidebar from '@/components/Sidebar'
 import AppDownloadBanner from '@/components/AppDownloadBanner'
 import { GameEventHost } from '@/components/game/GameUI'
+import OnboardingHost from '@/components/game/OnboardingTour'
 import { useRouter } from 'next/router'
 import { initPostHogClient, capturePageview } from '@/lib/posthog-client'
 
@@ -67,6 +68,8 @@ export default function App({ Component, pageProps }) {
       {!shouldHideNavbar && <BottomNav />}
       {/* XP / rozet / rütbe kutlamaları + ilerleme tazeleme (Android GameEventHost) */}
       <GameEventHost lang={(i18n.language || 'en').split('-')[0]} />
+      {/* İlk girişte tanıtım turu (Android OnboardingScreen) */}
+      <OnboardingHost lang={(i18n.language || 'en').split('-')[0]} />
     </>
   )
 }

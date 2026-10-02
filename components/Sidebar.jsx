@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
-import { Home, Compass, Target, MessageCircle, User, Moon, Plus, Trophy, Users } from 'lucide-react'
+import { Home, Compass, Target, MessageCircle, User, Moon, Plus, Trophy, Users, Globe, Sparkles, HelpCircle, RotateCcw } from 'lucide-react'
+import { REPLAY_TOUR_EVENT } from '@/components/game/OnboardingTour'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 
@@ -103,13 +104,15 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Android ana menüsündeki ikincil girişler (Yolculuğum, Paylaşılan Vizyonlar) */}
-      {user && (
-        <nav className="mt-4 flex flex-col gap-1 border-t border-white/5 pt-4">
+      {/* Android ana menüsündeki ⋮ girişleri (Yolculuğum, Küre, Ruhsal Araçlar, ...) */}
+      <nav className="mt-4 flex flex-col gap-1 border-t border-white/5 pt-4">
           {[
-            { href: '/journey', icon: Trophy, label: currentLang === 'tr' ? 'Yolculuğum' : 'My Journey' },
-            { href: '/shared-visions', icon: Users, label: currentLang === 'tr' ? 'Paylaşılan Vizyonlar' : 'Shared Visions' },
-          ].map(({ href, icon: Icon, label }) => (
+            user && { href: '/journey', icon: Trophy, label: currentLang === 'tr' ? 'Yolculuğum' : 'My Journey' },
+            { href: '/globe', icon: Globe, label: currentLang === 'tr' ? 'Küre' : 'Globe' },
+            user && { href: '/shared-visions', icon: Users, label: currentLang === 'tr' ? 'Paylaşılan Vizyonlar' : 'Shared Visions' },
+            user && { href: '/spiritual-tools', icon: Sparkles, label: currentLang === 'tr' ? 'Ruhsal Araçlar' : 'Spiritual Tools' },
+            { href: '/support', icon: HelpCircle, label: currentLang === 'tr' ? 'Yardım ve Geri Bildirim' : 'Help & Feedback' },
+          ].filter(Boolean).map(({ href, icon: Icon, label }) => (
             <Link
               key={href}
               href={href}
@@ -121,8 +124,14 @@ export default function Sidebar() {
               <span>{label}</span>
             </Link>
           ))}
-        </nav>
-      )}
+          <button
+            onClick={() => window.dispatchEvent(new Event(REPLAY_TOUR_EVENT))}
+            className="flex items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-slate-400 transition-all hover:bg-white/5 hover:text-white"
+          >
+            <RotateCcw size={17} className="shrink-0" />
+            <span>{currentLang === 'tr' ? 'Uygulama Rehberi' : 'App Guide'}</span>
+          </button>
+      </nav>
 
       {/* Google Play Console "App content" formunun zorunlu kıldığı,
           uygulama içinden (bu durumda web'den) erişilebilir Gizlilik
