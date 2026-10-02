@@ -17,6 +17,18 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.r2.cloudflarestorage.com' }, // AI Gateway (Vercel) çıktı depolama — whitelist'te yoktu, next/image tüm bu görselleri 400 ile reddediyordu
     ],
   },
+  // Apex ve www aynı içeriği 200 ile sunuyordu (Google sinyalleri bölünüyor);
+  // tek adres www. 308 metodu korur, Android'in apex /share/ ve /api/ çağrıları da çalışır.
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'lunosfer.com' }],
+        destination: 'https://www.lunosfer.com/:path*',
+        permanent: true,
+      },
+    ]
+  },
 }
 
 // withSentryConfig otomatik olarak TÜM pages/api/*.js route'larını
