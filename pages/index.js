@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Shuffle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
-import { getTranslation } from '@/lib/translations'
 import Hero from '@/components/Hero'
 import DreamFeedCard from '@/components/DreamFeedCard'
 import VisionFeedCard from '@/components/VisionFeedCard'
-import HomeFeedFilter from '@/components/HomeFeedFilter'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
@@ -17,7 +14,6 @@ import DiaryStoryViewer from '@/components/DiaryStoryViewer'
 import DiaryComposer from '@/components/DiaryComposer'
 import DailyCompass from '@/components/DailyCompass'
 import { DailyQuestsCard } from '@/components/game/GameUI'
-import TextSkeleton from '@/components/TextSkeleton'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
 import Seo, { SITE_NAME, SITE_URL } from '@/components/Seo'
 
@@ -52,11 +48,88 @@ const HOME_JSON_LD = [
   },
 ]
 
+const HOME_TEXT = {
+  tr: {
+    welcome: 'HOŞ GELDİN', summary: (d, v) => `Bugün ${d} rüya, ${v} aktif vizyon seni bekliyor`,
+    streakStart: 'Serini bugün başlat', streakDays: (n) => `${n} gün seri`,
+    tickerDream: (n) => `✨ ${n} az önce bir rüya paylaştı`, tickerVision: (n) => `🌠 ${n} az önce yeni bir vizyon başlattı`, someone: 'Biri',
+    emptyTitle: 'Henüz akışında bir şey yok', emptyDesc: 'Bir rüya kaydet ya da bir vizyon oluştur, burada görünsün.',
+    errorTitle: 'Akış yüklenemedi', retry: 'Tekrar Dene',
+  },
+  en: {
+    welcome: 'WELCOME', summary: (d, v) => `Today, ${d} dreams and ${v} active visions await you`,
+    streakStart: 'Start your streak today', streakDays: (n) => `${n} day streak`,
+    tickerDream: (n) => `✨ ${n} just shared a dream`, tickerVision: (n) => `🌠 ${n} just started a new vision`, someone: 'Someone',
+    emptyTitle: 'Nothing in your feed yet', emptyDesc: 'Record a dream or create a vision to see it here.',
+    errorTitle: 'Could not load feed', retry: 'Retry',
+  },
+}
+
+const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+
+// Android HomeViewModel.computeStreak: bugün ya da dünden geriye kesintisiz rüya günleri.
+function computeStreak(dates) {
+  const keys = [...new Set(dates.map((s) => dayKey(new Date(s))))]
+  if (!keys.length) return 0
+  const cursor = new Date()
+  const today = dayKey(cursor)
+  cursor.setDate(cursor.getDate() - 1)
+  const yesterday = dayKey(cursor)
+  if (keys[0] !== today && keys[0] !== yesterday) return 0
+  const start = new Date()
+  if (keys[0] === yesterday) start.setDate(start.getDate() - 1)
+  let streak = 1
+  for (let i = 1; i < keys.length; i++) {
+    start.setDate(start.getDate() - 1)
+    if (keys[i] === dayKey(start)) streak++
+    else break
+  }
+  return streak
+}
+
+function WelcomeStreakHeader({ t, streak, dreamCount, visionCount }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-[11px] font-bold tracking-[3px] text-astral-gold">{t.welcome}</p>
+      <p className="font-serif text-[15px] text-white">{t.summary(dreamCount, visionCount)}</p>
+      <p className="flex items-center gap-1.5 text-xs">
+        <span className="text-[13px]">🔥</span>
+        <span className={streak > 0 ? 'font-bold text-astral-gold' : 'text-gray-500'}>{streak > 0 ? t.streakDays(streak) : t.streakStart}</span>
+      </p>
+    </div>
+  )
+}
+
+function LiveActivityTicker({ items, t }) {
+  const recent = items.slice(0, 10)
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    if (recent.length < 2) return
+    const id = setInterval(() => setI((n) => (n + 1) % recent.length), 3500)
+    return () => clearInterval(id)
+  }, [recent.length])
+  const item = recent[i % recent.length]
+  if (!item) return null
+  const name = item.owner?.username || t.someone
+  return (
+    <div className="rounded-xl border border-astral-gold/25 bg-void-800/60 px-3.5 py-2.5">
+      <p key={`${item.feed_type}-${item.id}`} className="flex items-center gap-2 animate-fade-in">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-semantic-success-400" />
+        <span className="truncate text-xs text-slate-300">{item.feed_type === 'dream' ? t.tickerDream(name) : t.tickerVision(name)}</span>
+      </p>
+    </div>
+  )
+}
+
 export default function HomePage() {
   const { i18n } = useTranslation()
   const [mounted, setMounted] = useState(false)
   const [user, setUser] = useState(null)
-  const [filterMode, setFilterMode] = useState('all') // 'all' | 'dreams' | 'visions'
+  const [feedError, setFeedError] = useState(false)
+  const [streak, setStreak] = useState(0)
+  const [activeVisions, setActiveVisions] = useState(0)
+  const [likedIds, setLikedIds] = useState(() => new Set())
+  const [likeCounts, setLikeCounts] = useState({})
   const [items, setItems] = useState([])
   const [cursors, setCursors] = useState({ dreamsBefore: null, visionsBefore: null })
   const [hasMore, setHasMore] = useState(true)
@@ -72,22 +145,12 @@ export default function HomePage() {
 
   const observerRef = useRef(null)
 
-  useEffect(() => {
-    setMounted(true)
-    try {
-      const saved = window.sessionStorage.getItem('dreamap_home_filter')
-      if (saved === 'all' || saved === 'dreams' || saved === 'visions') setFilterMode(saved)
-    } catch (_) {}
-  }, [])
-
-  useEffect(() => {
-    if (!mounted) return
-    try { window.sessionStorage.setItem('dreamap_home_filter', filterMode) } catch (_) {}
-  }, [filterMode, mounted])
+  useEffect(() => { setMounted(true) }, [])
 
   const currentLang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
   const lang = currentLang
   const tVision = getVisionBoardText(lang)
+  const tHome = HOME_TEXT[lang === 'tr' ? 'tr' : 'en']
 
   useEffect(() => {
     async function checkUser() {
@@ -97,8 +160,48 @@ export default function HomePage() {
     checkUser()
   }, [])
 
+  // Karşılama başlığı: kendi rüya günleri (seri) + kendi aktif vizyon sayısı (Android HomeRepository).
+  useEffect(() => {
+    if (!user) return
+    supabase.from('dreams').select('created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(120)
+      .then(({ data }) => setStreak(computeStreak((data || []).map((r) => r.created_at))))
+    supabase.from('goals').select('id').eq('user_id', user.id).eq('status', 'active').limit(200)
+      .then(({ data }) => setActiveVisions((data || []).length))
+  }, [user])
+
+  // Akıştaki rüyalardan hangilerini beğendiğim — kalp dolu/boş başlasın.
+  const dreamIdsKey = items.filter((it) => it.feed_type === 'dream').map((it) => it.id).join(',')
+  useEffect(() => {
+    if (!user || !dreamIdsKey) return
+    supabase.from('likes').select('dream_id').eq('user_id', user.id).in('dream_id', dreamIdsKey.split(',').map(Number))
+      .then(({ data }) => setLikedIds(new Set((data || []).map((r) => r.dream_id))))
+  }, [user, dreamIdsKey])
+
+  async function toggleLike(dream) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const wasLiked = likedIds.has(dream.id)
+    const prev = likeCounts[dream.id] ?? dream.likes_count ?? 0
+    setLikedIds((s) => { const n = new Set(s); wasLiked ? n.delete(dream.id) : n.add(dream.id); return n })
+    setLikeCounts((c) => ({ ...c, [dream.id]: wasLiked ? Math.max(0, prev - 1) : prev + 1 }))
+    try {
+      const res = await fetch('/api/like', {
+        method: wasLiked ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ dreamId: dream.id }),
+      })
+      const json = await res.json()
+      if (!res.ok && res.status !== 409) throw new Error()
+      if (typeof json.count === 'number') setLikeCounts((c) => ({ ...c, [dream.id]: json.count }))
+    } catch {
+      setLikedIds((s) => { const n = new Set(s); wasLiked ? n.add(dream.id) : n.delete(dream.id); return n })
+      setLikeCounts((c) => ({ ...c, [dream.id]: prev }))
+    }
+  }
+
   const loadFeed = useCallback(async (mode, cursorState, append) => {
     try {
+      setFeedError(false)
       const { data: { session } } = await supabase.auth.getSession()
       const params = new URLSearchParams({ type: mode })
       if (append) {
@@ -115,6 +218,7 @@ export default function HomePage() {
       setHasMore(json.hasMore)
     } catch (err) {
       console.error('home feed error', err)
+      if (!append) setFeedError(true)
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -125,19 +229,19 @@ export default function HomePage() {
     setLoading(true)
     setItems([])
     setHasMore(true)
-    loadFeed(filterMode, { dreamsBefore: null, visionsBefore: null }, false)
-  }, [filterMode, loadFeed])
+    loadFeed('all', { dreamsBefore: null, visionsBefore: null }, false)
+  }, [loadFeed])
 
   useEffect(() => {
     refreshFeed()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterMode])
+  }, [])
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return
     setLoadingMore(true)
-    loadFeed(filterMode, cursors, true)
-  }, [loadingMore, hasMore, filterMode, cursors, loadFeed])
+    loadFeed('all', cursors, true)
+  }, [loadingMore, hasMore, cursors, loadFeed])
 
   const lastElementRef = useCallback(
     (node) => {
@@ -165,24 +269,15 @@ export default function HomePage() {
     else setReelsGoalId(goal.id)
   }
 
+  const todayKey = dayKey(new Date())
+  const todayDreams = dreamItems.filter((d) => d.created_at && dayKey(new Date(d.created_at)) === todayKey).length
+
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-void-950 text-white">
       <Seo jsonLd={HOME_JSON_LD} />
 
-      {mounted && user && (
-        <DiaryStoryRow
-          lang={lang}
-          currentUser={user}
-          onOpenViewer={(groups, startIndex) => setDiaryViewer({ groups, startIndex })}
-          onCompose={() => setShowDiaryComposer(true)}
-        />
-      )}
-
-      <div className="sticky top-14 sm:top-16 z-30 bg-black/85 backdrop-blur-md border-b border-white/5">
-        <HomeFeedFilter value={filterMode} onChange={setFilterMode} lang={lang} />
-      </div>
-
-      <div className="pt-4 px-3 sm:px-4 max-w-xl mx-auto pb-24">
+      {/* Android HomeFeedList sırası: karşılama > görevler > hikayeler > pusula > canlı bant > akış */}
+      <div className="flex flex-col gap-5 px-4 pb-6 pt-5">
         {/* Hero artık dıştaki `mounted` bayrağının arkasında değil. `user`
             başlangıç değeri (useState(null)) hem sunucuda hem de istemcinin
             hydration-öncesi ilk renderında aynı olduğu için `!user` kontrolü
@@ -192,56 +287,60 @@ export default function HomePage() {
             çalıştıran taramalarda) hiç görünmüyordu — anasayfanın tek gerçek
             metin içeriği bu şekilde arama motorlarına ulaşmıyordu. */}
         {!user && <Hero />}
-        {user && (
-          <div className="mb-4">
-            <DailyCompass lang={lang} />
-          </div>
+        {mounted && user && <WelcomeStreakHeader t={tHome} streak={streak} dreamCount={todayDreams} visionCount={activeVisions} />}
+        {user && <DailyQuestsCard lang={lang} href="/journey" />}
+        {mounted && user && (
+          <DiaryStoryRow
+            lang={lang}
+            currentUser={user}
+            onOpenViewer={(groups, startIndex) => setDiaryViewer({ groups, startIndex })}
+            onCompose={() => setShowDiaryComposer(true)}
+          />
         )}
-        {user && (
-          <div className="mb-4">
-            <DailyQuestsCard lang={lang} href="/journey" />
-          </div>
-        )}
+        {user && <DailyCompass lang={lang} />}
 
         {!mounted || loading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => <TextSkeleton key={i} />)}
+          <div className="flex justify-center py-16">
+            <span className="h-10 w-10 animate-spin rounded-full border-4 border-astral-gold/25 border-t-astral-gold" />
+          </div>
+        ) : feedError ? (
+          <div className="flex flex-col items-center px-6 py-16 text-center">
+            <p className="font-serif text-base text-white">{tHome.errorTitle}</p>
+            <button onClick={refreshFeed} className="mt-4 rounded-full border border-astral-gold/40 px-5 py-2 text-sm text-astral-gold">↻ {tHome.retry}</button>
           </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-gray-400">{getTranslation('common.noDreams', lang)}</p>
+          <div className="flex flex-col items-center py-10 text-center">
+            <p className="font-serif text-base text-white">{tHome.emptyTitle}</p>
+            <p className="mt-2 text-xs text-slate-400">{tHome.emptyDesc}</p>
           </div>
         ) : (
-          items.map((item, idx) => (
-                <div key={`${item.feed_type}-${item.id}`} ref={idx === items.length - 1 ? lastElementRef : null}>
-                  {item.feed_type === 'dream' ? (
-                    <DreamFeedCard dream={item} lang={lang} onOpen={setActiveDream} />
-                  ) : (
-                    <VisionFeedCard goal={item} lang={lang} onOpen={handleOpenGoal} />
-                  )}
-                </div>
-              ))
+          <>
+            <LiveActivityTicker items={items} t={tHome} />
+            {items.map((item, idx) => (
+              <div key={`${item.feed_type}-${item.id}`} ref={idx === items.length - 1 ? lastElementRef : null}>
+                {item.feed_type === 'dream' ? (
+                  <DreamFeedCard
+                    dream={item}
+                    lang={lang}
+                    onOpen={setActiveDream}
+                    currentUserId={user?.id}
+                    liked={likedIds.has(item.id)}
+                    likesCount={likeCounts[item.id]}
+                    onToggleLike={() => (user ? toggleLike(item) : null)}
+                  />
+                ) : (
+                  <VisionFeedCard goal={item} lang={lang} onOpen={handleOpenGoal} currentUserId={user?.id} />
+                )}
+              </div>
+            ))}
+          </>
         )}
-        {loadingMore && <TextSkeleton />}
+        {loadingMore && (
+          <div className="flex justify-center py-4">
+            <span className="h-6 w-6 animate-spin rounded-full border-2 border-astral-gold/25 border-t-astral-gold" />
+          </div>
+        )}
       </div>
-
-      {/* Rastgele bir vizyonla Reels akışını açan sürpriz kısayol */}
-      {mounted && user && visionItems.length > 0 && (
-        <button
-          onClick={() => {
-            const pick = visionItems[Math.floor(Math.random() * visionItems.length)]
-            handleOpenGoal(pick)
-          }}
-          className="group fixed bottom-20 sm:bottom-6 right-5 z-40 block active:scale-95 transition-transform"
-          aria-label={lang === 'tr' ? 'Sürpriz vizyon reels aç' : 'Open a surprise vision reel'}
-        >
-          <span className="absolute inset-0 rounded-full bg-gradient-to-tr from-aether-indigo to-aether-violet blur opacity-70 group-hover:opacity-100 transition-opacity animate-pulse" />
-          <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-void-950 border border-aether-indigo/40 text-aether-indigo shadow-[0_0_25px_rgba(129,140,248,0.3)]">
-            <Shuffle size={22} />
-          </span>
-          <span className="absolute -top-1 -right-1 text-sm leading-none">✨</span>
-        </button>
-      )}
 
       {activeGoal && (
         <GoalDetailModal

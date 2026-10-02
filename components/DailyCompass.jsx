@@ -153,7 +153,7 @@ export default function DailyCompass({ lang }) {
     }
   }
 
-  const title = lang === 'tr' ? 'Bilinçaltı Pusulası' : 'Daily Compass'
+  const title = lang === 'tr' ? 'Günlük Pusula' : 'Daily Compass'
 
   const instruction = lang === 'tr'
     ? 'Basılı tut ve günün okumasını aç'
@@ -184,34 +184,32 @@ export default function DailyCompass({ lang }) {
   }
 
   return (
-    <div className="glass-card relative overflow-hidden rounded-[24px] p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[200px] select-none">
+    <div className="relative overflow-hidden rounded-[24px] border border-astral-gold/25 bg-void-900/80 px-5 py-[22px] flex flex-col items-center justify-center text-center select-none">
 
       <div className={`absolute inset-0 transition-opacity duration-1000 ${holding ? 'opacity-100' : 'opacity-0'}`}>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-astral-gold/15 blur-[50px] rounded-full" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-aether-cyan/15 blur-[40px] rounded-full" />
       </div>
 
-      <h3 className="relative z-10 text-xs font-bold uppercase tracking-[0.25em] gold-gradient-text mb-2">
+      <h3 className="relative z-10 text-xs font-bold tracking-[2px] text-astral-gold">
         🧭 {title}
       </h3>
 
       {alreadyUsed ? (
-        <div className="relative z-10 mt-6 flex flex-col items-center gap-2">
-          <span className="text-2xl text-slate-500">⏳</span>
-          <p className="text-slate-400 text-xs uppercase tracking-widest">
-            {lang === 'tr' ? 'Pusula hizalanıyor...' : 'Compass realigning...'}
+        <div className="relative z-10 mt-3.5 flex flex-col items-center gap-3.5">
+          <span className="text-[22px]">⏳</span>
+          <p className="text-gray-500 text-[11px] tracking-[2px]">
+            {lang === 'tr' ? 'PUSULA HİZALANIYOR…' : 'COMPASS REALIGNING…'}
           </p>
-          <p className="text-astral-gold font-mono text-xl font-bold mt-1 tracking-wider">
+          <p className="text-astral-gold text-xl font-bold tracking-[1px]">
             {timeLeft}
           </p>
-          <p className="mt-3 text-slate-500 text-[11px] leading-snug">
-            {lang === 'tr'
-              ? 'Her gece 00:00 UTC\'de yenileniyor.'
-              : 'Refreshes nightly at 00:00 UTC.'}
+          <p className="text-gray-500 text-[10px]">
+            {lang === 'tr' ? "Her gece 00:00'da yenileniyor." : 'Refreshes nightly at midnight.'}
           </p>
         </div>
       ) : (
-        <div className="relative z-10 mt-4 flex flex-col items-center gap-4">
+        <div className="relative z-10 mt-3.5 flex flex-col items-center gap-3.5">
           <button
             onPointerDown={startHold}
             onPointerUp={endHold}
@@ -229,8 +227,8 @@ export default function DailyCompass({ lang }) {
             </span>
           </button>
           
-          <p className="text-xs text-slate-400 tracking-wider">
-            {loading ? (lang === 'tr' ? 'Frekans çözümleniyor...' : 'Decoding frequency...') : instruction}
+          <p className="text-xs text-slate-300">
+            {loading ? (lang === 'tr' ? 'Frekans çözümleniyor…' : 'Decoding frequency…') : instruction}
           </p>
           
           {errorMsg && (
