@@ -21,6 +21,14 @@ const DEFAULT_TITLE = 'Lunosfer — Rüya Nabız Ağı | AI Destekli Jung Rüya 
 // 200 karakterdi ve cümle ortasında kırpılıyordu.
 const DEFAULT_DESCRIPTION =
   'Rüyalarını Jung arketipleri ve yapay zekâyla analiz et, küresel rüya haritasına katıl. Rüyanı paylaş, arketipini keşfet, bilinçaltı ağına bağlan.'
+// Google meta keywords'ü sıralamada kullanmıyor; ama Bing/Yandex ve bazı
+// iç arama motorları okuyor, zararı yok. Asıl etki title/description/içerikte.
+export const DEFAULT_KEYWORDS = [
+  'rüya tabiri', 'rüya yorumu', 'rüya analizi', 'rüya tabirleri', 'rüyada görmek',
+  'jung rüya analizi', 'jung arketipleri', 'yapay zeka rüya yorumu', 'ai rüya tabiri',
+  'online rüya yorumu', 'ücretsiz rüya analizi', 'rüya günlüğü', 'rüya haritası',
+  'bilinçaltı', 'lucid rüya', 'Lunosfer', 'dream interpretation', 'dream analysis',
+]
 const DEFAULT_IMAGE = `${SITE_URL}/logo.png`
 
 // Proje next-i18next değil, react-i18next + kendi lib/translations.js'ini
@@ -35,6 +43,7 @@ export default function Seo({
   type = 'website',
   lang = 'tr',
   jsonLd = null,
+  keywords = DEFAULT_KEYWORDS,
   path, // verilmezse mevcut router yolu kullanılır
 }) {
   const router = useRouter()
@@ -50,7 +59,12 @@ export default function Seo({
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
       <meta name="robots" content={robotsContent} />
+      <meta name="keywords" content={(Array.isArray(keywords) ? keywords : [keywords]).join(', ')} />
+      <meta name="author" content={SITE_NAME} />
+      <meta name="googlebot" content={noindex ? 'noindex, nofollow' : 'index, follow, max-snippet:-1, max-image-preview:large'} />
       <link rel="canonical" href={canonicalUrl} />
+      <link rel="alternate" hrefLang="tr" href={canonicalUrl} />
+      <link rel="alternate" hrefLang="x-default" href={canonicalUrl} />
 
       {/* Open Graph */}
       <meta property="og:site_name" content={SITE_NAME} />
@@ -59,6 +73,7 @@ export default function Seo({
       <meta property="og:description" content={description} />
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:image" content={image} />
+      <meta property="og:image:alt" content={fullTitle} />
       <meta property="og:locale" content={locale} />
 
       {/* Twitter Card */}

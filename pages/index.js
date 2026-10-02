@@ -26,7 +26,22 @@ const HOME_JSON_LD = [
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name: SITE_NAME,
+    alternateName: ['Lunosfer Rüya Nabız Ağı', 'Lunosfer Rüya Analizi'],
     url: SITE_URL,
+    inLanguage: 'tr',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'Lunosfer — AI Destekli Jung Rüya Analizi',
+    url: SITE_URL,
+    applicationCategory: 'LifestyleApplication',
+    operatingSystem: 'Web, Android',
+    inLanguage: 'tr',
+    description:
+      'Rüyanı yaz; yapay zekâ sembollerini, baskın Jung arketipini ve duygusal temalarını çıkarsın. Rüya günlüğü, rüya tabirleri ve küresel rüya haritası.',
+    keywords: 'rüya tabiri, rüya yorumu, rüya analizi, jung arketipleri, yapay zeka rüya yorumu, rüya günlüğü',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
   },
   {
     '@context': 'https://schema.org',
