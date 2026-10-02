@@ -1,27 +1,22 @@
 import Link from 'next/link'
-import { Bookmark, BookOpen, Heart, MessageCircle, Moon, Sparkles, Users } from 'lucide-react'
+import { MessageCircle, Settings, UserSearch, LogOut } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { supabase, auth, getAuthHeader } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { getTranslation } from '@/lib/translations'
 import { getDreamCardText } from '@/lib/dreamCardTranslations'
-import ProfileDreamTile from '@/components/ProfileDreamTile'
-import GoalCard from '@/components/GoalCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import VisionReelsFeed from '@/components/VisionReelsFeed'
 import DreamReelsFeed from '@/components/DreamReelsFeed'
 import CreateGoalModal from '@/components/CreateGoalModal'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
-import TextSkeleton from '@/components/TextSkeleton'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import DiaryStoryViewer from '@/components/DiaryStoryViewer'
 import DiaryJournal from '@/components/DiaryJournal'
-import PsycheMap from '@/components/PsycheMap'
-import AISummariesCard from '@/components/AISummariesCard'
-import ReferralWidget from '@/components/ReferralWidget'
+import { PROFILE_TEXT, ProfileSummaryCard, ProfileGridItem, ProfileSettingsSheet } from '@/components/profile/ProfileParts'
 import { JourneySummaryCard } from '@/components/game/GameUI'
 import Seo from '@/components/Seo'
 
@@ -94,6 +89,18 @@ export default function ProfilePage() {
   // PROFİL SEKMELERİ — Instagram'ın grid/tagged sekmeleri gibi. Vizyon Panosu
   // varsayılan (ilk açılan), Rüyalar (DreamCard grid'i) yan sekme.
   const [profileTab, setProfileTab] = useState('vision') // 'vision' | 'dreams' | 'gunce' | 'saved'
+  const [showSettings, setShowSettings] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [profileStats, setProfileStats] = useState(null)
+
+  // ⋮ > Ayarlar (Android'de Profil + ayarlar sayfası açık gelir)
+  useEffect(() => {
+    if (router.isReady && router.query.settings === '1') setShowSettings(true)
+  }, [router.isReady, router.query.settings])
+
+  useEffect(() => {
+    getAuthHeader().then((h) => fetch('/api/profile-stats', { headers: h })).then((r) => (r.ok ? r.json() : null)).then((j) => j && setProfileStats(j)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     // Sayfa yenilendiğinde en son hangi sekmedeysem (Vizyon/Rüyalar) onda
@@ -517,75 +524,35 @@ export default function ProfilePage() {
     }
   }
 
+  const tP = PROFILE_TEXT[lang === 'tr' ? 'tr' : 'en']
+  const TAB_KEYS = ['vision', 'dreams', 'gunce', 'saved']
+  const Empty = ({ text }) => <p className="p-8 text-center text-sm text-gray-500">{text}</p>
+  const Spin = () => <div className="flex justify-center py-16"><span className="h-8 w-8 animate-spin rounded-full border-4 border-astral-gold/25 border-t-astral-gold" /></div>
+
+  // Android ProfileScreen düzeni: başlık + ayarlar, özet kartı, yolculuk, arkadaş/çıkış, sekmeler, 3'lü ızgara.
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden bg-void-950 text-white">
       <Seo title={lang === 'tr' ? 'Profilim' : 'My Profile'} noindex lang={lang} />
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        
-        {/* INSTAGRAM TARZI PROFİL BAŞLIĞI */}
-        <div className={`flex flex-col sm:flex-row items-center gap-6 sm:gap-10 border-b border-white/10 pb-8 mb-6 relative transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
-          <div className="shrink-0 relative group">
-            <button
-              type="button"
-              onClick={diaryEntries && diaryEntries.length > 0 ? openOwnDiary : undefined}
-              className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full ${diaryEntries && diaryEntries.length > 0 ? 'p-[2.5px] cursor-pointer' : 'cursor-default'}`}
-              style={diaryEntries && diaryEntries.length > 0 ? { background: 'conic-gradient(from 0deg, #FFF6D6, #E6C687, #B89753, #E6C687, #FFF6D6)' } : undefined}
-              aria-label={diaryEntries && diaryEntries.length > 0 ? (lang === 'tr' ? 'Güncemi gör' : 'View my diary') : undefined}
-            >
-              <div className="w-full h-full rounded-full overflow-hidden border-2 border-brand-primary-500 bg-white/5 shadow-[0_0_20px_rgba(240,73,214,0.15)] flex items-center justify-center">
-                {displayAvatar ? (
-                  <img src={displayAvatar} alt={displayUsername} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-4xl">🌌</span>
-                )}
-              </div>
-            </button>
-          </div>
-
-          <div className="flex-1 min-w-0 text-center sm:text-left">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4">
-              <h2 className="text-xl sm:text-2xl font-black font-sans truncate">{displayUsername}</h2>
-              <div className="flex gap-2 justify-center">
-                <button
-                  onClick={() => setShowProfileEditor(true)}
-                  className="rounded-lg bg-slate-900 border border-white/10 px-4 py-1.5 text-xs font-semibold hover:bg-slate-800 transition-all"
-                >
-                  {getTranslation('profile.editProfile', lang)}
-                </button>
-                <button
-                  onClick={() => setShowFriends(!showFriends)}
-                  className="rounded-lg bg-slate-900 border border-white/10 px-4 py-1.5 text-xs font-semibold hover:bg-slate-800 transition-all"
-                >
-                  <Users size={13} className="inline -mt-0.5 mr-1" /> {friends.length} {tCard.followingLabel}
-                </button>
-                {/* YENİ: Çıkış Yap butonu */}
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-all"
-                >
-                  {lang === 'tr' ? 'Çıkış Yap' : 'Sign Out'}
-                </button>
-              </div>
-            </div>
-
-            <div className="text-sm font-medium text-slate-200 mt-2">
-              <p className="font-bold text-white">{profile?.display_name || displayUsername}</p>
-              {(profile?.profile_visibility === 'private' || profile?.is_private) && (
-                <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-brand-primary-300 border border-brand-primary-500/20 mt-1 uppercase tracking-widest">
-                  🔒 {lang === 'tr' ? 'Gizli Profil' : 'Private Profile'}
-                </span>
-              )}
-              {profile?.profile_visibility === 'friends' && (
-                <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-brand-primary-300 border border-brand-primary-500/20 mt-1 uppercase tracking-widest">
-                  👥 {lang === 'tr' ? 'Sadece Arkadaşlar' : 'Friends Only'}
-                </span>
-              )}
-              <p className="text-xs text-slate-400 mt-1.5">{dreams.length} {getTranslation('profile.totalDreams', lang)}</p>
-            </div>
-          </div>
+      <div className="flex flex-col items-center gap-5 p-5">
+        <div className="relative w-full text-center">
+          <h1 className="font-serif text-[28px] text-astral-gold">{tP.title}</h1>
+          <button onClick={() => setShowSettings(true)} aria-label={tP.settings} className="absolute right-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full text-white hover:bg-white/5">
+            <Settings size={24} />
+          </button>
         </div>
+        <ProfileSummaryCard t={tP} profile={profile} user={user} stats={profileStats} onEdit={() => setShowProfileEditor(true)} onFriends={() => setShowFriends(true)} />
+        {mounted && user && <div className="w-full"><JourneySummaryCard lang={lang} /></div>}
+        <div className="flex w-full gap-3">
+          <button onClick={() => setShowFriends((v) => !v)} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-aether-violet/50 bg-void-900 px-3 py-2.5 text-xs font-bold text-white">
+            <UserSearch size={18} className="text-astral-gold" />{tP.findFriends}
+          </button>
+          <button onClick={() => setShowLogoutConfirm(true)} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-shadowWork-rose/50 bg-void-900 px-3 py-2.5 text-xs font-bold text-white">
+            <LogOut size={18} className="text-shadowWork-rose" />{tP.logout}
+          </button>
+        </div>
+      </div>
 
+      <div className="px-4">
         {/* SOSYAL ARKADAŞLIK ALANI */}
         {showFriends && (
           <div className="glass-card p-4 sm:p-6 mb-6 animate-fade-in">
@@ -676,37 +643,6 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Android profilindeki Yolculuğum özeti + AI özetleri + menü girişleri */}
-        {mounted && user && (
-          <div className="mb-4 space-y-3">
-            <JourneySummaryCard lang={lang} />
-            <div className="flex flex-wrap gap-2">
-              <Link href="/journey" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] hover:text-white">
-                🏆 {lang === 'tr' ? 'Yolculuğum' : 'My Journey'}
-              </Link>
-              <Link href="/shared-visions" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] hover:text-white">
-                🤝 {lang === 'tr' ? 'Paylaşılan Vizyonlar' : 'Shared Visions'}
-              </Link>
-              <Link href="/spiritual-tools" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] hover:text-white">
-                ✨ {lang === 'tr' ? 'Ruhsal Araçlar' : 'Spiritual Tools'}
-              </Link>
-              <Link href="/support" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] hover:text-white">
-                ❓ {lang === 'tr' ? 'Yardım' : 'Help'}
-              </Link>
-              <Link href="/blocked-users" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] hover:text-white">
-                🚫 {lang === 'tr' ? 'Engellenen Kullanıcılar' : 'Blocked Users'}
-              </Link>
-            </div>
-            <AISummariesCard lang={lang} user={user} />
-            <div className="mt-4"><ReferralWidget lang={lang} user={user} /></div>
-          </div>
-        )}
-
-        {/* Rüya paylaşımı sonrası tam bu anda geri dönülüyor (highlightDreamId
-            ?highlightDream= ile geliyor) — "içeriğim nereye gidiyor" merakının
-            en yüksek olduğu an. Nav'a kalıcı bir globe ikonu eklemek yerine
-            (mockup onu bilerek sadeleştirmişti) bu bağlam-duyarlı şeridi
-            kullanıyoruz: her paylaşımda garanti çıkıyor, rastgele değil. */}
         {highlightDreamId && (
           <Link
             href="/globe"
@@ -721,157 +657,71 @@ export default function ProfilePage() {
           </Link>
         )}
 
-        {/* PROFİL SEKMELERİ (Instagram grid/tagged tarzı) — Vizyon Panosu varsayılan.
-            4 sekme dar ekranlarda sığmıyordu (metin iki satıra bölünüyor / son
-            sekme kırpılıyordu) — artık yatay kaydırılabilir; sm ve üzeri
-            genişlikte zaten sığdığı için ortalanmış düzene geri dönüyor. */}
-        <div className="flex items-center gap-6 sm:gap-8 sm:justify-center overflow-x-auto no-scrollbar scroll-smooth scroll-fade-x border-t border-white/10 mb-4">
-          <button
-            onClick={() => handleSelectTab('vision')}
-            className={`flex shrink-0 items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px whitespace-nowrap transition-colors ${
-              profileTab === 'vision' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            <Sparkles size={13} /> {mounted ? (lang === 'tr' ? 'Vizyon Panosu' : 'Vision Board') : <TextSkeleton width="w-20" />}
-          </button>
-          <button
-            onClick={() => handleSelectTab('dreams')}
-            className={`flex shrink-0 items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px whitespace-nowrap transition-colors ${
-              profileTab === 'dreams' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            <Moon size={13} /> {mounted ? (lang === 'tr' ? 'Rüyalar' : 'Dreams') : <TextSkeleton width="w-14" />}
-          </button>
-          <button
-            onClick={() => handleSelectTab('gunce')}
-            className={`flex shrink-0 items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px whitespace-nowrap transition-colors ${
-              profileTab === 'gunce' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            <BookOpen size={13} /> {mounted ? (lang === 'tr' ? 'Günce' : 'Diary') : <TextSkeleton width="w-14" />}
-          </button>
-          <button
-            onClick={() => handleSelectTab('saved')}
-            className={`flex shrink-0 items-center gap-1.5 py-3 text-xs font-bold uppercase tracking-widest border-t-2 -mt-px whitespace-nowrap transition-colors ${
-              profileTab === 'saved' ? 'border-brand-primary-400 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            <Bookmark size={13} /> {mounted ? (lang === 'tr' ? 'Kaydedilenler' : 'Saved') : <TextSkeleton width="w-16" />}
-          </button>
-        </div>
+      </div>
 
-        {profileTab === 'vision' ? (
-          <div className={`transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
-            <div className="flex justify-end mb-3">
-              <button
-                onClick={() => setShowCreateGoal(true)}
-                className="px-4 py-2 rounded-full bg-gradient-to-r from-brand-primary-500 to-brand-accent-500 text-white text-xs font-bold uppercase tracking-widest hover:opacity-90"
-              >
-                + {tVision.createGoalBtn}
-              </button>
-            </div>
+      <div className="flex border-b border-white/10">
+        {tP.tabs.map((label, i) => {
+          const key = TAB_KEYS[i]
+          const active = profileTab === key
+          return (
+            <button key={key} onClick={() => handleSelectTab(key)} className={`relative flex-1 py-3.5 text-xs ${active ? 'font-bold text-astral-gold' : 'text-gray-500'}`}>
+              {label}
+              {active && <span className="absolute inset-x-0 bottom-0 h-[3px] bg-astral-gold" />}
+            </button>
+          )
+        })}
+      </div>
 
-            {goalsLoading && !goalsLoaded ? (
-              <div className="py-20 flex justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-primary-400 border-t-transparent" />
-              </div>
-            ) : goals.length === 0 ? (
-              <div className="text-center py-20 text-white/40 text-sm">
-                {tVision.emptyMyGoals}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                {goals.map((goal) => (
-                  <GoalCard
-                    key={goal.id}
-                    goal={goal}
-                    lang={lang}
-                    currentUserId={user?.id}
-                    onOpenGoal={handleOpenGoal}
-                  />
-                ))}
-              </div>
-            )}
+      {profileTab === 'vision' ? (
+        goalsLoading && !goalsLoaded ? <Spin /> : goals.length === 0 ? <Empty text={tP.empty.vision} /> : (
+          <div className="grid grid-cols-3">
+            {goals.map((goal) => <ProfileGridItem key={goal.id} imageUrl={goal.cover_image_url} title={goal.title} onClick={() => handleOpenGoal(goal)} />)}
           </div>
-        ) : profileTab === 'dreams' ? (
+        )
+      ) : profileTab === 'dreams' ? (
         <>
-        {mounted && <div className="mb-4"><PsycheMap lang={lang} /></div>}
-
-        {/* Paylaşım-sonrası banner sadece highlightDreamId anında çıkıyor —
-            bu ise HER ZAMAN burada, sessiz bir davet: rüya paylaşmamış olsan
-            da haritayı merak edip keşfedebilmelisin. */}
-        <Link
-          href="/globe"
-          className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] hover:border-white/20 transition-colors text-slate-300 hover:text-white text-xs font-medium w-fit"
-        >
-          🌐 {lang === 'tr' ? 'Bilinçaltı Haritasını Keşfet' : 'Explore the Subconscious Map'}
-        </Link>
-
-        {/* 3 KOLONLU PROFİL IZGARASI (INSTAGRAM GRID) */}
-        {dreams.length === 0 ? (
-          <div className="text-center py-20 text-white/40 text-sm">
-            {getTranslation('journal.noDreams', lang)}
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
-            {dreams.map((dream, index) => {
-              const isLast = index === dreams.length - 1
-              const isHighlighted = highlightDreamId && String(dream.id) === String(highlightDreamId)
-
-              return (
-                <ProfileDreamTile
+          {dreams.length === 0 ? <Empty text={tP.empty.dreams} /> : (
+            <div className="grid grid-cols-3">
+              {dreams.map((dream, index) => (
+                <ProfileGridItem
                   key={dream.id}
-                  dream={dream}
-                  lang={lang}
-                  isHighlighted={isHighlighted}
+                  imageUrl={dream.ai_image_url}
+                  title={dream.ai_title || String(dream.content || '').slice(0, 60)}
                   onClick={() => setActiveDream(dream)}
-                  tileRef={(node) => {
-                    if (isLast) lastElementRef(node)
-                    if (isHighlighted) highlightRef.current = node
+                  innerRef={(node) => {
+                    if (index === dreams.length - 1) lastElementRef(node)
+                    if (highlightDreamId && String(dream.id) === String(highlightDreamId)) highlightRef.current = node
                   }}
                 />
-              )
-            })}
-          </div>
-        )}
-
-        {loadingMore && (
-          <div className="py-8 text-center text-slate-400 flex items-center justify-center gap-3">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-primary-400 border-t-transparent" />
-            <span className="text-xs uppercase tracking-widest">{lang === 'tr' ? 'Rüyalarınız Alınıyor...' : 'Loading More...'}</span>
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+          {loadingMore && <Spin />}
         </>
-        ) : profileTab === 'gunce' ? (
-          <div className={`transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
-            <DiaryJournal lang={lang} currentUser={user} />
+      ) : profileTab === 'gunce' ? (
+        <div className="p-4"><DiaryJournal lang={lang} currentUser={user} /></div>
+      ) : (
+        savedLoading && !savedLoaded ? <Spin /> : savedGoals.length === 0 ? <Empty text={tP.empty.saved} /> : (
+          <div className="grid grid-cols-3">
+            {savedGoals.map((goal) => <ProfileGridItem key={goal.id} imageUrl={goal.cover_image_url} title={goal.title} onClick={() => handleOpenGoal(goal)} />)}
           </div>
-        ) : (
-          <div className={`transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
-            {savedLoading && !savedLoaded ? (
-              <div className="py-20 flex justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-primary-400 border-t-transparent" />
-              </div>
-            ) : savedGoals.length === 0 ? (
-              <div className="text-center py-20 text-white/40 text-sm">
-                {lang === 'tr' ? 'Henüz kaydettiğin bir vizyon yok.' : "You haven't saved any visions yet."}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                {savedGoals.map((goal) => (
-                  <GoalCard
-                    key={goal.id}
-                    goal={goal}
-                    lang={lang}
-                    currentUserId={user?.id}
-                    onOpenGoal={handleOpenGoal}
-                  />
-                ))}
-              </div>
-            )}
+        )
+      )}
+
+      {showSettings && <ProfileSettingsSheet t={tP} lang={lang} user={user} onClose={() => setShowSettings(false)} />}
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/70 p-4" onClick={() => setShowLogoutConfirm(false)}>
+          <div className="w-full max-w-sm rounded-[28px] bg-void-900 p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white">{tP.logoutTitle}</h3>
+            <p className="mt-3 text-sm text-slate-400">{tP.logoutDesc}</p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={() => setShowLogoutConfirm(false)} className="px-4 py-2 text-sm text-slate-400">{tP.cancel}</button>
+              <button onClick={handleSignOut} className="px-4 py-2 text-sm font-bold text-shadowWork-rose">{tP.logout}</button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* PROFİL EDİTÖRÜ MODALI (Gizlilik Toggleri Dahil) */}
       {showProfileEditor && (
