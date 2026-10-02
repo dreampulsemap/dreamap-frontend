@@ -138,6 +138,9 @@ export default function Sidebar() {
           Politikası + Kullanım Koşulları linki. Daha önce hiçbir yerden
           linklenmiyordu (sadece doğrudan URL ile erişilebiliyordu). */}
       <div className="mt-auto flex flex-col gap-0.5 pt-6 text-[11px] text-slate-600">
+        <Link href="/ruya-tabirleri" className="hover:text-slate-400 transition-colors">
+          {currentLang === 'tr' ? 'Rüya Tabirleri' : 'Dream Guides'}
+        </Link>
         <Link href="/privacy" className="hover:text-slate-400 transition-colors">
           {currentLang === 'tr' ? 'Gizlilik Politikası' : 'Privacy Policy'}
         </Link>

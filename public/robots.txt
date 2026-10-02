@@ -18,4 +18,4 @@ Disallow: /gumroad-test
 # yerden bu sayfalara link verilirse Google onu yine de (içeriksiz, sadece
 # URL olarak) sonuçlarda gösterebiliyor. noindex için crawl izni gerekir.
 
-Sitemap: https://lunosfer.com/sitemap.xml
+Sitemap: https://www.lunosfer.com/sitemap.xml
