@@ -1,21 +1,29 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import Link from 'next/link'
-import Image from 'next/image'
-import { Bird, Heart, MessageCircle, Moon, Search, Target, Trophy, X } from 'lucide-react'
-import { supabase, getAuthHeader } from '@/lib/supabase'
+import { Moon, Radar, Trophy, Sparkles, RefreshCw, Image as ImageIcon } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
-import { getTranslation } from '@/lib/translations'
 import { getVisionBoardText } from '@/lib/visionBoardTranslations'
-import ExploreImageTile from '@/components/ExploreImageTile'
-import GoalCard from '@/components/GoalCard'
+import VisionGridCard from '@/components/VisionGridCard'
 import GoalDetailModal from '@/components/GoalDetailModal'
 import SlidesViewer from '@/components/SlidesViewer'
 import VisionVideoPlayer from '@/components/VisionVideoPlayer'
 import VisionReelsFeed from '@/components/VisionReelsFeed'
 import DreamReelsFeed from '@/components/DreamReelsFeed'
 import Seo from '@/components/Seo'
-import EmptyState from '@/components/EmptyState'
-import ErrorState from '@/components/ErrorState'
+
+// Android ExploreScreen ExploreTile: kare, yalnızca görsel; yüklenemezse ikon.
+function ExploreTile({ dream, onClick }) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <button onClick={onClick} className="relative block aspect-square w-full overflow-hidden rounded-[2px] bg-void-800">
+      {dream.ai_image_url && !failed ? (
+        <img src={dream.ai_image_url} alt={dream.ai_title || ''} onError={() => setFailed(true)} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <span className="absolute inset-0 flex items-center justify-center"><ImageIcon size={24} className="text-slate-600" /></span>
+      )}
+    </button>
+  )
+}
 
 // Brief'teki orijinal mimari: Explore 4 alt-sekmeden oluşan bir "Yaşam Tarlası".
 // Vision Board önceden ayrı bir sayfaydı (/vision-board) — bu geçici bir
@@ -33,13 +41,6 @@ export default function ExplorePage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [user, setUser] = useState(null)
 
-  // Kullanıcı arama (Instagram Explore tarzı)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState([])
-  const [searchLoading, setSearchLoading] = useState(false)
-  const [searchError, setSearchError] = useState('')
-  const [followBusyIds, setFollowBusyIds] = useState({})
-
   // Seçili rüyanın dizi içerisindeki indeksini tutar (Explore Slider için)
   const [activeDreamIndex, setActiveDreamIndex] = useState(null)
   const observerRef = useRef(null)
@@ -50,14 +51,6 @@ export default function ExplorePage() {
   // arasında kayma/tekrar yaratmaz.
   const rankTokenRef = useRef(null)
   const asOfRef = useRef(null)
-
-  // Görselsiz rüyaları da göster: varsayılan kapalı (mevcut davranış),
-  // açıldığında /api/explore/feed'e includeNoImage=1 gönderilip sunucu
-  // tarafındaki "ai_image_url dolu olmalı" filtresi devre dışı bırakılır.
-  // ExploreImageTile zaten görselsiz rüyalar için metin tabanlı bir kart
-  // gösterebiliyor (bkz. showFallback) — burada eksik olan sadece backend'in
-  // bu rüyaları hiç göndermemesiydi.
-  const [includeNoImage, setIncludeNoImage] = useState(false)
 
   // 4 sekmeli hub: Dreamscape (rüyalar) / Vision Board (aktif hedefler) /
   // Victory Wall (gerçekleşenler) / Phoenix Wall (vazgeçilenler)
@@ -136,71 +129,6 @@ export default function ExplorePage() {
   const lang = mounted ? (i18n.language || 'en').split('-')[0] : 'en'
   const tVision = getVisionBoardText(lang)
 
-  // Aramayı debounce ediyoruz — her tuş vuruşunda değil, kullanıcı yazmayı
-  // bıraktıktan ~350ms sonra istek atıyoruz.
-  useEffect(() => {
-    const q = searchQuery.trim()
-    if (!q) {
-      setSearchResults([])
-      setSearchError('')
-      setSearchLoading(false)
-      return
-    }
-    if (!user?.id) {
-      setSearchError(lang === 'tr' ? 'Kullanıcı aramak için giriş yapmalısın.' : 'Log in to search for users.')
-      setSearchResults([])
-      return
-    }
-
-    setSearchLoading(true)
-    setSearchError('')
-    const timeout = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/friends/search?query=${encodeURIComponent(q)}&userId=${user.id}`, {
-          headers: await getAuthHeader(),
-        })
-        const json = await res.json()
-        if (!res.ok) {
-          setSearchError(json.error || 'error')
-          setSearchResults([])
-        } else {
-          setSearchResults(json.users || [])
-        }
-      } catch (err) {
-        setSearchError(lang === 'tr' ? 'Bağlantı hatası' : 'Network error')
-        setSearchResults([])
-      } finally {
-        setSearchLoading(false)
-      }
-    }, 350)
-
-    return () => clearTimeout(timeout)
-  }, [searchQuery, user, lang])
-
-  const handleFollow = useCallback(async (targetUser) => {
-    if (!user?.id || followBusyIds[targetUser.id]) return
-    setFollowBusyIds((m) => ({ ...m, [targetUser.id]: true }))
-    try {
-      const res = await fetch('/api/friends/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
-        body: JSON.stringify({ userId: user.id, friendId: targetUser.id }),
-      })
-      const json = await res.json()
-      if (res.ok) {
-        setSearchResults((list) =>
-          list.map((u) => (u.id === targetUser.id ? { ...u, friendshipStatus: json.status } : u))
-        )
-      }
-    } catch (err) {
-      // sessizce yut — kullanıcı tekrar deneyebilir
-    } finally {
-      setFollowBusyIds((m) => ({ ...m, [targetUser.id]: false }))
-    }
-  }, [user, followBusyIds])
-
-  const isSearching = searchQuery.trim().length > 0
-
   const loadGlobalDreams = useCallback(async (pageNum = 0, append = false) => {
     setLoading(true)
     try {
@@ -212,7 +140,6 @@ export default function ExplorePage() {
       const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {}
 
       const params = new URLSearchParams({ page: String(pageNum), asOf: asOfRef.current })
-      if (includeNoImage) params.set('includeNoImage', '1')
       if (pageNum > 0 && rankTokenRef.current) {
         params.set('rankToken', rankTokenRef.current)
       }
@@ -237,7 +164,7 @@ export default function ExplorePage() {
     } finally {
       setLoading(false)
     }
-  }, [includeNoImage])
+  }, [])
 
   useEffect(() => {
     loadGlobalDreams(0, false)
@@ -266,241 +193,84 @@ export default function ExplorePage() {
     [loading, loadingMore, hasMore, loadMore]
   )
 
-  const getSentimentEmoji = (sentiment) => {
-    const map = { Fear: '😨', Anxiety: '😰', Joy: '😊', Peace: '😌', Sadness: '😢', Awe: '😲', Confusion: '😕', Surprise: '😮' }
-    return map[sentiment] || '🔮'
+  const tr = lang === 'tr'
+  const TABS = [
+    { hub: 'dreamscape', label: tr ? 'Rüyalar' : 'Dreams', icon: Moon },
+    { hub: 'vision', label: tr ? 'Vizyon Panosu' : 'Vision Board', icon: Radar },
+    { hub: 'victory', label: tr ? 'Zafer Duvarı' : 'Victory Wall', icon: Trophy },
+    { hub: 'phoenix', label: tr ? 'Anka Duvarı' : 'Phoenix Wall', icon: Sparkles },
+  ]
+  const EMPTY = {
+    vision: tr ? 'Henüz aktif bir vizyon yok' : 'No active visions yet',
+    victory: tr ? 'Henüz kutlanan bir zafer yok' : 'No celebrated victories yet',
+    phoenix: tr ? 'Anka Duvarı sessiz' : 'The Phoenix Wall is silent',
   }
+  const Spinner = ({ cls = 'border-astral-gold' }) => (
+    <div className="flex justify-center py-24"><span className={`h-10 w-10 animate-spin rounded-full border-4 border-white/10 ${cls}`} style={{ borderTopColor: 'currentColor' }} /></div>
+  )
+  const ErrorBox = ({ onRetry }) => (
+    <div className="flex flex-col items-center px-6 py-24 text-center">
+      <p className="font-serif text-base text-white">{tr ? 'Keşfet yüklenemedi' : 'Failed to load explore'}</p>
+      <button onClick={onRetry} className="mt-4 flex items-center gap-2 rounded-full border border-aether-cyan/40 px-5 py-2 text-sm text-aether-cyan"><RefreshCw size={16} />{tr ? 'Tekrar Dene' : 'Retry'}</button>
+    </div>
+  )
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-void-950 text-white">
       <Seo
         title="Keşfet — Paylaşılan Rüyalar ve Vizyonlar"
         description="Lunosfer topluluğunun paylaştığı rüyaları, arketip analizlerini ve vizyon panolarını keşfet. Herkese açık rüya akışında ilham al, benzer sembollerle karşılaşanları gör."
       />
-      <div className="starry-bg" />
-      <div className="floating-orb orb-1" />
-      <div className="floating-orb orb-2" />
-      
-      <main className="mx-auto w-full max-w-[1200px] px-3 py-6 sm:px-6">
-        {/* ÜST BAŞLIK */}
-        <div className={`mb-8 text-center sm:text-left transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-cyan-300 mb-2">
-            🌐 {lang === 'tr' ? 'Küresel Rüya Ağı' : 'Global Dream Nexus'}
-          </span>
-          <h1 className="text-3xl font-bold font-serif gold-gradient-text">
-            {lang === 'tr' ? 'Kolektif Keşfet' : 'Explore'}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-md">
-            {lang === 'tr' 
-              ? 'Tüm dünyadaki bilinçaltı parlamalarını, mistik görselleri ve nadir rüya kartlarını keşfedin.' 
-              : 'Discover deep archetypes, beautiful visuals, and raw subconscious signals from the global network.'}
-          </p>
-        </div>
 
-        {/* ARAMA ÇUBUĞU (INSTAGRAM EXPLORE STYLE) */}
-        <div className={`mb-6 transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
-          <div className="relative max-w-md">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><Search size={16} /></span>
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={lang === 'tr' ? 'Kullanıcı ara...' : 'Search users...'}
-              className="w-full bg-white/5 border border-white/10 rounded-full pl-11 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400/50 transition-colors"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-sm"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
+      {/* Android ExploreScreen: ScrollableTabRow (ikon + serif etiket, altın alt çizgi) */}
+      <div className="flex overflow-x-auto border-b border-white/[0.08] bg-void-950 pl-4" style={{ scrollbarWidth: 'none' }}>
+        {TABS.map(({ hub, label, icon: Icon }) => {
+          const active = activeHub === hub
+          return (
+            <button
+              key={hub}
+              onClick={() => handleHubClick(hub)}
+              className={`relative flex min-w-[90px] shrink-0 flex-col items-center gap-1 px-4 pb-2.5 pt-3 ${active ? 'text-astral-gold' : 'text-slate-400'}`}
+            >
+              <Icon size={18} fill={hub === 'dreamscape' || hub === 'victory' ? 'currentColor' : 'none'} />
+              <span className="whitespace-nowrap font-serif text-[13px] font-bold">{label}</span>
+              {active && <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-t bg-astral-gold" />}
+            </button>
+          )
+        })}
+      </div>
 
-        {!isSearching && (
-          <div className="flex items-center gap-2 mb-6 overflow-x-auto no-scrollbar">
-            {HUBS.map((hub) => {
-              const labels = {
-                dreamscape: { tr: 'Rüyalar', en: 'Dreamscape', icon: Moon },
-                vision: { tr: 'Vizyon Panosu', en: 'Vision Board', icon: Target },
-                victory: { tr: 'Zafer Duvarı', en: 'Victory Wall', icon: Trophy },
-                phoenix: { tr: 'Anka Duvarı', en: 'Phoenix Wall', icon: Bird },
-              }
-              const activeStyles = {
-                dreamscape: 'bg-fuchsia-500 text-white',
-                vision: 'bg-cyan-500 text-black',
-                victory: 'bg-emerald-500 text-black',
-                phoenix: 'bg-slate-400 text-black',
-              }
-              const HubIcon = labels[hub].icon
-              return (
-                <button
-                  key={hub}
-                  onClick={() => handleHubClick(hub)}
-                  className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${
-                    activeHub === hub ? activeStyles[hub] : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
-                  }`}
-                >
-                  <HubIcon size={13} />
-                  {labels[hub][lang] || labels[hub].en}
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {isSearching ? (
-          <div className="max-w-md">
-            {searchLoading ? (
-              <div className="py-10 text-center text-slate-400 flex flex-col items-center gap-2">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-              </div>
-            ) : searchError ? (
-              <p className="text-rose-400 text-sm py-6 text-center">{searchError}</p>
-            ) : searchResults.length === 0 ? (
-              <p className="text-slate-500 text-sm py-10 text-center">
-                {lang === 'tr' ? `"${searchQuery}" için sonuç bulunamadı.` : `No results for "${searchQuery}".`}
-              </p>
-            ) : (
-              <ul className="space-y-1">
-                {searchResults.map((result) => (
-                  <li
-                    key={result.id}
-                    className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors"
-                  >
-                    <Link href={`/u/${result.id}`} className="w-11 h-11 rounded-full bg-gradient-to-br from-fuchsia-600 to-purple-800 flex items-center justify-center text-white font-bold text-sm shrink-0 overflow-hidden relative">
-                      {result.avatar_url ? (
-                        <Image src={result.avatar_url} alt={result.username} fill sizes="44px" className="object-cover" />
-                      ) : (
-                        (result.display_name || result.username || '?').charAt(0).toUpperCase()
-                      )}
-                    </Link>
-                    <Link href={`/u/${result.id}`} className="min-w-0 flex-1">
-                      <p className="text-white text-sm font-semibold truncate">
-                        {result.display_name || result.username}
-                      </p>
-                      {result.username && (
-                        <p className="text-slate-500 text-xs truncate">@{result.username}</p>
-                      )}
-                    </Link>
-                    <button
-                      onClick={() => handleFollow(result)}
-                      disabled={result.friendshipStatus === 'accepted' || result.friendshipStatus === 'pending' || followBusyIds[result.id]}
-                      className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-                        result.friendshipStatus === 'accepted'
-                          ? 'bg-white/5 text-slate-500 cursor-default'
-                          : result.friendshipStatus === 'pending'
-                          ? 'bg-white/5 text-amber-400 cursor-default'
-                          : 'bg-cyan-500 text-black hover:bg-cyan-400 disabled:opacity-50'
-                      }`}
-                    >
-                      {result.friendshipStatus === 'accepted'
-                        ? (lang === 'tr' ? 'Takipte' : 'Following')
-                        : result.friendshipStatus === 'pending'
-                        ? (lang === 'tr' ? 'Bekliyor' : 'Pending')
-                        : (lang === 'tr' ? 'Takip Et' : 'Follow')}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+      {activeHub === 'dreamscape' && (
+        loading && dreams.length === 0 ? <Spinner cls="text-aether-cyan" /> : dreams.length === 0 ? (
+          <p className="px-6 py-24 text-center text-sm text-slate-400">{tr ? 'Henüz keşfedilecek bir şey yok' : 'Nothing to explore yet'}</p>
         ) : (
-        <>
-        {activeHub === 'dreamscape' && (
-        <>
-        {/* GÖRSELSİZ RÜYALARI DA GÖSTER — küçük, isteğe bağlı seçenek */}
-        <div className="flex justify-end mb-3">
-          <button
-            type="button"
-            onClick={() => setIncludeNoImage((v) => !v)}
-            aria-pressed={includeNoImage}
-            className={`flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full text-[11px] font-semibold transition-all border ${
-              includeNoImage
-                ? 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30'
-                : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'
-            }`}
-          >
-            <span className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${includeNoImage ? 'bg-fuchsia-500' : 'bg-white/15'}`}>
-              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${includeNoImage ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
-            </span>
-            {lang === 'tr' ? 'Görselsiz rüyaları da göster' : 'Also show dreams without images'}
-          </button>
-        </div>
-
-        {/* 3 KOLONLU GÖRSEL IZGARA (INSTAGRAM STYLE) */}
-        {loading ? (
-          <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-            {mounted && <span className="text-xs tracking-wider uppercase">{lang === 'tr' ? 'Keşfet Yükleniyor...' : 'Loading Explore Grid...'}</span>}
-          </div>
-        ) : dreams.length === 0 ? (
-          <EmptyState icon="🌌" title={lang === 'tr' ? 'Keşfedecek Rüya Yok' : 'Explore is Empty'} />
-        ) : (
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
-            {dreams.map((dream, index) => {
-              const isLast = index === dreams.length - 1
-              return (
-                <div key={dream.id} ref={isLast ? lastElementRef : null}>
-                  <ExploreImageTile
-                    dream={dream}
-                    sentimentEmoji={getSentimentEmoji(dream.ai_sentiment)}
-                    lang={lang}
-                    onClick={() => setActiveDreamIndex(index)}
-                  />
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {loadingMore && (
-          <div className="py-8 text-center text-slate-400 flex items-center justify-center gap-3">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
-            <span className="text-xs uppercase tracking-widest">{lang === 'tr' ? 'Keşif Devam Ediyor...' : 'Loading More...'}</span>
-          </div>
-        )}
-        </>
-        )}
-
-        {(activeHub === 'vision' || activeHub === 'victory' || activeHub === 'phoenix') && (
           <>
-            {hubLoading[activeHub] ? (
-              <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-              </div>
-            ) : hubError[activeHub] ? (
-              <ErrorState lang={lang} onRetry={() => loadHubGoals(activeHub)} />
-            ) : hubGoals[activeHub].length === 0 ? (
-              <EmptyState
-                icon={activeHub === 'vision' ? <Target size={28} /> : activeHub === 'victory' ? <Trophy size={28} /> : <Bird size={28} />}
-                title={
-                  activeHub === 'vision'
-                    ? (lang === 'tr' ? 'Henüz aktif bir vizyon yok' : 'No active visions yet')
-                    : activeHub === 'victory'
-                    ? (lang === 'tr' ? 'Henüz kutlanan bir zafer yok' : 'No victories celebrated yet')
-                    : (lang === 'tr' ? 'Anka Duvarı sessiz' : 'The Phoenix Wall is quiet')
-                }
-              />
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {hubGoals[activeHub].map((goal) => (
-                  <GoalCard
-                    key={goal.id}
-                    goal={goal}
-                    lang={lang}
-                    currentUserId={user?.id}
-                    onOpenGoal={handleOpenGoal}
-                  />
-                ))}
-              </div>
-            )}
+            <div className="grid grid-cols-3 gap-0.5 p-0.5">
+              {dreams.map((dream, index) => (
+                <div key={dream.id} ref={index === dreams.length - 1 ? lastElementRef : null}>
+                  <ExploreTile dream={dream} onClick={() => setActiveDreamIndex(index)} />
+                </div>
+              ))}
+            </div>
+            {loadingMore && <div className="flex justify-center p-4"><span className="h-[22px] w-[22px] animate-spin rounded-full border-2 border-aether-cyan/25 border-t-aether-cyan" /></div>}
           </>
-        )}
-        </>
-        )}
-      </main>
+        )
+      )}
+
+      {activeHub !== 'dreamscape' && (
+        hubLoading[activeHub] ? <Spinner cls="text-astral-gold" /> : hubError[activeHub] ? (
+          <ErrorBox onRetry={() => loadHubGoals(activeHub)} />
+        ) : hubGoals[activeHub].length === 0 ? (
+          <p className="px-6 py-24 text-center text-sm text-slate-400">{EMPTY[activeHub]}</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 p-4">
+            {hubGoals[activeHub].map((goal) => (
+              <VisionGridCard key={goal.id} goal={goal} lang={lang} onClick={() => handleOpenGoal(goal)} />
+            ))}
+          </div>
+        )
+      )}
+
 
       {/* Eskiden yatay ok-tabanlı "Instagram Explore" modalıydı — artık
           rüyalar da vizyonlarla aynı, dikey kaydırmalı (reels tarzı) tam
