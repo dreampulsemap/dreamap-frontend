@@ -43,7 +43,8 @@ function asText(value, lang) {
 }
 
 /**
- * Tek dilde uretilen alanlari desteklenen TUM dillere yayar.
+ * Tek dilde uretilen alanlari ruyanin diline + Ingilizce'ye yayar
+ * (eskiden TUM dillere yayiyordu; bkz. fonksiyon sonundaki not).
  *
  * Model 11 dili birden uretemiyordu (bkz. STATIC_INSTRUCTIONS notu): yalnizca
  * Ingilizce + rüya dilini donduruyor, geri kalani normalizeMultiLangField
@@ -58,27 +59,14 @@ async function expandToAllLanguages(fields, srcLang) {
   const maps = {}
   for (const key of keys) maps[key] = { [srcLang]: fields[key] }
 
-  // Ingilizce PIVOT. Ceviri modeli (Groq gpt-oss-20b) Turkce -> Cince/Japonca
-  // gibi ciftlerde metni bazen cevirmeden aynen geri veriyordu; Ingilizce'den
-  // cevirmek her hedef dil icin belirgin sekilde daha guvenilir.
-  let pivot = fields
-  let pivotLang = srcLang
+  // Yalnizca ruyanin dili + Ingilizce. Diger 12 dile ceviri kaldirildi: her
+  // ruya icin 12 ek istek yapiliyordu, ama ruya sahibi analizi zaten kendi
+  // dilinde okuyor. Diger diller normalizeMultiLangField ile Ingilizce'ye
+  // dusuyor (Kesfet'te baska dildeki kullanici Ingilizce gorur). Ileride:
+  // kullaniciya sadece kendi dili + Ingilizce ruyalar gosterilecek.
   if (srcLang !== 'en') {
     const en = await translateFieldsWithRetry(fields, 'en', { sourceLang: srcLang })
     for (const key of keys) maps[key].en = en[key] || fields[key]
-    pivot = Object.fromEntries(keys.map((k) => [k, maps[k].en]))
-    pivotLang = 'en'
-  }
-
-  const targets = SUPPORTED_LANGS.filter((l) => l !== srcLang && l !== 'en')
-  const results = await Promise.all(
-    targets.map(async (lang) => [lang, await translateFieldsWithRetry(pivot, lang, { sourceLang: pivotLang })])
-  )
-
-  for (const [lang, translated] of results) {
-    for (const key of keys) {
-      maps[key][lang] = translated[key] || pivot[key]
-    }
   }
 
   return maps
