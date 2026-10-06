@@ -31,7 +31,8 @@ const MAX_BATCH_SIZE = 40
 // bütçeye yaklaşınca kalanları BİR SONRAKİ çağrıya bırakacak şekilde temiz
 // bir şekilde durduruyoruz (yarım kalan yazım yok — her rüya kendi DB
 // güncellemesini tamamladıktan sonra kontrol ediliyor).
-const TIME_BUDGET_MS = 50_000
+// Coolify'da 60sn tavanı yok; scheduled task timeout'u 300sn.
+const TIME_BUDGET_MS = 240_000
 
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') {
