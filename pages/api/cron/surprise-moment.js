@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { sendPushToUser } from '@/lib/webPush'
 
-// "Her an her şey olabilir" hissi: günde bir kez (vercel.json: 16:40 UTC —
+// "Her an her şey olabilir" hissi: günde bir kez (Coolify scheduled task: 16:40 UTC; eski not —
 // Hobby planda cron günde birden fazla ÇALIŞTIRILAMIYOR, denendi ve
 // "cron_jobs_limits_reached" ile reddedildi; Pro'ya geçilirse günde birkaç
 // kez farklı saatlerde çalıştırmak daha da güçlü bir "her an" hissi verir),

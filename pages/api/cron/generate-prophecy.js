@@ -2,7 +2,7 @@ import { GoogleGenAI } from '@google/genai'
 import { createClient } from '@supabase/supabase-js'
 
 // =====================================================================
-// GÜNLÜK KOLEKTİF ÖNGÖRÜ ÜRETİMİ — Vercel Cron (vercel.json: her gün 06:00 UTC)
+// GÜNLÜK KOLEKTİF ÖNGÖRÜ ÜRETİMİ — Coolify scheduled task (her gün 06:00 UTC)
 //
 // ÖNCEKİ HALİ NEDEN HİÇ ÇALIŞMIYORDU (iki bağımsız sebep):
 //  1. `daily_prophecy` tablosuna yazıyordu, ama DreamGlobe.jsx `collective_predictions`

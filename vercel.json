@@ -2,27 +2,5 @@
   "framework": "nextjs",
   "buildCommand": "next build",
   "devCommand": "next dev",
-  "installCommand": "npm install",
-  "crons": [
-    {
-      "path": "/api/cron/generate-prophecy",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/process-deep-analysis",
-      "schedule": "30 6 * * *"
-    },
-    {
-      "path": "/api/cron/repair-broken-images",
-      "schedule": "0 12 * * *"
-    },
-    {
-      "path": "/api/cron/repair-broken-goal-images",
-      "schedule": "15 12 * * *"
-    },
-    {
-      "path": "/api/cron/surprise-moment",
-      "schedule": "40 16 * * *"
-    }
-  ]
+  "installCommand": "npm install"
 }

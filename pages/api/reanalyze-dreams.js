@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { persistRemoteImage } from '@/lib/persistRemoteImage'
+import { generateOneImage } from '@/lib/goalImageGen'
 
 const MODEL = 'llama-3.3-70b-versatile'
 const ANALYSIS_VERSION = 'jung-v4-deep'
@@ -280,34 +281,26 @@ async function buildDreamUpdate({ dreamId, content, language, analysis, existing
   if (existingImageUrl) {
     imageFields = { ai_image_prompt: imagePrompt }
   } else {
-    const liveImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
-      imagePrompt
-    )}?width=1200&height=630&nologo=true&seed=${dreamId}`
-
-    // KÖK NEDEN DÜZELTMESİ: Pollinations statik bir dosya değil, HER istekte
-    // YENİDEN render eden canlı bir servis — bu URL'i doğrudan DB'ye yazmak
-    // "Kesif ızgarasında kırık, DreamCard'da tıklayınca sağlam" raporunun asıl
-    // sebebiydi (ızgara 15-20 görseli paralel isterken Pollinations bazılarında
-    // zaman aşımına uğruyor; tek bir kart açıldığında rekabet olmadığı için
-    // aynı istek genelde sorun çıkarmıyor). Burada üretilen görseli DERHAL
-    // indirip kendi kalıcı depomuza (dream-images bucket) kopyalıyoruz —
-    // böylece ai_image_url her zaman kalıcı, statik bir dosyayı gösteriyor.
-    const imageUrl = await persistRemoteImage(liveImageUrl, {
-      // Gerçek Supabase Storage bucket adı alt çizgili "dream_images" —
-      // bkz. generate-dream-image.js'deki aynı düzeltme notu.
-      bucket: 'dream_images',
-      path: `${dreamId}-${Date.now()}.jpg`,
-    })
-    const persisted = imageUrl !== liveImageUrl
+    // Replicate (flux-schnell) ile üret ve DERHAL kalıcı depoya kopyala —
+    // geçici replicate.delivery linki saatler içinde ölür. Pollinations
+    // 2026-10'dan beri anahtarsız istekte HTTP 402 dönüyor, bırakıldı.
+    const { imageUrl: tempUrl } = await generateOneImage(imagePrompt, { aspectRatio: '1:1', allowFallback: false })
+    const imageUrl = tempUrl
+      ? await persistRemoteImage(tempUrl, {
+          // Gerçek Supabase Storage bucket adı alt çizgili "dream_images" —
+          // bkz. generate-dream-image.js'deki aynı düzeltme notu.
+          bucket: 'dream_images',
+          path: `${dreamId}-${Date.now()}.jpg`,
+        })
+      : null
+    const persisted = !!imageUrl && imageUrl !== tempUrl
 
     imageFields = {
       ai_image_prompt: imagePrompt,
-      ai_image_url: imageUrl,
-      image_source: 'pollinations',
-      // persist başarısız olduysa (nadir — indirme/yükleme hatası) canlı URL
-      // geçici olarak kaydediliyor ama 'needs_persist' ile işaretleniyor, böylece
-      // hem Explore kalite filtresi bunu gizler hem de onarım cron'u/anında
-      // rapor akışı bunu otomatik olarak kalıcı hale getirir.
+      // Kalıcılaşmadıysa geçici linki yazma; 'needs_persist' onarım cron'unun
+      // bu rüyayı yeniden üretmesini sağlar (Explore görselsizleri zaten gizler).
+      ai_image_url: persisted ? imageUrl : null,
+      image_source: 'ai',
       image_status: persisted ? 'ok' : 'needs_persist',
       image_checked_at: new Date().toISOString(),
     }

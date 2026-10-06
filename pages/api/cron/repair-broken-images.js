@@ -3,8 +3,8 @@ import { repairDreamImage } from '@/lib/repairDreamImage'
 
 // GÜVENLİK AĞI: /api/dreams/report-broken-image bir kullanıcı gerçekten o
 // rüyayı görüntülediğinde tetiklenir — kimse o rüyayı açmazsa hiç
-// tetiklenmeyebilir. Bu route düzenli olarak (vercel.json'daki günlük Vercel
-// Cron + istersen cron-job.org ile daha sık) 'needs_persist' / 'broken'
+// tetiklenmeyebilir. Bu route düzenli olarak (Coolify scheduled task, saatlik;
+// cron'lar 2026-10'da vercel.json'dan Coolify'a taşındı) 'needs_persist' / 'broken'
 // işaretli rüyaları tarayıp otomatik onarır, böylece bir sonraki ziyaretçi
 // zaten düzeltilmiş görseli görür. Ayrıca /gorseltamiri admin sayfasından
 // ?limit= ile manuel toplu tetikleme de yapılabilir (backlog'u hızlıca
