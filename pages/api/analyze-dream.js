@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getAuthedUser } from '@/lib/supabaseAdmin'
 import { translateFieldsWithRetry } from '@/lib/translator'
 import { FREUD_GUIDE } from '@/lib/freudGuide'
 import { JUNG_GUIDE } from '@/lib/jungGuide'
@@ -218,7 +219,8 @@ async function generateWithOpenAI(params) {
 
   try {
     const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY
-    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini'
+    // gpt-4o-mini sonuclari zayif kaliyordu (1.000 ruyada ~2$ fark). FREE_ANALYSIS_MODEL ile geri alinabilir.
+    const model = process.env.FREE_ANALYSIS_MODEL || 'gpt-4.1-mini'
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -273,15 +275,29 @@ export default async function handler(req, res) {
 
     let dream = null
 
+    // GUVENLIK: Onceden kimlik hic sorulmuyordu; ruya id'sini bilen herkes
+    // baskasinin ruyasini tekrar tekrar analiz ettirip OpenAI maliyeti
+    // olusturabiliyordu. Artik yalnizca ruyanin sahibi (Bearer token).
+    // Cagiranlar: add-dream.js, DreamFeedCard.jsx, submit-dream.js (token'i
+    // iletir), Android (AuthInterceptor her istege ekler).
+    const user = await getAuthedUser(req)
+    if (!user) {
+      return res.status(401).json({ error: 'unauthorized' })
+    }
+
     if (dreamId) {
       const result = await supabaseAdmin
         .from('dreams')
-        .select('id, content, original_language')
+        .select('id, user_id, content, original_language')
         .eq('id', dreamId)
         .single()
 
       if (result.error || !result.data) {
         return res.status(404).json({ error: 'dream_not_found' })
+      }
+
+      if (result.data.user_id !== user.id) {
+        return res.status(403).json({ error: 'forbidden' })
       }
 
       dream = result.data

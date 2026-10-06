@@ -1,4 +1,4 @@
-import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser, viewerFeedLang, applyFeedLangFilter } from '@/lib/supabaseAdmin'
 
 // Kolektif Keşfet (Dreamscape) ızgarası için kişiselleştirilmiş sıralama.
 //
@@ -197,6 +197,7 @@ export default async function handler(req, res) {
     if (req.headers.authorization) {
       authedUser = await getAuthedUser(req)
     }
+    const feedLang = await viewerFeedLang(req, authedUser)
 
     // Havuzun ötesi: kişiselleştirme maliyetine gerek yok, düz kronolojik
     // devam havuzla tam sınırda hizalanıyor (havuz zaten en yeni
@@ -218,6 +219,7 @@ export default async function handler(req, res) {
         .order('created_at', { ascending: false })
         .range(from, to)
       if (asOfDate) tailQuery = tailQuery.lte('created_at', asOfDate)
+      tailQuery = applyFeedLangFilter(tailQuery, feedLang, authedUser?.id)
       tailQuery = applyImageQualityFilter(tailQuery)
 
       const { data, error } = await tailQuery
@@ -252,6 +254,7 @@ export default async function handler(req, res) {
       .order('created_at', { ascending: false })
       .limit(RANK_POOL_SIZE)
     if (asOfDate) poolQuery = poolQuery.lte('created_at', asOfDate)
+    poolQuery = applyFeedLangFilter(poolQuery, feedLang, authedUser?.id)
     poolQuery = applyImageQualityFilter(poolQuery)
 
     const { data: pool, error: poolError } = await poolQuery

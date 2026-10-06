@@ -139,7 +139,8 @@ export default function ExplorePage() {
       const { data: { session } } = await supabase.auth.getSession()
       const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {}
 
-      const params = new URLSearchParams({ page: String(pageNum), asOf: asOfRef.current })
+      // Akış dil filtresi (explore/feed.js): kendi dilindeki + İngilizce rüyalar.
+      const params = new URLSearchParams({ page: String(pageNum), asOf: asOfRef.current, lang: (i18n.language || 'en').split('-')[0] })
       if (pageNum > 0 && rankTokenRef.current) {
         params.set('rankToken', rankTokenRef.current)
       }
