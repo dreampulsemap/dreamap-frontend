@@ -63,7 +63,7 @@ export default function Seo({
       <meta name="author" content={SITE_NAME} />
       <meta name="googlebot" content={noindex ? 'noindex, nofollow' : 'index, follow, max-snippet:-1, max-image-preview:large'} />
       <link rel="canonical" href={canonicalUrl} />
-      <link rel="alternate" hrefLang="tr" href={canonicalUrl} />
+      <link rel="alternate" hrefLang={lang} href={canonicalUrl} />
       <link rel="alternate" hrefLang="x-default" href={canonicalUrl} />
 
       {/* Open Graph */}

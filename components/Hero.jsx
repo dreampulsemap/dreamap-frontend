@@ -67,7 +67,7 @@ export default function Hero() {
                 {currentLang === 'tr' ? 'Kayıt Ol' : 'Sign up'}
               </Link>
 
-              <Link href="/ruya-tabirleri" className="text-xs text-slate-400 underline-offset-4 hover:text-white hover:underline">
+              <Link href={currentLang === 'tr' ? '/ruya-tabirleri' : '/dream-meanings'} className="text-xs text-slate-400 underline-offset-4 hover:text-white hover:underline">
                 {currentLang === 'tr' ? 'Rüya tabirleri rehberi →' : 'Dream symbol guides →'}
               </Link>
             </div>

@@ -96,7 +96,8 @@ export default async function handler(req, res) {
       const baseUrl = getBaseUrl(req)
       const analyzeResponse = await fetch(`${baseUrl}/api/analyze-dream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // analyze-dream sahiplik kontrolu yapiyor: kullanicinin token'ini ilet.
+        headers: { 'Content-Type': 'application/json', Authorization: req.headers.authorization || '' },
         body: JSON.stringify({ dreamId: insertedDream.id }),
       })
       if (analyzeResponse.ok) {

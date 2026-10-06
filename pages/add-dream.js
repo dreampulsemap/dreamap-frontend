@@ -356,10 +356,11 @@ export default function AddDreamPage() {
       if (insertError) throw insertError
       if (!data?.id) throw new Error(tAddDream('dream.createFailed', lang))
 
-      // API Üzerinden Teaser Analizi Tetikleme
+      // API Üzerinden Teaser Analizi Tetikleme (sahiplik kontrolü için token)
+      const { data: { session: analyzeSession } } = await supabase.auth.getSession()
       fetch('/api/analyze-dream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(analyzeSession ? { Authorization: `Bearer ${analyzeSession.access_token}` } : {}) },
         body: JSON.stringify({ dreamId: data.id, content: content.trim(), lang })
       }).catch(console.error)
 
