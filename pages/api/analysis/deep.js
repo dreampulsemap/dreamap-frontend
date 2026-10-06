@@ -203,7 +203,7 @@ export default async function handler(req, res) {
     if (insertError) throw insertError
     rowId = pendingRow.id
 
-    // --- Opus 5 ---
+    // --- Model (DEEP_ANALYSIS_PROVIDER: openai varsayilan, anthropic opsiyonel) ---
     let result
     try {
       result = await generateDeepAnalysis({
@@ -219,7 +219,7 @@ export default async function handler(req, res) {
         .eq('id', rowId)
       await refundWhicheverWasCharged()
 
-      const known = ['anthropic_key_missing', 'claude_refusal', 'claude_truncated', 'invalid_json_from_model']
+      const known = ['anthropic_key_missing', 'openai_key_missing', 'claude_refusal', 'claude_truncated', 'model_refusal', 'model_truncated', 'invalid_json_from_model']
       return res.status(502).json({
         ok: false,
         error: known.includes(aiError.message) ? aiError.message : 'generation_failed',
