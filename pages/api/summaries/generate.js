@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     const user = await getAuthedUser(req);
     if (!user) return res.status(401).json({ error: 'unauthorized' });
 
-    const { periodType } = req.body || {};
+    const { periodType, lang: bodyLang } = req.body || {};
     if (!WINDOW_DAYS[periodType]) {
       return res.status(400).json({ error: 'invalid_period_type' });
     }
@@ -97,10 +97,14 @@ export default async function handler(req, res) {
 
     const { data: profile } = await supabaseAdmin
       .from('user_profiles')
-      .select('language')
+      .select('language, language_explicit')
       .eq('id', user.id)
       .maybeSingle();
-    const lang = (profile?.language || 'en').toLowerCase();
+    // Istemcinin arayuz dili oncelikli: profiles.language cogu kullanicida
+    // varsayilan 'en' (language_explicit=false) oldugu icin Turkce arayuzde
+    // Ingilizce ozet uretiliyordu.
+    const reqLang = String(bodyLang || '').slice(0, 2).toLowerCase();
+    const lang = (LANG_NAME[reqLang] ? reqLang : (profile?.language || 'en')).toLowerCase();
     const langName = LANG_NAME[lang] || LANG_NAME.en;
 
     // Soft-delete edilmiş (in_feed=false) rüyalar bilerek dahil — bu

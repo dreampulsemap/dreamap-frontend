@@ -53,7 +53,7 @@ export default function AISummariesCard({ lang = 'en', user }) {
       const res = await fetch('/api/summaries/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
-        body: JSON.stringify({ periodType: which }),
+        body: JSON.stringify({ periodType: which, lang }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error)

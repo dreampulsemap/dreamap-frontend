@@ -114,7 +114,9 @@ export default function DreamFeedCard({ dream, lang = 'en', onOpen, liked = fals
   }
 
   const analysis = dream.ai_jungian_analysis || {}
-  const displayTitle = dream.ai_title?.trim() || String(dream.content || '').slice(0, 60)
+  // ai_title her zaman Ingilizce (analyze-dream.js); dile gore baslik analizde.
+  const localizedTitle = String(pick(analysis.title, lang) || dream.ai_title || '').trim()
+  const displayTitle = localizedTitle || String(dream.content || '').slice(0, 60)
   const archetypes = (Array.isArray(analysis.archetypes) && analysis.archetypes.length ? analysis.archetypes : dream.ai_archetypes) || []
   const emotions = dream.user_selected_sentiment ? dream.user_selected_sentiment.split(',').map((s) => s.trim()).filter(Boolean) : []
   const simple = pick(analysis.simple, L)
@@ -158,7 +160,7 @@ export default function DreamFeedCard({ dream, lang = 'en', onOpen, liked = fals
           <div className="h-full w-full shrink-0 snap-center">
             <div className="flex h-full flex-col gap-3 overflow-y-auto rounded-2xl border border-white/[0.08] bg-void-800 p-4">
               <p className="flex items-center gap-2"><span className="text-base">📖</span><span className="font-serif text-base font-bold text-astral-gold">{t.slides[1]}</span></p>
-              {dream.ai_title && <p className="font-serif text-sm font-semibold text-astral-gold">{dream.ai_title}</p>}
+              {localizedTitle && <p className="font-serif text-sm font-semibold text-astral-gold">{localizedTitle}</p>}
               <p className="whitespace-pre-line text-sm leading-[22px] text-slate-200">{dream.content}</p>
               {emotions.length > 0 && <div className="flex gap-1.5 overflow-x-auto">{emotions.map((e) => <Chip key={e} text={e} />)}</div>}
             </div>
