@@ -4,18 +4,24 @@ import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { Heart, MessageSquare, Share2, Sparkles } from 'lucide-react'
 import ShareSheet from '@/components/ShareSheet'
+import { updateDream } from '@/services/dreamService'
+import { supabase } from '@/lib/supabase'
 
 const TEXT = {
   tr: {
     slides: ['Rüya Görseli', 'Rüya Metni', 'Sade Dille', 'AI Analizi'], detail: 'Detay →', unknown: 'Bilinmeyen',
     simpleHeading: 'Basitçe ne anlama geliyor?', simpleEmpty: 'Sade dille özet henüz hazır değil. Rüya analizi tamamlandığında burada görünecek.',
     sentiment: (s) => `Duygu: ${s}`, archetypes: 'Arketipler', share: 'Paylaş',
+    addToDream: '✍️ Rüyana ekle', addPlaceholder: 'Neredeydin, ne oldu, ne hissettin?', addSave: 'Kaydet ve yeniden yorumla', addCancel: 'Vazgeç',
+    addSaving: 'Yorumlanıyor…', addError: 'Kaydedilemedi, tekrar dene.',
     visibility: { public: 'Herkese Açık', friends: 'Sadece Arkadaşlar', private: 'Gizli' },
   },
   en: {
     slides: ['Dream Image', 'Dream Text', 'In Plain Words', 'AI Analysis'], detail: 'Detail →', unknown: 'Unknown',
     simpleHeading: 'Simply: what does it mean?', simpleEmpty: 'The plain-language summary isn’t ready yet. It appears once the dream analysis finishes.',
     sentiment: (s) => `Emotion: ${s}`, archetypes: 'Archetypes', share: 'Share',
+    addToDream: '✍️ Add to your dream', addPlaceholder: 'Where were you, what happened, how did you feel?', addSave: 'Save and re-interpret', addCancel: 'Cancel',
+    addSaving: 'Interpreting…', addError: 'Could not save, please try again.',
     visibility: { public: 'Public', friends: 'Friends only', private: 'Private' },
   },
 }
@@ -68,6 +74,44 @@ export default function DreamFeedCard({ dream, lang = 'en', onOpen, liked = fals
   const [share, setShare] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
   const scroller = useRef(null)
+
+  // "Rüyana ekle": cok kisa ruyada sahibi ayrinti ekleyip analizi yeniletebilir.
+  // Esik, analyze-dream.js'teki SHORT_DREAM_WORDS ile ayni.
+  const [override, setOverride] = useState(null)
+  const [adding, setAdding] = useState(false)
+  const [extra, setExtra] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [addError, setAddError] = useState('')
+  if (override) dream = { ...dream, ...override }
+  const isOwner = Boolean(currentUserId && dream.user_id === currentUserId)
+  const isShortDream = String(dream.content || '').trim().split(/\s+/).filter(Boolean).length < 8
+
+  async function saveExtra(e) {
+    e.stopPropagation()
+    const add = extra.trim()
+    if (!add || saving) return
+    setSaving(true)
+    setAddError('')
+    try {
+      const content = `${String(dream.content || '').trim()}\n${add}`
+      await updateDream(dream.id, currentUserId, { content })
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/analyze-dream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+        body: JSON.stringify({ dreamId: dream.id, lang }),
+      })
+      const data = await res.json().catch(() => ({}))
+      setOverride({ content, ...(res.ok && data.dream ? data.dream : {}) })
+      setAdding(false)
+      setExtra('')
+      if (!res.ok) setAddError(t.addError)
+    } catch {
+      setAddError(t.addError)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const analysis = dream.ai_jungian_analysis || {}
   const displayTitle = dream.ai_title?.trim() || String(dream.content || '').slice(0, 60)
@@ -124,7 +168,37 @@ export default function DreamFeedCard({ dream, lang = 'en', onOpen, liked = fals
           <div className="h-full w-full shrink-0 snap-center">
             <div className="flex h-full flex-col gap-2.5 overflow-y-auto rounded-2xl border border-aether-cyan/30 bg-void-800 p-4">
               <p className="flex items-center gap-1.5"><span className="text-base">💬</span><span className="text-[13px] font-bold tracking-[0.5px] text-aether-cyan">{t.simpleHeading}</span></p>
-              <p className={`text-[13px] leading-[21px] ${simple ? 'text-slate-200' : 'text-slate-400'}`}>{simple || t.simpleEmpty}</p>
+              <p className={`whitespace-pre-line text-[13px] leading-[21px] ${simple ? 'text-slate-200' : 'text-slate-400'}`}>{simple || t.simpleEmpty}</p>
+              {isOwner && isShortDream && simple && !adding && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setAdding(true) }}
+                  className="self-start rounded-full bg-aether-cyan/15 px-3.5 py-2 text-[12px] font-semibold text-aether-cyan transition hover:bg-aether-cyan/25"
+                >
+                  {t.addToDream}
+                </button>
+              )}
+              {adding && (
+                <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+                  <textarea
+                    value={extra}
+                    onChange={(e) => setExtra(e.target.value)}
+                    rows={4}
+                    autoFocus
+                    placeholder={t.addPlaceholder}
+                    className="w-full resize-none rounded-xl border border-white/10 bg-void-900 p-3 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-aether-cyan/50 focus:outline-none"
+                  />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={saveExtra} disabled={saving || !extra.trim()} className="rounded-full bg-aether-cyan px-3.5 py-2 text-[12px] font-bold text-void-950 disabled:opacity-50">
+                      {saving ? t.addSaving : t.addSave}
+                    </button>
+                    <button type="button" onClick={() => { setAdding(false); setExtra('') }} disabled={saving} className="rounded-full px-3 py-2 text-[12px] text-slate-400">
+                      {t.addCancel}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {addError && <p className="text-[12px] text-red-400">{addError}</p>}
             </div>
           </div>
 
