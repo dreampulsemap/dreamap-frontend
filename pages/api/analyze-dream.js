@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { translateFieldsWithRetry } from '@/lib/translator'
+import { FREUD_GUIDE } from '@/lib/freudGuide'
+import { JUNG_GUIDE } from '@/lib/jungGuide'
+import { matchDreamSymbols } from '@/lib/dreamSymbols'
 
 // Vercel fonksiyonunun 10 saniyede zaman aşımına uğramasını engeller (Max 60'a kadar izin verir)
 export const config = {
@@ -42,7 +45,7 @@ function asText(value, lang) {
 /**
  * Tek dilde uretilen alanlari desteklenen TUM dillere yayar.
  *
- * Model 11 dili birden uretemiyordu (bkz. buildTeaserPrompt notu): yalnizca
+ * Model 11 dili birden uretemiyordu (bkz. STATIC_INSTRUCTIONS notu): yalnizca
  * Ingilizce + rüya dilini donduruyor, geri kalani normalizeMultiLangField
  * sessizce Ingilizce'ye dolduruyordu. Artik tek dilde uretip Groq ile
  * ceviriyoruz — dil basina TEK istek, hepsi paralel.
@@ -81,20 +84,11 @@ async function expandToAllLanguages(fields, srcLang) {
   return maps
 }
 
-function emptyLangMap() {
-  return SUPPORTED_LANGS.reduce((acc, l) => {
-    acc[l] = ''
-    return acc
-  }, {})
-}
-
-function buildTeaserPrompt(params) {
-  const content = params && params.content ? params.content : ''
-  const lang = params && params.lang ? params.lang : 'en'
-  const LANG_NAMES = LANG_LABELS
-
-  return `
-Analyze the following dream from a profound Jungian perspective. 
+// SABIT TALIMATLAR — her istekte birebir ayni. OpenAI, 1024 token'i asan ve
+// istekler arasinda degismeyen on ekleri otomatik cache'liyor (gpt-4o-mini'de
+// cache'ten okunan girdi yarim fiyat). Bu yuzden dile/ruyaya ozel hicbir sey
+// buraya girmiyor; Freud/Jung rehberleri burada ucuza geliyor.
+const STATIC_INSTRUCTIONS = `Analyze the dream in the user message using BOTH Freud's and Jung's methods (reference frameworks below), with roughly equal weight.
 
 This is a free preview analysis, but it must provide a genuine, high-quality, and deeply resonant psychological insight (about 10-15% of a full reading). It must never feel like cheap marketing or empty clickbait. Instead, it should offer a real, substantive key to the dreamer's unconscious—revealing an authentic psychic dynamic (such as an archetypal tension, a shadow reflection, or an anima/animus movement) that triggers immediate psychological curiosity and intellectual excitement (dopamine).
 
@@ -110,7 +104,7 @@ Rules:
 - simple MUST be grounded in THIS dream: name the concrete people, places, objects and actions the dreamer actually wrote. Never generic filler that would fit any dream, and never a reworded copy of "summary".
 - simple must EXPLAIN, not retell. Do not open by summarising what happened — the dreamer already knows. Take the one or two strongest images they wrote and say, in plain words, what they might be about in an ordinary life: what the feeling underneath could be, and what it might be asking of them. A retelling of the dream is a failed answer, and so is a wall of text.
 - simple MUST NOT predict the future, claim anything about real events or real people, or give a medical/psychiatric diagnosis or advice. Phrase interpretations as possibilities ("this may reflect...", "it could be about..."), never as certainties.
-- summary must be at least 3-4 sentences of high-density Jungian insight. Provide genuine substance, identifying an actual unconscious tension or archetype.
+- summary must be at least 3-4 sentences of high-density insight that combines one Freudian reading (the hidden wish, day residue, condensation or displacement in a concrete image) and one Jungian reading (compensation, shadow, anima/animus or another archetype). Name the concrete dream image each reading rests on. Provide genuine substance, identifying an actual unconscious tension.
 - keep it beautiful, evocative, and psychologically substantive (avoid sounding clinical or generic).
 - focus on triggering intellectual excitement and emotional resonance (curiosity-inducing).
 - suggest that this threshold leads into a deeper, highly personal psychic territory that can be fully mapped in a premium analysis.
@@ -119,35 +113,44 @@ Rules:
 - archetypes should contain 1 to 3 items max, always written in English (e.g. "The Shadow", "The Wanderer").
 - sentiment should be a short lowercase word like: hopeful, anxious, mysterious, tender, restless, heavy, luminous.
 
-Write "title", "summary", "motiv", "symbol" and "simple" in ONE language only:
-${LANG_NAMES[lang] || 'English'}. Return each of them as a plain string, not an object.
+Write "title", "summary", "motiv", "symbol" and "simple" in the ONE language named in the user message. Return each of them as a plain string, not an object.
 "archetypes" stays in English. "sentiment" stays a lowercase English word.
 
-Earlier versions of this prompt asked for all eleven languages at once. The model
-produced two and the rest were silently filled with the English text, so most
-users read an English analysis. Translation is now a separate step; put all your
-effort into this one language.
+Language quality: in a non-English output use correct spelling and diacritics, natural idiomatic phrasing, and no English words (write "Gölge", not "The Shadow"; archetypes field excepted). When you mention something from the dream, fix the dreamer's typos and missing diacritics.
+
+If the user message contains SYMBOL NOTES, use them as background knowledge only: never copy them, never treat them as fixed meanings, and always tie them to what THIS dream actually shows.
+
+JSON shape (keep exactly these keys):
+{
+  "simple": "",
+  "title": "",
+  "summary": "",
+  "motiv": "",
+  "symbol": "",
+  "sentiment": "",
+  "archetypes": []
+}
+
+The reference frameworks below were written for multi-dream reports. Apply their METHOD to this ONE dream and ignore anything they say about report structure, dream series or naming limits.
+
+${FREUD_GUIDE}
+
+${JUNG_GUIDE}`
+
+function buildUserMessage(params) {
+  const content = params && params.content ? params.content : ''
+  const lang = params && params.lang ? params.lang : 'en'
+  const notes = matchDreamSymbols(content)
+  const noteBlock = notes.length
+    ? `\n\nSYMBOL NOTES (background only):\n${notes.map((n) => `- ${n.id}: ${n.note}`).join('\n')}`
+    : ''
+
+  return `Output language: ${LANG_LABELS[lang] || 'English'}
 
 Dream:
 """
 ${content}
-"""
-
-JSON shape (keep exactly these keys):
-${JSON.stringify(
-  {
-    simple: emptyLangMap(),
-    title: emptyLangMap(),
-    summary: emptyLangMap(),
-    motiv: emptyLangMap(),
-    symbol: emptyLangMap(),
-    sentiment: '',
-    archetypes: [],
-  },
-  null,
-  2
-)}
-`
+"""${noteBlock}`
 }
 
 function parseJsonSafely(text) {
@@ -191,7 +194,7 @@ function normalizeMultiLangField(value) {
 }
 
 async function generateWithOpenAI(params) {
-  const prompt = buildTeaserPrompt(params)
+  const userMessage = buildUserMessage(params)
   // Vercel iç limiti 60, fetch işlemine de 50 saniye verelim ki patlamasın.
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 50000)
@@ -213,11 +216,12 @@ async function generateWithOpenAI(params) {
           {
             role: 'system',
             content:
-              'You are an expert Jungian dream analyst. Write short, emotionally resonant, and psychologically rich analyses that offer genuine, high-quality insights while naturally inviting the dreamer to explore the deeper layers of their unconscious. Always return valid JSON only, with every requested language key filled in.',
+              'You are an expert dream analyst trained in both Freudian and Jungian methods. Write short, emotionally resonant, and psychologically rich analyses that offer genuine, high-quality insights while naturally inviting the dreamer to explore the deeper layers of their unconscious. Always return valid JSON only.\n\n' +
+              STATIC_INSTRUCTIONS,
           },
           {
             role: 'user',
-            content: prompt,
+            content: userMessage,
           },
         ],
       }),
