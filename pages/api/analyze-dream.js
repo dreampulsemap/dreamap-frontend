@@ -129,7 +129,12 @@ The reference frameworks below were written for multi-dream reports. Apply their
 
 ${FREUD_GUIDE}
 
-${JUNG_GUIDE}`
+${JUNG_GUIDE}
+
+FINAL REMINDERS (these override anything above):
+- Turkish output: address the dreamer as "sen" everywhere; the dream is "rüya" (never "hayal"); spell carefully ("rüyanda", never "rüyanında").
+- No English words in a non-English output: write "Jung'a göre", "Freud'a göre", never "Jungian", "Freudian", "perspektif".
+- Never write a symbol-dictionary reading that would fit any dream; tie every sentence to what THIS dream says.`
 
 function buildUserMessage(params) {
   const content = params && params.content ? params.content : ''
@@ -145,6 +150,24 @@ Dream:
 """
 ${content}
 """${noteBlock}`
+}
+
+// Cok kisa ruyalarda (or. "yilan gordum") gpt-4o-mini soru sorma kuralini
+// guvenilir uygulamiyor; sorulari koddan ekliyoruz ki her seferinde ciksin.
+const SHORT_DREAM_WORDS = 8
+const SHORT_DREAM_QUESTIONS = {
+  tr: 'Rüyanı biraz açarsan yorum sana özel olur:\n• Neredeydin, rüyada başka kim vardı?\n• Ne oldu, sen ne yaptın?\n• Uyandığında nasıl hissettin?\nBu ayrıntıları rüyana ekleyebilirsin.',
+  en: 'Add a little more and the reading becomes personal:\n• Where were you, and who else was there?\n• What happened, and what did you do?\n• How did you feel when you woke up?\nYou can add these details to your dream.',
+}
+
+function isShortDream(text) {
+  return String(text || '').trim().split(/\s+/).filter(Boolean).length < SHORT_DREAM_WORDS
+}
+
+function withShortDreamQuestions(simple, lang) {
+  const q = SHORT_DREAM_QUESTIONS[lang] || SHORT_DREAM_QUESTIONS.en
+  const base = String(simple || '').trim()
+  return base ? `${base}\n\n${q}` : q
 }
 
 function parseJsonSafely(text) {
@@ -321,7 +344,9 @@ export default async function handler(req, res) {
     const srcLang = normalizeLang(dream.original_language || lang)
 
     const sourceFields = {
-      simple: asText(analysis.simple, srcLang),
+      simple: isShortDream(dream.content)
+        ? withShortDreamQuestions(asText(analysis.simple, srcLang), srcLang)
+        : asText(analysis.simple, srcLang),
       title: asText(analysis.title, srcLang),
       summary: asText(analysis.summary, srcLang),
       motiv: asText(analysis.motiv, srcLang),
