@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useState, useEffect, useRef } from 'react'
-import { User, LogIn, Bell, Droplet, Star, MoreVertical, Trophy } from 'lucide-react'
+import { User, LogIn, Bell, Droplet, Star, MoreVertical, Trophy, Smartphone } from 'lucide-react'
 import { supabase, auth } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { usePushSubscription } from '@/hooks/usePushSubscription'
@@ -11,17 +11,20 @@ import { REPLAY_TOUR_EVENT } from '@/components/game/OnboardingTour'
 import { rankColor, rankProgress, rankName } from '@/lib/game'
 
 const SHOP_URL = 'https://shop.lunosfer.com'
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=io.lunosfer.dreamap'
 
 const TEXT = {
   tr: {
     auras: (n) => `Auraların: ${n}`, buyAura: 'Aura Satın Al', login: 'Giriş Yap', notifications: 'Bildirimler', more: 'Diğer seçenekler',
     profile: 'Profil', journey: 'Yolculuğum', guide: 'Uygulama Rehberi', globe: 'Küre', shared: 'Paylaşılan Vizyonlar',
     spiritual: 'Ruhsal Araçlar', deep: 'Derin Analiz', settings: 'Ayarlar', help: 'Yardım ve Geri Bildirim',
+    androidApp: 'Android Uygulaması', androidShort: 'Android',
   },
   en: {
     auras: (n) => `Your Auras: ${n}`, buyAura: 'Buy Aura', login: 'Log In', notifications: 'Notifications', more: 'More options',
     profile: 'Profile', journey: 'My Journey', guide: 'App guide', globe: 'Globe', shared: 'Shared Visions',
     spiritual: 'Spiritual Tools', deep: 'Deep Analysis', settings: 'Settings', help: 'Help & Feedback',
+    androidApp: 'Android App', androidShort: 'Android',
   },
 }
 
@@ -155,6 +158,20 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 bg-void-950">
       <div className="mx-auto grid h-16 max-w-2xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
         <div className="flex min-w-0 items-center gap-2 pl-4">
+          {/* Android uygulama linki. Giriş yapmamışken sol taraf boş olduğu için her ekranda görünür;
+              giriş yapmışken mana/aura rozetleriyle dar ekranda çakışmasın diye sadece sm+ ekranlarda
+              gösterilir (mobilde aynı link ⋮ menüsünde). */}
+          <a
+            href={PLAY_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t.androidApp}
+            className={`h-7 shrink-0 items-center gap-1 rounded-full border border-slate-500/60 px-2 text-xs font-medium text-slate-100 hover:bg-white/5 ${user ? 'hidden sm:flex' : 'flex'}`}
+          >
+            <Smartphone size={14} />
+            <span className="whitespace-nowrap sm:hidden">{t.androidShort}</span>
+            <span className="hidden whitespace-nowrap sm:inline">{t.androidApp}</span>
+          </a>
           {user && (
             <>
               <span className="flex h-7 items-center gap-1 rounded-full border border-aether-cyan bg-aether-cyan/20 px-2 text-xs font-medium text-aether-cyan">
@@ -217,6 +234,15 @@ export default function Navbar() {
                     <button onClick={() => go('/deep-analysis')} className={itemCls}>{t.deep}</button>
                     <button onClick={() => go('/profile?settings=1')} className={itemCls}>{t.settings}</button>
                     <button onClick={() => go('/support')} className={itemCls}>{t.help}</button>
+                    <a
+                      href={PLAY_STORE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setMoreOpen(false)}
+                      className={`${itemCls} sm:hidden`}
+                    >
+                      <Smartphone size={20} className="text-astral-gold" />{t.androidApp}
+                    </a>
                   </div>
                 )}
               </div>
@@ -232,3 +258,4 @@ export default function Navbar() {
     </header>
   )
 }
+
