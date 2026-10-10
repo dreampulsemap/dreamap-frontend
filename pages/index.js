@@ -45,6 +45,10 @@ const HOME_JSON_LD = [
     name: SITE_NAME,
     url: SITE_URL,
     logo: `${SITE_URL}/logo.png`,
+    sameAs: [
+      'https://www.instagram.com/lunosfer.dream.app/',
+      'https://play.google.com/store/apps/details?id=io.lunosfer.dreamap',
+    ],
   },
 ]
 
