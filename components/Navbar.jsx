@@ -2,29 +2,28 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useState, useEffect, useRef } from 'react'
-import { User, LogIn, Bell, Droplet, Star, MoreVertical, Trophy, Smartphone } from 'lucide-react'
+import { User, LogIn, Bell, Droplet, Star, MoreVertical, Trophy, Download } from 'lucide-react'
 import { supabase, auth } from '@/lib/supabase'
 import { useTranslation } from 'react-i18next'
 import { usePushSubscription } from '@/hooks/usePushSubscription'
 import { useGameProgress } from '@/components/game/GameUI'
 import { REPLAY_TOUR_EVENT } from '@/components/game/OnboardingTour'
 import { rankColor, rankProgress, rankName } from '@/lib/game'
+import { getTranslation } from '@/lib/i18n'
+import GetAppLink from '@/components/GetAppLink'
 
 const SHOP_URL = 'https://shop.lunosfer.com'
-const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=io.lunosfer.dreamap'
 
 const TEXT = {
   tr: {
     auras: (n) => `Auraların: ${n}`, buyAura: 'Aura Satın Al', login: 'Giriş Yap', notifications: 'Bildirimler', more: 'Diğer seçenekler',
     profile: 'Profil', journey: 'Yolculuğum', guide: 'Uygulama Rehberi', globe: 'Küre', shared: 'Paylaşılan Vizyonlar',
     spiritual: 'Ruhsal Araçlar', deep: 'Derin Analiz', settings: 'Ayarlar', help: 'Yardım ve Geri Bildirim',
-    androidApp: 'Android Uygulaması', androidShort: 'Android',
   },
   en: {
     auras: (n) => `Your Auras: ${n}`, buyAura: 'Buy Aura', login: 'Log In', notifications: 'Notifications', more: 'More options',
     profile: 'Profile', journey: 'My Journey', guide: 'App guide', globe: 'Globe', shared: 'Shared Visions',
     spiritual: 'Spiritual Tools', deep: 'Deep Analysis', settings: 'Settings', help: 'Help & Feedback',
-    androidApp: 'Android App', androidShort: 'Android',
   },
 }
 
@@ -97,6 +96,10 @@ export default function Navbar() {
   useEffect(() => { setMounted(true) }, [])
   const lang = mounted && (i18n?.language || 'en').startsWith('tr') ? 'tr' : 'en'
   const t = TEXT[lang]
+  // "Uygulamayı indir" etiketi 11 dilde (lib/i18n.js); SSR'da en, mount sonrası gerçek dil.
+  const appLang = mounted ? i18n?.language : 'en'
+  const getApp = getTranslation('app.getApp', appLang)
+  const getAppShort = getTranslation('app.getAppShort', appLang)
 
   useEffect(() => {
     if (!mounted) return
@@ -158,20 +161,20 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 bg-void-950">
       <div className="mx-auto grid h-16 max-w-2xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
         <div className="flex min-w-0 items-center gap-2 pl-4">
-          {/* Android uygulama linki. Giriş yapmamışken sol taraf boş olduğu için her ekranda görünür;
-              giriş yapmışken mana/aura rozetleriyle dar ekranda çakışmasın diye sadece sm+ ekranlarda
-              gösterilir (mobilde aynı link ⋮ menüsünde). */}
-          <a
-            href={PLAY_STORE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={t.androidApp}
-            className={`h-7 shrink-0 items-center gap-1 rounded-full border border-slate-500/60 px-2 text-xs font-medium text-slate-100 hover:bg-white/5 ${user ? 'hidden sm:flex' : 'flex'}`}
-          >
-            <Smartphone size={14} />
-            <span className="whitespace-nowrap sm:hidden">{t.androidShort}</span>
-            <span className="hidden whitespace-nowrap sm:inline">{t.androidApp}</span>
-          </a>
+          {/* "Uygulamayı indir" — sitenin birincil dönüşüm butonu. Giriş yapmamışken sol sütun boş,
+              buton her genişlikte burada. Giriş yapmışken bu sütunu mana/aura rozetleri dolduruyor
+              (360px'te zaten sınırda); orada buton logonun altına kompakt rozet olarak iniyor. */}
+          {!user && (
+            <GetAppLink
+              placement="navbar"
+              aria-label={getApp}
+              className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-astral-gold px-3 text-xs font-bold text-void-950 shadow-astral-glow transition hover:brightness-110"
+            >
+              <Download size={14} strokeWidth={2.5} />
+              <span className="whitespace-nowrap sm:hidden">{getAppShort}</span>
+              <span className="hidden whitespace-nowrap sm:inline">{getApp}</span>
+            </GetAppLink>
+          )}
           {user && (
             <>
               <span className="flex h-7 items-center gap-1 rounded-full border border-aether-cyan bg-aether-cyan/20 px-2 text-xs font-medium text-aether-cyan">
@@ -197,11 +200,23 @@ export default function Navbar() {
           )}
         </div>
 
-        <Link href="/" className="px-1">
-          <span className="whitespace-nowrap font-serif text-[clamp(11px,4.4vw,18px)] font-bold tracking-[1.5px] bg-gradient-to-r from-astral-gold to-astral-amber bg-clip-text text-transparent">
-            LUNOSFER
-          </span>
-        </Link>
+        <div className="flex flex-col items-center px-1">
+          <Link href="/">
+            <span className="whitespace-nowrap font-serif text-[clamp(11px,4.4vw,18px)] font-bold tracking-[1.5px] bg-gradient-to-r from-astral-gold to-astral-amber bg-clip-text text-transparent">
+              LUNOSFER
+            </span>
+          </Link>
+          {user && (
+            <GetAppLink
+              placement="navbar_compact"
+              aria-label={getApp}
+              className="relative mt-0.5 flex h-[18px] items-center gap-1 rounded-full border border-astral-gold/60 bg-astral-gold/15 px-2 text-[9.5px] font-bold uppercase leading-none tracking-wider text-astral-gold transition after:absolute after:-inset-x-1 after:-inset-y-2 after:content-[''] hover:bg-astral-gold/25"
+            >
+              <Download size={10} strokeWidth={3} />
+              <span className="whitespace-nowrap">{getAppShort}</span>
+            </GetAppLink>
+          )}
+        </div>
 
         <div className="flex min-w-0 items-center justify-end">
           {user ? (
@@ -234,15 +249,9 @@ export default function Navbar() {
                     <button onClick={() => go('/deep-analysis')} className={itemCls}>{t.deep}</button>
                     <button onClick={() => go('/profile?settings=1')} className={itemCls}>{t.settings}</button>
                     <button onClick={() => go('/support')} className={itemCls}>{t.help}</button>
-                    <a
-                      href={PLAY_STORE_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setMoreOpen(false)}
-                      className={`${itemCls} sm:hidden`}
-                    >
-                      <Smartphone size={20} className="text-astral-gold" />{t.androidApp}
-                    </a>
+                    <GetAppLink placement="menu" onClick={() => setMoreOpen(false)} className={itemCls}>
+                      <Download size={20} className="text-astral-gold" />{getApp}
+                    </GetAppLink>
                   </div>
                 )}
               </div>

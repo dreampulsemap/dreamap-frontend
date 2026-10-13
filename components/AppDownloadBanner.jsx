@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import Link from 'next/link'
+import GetAppLink from '@/components/GetAppLink'
 import { Download, X } from 'lucide-react'
 
 // Banner'ı tamamen kapatmak istersen (ör. kampanya bitti) false yap.
@@ -9,9 +9,12 @@ const BANNER_ENABLED = true
 // localStorage'da TEK bir "bu zamana kadar tekrar gösterme" damgası tutuluyor.
 // Sinyalin gücüne göre farklı süre: sadece görüp geçmek zayıf bir "hayır"
 // (yarın tekrar sorulabilir), bilinçli kapatmak orta güçte (2 hafta), CTA'ya
-// basıp /app sayfasına gitmek ise zaten ilgisini göstermiş demek (3 ay
+// basıp Play Store'a gitmek ise zaten ilgisini göstermiş demek (3 ay
 // boyunca hiç rahatsız etme).
-const STORAGE_KEY = 'dreamap_app_banner_next_eligible_v2'
+// v3: uygulama Play Store'da yayına girdi. v2 döneminde "yakında" mesajını
+// görüp kapatan/tıklayanlar da "artık yayında" mesajını bir kez görsün diye
+// anahtar yenilendi.
+const STORAGE_KEY = 'dreamap_app_banner_next_eligible_v3'
 const COOLDOWN_PASSIVE_MS = 1 * 24 * 60 * 60 * 1000
 const COOLDOWN_DISMISS_MS = 14 * 24 * 60 * 60 * 1000
 const COOLDOWN_CLICKED_MS = 90 * 24 * 60 * 60 * 1000
@@ -61,13 +64,13 @@ export default function AppDownloadBanner() {
       <p className="min-w-0 flex-1 truncate text-xs font-medium text-slate-200">
         {t('app.downloadBannerText')}
       </p>
-      <Link
-        href="/app"
+      <GetAppLink
+        placement="banner"
         onClick={handleCtaClick}
         className="shrink-0 rounded-pill bg-astral-gold px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-void-950 shadow-astral-glow transition hover:brightness-110"
       >
         {t('app.downloadBannerCta')}
-      </Link>
+      </GetAppLink>
       <button
         onClick={handleDismiss}
         aria-label={t('app.downloadBannerClose')}

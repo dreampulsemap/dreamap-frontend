@@ -1,80 +1,59 @@
-# MANIFEST — Pixabay Görsel/Kapak Kaybolma Sorunu (Kök Neden + Onarım)
+# MANIFEST — Navbar'a "Uygulamayı indir" Butonu + /app Sayfası
 
-Tarih: 5 Eylül 2026
-Kapsam: "Ruyalara ve vizyonlara Pixabay'den eklenen görseller 2-3 gün
-içinde kayboluyor" raporu — kök neden bulundu, canlı veri onarıldı,
-kalıcı önleme eklendi.
+Tarih: 13 Ekim 2026
+Kapsam: lunosfer.com'un üst navbar'ında her durumda görünen bir
+"Uygulamayı indir / Get the app" butonu. Bu sırada eskimiş "Çok Yakında"
+akışı (indirme şeridi + /app sayfası) da düzeltildi; uygulama artık
+Play Store'da yayında.
 
-## Kök neden
+## Önceki durum
 
-Pixabay'in çıplak `pixabay.com/get/...` linki birkaç gün içinde kalıcı
-olarak geçersiz oluyor (yeniden de üretilemiyor). Web kodunun tamamı
-(PixabayPicker, CreateGoalModal, GoalDetailModal, DreamCard,
-DreamEditModal, add-dream.js) `cachePixabayImage()` ile bu linki doğru
-şekilde indirip `image-library` bucket'ına kaydediyordu — orada hata
-yoktu.
+- Navbar'da gri, çerçeveli bir "Android" rozeti vardı; CTA gibi okunmuyordu.
+- Giriş yapmış kullanıcıda dar ekranda (<640px) **hiç görünmüyordu**,
+  sadece ⋮ menüsünün içindeydi.
+- Android'deki indirme şeridi hâlâ "Android uygulaması geliyor → Detaylar"
+  diyordu ve "Çok Yakında" yazan /app sayfasına gidiyordu.
 
-Asıl kırık nokta üç API route'uydu: `update-dream.js` (rüya kapağı),
-`goals/create.js` ve `goals/set-cover.js` (vizyon kapağı). Bu route'lar,
-kendilerine gelen URL'in **zaten cache'lenmiş olduğunu varsayıp**
-doğrulamadan direkt DB'ye yazıyordu (`update-dream.js` içindeki yorum:
-"Yeni URL zaten kalıcı... bu yüzden doğrudan 'ok'"). `dreams` tablosu
-ayrıca client-side doğrudan insert'e de açık (submit-dream.js'teki not)
-— yani bu üç route'u hiç kullanmayan bir yazar (ör. Android) çıplak
-Pixabay linkini bu varsayımı tamamen es geçerek kaydedebiliyordu.
+## Yeni davranış
 
-## Canlı veri onarımı (Supabase'e doğrudan uygulandı — kod değil)
+| Durum | Buton nerede |
+|---|---|
+| Giriş yapmamış (her genişlik) | Sol üstte altın dolgulu buton: mobilde "Uygulama", sm+ "Uygulamayı indir" |
+| Giriş yapmış (her genişlik) | LUNOSFER yazısının hemen altında kompakt "⬇ UYGULAMA" rozeti |
+| ⋮ menüsü | "Uygulamayı indir" satırı (artık her genişlikte) |
 
-- 1 rüya (id 852) ve 5 vizyon kapağı gerçekten çıplak Pixabay linkiyle
-  kayıtlı bulundu.
-- **4 vizyon kapağı düzeltildi**: zaten kalıcı bir galeri görselleri
-  vardı, onu kapak yaptık ("being a great cook", "to live in england",
-  "learn spanish", "lunosferi yayinlamak").
-- **1 vizyon ("Tus calismak") + 1 rüya (852) kurtarılamadı**: orijinal
-  Pixabay linki gerçekten ölmüş (tarayıcı header'larıyla bile
-  indirilemiyor), yedek görsel de yoktu — alan `null`'a çekildi.
-- Bonus: aynı taramada ~35 rüyanın (bugünkü konuyla ilgisiz,
-  `replicate.delivery` kaynaklı) görseli de kalıcı depoya taşındı;
-  ~14 tanesi zaten ölmüştü (404), dokunulmadı — bu ayrı, önceden
-  bilinen bir konu (`persistRemoteImage.js` yorumunda belgeli).
+Giriş yapmışken sol sütunu mana/aura rozetleri dolduruyor (360px'te zaten
+sınırda), sağ sütunu zil/avatar/⋮ — bu yüzden buton logonun altına indi.
+Alt menüye eklenmedi: 5. öğe ortadaki + butonunun simetrisini bozuyordu.
 
-## Kalıcı önleme — DB tarafı (Supabase'e doğrudan uygulandı)
+Hedef platforma göre:
+- **Android ve masaüstü** → doğrudan Play Store (utm_source=lunosfer_web,
+  utm_medium=navbar / navbar_compact / menu / banner / app_page →
+  Play Console > Edinme raporlarında hangi butonun kurulum getirdiği görünür).
+- **iPhone/iPad** → /app (iOS sürümü yok; Play Store linki orada çıkmaz sokaktı).
 
-- `dreams` tablosuna trigger: `ai_image_url` kalıcı depoda değilse
-  otomatik `image_status='needs_persist'` işaretler.
-- `goals` tablosuna yeni kolonlar (`image_status`, `image_checked_at`,
-  `image_repair_attempts` — dreams ile birebir aynı desen) + aynı
-  mantıkta trigger (`cover_image_url` veya `gallery_image_urls`).
-- Kaynaktan bağımsız çalışır (web API, Android'in doğrudan Supabase
-  insert'i, admin panel) — `013_profile_visibility_and_post_clamp.sql`'de
-  görünürlük kısıtlaması için kullanılan aynı desen.
+## Dosyalar
 
-## Yeni dosyalar
+- `lib/appLinks.js` (yeni) — Play Store URL'si, platform tespiti, hedef seçimi.
+- `components/GetAppLink.jsx` (yeni) — tüm indirme linkleri; tıklamada PostHog'a
+  `get_app_click { placement, platform }` gönderir.
+- `components/Navbar.jsx` — gri "Android" rozeti → altın CTA + logonun altındaki rozet.
+- `components/AppDownloadBanner.jsx` — CTA artık doğrudan Play Store; localStorage
+  anahtarı `_v3`: "yakında" mesajını kapatmış olanlar "yayında" mesajını bir kez görür.
+- `pages/app.js` — "Çok Yakında" → gerçek indirme sayfası (3 fayda, Google Play
+  butonu; iPhone'da "Ana Ekrana Ekle" yönergesi). "ANDROİD" yazım hatası da düzeldi.
+- `lib/i18n.js` — 11 dilde yeni `app.*` anahtarları; kullanılmayan
+  `app.comingSoon*` anahtarları kaldırıldı.
+- `lib/posthog-client.js` — `captureEvent()` yardımcısı.
 
-- `lib/repairGoalImage.js` — `repairDreamImage.js`'in vizyon karşılığı.
-  Kapak kalıcı değilse taşımayı dener; olmazsa galeriden kalıcı bir
-  görseli kapak yapar; o da yoksa `broken` işaretler. AI ile yeniden
-  üretim YAPMAZ (Aura kredisi harcamasın diye — zaten Pixabay linki
-  yeniden üretilemez).
-- `pages/api/cron/repair-broken-goal-images.js` —
-  `repair-broken-images.js`'in vizyon karşılığı, günlük tarar.
+## Doğrulama
 
-## Değiştirilen dosyalar
+- `next build` temiz.
+- Playwright ile 360/390/1280px, giriş yapmış/yapmamış, tr/en/ru,
+  Android/iOS/masaüstü ekran görüntüleri alındı; taşma yok.
+- Linkler: Android/masaüstünde Play Store (+utm), iOS'ta /app.
 
-- `vercel.json` — yeni cron eklendi (12:15, dreams cron'undan 15 dk
-  sonra).
-- `pages/api/update-dream.js` — `ai_image_url` yazılmadan önce kalıcı
-  olup olmadığı kontrol ediliyor, değilse anında indirip cache'leniyor.
-- `pages/api/goals/set-cover.js` — aynı kontrol `coverImageUrl` için.
-  Yanlış varsayıma dayanan eski yorum kaldırıldı.
-- `pages/api/goals/create.js` — aynı kontrol, oluşturma anında gönderilen
-  `cover_image_url` için.
+## Bilinen, bu değişiklikle ilgisiz
 
-## Yapman gerekenler
-
-1. Bu dosyaları repona uygula, commit'le, Vercel'e deploy et.
-2. Supabase tarafı zaten canlı — yeni migration'a gerek yok.
-3. İstersen Android tarafında da rüya/vizyon oluştururken Pixabay'in
-   çıplak linkini doğrudan kaydeden yeri bulup düzelt — ama artık DB
-   trigger'ı + bu üç route sayesinde Android düzeltilmese bile görseller
-   kaybolmayacak, en geç ertesi günkü cron'da otomatik onarılacak.
+- 360px'te mana 4 haneli olunca (ör. 1250) aura rozeti LUNOSFER yazısına
+  birkaç piksel değiyor — önceden de böyleydi.
