@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { auth } from '../../lib/supabase'
 import Seo from '../../components/Seo'
+import { postAuthPath } from '../../lib/pendingDream'
 
 export default function AuthCallbackPage() {
   const router = useRouter()
@@ -37,12 +38,13 @@ export default function AuthCallbackPage() {
         if (!active) return
 
         // OAuth başlatılırken ?next=/... verildiyse sadece site içi yollar
-        // kabul edilir. Verilmediyse varsayılan sayfa /profile'dır.
+        // kabul edilir. Verilmediyse: rehber sayfasında yazılmış bekleyen bir rüya
+        // varsa /add-dream (bkz. lib/pendingDream.js), yoksa /profile.
         const next = currentUrl.searchParams.get('next')
         const destination =
           next && next.startsWith('/') && !next.startsWith('//')
             ? next
-            : '/profile'
+            : postAuthPath()
 
         router.replace(destination)
       } catch (error) {

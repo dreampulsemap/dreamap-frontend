@@ -1,9 +1,16 @@
 import { Html, Head, Main, NextScript } from 'next/document'
 import Script from 'next/script'
 
-export default function Document() {
+// İngilizce rehberler (/dream-meanings/*) <html lang="tr"> ile sunuluyordu;
+// arama motorları ve ekran okuyucular sayfayı Türkçe sanıyordu. Sayfa yoluna
+// göre dil veriliyor; geri kalan sayfalar eskisi gibi "tr".
+const EN_PAGE_PREFIXES = ['/dream-meanings']
+
+export default function Document(props) {
+  const page = props?.__NEXT_DATA__?.page || ''
+  const htmlLang = EN_PAGE_PREFIXES.some((p) => page.startsWith(p)) ? 'en' : 'tr'
   return (
-    <Html lang="tr">
+    <Html lang={htmlLang}>
       <Head>
         {/* viewport/theme-color BİLEREK burada değil, _app.js'te next/head ile
             veriliyor: Next.js Pages Router, sayfa seviyesinde next/head ile bir
