@@ -45,6 +45,11 @@ export default function Seo({
   jsonLd = null,
   keywords = DEFAULT_KEYWORDS,
   path, // verilmezse mevcut router yolu kullanılır
+  // Aynı içeriğin başka dildeki karşılıkları: [{ hrefLang: 'en', path: '/dream-meanings/x' }].
+  // Verilirse karşılıklı hreflang etiketleri basılır (Google aynı sayfanın
+  // TR/EN sürümlerini birbirinin kopyası değil, dil sürümü olarak görür).
+  alternates = null,
+  xDefaultPath, // x-default: dil eşleşmeyen ziyaretçiye gösterilecek sürüm
 }) {
   const router = useRouter()
   const fullTitle = title ? `${title} | ${SITE_NAME}` : DEFAULT_TITLE
@@ -64,7 +69,13 @@ export default function Seo({
       <meta name="googlebot" content={noindex ? 'noindex, nofollow' : 'index, follow, max-snippet:-1, max-image-preview:large'} />
       <link rel="canonical" href={canonicalUrl} />
       <link rel="alternate" hrefLang={lang} href={canonicalUrl} />
-      <link rel="alternate" hrefLang="x-default" href={canonicalUrl} />
+      {(alternates || []).map((a) => (
+        <link key={a.hrefLang} rel="alternate" hrefLang={a.hrefLang} href={`${SITE_URL}${a.path}`} />
+      ))}
+      <link rel="alternate" hrefLang="x-default" href={xDefaultPath ? `${SITE_URL}${xDefaultPath}` : canonicalUrl} />
+      {(alternates || []).map((a) => (
+        <meta key={`og-${a.hrefLang}`} property="og:locale:alternate" content={OG_LOCALE[a.hrefLang] || a.hrefLang} />
+      ))}
 
       {/* Open Graph */}
       <meta property="og:site_name" content={SITE_NAME} />
