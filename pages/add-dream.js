@@ -8,6 +8,8 @@ import TagInput from '@/components/TagInput'
 import PixabayPicker from '@/components/PixabayPicker'
 import { uploadDreamCoverImage, getDreamUploadErrorMessage } from '@/lib/uploadDreamCoverImage'
 import Seo from '@/components/Seo'
+import { readPendingDream, clearPendingDream } from '@/lib/pendingDream'
+import { captureEvent } from '@/lib/posthog-client'
 
 export default function AddDreamPage() {
   const { i18n } = useTranslation()
@@ -93,6 +95,15 @@ export default function AddDreamPage() {
         if (!active) return
         setUser(currentUser)
         fetchLocationFromIP()
+
+        // Rehber sayfasında (DreamDraftBox) kayıttan önce yazılmış rüya varsa
+        // kutuya hazır getir; kullanıcı yazdığını kaybetmesin.
+        const pending = readPendingDream()
+        if (pending) {
+          setContent((prev) => prev || pending.content)
+          clearPendingDream()
+          captureEvent('guide_dream_restored', { source: pending.source, lang: pending.lang })
+        }
 
         // Paylaşım gizliliği seçenekleri profil gizliliğine göre kısıtlanır
         // (bkz. clampVisibilityToProfile / 013 migration'daki DB trigger).

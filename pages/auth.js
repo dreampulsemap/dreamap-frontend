@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
+import { postAuthPath } from '@/lib/pendingDream'
 import { useTranslation } from 'react-i18next'
 import { auth, getAuthHeader } from '../lib/supabase'
 import { getTranslation } from '../lib/translations'
@@ -72,6 +73,13 @@ export default function AuthPage() {
     setMounted(true)
   }, [])
 
+  // /auth?mode=signup: rehber sayfaları ve CTA'lar yeni ziyaretçiyi buraya
+  // yolluyordu ama parametre hiç okunmuyordu — kayıt olmaya gelen kişi giriş
+  // formunu görüyordu.
+  useEffect(() => {
+    if (router.query?.mode === 'signup') setIsLogin(false)
+  }, [router.query?.mode])
+
   useEffect(() => {
     if (router.query?.ref && typeof window !== 'undefined') {
       try {
@@ -115,7 +123,7 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (user) {
-      router.replace('/profile')
+      router.replace(postAuthPath())
     }
   }, [router, user])
 
@@ -152,7 +160,7 @@ export default function AuthPage() {
     try {
       if (isLogin) {
         await auth.signIn(email, password)
-        router.replace('/profile')
+        router.replace(postAuthPath())
         return
       }
 
@@ -175,7 +183,7 @@ export default function AuthPage() {
       }
 
       if (data?.session) {
-        router.replace('/profile')
+        router.replace(postAuthPath())
       } else {
         setError(
           getTranslation('auth.success', lang) ||
