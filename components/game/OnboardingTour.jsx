@@ -25,7 +25,17 @@ const XP_PER_CHAPTER = 10
 const CHAPTER_COUNT = 6
 
 // Teknik / yasal sayfalarda tur açılmaz (Play inceleme, OAuth dönüşü, admin).
-const EXCLUDED = ['/privacy', '/terms', '/child-safety-standards', '/delete-account', '/auth/callback', '/auth/reset', '/verify', '/gumroad-test']
+// İçerik sayfaları da hariç: Google'dan "rüyada yılan görmek" diye gelen
+// ziyaretçi cevabı okumadan tam ekran tur görüyordu. Hem hemen geri dönüp
+// başka sonuca tıklatıyordu, hem de Google mobilde içeriği kapatan tam ekran
+// açılır pencereleri ("intrusive interstitial") sıralamada cezalandırıyor.
+// /add-dream: rehberde yazılan rüya kayıttan sonra burada hazır bekliyor;
+// tur, kullanıcı rüyasını gönderdikten sonraki sayfada açılır. /auth: kayıt
+// formunu kapatmasın (oraya zaten kayıt olmak için geliniyor).
+const EXCLUDED = [
+  '/privacy', '/terms', '/child-safety-standards', '/delete-account', '/auth/callback', '/auth/reset', '/verify', '/gumroad-test',
+  '/ruya-tabirleri', '/dream-meanings', '/app', '/add-dream', '/auth',
+]
 
 function store(key, value) {
   try {
