@@ -31,6 +31,14 @@ create index if not exists diary_comments_diary_entry_id_idx on diary_comments(d
 alter table diary_likes enable row level security;
 alter table diary_comments enable row level security;
 
+-- Data API yetkileri: Supabase 30 Ekim 2026'dan itibaren public şemadaki yeni
+-- tablolara otomatik GRANT vermiyor (yeni proje, preview branch, db reset).
+-- Okuma herkese açık (select_public politikaları), yazma yalnızca kendi
+-- satırı için insert/delete (update politikası yok).
+grant select on public.diary_likes, public.diary_comments to anon;
+grant select, insert, delete on public.diary_likes, public.diary_comments to authenticated;
+grant select, insert, update, delete on public.diary_likes, public.diary_comments to service_role;
+
 create policy diary_likes_select_public on diary_likes for select to public using (true);
 create policy diary_likes_insert_own on diary_likes for insert to authenticated with check (auth.uid() = user_id);
 create policy diary_likes_delete_own on diary_likes for delete to authenticated using (auth.uid() = user_id);

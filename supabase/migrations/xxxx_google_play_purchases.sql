@@ -22,3 +22,9 @@ create index if not exists google_play_purchases_user_id_idx
 -- yalnızca dashboard'dan yanlışlıkla anon/authenticated erişim açılırsa diye
 -- güvenlik ağı olarak ekleniyor (diğer tablolarla tutarlı).
 alter table google_play_purchases enable row level security;
+
+-- Data API yetkileri: Supabase 30 Ekim 2026'dan itibaren public şemadaki yeni
+-- tablolara otomatik GRANT vermiyor (yeni proje, preview branch, db reset).
+-- Yalnızca billing/google-play-verify.js (service role) erişiyor.
+revoke all on public.google_play_purchases from anon, authenticated;
+grant select, insert, update, delete on public.google_play_purchases to service_role;
