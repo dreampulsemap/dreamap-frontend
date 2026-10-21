@@ -20,6 +20,9 @@ export default function Document(props) {
             EKLEMİYOR, ikinci/çakışan bir tane daha ekliyordu — tarayıcı ilk
             gördüğünü (Next'in varsayılanını) kullanıp maximum-scale=1 ve
             viewport-fit=cover'ı (notch/safe-area için) sessizce yok sayıyordu. */}
+        {/* Pinterest site doğrulaması (lunosfer.com "üzerine alma"): pinlerde
+            marka adı/analizler için. Kaldırılırsa doğrulama düşer. */}
+        <meta name="p:domain_verify" content="e5bf078ee31df3c1f988bad9f2648261" />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
