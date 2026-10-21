@@ -39,3 +39,9 @@ create table if not exists collective_dream_stats (
 
 create index if not exists idx_collective_dream_stats_created_at
   on collective_dream_stats (created_at desc);
+
+-- Data API yetkileri: Supabase 30 Ekim 2026'dan itibaren public şemadaki yeni
+-- tablolara otomatik GRANT vermiyor (yeni proje, preview branch, db reset).
+-- Tabloyu yalnızca dreams/collective-stats.js (service role) okuyup yazıyor.
+revoke all on public.collective_dream_stats from anon, authenticated;
+grant select, insert, update, delete on public.collective_dream_stats to service_role;
