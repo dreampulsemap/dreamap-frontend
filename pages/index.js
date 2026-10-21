@@ -47,6 +47,9 @@ const HOME_JSON_LD = [
     logo: `${SITE_URL}/logo.png`,
     sameAs: [
       'https://www.instagram.com/lunosfer.dream.app/',
+      'https://www.instagram.com/lunosferapp/',
+      'https://www.tiktok.com/@lunosferapp',
+      'https://www.pinterest.com/lunosfer/',
       'https://play.google.com/store/apps/details?id=io.lunosfer.dreamap',
     ],
   },
