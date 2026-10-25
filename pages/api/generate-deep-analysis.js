@@ -11,6 +11,7 @@ import { notifyAnalysisOutcome } from '@/lib/notify'
 import { isPersistedImageUrl } from '@/lib/imageUrlUtils'
 import { isPremiumMember, getAuraBalance } from '@/lib/premiumMembership'
 import { checkPremiumQuota, refundPremiumQuota } from '@/lib/featureQuota'
+import { canViewPost } from '@/lib/supabaseAdmin'
 
 // =====================================================================
 // SADECE OpenAI, TAMAMEN SENKRON — kuyruk yok, cron yok, dış worker yok.
@@ -87,12 +88,19 @@ export default async function handler(req, res) {
 
     const { data: dream, error: dreamError } = await supabaseAdmin
       .from('dreams')
-      .select('id, user_id, content, premium_deep_analysis_status, original_language')
+      .select('id, user_id, visibility, content, premium_deep_analysis_status, original_language')
       .eq('id', dreamId)
       .single()
 
     if (dreamError || !dream) {
       return res.status(404).json({ error: 'dream_not_found' })
+    }
+
+    // Hediye akışı (başkasının rüyasına analiz) yalnızca görebildiği rüyada:
+    // aksi halde id'yi bilen biri gizli bir rüyanın analizini yanıt olarak
+    // alıp içeriğini okuyabiliyordu.
+    if (!(await canViewPost(dream, user.id))) {
+      return res.status(403).json({ error: 'not_visible' })
     }
 
     if (dream.premium_deep_analysis_status === 'pending' || dream.premium_deep_analysis_status === 'processing') {

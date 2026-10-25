@@ -1,4 +1,4 @@
-import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser, canViewPost } from '@/lib/supabaseAdmin'
 import { notifyDreamLike } from '@/lib/notify'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -56,13 +56,32 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      const { data: likedDream, error: dreamError } = await supabaseAdmin
+        .from('dreams')
+        .select('user_id, visibility')
+        .eq('id', dreamId)
+        .maybeSingle()
+
+      if (dreamError) throw dreamError
+      if (!likedDream) return res.status(404).json({ error: 'dream_not_found' })
+      if (!(await canViewPost(likedDream, userId))) {
+        return res.status(403).json({ error: 'not_visible' })
+      }
+
       const { error } = await supabaseAdmin
         .from('likes')
         .insert([{ user_id: userId, dream_id: dreamId }])
 
       if (error) {
+        // Zaten beğenilmiş: hedef durum (beğenili) zaten sağlanmış, başarı
+        // dön. 409 dönüyorduk; Android Retrofit'te bu "HTTP 409" istisnası
+        // oluyor, gövdedeki "Already liked" mesajı hiç okunmadığı için
+        // DreamRepository'deki yutma kontrolü çalışmıyor ve ana akışta
+        // (beğeni durumu yalnızca oturum içinde tutuluyor) önceden beğenilmiş
+        // bir rüyaya dokunmak "beğeni başarısız" hatası veriyordu.
         if (error.code === '23505') {
-          return res.status(409).json({ error: 'Already liked' })
+          const count = await syncLikesCount(dreamId)
+          return res.status(200).json({ success: true, liked: true, count, alreadyLiked: true })
         }
         throw error
       }
@@ -75,8 +94,7 @@ export default async function handler(req, res) {
       // GÜVENLİ değil) diğer notify* çağrıları gibi await ediliyor; hata
       // olsa bile (notify.js kendi içinde yutuyor) beğeninin kendisi başarılı
       // dönmeye devam eder.
-      const { data: likedDream } = await supabaseAdmin.from('dreams').select('user_id').eq('id', dreamId).maybeSingle()
-      if (likedDream?.user_id) {
+      if (likedDream.user_id) {
         await notifyDreamLike(supabaseAdmin, { dreamOwnerId: likedDream.user_id, actorId: userId, dreamId })
       }
 

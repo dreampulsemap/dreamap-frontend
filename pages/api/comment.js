@@ -1,4 +1,4 @@
-import { supabaseAdmin, getAuthedUser, getAcceptedFriendIds } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser, getAcceptedFriendIds, canViewPost } from '@/lib/supabaseAdmin'
 import { notifyDreamComment } from '@/lib/notify'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -98,6 +98,21 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Comment is too long' })
       }
 
+      // GET tarafındaki görünürlük kuralı yazmada da geçerli: aksi halde
+      // id'yi bilen herkes göremediği gizli bir rüyaya yorum yazıp sahibine
+      // bildirim gönderebiliyordu.
+      const { data: commentedDream, error: dreamError } = await supabaseAdmin
+        .from('dreams')
+        .select('user_id, visibility')
+        .eq('id', dreamId)
+        .maybeSingle()
+
+      if (dreamError) throw dreamError
+      if (!commentedDream) return res.status(404).json({ error: 'dream_not_found' })
+      if (!(await canViewPost(commentedDream, userId))) {
+        return res.status(403).json({ error: 'not_visible' })
+      }
+
       // DUZELTME: insert + user_profiles join'ini tek sorguda yapmak, o
       // iliski PostgREST'in schema cache'inde tanimli degilse ("could not
       // find relationship...") hata firlatiyordu — yorum DB'ye ekleniyor
@@ -119,8 +134,7 @@ export default async function handler(req, res) {
         .maybeSingle()
 
       // Sahibine bildirim (zil + push) — bkz. lib/notify.js notifyDreamComment.
-      const { data: commentedDream } = await supabaseAdmin.from('dreams').select('user_id').eq('id', dreamId).maybeSingle()
-      if (commentedDream?.user_id) {
+      if (commentedDream.user_id) {
         await notifyDreamComment(supabaseAdmin, { dreamOwnerId: commentedDream.user_id, actorId: userId, dreamId })
       }
 
