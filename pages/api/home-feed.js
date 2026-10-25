@@ -44,7 +44,20 @@ async function fetchDreams({ userId, allowedUserIds, before }) {
   // çalışıyor) gizlenmiyor (bkz. explore/feed.js'deki aynı düzeltme notu).
   query = query.neq('image_status', 'broken')
 
-  if (allowedUserIds) query = query.in('user_id', allowedUserIds)
+  // GİZLİLİK DÜZELTMESİ: burada görünürlük filtresi yoktu — in_feed=true olan
+  // 'private' rüyalar arkadaşların (giriş yapılmamışsa herkesin) akışına
+  // düşüyordu. Karta dokununca get-dream / comment uçları doğru şekilde 403
+  // (not_visible) dönüyor, Android'de bu "HTTP 403" olarak görünüyor ve
+  // rüyaya yorum/beğeni yapılamıyordu. fetchVisions'daki kuralın aynısı.
+  if (allowedUserIds && allowedUserIds.length > 1) {
+    query = query.or(
+      `user_id.eq.${userId},and(user_id.in.(${allowedUserIds.filter((id) => id !== userId).join(',')}),visibility.in.(public,friends))`
+    )
+  } else if (userId) {
+    query = query.eq('user_id', userId)
+  } else {
+    query = query.eq('visibility', 'public')
+  }
   if (before) query = query.lt('created_at', before)
 
   const { data, error } = await query
