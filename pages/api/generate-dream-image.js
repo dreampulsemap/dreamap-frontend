@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { persistRemoteImage } from '@/lib/persistRemoteImage';
 import { isPremiumMember, getAuraBalance } from '@/lib/premiumMembership';
 import { checkPremiumQuota, refundPremiumQuota } from '@/lib/featureQuota';
+import { canViewPost } from '@/lib/supabaseAdmin';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -341,6 +342,13 @@ export default async function handler(req, res) {
 
     if (dreamError || !dream) {
       return res.status(404).json({ error: 'dream_not_found' });
+    }
+
+    // Hediye akışı (başkasının rüyasına görsel) yalnızca görebildiği rüyada:
+    // aksi halde id'yi bilen biri gizli bir rüyanın görselini değiştirebiliyor
+    // ve yanıttaki promptPreview ile içeriğini okuyabiliyordu.
+    if (!(await canViewPost(dream, user.id))) {
+      return res.status(403).json({ error: 'not_visible' });
     }
 
     if (!dream.content || !String(dream.content).trim()) {

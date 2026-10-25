@@ -68,7 +68,10 @@ async function fetchDreams({ userId, allowedUserIds, before }) {
   // deseni fetchVisions'daki owner ekleme ile birebir aynı — sayfa başına en
   // fazla PER_SOURCE_BATCH kayıt olduğu için ucuz tek sorgu.
   if (dreams.length > 0) {
-    const ownerIds = [...new Set(dreams.map((d) => d.user_id))]
+    // Hesabı silinen kullanıcının rüyaları user_id = NULL ile kalıyor (bkz.
+    // account/delete.js); null'ı in() listesine koymak PostgREST'te 400
+    // veriyor ve sayfadaki TÜM rüyaların sahip bilgisi düşüyordu.
+    const ownerIds = [...new Set(dreams.map((d) => d.user_id).filter(Boolean))]
     const { data: owners } = await supabaseAdmin
       .from('user_profiles')
       .select('id, username, display_name, avatar_url')

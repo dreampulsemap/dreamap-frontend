@@ -1,4 +1,4 @@
-import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser, canViewPost } from '@/lib/supabaseAdmin'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -22,6 +22,19 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      // Göremediği (gizli / yalnız arkadaşlar) bir güncü girdisini beğenemesin.
+      const { data: target, error: targetError } = await supabaseAdmin
+        .from('diary_entries')
+        .select('user_id, visibility')
+        .eq('id', diaryEntryId)
+        .maybeSingle()
+
+      if (targetError) throw targetError
+      if (!target) return res.status(404).json({ error: 'diary_entry_not_found' })
+      if (!(await canViewPost(target, userId))) {
+        return res.status(403).json({ error: 'not_visible' })
+      }
+
       const { error } = await supabaseAdmin
         .from('diary_likes')
         .insert([{ user_id: userId, diary_entry_id: diaryEntryId }])

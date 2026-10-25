@@ -1,4 +1,4 @@
-import { supabaseAdmin, getAuthedUser } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser, canViewPost } from '@/lib/supabaseAdmin'
 import { notifyDiaryComment } from '@/lib/notify'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -14,6 +14,23 @@ export default async function handler(req, res) {
       const diaryEntryId = String(req.query?.diaryEntryId ?? req.query?.diary_entry_id ?? '')
       if (!UUID_PATTERN.test(diaryEntryId)) {
         return res.status(400).json({ error: 'invalid_diary_entry_id' })
+      }
+
+      // Hiçbir kontrol yoktu: girdi id'sini bilen herkes (girişsiz bile)
+      // gizli bir güncü girdisinin yorumlarını okuyabiliyordu.
+      const { data: target, error: targetError } = await supabaseAdmin
+        .from('diary_entries')
+        .select('user_id, visibility')
+        .eq('id', diaryEntryId)
+        .maybeSingle()
+
+      if (targetError) throw targetError
+      if (!target) return res.status(404).json({ error: 'diary_entry_not_found' })
+      if (target.visibility && target.visibility !== 'public') {
+        const viewer = await getAuthedUser(req)
+        if (!(await canViewPost(target, viewer?.id))) {
+          return res.status(403).json({ error: 'not_visible' })
+        }
       }
 
       // comment.js (dream) ile aynı desen: comments/user_profiles arasında
@@ -61,10 +78,13 @@ export default async function handler(req, res) {
 
       const { data: entry } = await supabaseAdmin
         .from('diary_entries')
-        .select('user_id')
+        .select('user_id, visibility')
         .eq('id', diaryEntryId)
         .maybeSingle()
       if (!entry) return res.status(404).json({ error: 'diary_entry_not_found' })
+      if (!(await canViewPost(entry, userId))) {
+        return res.status(403).json({ error: 'not_visible' })
+      }
 
       const { data: inserted, error } = await supabaseAdmin
         .from('diary_comments')

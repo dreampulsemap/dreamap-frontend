@@ -10,6 +10,16 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray
 }
 
+// Aboneliğin oluşturulduğu anahtar bilinmiyorsa (eski tarayıcılar
+// options.applicationServerKey vermiyor) eşleşiyor say — gereksiz yere
+// abonelikten çıkıp izni yeniden istetmeyelim.
+function sameKey(subscriptionKey, serverKey) {
+  if (!subscriptionKey) return true
+  const a = new Uint8Array(subscriptionKey)
+  if (a.length !== serverKey.length) return false
+  return a.every((byte, i) => byte === serverKey[i])
+}
+
 // Servis çalışanını kaydeder ve, izin verilirse, push aboneliğini backend'e kaydeder.
 // İdempotenttir: zaten abone/reddedilmişse sessizce hiçbir şey yapmaz.
 export function usePushSubscription() {
@@ -43,12 +53,22 @@ export function usePushSubscription() {
 
     try {
       const reg = registrationRef.current || (await navigator.serviceWorker.ready)
+      const serverKey = urlBase64ToUint8Array(vapidPublicKey)
 
       let subscription = await reg.pushManager.getSubscription()
+      // Tarayıcıda eski bir VAPID anahtarıyla oluşturulmuş abonelik kalmış
+      // olabilir: onu backend'e yeniden kaydetmek her gönderimde 401/403
+      // demekti (sunucu satırı siliyor, bir sonraki ziyarette aynı ölü
+      // abonelik geri geliyordu). Anahtar farklıysa abonelikten çıkıp
+      // güncel anahtarla yeniden abone ol.
+      if (subscription && !sameKey(subscription.options?.applicationServerKey, serverKey)) {
+        await subscription.unsubscribe().catch(() => {})
+        subscription = null
+      }
       if (!subscription) {
         subscription = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+          applicationServerKey: serverKey
         })
       }
 
