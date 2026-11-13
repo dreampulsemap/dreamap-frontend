@@ -56,7 +56,9 @@ async function fetchDreams({ userId, allowedUserIds, before }) {
   } else if (userId) {
     query = query.eq('user_id', userId)
   } else {
-    query = query.eq('visibility', 'public')
+    // Girişsiz akış: hesabı silinmiş (user_id NULL) rüyalar Android'in Dream
+    // modelini bozuyor (bkz. explore/feed.js excludeOwnerless).
+    query = query.eq('visibility', 'public').not('user_id', 'is', null)
   }
   if (before) query = query.lt('created_at', before)
 

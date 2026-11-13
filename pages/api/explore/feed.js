@@ -46,6 +46,15 @@ const MIN_IMAGE_DIMENSION = 300 // yalnızca boyutu BİLİNEN (ör. Pixabay) gö
 // 'broken' olarak işaretlenmiş (onarım denemeleri tükenmiş) rüyalar yine de
 // gizli kalır, çünkü onlar gerçekten kurtarılamayan/bozuk görsellerdir,
 // "görselsiz" değildir.
+// Hesabı silinen kullanıcının rüyaları user_id = NULL ile kalıyor (bkz.
+// account/delete.js: toplu özelliklere katkısı ve yorumlar korunsun diye).
+// Akışa girmemeli: Android'in Dream modelinde userId boş olamaz, sayfada tek
+// bir sahipsiz rüya olunca JSON çözümü patlıyor ve TÜM Keşfet sayfası hata
+// veriyordu (19 kayıt, hepsi İngilizce + görselli).
+function excludeOwnerless(query) {
+  return query.not('user_id', 'is', null)
+}
+
 function applyImageQualityFilter(query, includeNoImage) {
   let q = query.neq('image_status', 'broken')
   if (!includeNoImage) {
@@ -252,6 +261,7 @@ export default async function handler(req, res) {
       if (asOfDate) tailQuery = tailQuery.lte('created_at', asOfDate)
       tailQuery = applyFeedLangFilter(tailQuery, feedLang, authedUser?.id)
       tailQuery = applyImageQualityFilter(tailQuery, wantsNoImage)
+      tailQuery = excludeOwnerless(tailQuery)
 
       const { data, error } = await tailQuery
       if (error) throw error
@@ -287,6 +297,7 @@ export default async function handler(req, res) {
     if (asOfDate) poolQuery = poolQuery.lte('created_at', asOfDate)
     poolQuery = applyFeedLangFilter(poolQuery, feedLang, authedUser?.id)
     poolQuery = applyImageQualityFilter(poolQuery, wantsNoImage)
+    poolQuery = excludeOwnerless(poolQuery)
 
     const { data: pool, error: poolError } = await poolQuery
     if (poolError) throw poolError
