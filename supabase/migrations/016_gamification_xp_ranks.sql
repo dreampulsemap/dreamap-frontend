@@ -148,6 +148,7 @@ alter table public.user_progress enable row level security;
 revoke all on public.user_progress from anon;
 revoke insert, update, delete, truncate, references, trigger on public.user_progress from authenticated;
 grant select on public.user_progress to authenticated;
+grant select, insert, update, delete on public.user_progress to service_role;
 
 drop policy if exists user_progress_select_own on public.user_progress;
 create policy user_progress_select_own on public.user_progress

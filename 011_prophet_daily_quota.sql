@@ -30,6 +30,11 @@ create index if not exists prophet_usage_date_idx
 -- tanimli degil => anon/authenticated istemci satirlari goremez, yazamaz.
 alter table public.prophet_usage enable row level security;
 
+-- Data API yetkileri: Supabase 30 Ekim 2026'dan itibaren public semadaki yeni
+-- tablolara otomatik GRANT vermiyor. Yalnizca service_role erisir.
+revoke all on public.prophet_usage from anon, authenticated;
+grant select, insert, update, delete on public.prophet_usage to service_role;
+
 -- ---------------------------------------------------------------------
 -- Kotayi atomik dusur. Donen: allowed (izin var mi), remaining (kalan hak).
 --

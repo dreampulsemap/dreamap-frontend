@@ -42,6 +42,12 @@ drop policy if exists goal_saves_select_own on public.goal_saves;
 create policy goal_saves_select_own on public.goal_saves
   for select using (auth.uid() = user_id);
 
+-- Data API yetkileri: Supabase 30 Ekim 2026'dan itibaren public şemadaki yeni
+-- tablolara otomatik GRANT vermiyor (yeni proje, preview branch, db reset).
+-- Client yalnızca okuyabilir (select_own politikası); yazmalar service role ile.
+grant select on public.goal_saves to authenticated;
+grant select, insert, update, delete on public.goal_saves to service_role;
+
 -- goals.saves_count'u otomatik güncelleyen trigger — handle_goal_slide_save_change
 -- ile aynı desen (AFTER INSERT/DELETE, +1/-1, 0'ın altına düşmesin diye greatest).
 create or replace function public.handle_goal_save_change()
@@ -91,6 +97,10 @@ alter table public.goal_reports enable row level security;
 drop policy if exists goal_reports_select_own on public.goal_reports;
 create policy goal_reports_select_own on public.goal_reports
   for select using (auth.uid() = reporter_id);
+
+-- Data API yetkileri: goal_saves ile aynı (client yalnızca okur).
+grant select on public.goal_reports to authenticated;
+grant select, insert, update, delete on public.goal_reports to service_role;
 
 -- Sertleştirme: handle_goal_save_change yalnızca trigger olarak çalışsın,
 -- /rest/v1/rpc/handle_goal_save_change üzerinden anon/authenticated

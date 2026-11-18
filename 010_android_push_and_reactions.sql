@@ -35,6 +35,12 @@ drop policy if exists fcm_tokens_select_own on public.fcm_tokens;
 create policy fcm_tokens_select_own on public.fcm_tokens
   for select using (auth.uid() = user_id);
 
+-- Data API yetkileri: Supabase 30 Ekim 2026'dan itibaren public şemadaki yeni
+-- tablolara otomatik GRANT vermiyor (yeni proje, preview branch, db reset).
+-- Client yalnızca kendi token'larını okuyabilir; yazmalar service role ile.
+grant select on public.fcm_tokens to authenticated;
+grant select, insert, update, delete on public.fcm_tokens to service_role;
+
 -- Not: token UNIQUE olduğu için, aynı cihazda farklı bir hesaba giriş
 -- yapılırsa (fiziksel FCM token'ı aynı kalır, nadir ama mümkün), API'deki
 -- upsert(on_conflict: token) o token'ı otomatik olarak YENİ kullanıcıya
