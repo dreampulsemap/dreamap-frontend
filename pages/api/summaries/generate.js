@@ -126,6 +126,26 @@ export default async function handler(req, res) {
     if (dreamCount === 0) {
       const emptyText = EMPTY_PERIOD_TEXT[lang] || EMPTY_PERIOD_TEXT.en;
 
+      // Misafir hesaplar: block_guest_writes tetikleyicisi satırı reddediyor
+      // (42501 → PostgREST 403) ve uç 500 dönüyordu. Misafir rüya
+      // kaydedemediği için özeti zaten hep boş-dönem metni; kaydetmeden döndür.
+      if (user.is_anonymous) {
+        return res.status(200).json({
+          ok: true,
+          summary: toSummaryData({
+            id: null,
+            period_type: periodType,
+            period_start: periodStart,
+            period_end: periodEnd,
+            summary_text: emptyText,
+            dream_count: 0,
+            dominant_archetypes: [],
+            dominant_sentiment: null,
+            created_at: new Date().toISOString(),
+          }),
+        });
+      }
+
       const { data: inserted, error: insertError } = await supabaseAdmin
         .from('user_period_summaries')
         .upsert({
