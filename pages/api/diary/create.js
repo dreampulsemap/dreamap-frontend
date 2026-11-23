@@ -1,4 +1,4 @@
-import { supabaseAdmin, getAuthedUser, clampVisibilityToProfile } from '@/lib/supabaseAdmin'
+import { supabaseAdmin, getAuthedUser, clampVisibilityToProfile, isGuestWriteError } from '@/lib/supabaseAdmin'
 
 // goal_slides/create.js ve goals/create.js ile aynı desen: medya zaten
 // istemci tarafında Storage'a yüklenmiş oluyor (bkz. lib/uploadDiaryMedia.js),
@@ -58,6 +58,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ entry })
   } catch (error) {
+    if (isGuestWriteError(error)) return res.status(403).json({ error: 'guest_read_only' })
     console.error('diary/create error:', error)
     return res.status(500).json({ error: error.message || 'internal_error' })
   }
